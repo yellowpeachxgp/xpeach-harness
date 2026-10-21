@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-tool-agent-team",
   "description": "Scoped model-facing Agent Teams tools over ctx.agentTeams",
-  "version": "0.6.0",
+  "version": "0.3.1",
   "publishConfig": {
     "access": "public"
   },

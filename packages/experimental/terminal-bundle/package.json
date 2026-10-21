@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-terminal-bundle",
   "description": "Keep shell processes alive across tool calls.",
-  "version": "0.6.0",
+  "version": "0.3.1",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"

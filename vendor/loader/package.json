@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cordis-plugin-loader",
   "description": "Plugin loader for cordis",
-  "version": "0.6.0",
+  "version": "0.3.1",
   "publishConfig": {
     "access": "public"
   },

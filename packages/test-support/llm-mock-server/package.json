@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-mock-server",
   "description": "Scriptable Messages HTTP/SSE fault server for LLM recovery tests",
-  "version": "0.6.0",
+  "version": "0.3.1",
   "publishConfig": {
     "access": "public"
   },
