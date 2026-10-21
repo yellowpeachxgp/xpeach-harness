@@ -1,6 +1,6 @@
 {
   "name": "@fixture/bundle",
-  "version": "0.3.0",
+  "version": "0.6.0",
   "icon": "./icon.svg",
   "private": true,
   "description": "Registry description for the fixture bundle.",
