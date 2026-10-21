@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-account",
   "description": "XPeach (New API) account Remote: profile and token listing served to Harness clients",
-  "version": "0.3.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
