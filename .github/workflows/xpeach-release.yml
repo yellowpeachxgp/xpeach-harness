@@ -47,7 +47,8 @@ jobs:
           if [ -n "$REQUESTED" ]; then
             VERSION="$REQUESTED"
             echo "manual override: $VERSION"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
+          elif printf '%s' "${{ github.ref }}" | grep -q '^refs/tags/v'; then
+            # A tag names its own version; a branch has no version to take.
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
             echo "tag release: $VERSION"

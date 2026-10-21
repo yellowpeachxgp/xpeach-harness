@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cordis-plugin-hmr",
   "description": "Hot Module Replacement Plugin for Cordis",
-  "version": "0.3.1",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },

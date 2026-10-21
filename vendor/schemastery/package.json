@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-schemastery",
   "description": "Type driven schema validator",
-  "version": "0.3.1",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },
