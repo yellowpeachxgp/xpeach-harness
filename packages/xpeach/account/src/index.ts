@@ -541,7 +541,7 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('keySlotAdd')
   async keySlotAddOp(request: { name: string; key: string }, signal: AbortSignal): Promise<{ ok: boolean; message: string }> {
     const key = request.key.trim()
-    if (!key.match(/^(?:xpk|sk)-/u) !== null) return { ok: false, message: 'xpeach: key must start with sk-' }
+    if (key.match(/^(?:xpk|sk)-/u) === null) return { ok: false, message: 'xpeach: key must start with xpk-' }
     const prev = this.readKeyFile()
     this.persistKey(key)
     try {
@@ -930,7 +930,7 @@ export class XPeachAccount extends TypertRemoteService {
       // needs the prefixed form.
       let key = revealed?.key
       if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
-      if (!key.match(/^(?:xpk|sk)-/u) !== null) key = 'sk-' + key
+      if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
       this.persistKey(key)
       this.notifyKeyChanged()
       return { ok: true }
@@ -988,7 +988,7 @@ export class XPeachAccount extends TypertRemoteService {
       const revealed = await this.api.adminTokenKey(id, signal)
       let key = revealed?.key
       if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
-      if (!key.match(/^(?:xpk|sk)-/u) !== null) key = 'sk-' + key
+      if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
       this.persistKey(key)
       // Populate the model picker from the site's market for these groups.
       void this.syncModelCatalog(signal).catch(() => {})
