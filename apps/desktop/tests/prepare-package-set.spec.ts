@@ -40,13 +40,13 @@ describe('desktop package-set selection', () => {
       ['@xpeach/xph-unused', packed('@xpeach/xph-unused')],
     ])
     expect(selectDesktopPackageClosure(available).map(entry => entry.manifest.name)).toEqual([
-      '@xpeach/xph-cordis',
-      '@xpeach/xph-dsh',
-      '@xpeach/xph-base',
-      '@xpeach/xph-desktop-host',
-      '@xpeach/xph-platform-package',
       '@xpeach/xph-account',
+      '@xpeach/xph-base',
       '@xpeach/xph-client-ui',
+      '@xpeach/xph-cordis',
+      '@xpeach/xph-desktop-host',
+      '@xpeach/xph-dsh',
+      '@xpeach/xph-platform-package',
     ])
   })
 
@@ -64,7 +64,7 @@ describe('desktop package-set selection', () => {
     expect(() => selectDesktopPackageClosure(available)).toThrow(/unpacked package/u)
     expect(() => selectDesktopPackageClosure(new Map([
       ['@xpeach/xph-dsh', packed('@xpeach/xph-dsh')],
-    ]))).toThrow(/omit @deepseek-ai\/dsh-desktop-host/u)
+    ]))).toThrow(/omit @xpeach\/xph-desktop-host/u)
   })
 
   it('leaves independently published Office packages to npm resolution', () => {
@@ -80,7 +80,7 @@ describe('desktop package-set selection', () => {
       ['@xpeach/xph-client-ui', packed('@xpeach/xph-client-ui')],
     ])
     expect(selectDesktopPackageClosure(available).map(entry => entry.manifest.name)).toEqual([
-      '@xpeach/xph-dsh', '@xpeach/xph-desktop-host', '@xpeach/xph-account', '@xpeach/xph-client-ui',
+      '@xpeach/xph-account', '@xpeach/xph-client-ui', '@xpeach/xph-desktop-host', '@xpeach/xph-dsh',
     ])
   })
 

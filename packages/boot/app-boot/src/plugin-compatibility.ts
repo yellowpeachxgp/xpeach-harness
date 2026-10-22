@@ -66,7 +66,7 @@ function unmetRequirements(fields: Record<string, unknown>, runtimeVersion: stri
     if (typeof range !== 'string') {
       throw new Error(`Plugin manifest peerDependencies[${JSON.stringify(name)}] must be a string`)
     }
-    if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-dsh-')) continue
+    if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-')) continue
     const requirement = ['workspace:^', 'workspace:~', 'workspace:*'].includes(range) ? runtimeVersion : range
     if (!satisfies(runtimeVersion, requirement)) unmet[name] = range
   }
@@ -75,7 +75,7 @@ function unmetRequirements(fields: Record<string, unknown>, runtimeVersion: stri
 
 /**
  * Check the plugin's dsh requirements against the runtime. An own `engines.dsh` range decides alone and
- * peerDependencies are ignored; otherwise every @xpeach/xph-dsh or @xpeach/xph-dsh-* peer must match.
+ * peerDependencies are ignored; otherwise every @xpeach/xph-dsh or @xpeach/xph-* peer must match.
  * Prereleases participate in ranges. For peers only, workspace:^, workspace:~, and workspace:* refer to
  * the current runtime; other empty or invalid ranges, including any workspace: `engines.dsh`, are unmet.
  * @param manifest - parsed plugin package.json; inherited fields are ignored.

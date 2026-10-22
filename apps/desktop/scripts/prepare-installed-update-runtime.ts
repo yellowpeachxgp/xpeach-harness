@@ -5,6 +5,9 @@ import { join } from 'node:path'
 import { runtimePath, verifyDesktopRuntime, writeDesktopRuntime } from '../src/runtime-tree.ts'
 import { readInstalledUpdateRun } from './installed-update-qualification.ts'
 
+/** Vendored third-party packages that carry their own version line. */
+const VENDORED = /^@xpeach\/xph-(?:cordis|cosmokit|schemastery)(?:-|$)/u
+
 interface PackageMetadata {
   name?: string
   version?: string
@@ -32,8 +35,11 @@ export async function prepareInstalledUpdateRuntime(manifest: string, sourceRoot
     const sourceHash = createHash('sha256').update(await readFile(join(sourceRoot, 'desktop-runtime.json'))).digest('hex')
     await writeFile(join(receipt, 'source.json'), `${JSON.stringify({ sourceHash, version: run.source.version })}\n`,
       { flag: 'wx', mode: 0o600, flush: true })
+    // Vendored libraries keep their own version line, so only first-party
+    // packages ride the release version.
     const releaseNames = new Set(source.sharedPackages.filter(entry => entry.version === run.source.version
-      && (entry.name === '@xpeach/xph-dsh' || entry.name.startsWith('@xpeach/xph-dsh-'))).map(entry => entry.name))
+      && (entry.name === '@xpeach/xph-dsh' || entry.name.startsWith('@xpeach/xph-'))
+      && !VENDORED.test(entry.name)).map(entry => entry.name))
     for (const version of run.versions) {
       const directory = join(run.root, version)
       await mkdir(directory)

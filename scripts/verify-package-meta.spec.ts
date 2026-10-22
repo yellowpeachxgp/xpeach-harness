@@ -28,7 +28,7 @@ function json(path: string, contents: unknown): void {
 
 function manifest(fields: object = {}): void {
   json('package.json', {
-    name: '@xpeach/xph-dsh-test-plugin',
+    name: '@xpeach/xph-test-plugin',
     description: 'Package description',
     type: 'module',
     exports: { '.': './lib/index.js', './package.json': './package.json', './locale/*.json': './locale/*.json' },
@@ -119,7 +119,7 @@ it.each(['@local/demo', '@xpeach/xph-other'])('keeps nonofficial %s SVGs outside
 it('checks official artwork in named nested packages', () => {
   manifest({ exports: { '.': './entry.js' }, files: ['nested'] })
   json('nested/package.json', {
-    name: '@xpeach/xph-dsh-nested', exports: { './icon': './icon.svg' }, files: ['icon.svg'],
+    name: '@xpeach/xph-nested', exports: { './icon': './icon.svg' }, files: ['icon.svg'],
   })
   file('nested/icon.svg', validSvg.replace('width="36"', 'width="16"'))
   expect(packageMetaProblems(root)).toEqual([
@@ -156,7 +156,7 @@ it.each([null, false, '', './missing.svg'])('diagnoses legacy icon %j despite a 
   manifest({ icon, files: ['fallback.svg'],
     exports: { './package.json': './package.json', './icon': './fallback.svg' } })
   file('fallback.svg', validSvg)
-  expect(packageMetaProblems(root).join('\n')).toContain('Plugin metadata for @xpeach/xph-dsh-test-plugin:')
+  expect(packageMetaProblems(root).join('\n')).toContain('Plugin metadata for @xpeach/xph-test-plugin:')
 })
 
 it.each([undefined, ['art'], ['art/*.webp'], ['./art/icon.webp']])('accepts an exported icon without other resources: %j', (files) => {
@@ -347,7 +347,7 @@ it.each(['lib', 'tests'])('rejects an icon declaration when its only locale is e
   })
   file(`${directory}/locale/en.json`, '{}')
   const problems = packageMetaProblems(root).join('\n')
-  expect(problems).toContain('@xpeach/xph-dsh-test-plugin: icon metadata requires locale resources to resolve to source JSON')
+  expect(problems).toContain('@xpeach/xph-test-plugin: icon metadata requires locale resources to resolve to source JSON')
   expect(problems).not.toContain('Plugin metadata for')
 })
 
@@ -671,7 +671,7 @@ it('reports metadata failures from more than one workspace package', () => {
   json('locale/en.json', { meta: { title: 'Second' } })
   json('locale/zh.json', { meta: { description: '' } })
   const problems = packageMetaProblems(root).join('\n')
-  expect(problems).toContain('@xpeach/xph-dsh-test-plugin')
+  expect(problems).toContain('@xpeach/xph-test-plugin')
   expect(problems).toContain('@test/second')
 })
 
@@ -680,6 +680,6 @@ it.each([[], ['locale']])('rejects a display manifest in build output without re
   if (locales.length > 0) json('locale/en.json', { meta: { title: 'Plugin' } })
   file('lib/display.json', '{')
   const problems = packageMetaProblems(root).join('\n')
-  expect(problems).toContain('@xpeach/xph-dsh-test-plugin/package.json: display manifest must resolve to source JSON')
+  expect(problems).toContain('@xpeach/xph-test-plugin/package.json: display manifest must resolve to source JSON')
   expect(problems).not.toContain('Plugin metadata for')
 })

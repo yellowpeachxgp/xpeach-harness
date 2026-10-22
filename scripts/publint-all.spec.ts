@@ -33,7 +33,7 @@ function fixture(options: {
   const packageDir = join(root, 'packages/core/probe')
   mkdirSync(join(packageDir, 'lib'), { recursive: true })
   writeFileSync(join(packageDir, 'package.json'), `${JSON.stringify({
-    name: '@xpeach/xph-dsh-probe',
+    name: '@xpeach/xph-probe',
     version: '0.0.1',
     type: 'module',
     license: 'MIT',

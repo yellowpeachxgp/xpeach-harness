@@ -30,15 +30,15 @@ describe('generated tsconfig package aliases', () => {
 
   it('yields to a hand-written alias and closes without a trailing comma', () => {
     const aliases = [
-      { specifier: '@xpeach/xph-dsh-a', source: './packages/g/a/src' },
-      { specifier: '@xpeach/xph-dsh-b', source: './packages/g/b/src' },
-      { specifier: '@xpeach/xph-dsh-c', source: './packages/g/c/src' },
+      { specifier: '@xpeach/xph-a', source: './packages/g/a/src' },
+      { specifier: '@xpeach/xph-b', source: './packages/g/b/src' },
+      { specifier: '@xpeach/xph-c', source: './packages/g/c/src' },
     ]
-    const body = renderAliases(aliases, new Set(['@xpeach/xph-dsh-a']))
+    const body = renderAliases(aliases, new Set(['@xpeach/xph-a']))
 
     expect(body).toBe([
-      '      "@xpeach/xph-dsh-b": ["./packages/g/b/src"]',
-      '      "@xpeach/xph-dsh-c": ["./packages/g/c/src"]',
+      '      "@xpeach/xph-b": ["./packages/g/b/src"]',
+      '      "@xpeach/xph-c": ["./packages/g/c/src"]',
     ].join(',\n'))
     expect(body.endsWith(',')).toBe(false)
   })
@@ -70,11 +70,11 @@ describe('generated tsconfig package aliases', () => {
     // directory is skipped by the generator, so without this check it would
     // resolve through the workspace symlink to built lib/types instead.
     expect(uncoveredPackages(
-      ['@xpeach/xph-dsh-a', '@xpeach/xph-dsh-b'],
-      new Set(['@xpeach/xph-dsh-a']),
-    )).toEqual(['@xpeach/xph-dsh-b'])
+      ['@xpeach/xph-a', '@xpeach/xph-b'],
+      new Set(['@xpeach/xph-a']),
+    )).toEqual(['@xpeach/xph-b'])
 
-    expect(uncoveredPackages(['@xpeach/xph-dsh-a'], new Set(['@xpeach/xph-dsh-a']))).toEqual([])
+    expect(uncoveredPackages(['@xpeach/xph-a'], new Set(['@xpeach/xph-a']))).toEqual([])
   })
 
   it('covers every workspace package in the committed config', () => {
@@ -91,6 +91,6 @@ describe('generated tsconfig package aliases', () => {
     // A wildcard lists one candidate per group, so resolving a package late in
     // the list costs a filesystem probe — and under tsx a decorated module
     // error — for every group before it.
-    expect(config).not.toContain('"@xpeach/xph-dsh-*":')
+    expect(config).not.toContain('"@xpeach/xph-*":')
   })
 })

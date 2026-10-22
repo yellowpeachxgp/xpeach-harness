@@ -12,7 +12,7 @@ import { isAbsolute, join, relative, sep } from 'node:path'
  */
 export function selectOfficeEngine(manifest, target) {
   const native = `${target.platform}-${target.arch}`
-  return Object.hasOwn(manifest.optionalDependencies ?? {}, `@xpeach/xph-libreoffice-kit-${native}`) ? native : 'wasm'
+  return Object.hasOwn(manifest.optionalDependencies ?? {}, `@deepseek-ai/libreoffice-kit-${native}`) ? native : 'wasm'
 }
 
 /**
@@ -27,7 +27,7 @@ export async function officePackageDirectories(staging, target) {
   if (!existsSync(entry)) return []
 
   const manifest = JSON.parse(await readFile(join(entry, 'package.json'), 'utf8'))
-  const engineName = `@xpeach/xph-libreoffice-kit-${selectOfficeEngine(manifest, target)}`
+  const engineName = `@deepseek-ai/libreoffice-kit-${selectOfficeEngine(manifest, target)}`
   const packages = new Set()
 
   /** @param {string} packageDirectory - Installed package directory. */
@@ -47,7 +47,7 @@ export async function officePackageDirectories(staging, target) {
       ...Object.keys(manifest.peerDependencies ?? {}),
     ])
     for (const name of dependencies) {
-      if (name.startsWith('@xpeach/xph-libreoffice-kit-')) continue
+      if (name.startsWith('@deepseek-ai/libreoffice-kit-')) continue
       const optional = manifest.optionalDependencies?.[name] !== undefined
         || manifest.peerDependenciesMeta?.[name]?.optional === true
       const dependencyDirectory = (require.resolve.paths(name) ?? [])

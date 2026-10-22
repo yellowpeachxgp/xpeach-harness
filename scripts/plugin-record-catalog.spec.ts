@@ -30,7 +30,7 @@ function fixture(files: Record<string, string> = {}): string {
   roots.push(root)
   for (const [file, source] of Object.entries({
     'packages/core/session/package.json': '{"name":"@xpeach/xph-session"}',
-    'packages/experimental/bridge/package.json': '{"name":"@xpeach/xph-dsh-experimental-bridge"}',
+    'packages/experimental/bridge/package.json': '{"name":"@xpeach/xph-experimental-bridge"}',
     [OWNER]: OWNER_SOURCE,
     ...files,
   })) put(root, file, source)
@@ -68,7 +68,7 @@ describe('plugin record declarations', () => {
     const root = fixture({ [RECORDS]: augmentation(ENTRY) })
     const records = collectPluginRecords(root)
     expect(records).toEqual([{
-      name: 'plugin:bridge/entry', owner: '@xpeach/xph-dsh-experimental-bridge', payload: 'SavedEntry',
+      name: 'plugin:bridge/entry', owner: '@xpeach/xph-experimental-bridge', payload: 'SavedEntry',
       doc: 'Retains a bridge entry.', source: RECORDS,
     }])
     put(root, RECORDS, `\n\n${augmentation(ENTRY)}`)
@@ -111,7 +111,7 @@ describe('plugin record declarations', () => {
 
   it('finds and rejects record declarations outside experimental production source', () => {
     const root = fixture({
-      'packages/core/bridge/package.json': '{"name":"@xpeach/xph-dsh-experimental-bridge"}',
+      'packages/core/bridge/package.json': '{"name":"@xpeach/xph-experimental-bridge"}',
       'packages/core/bridge/src/records.ts': augmentation(ENTRY),
     })
     expect(() => collectPluginRecords(root)).toThrow('must belong to a package declared experimental')
@@ -168,7 +168,7 @@ describe('plugin record catalogue output', () => {
       ${ENTRY}
     `) }))
     const output = renderPluginRecordCatalog([...records].reverse())
-    expect(output).toContain('| `plugin:bridge/entry` | `@xpeach/xph-dsh-experimental-bridge` | Retains a bridge entry. | <code>SavedEntry</code>')
+    expect(output).toContain('| `plugin:bridge/entry` | `@xpeach/xph-experimental-bridge` | Retains a bridge entry. | <code>SavedEntry</code>')
     expect(output).toContain('Retains state \\| metadata.')
     expect(output).toContain("<code>{ value: string &#124; null; marker: 'a  b'; }</code>")
     expect(output).toContain(`[\`${RECORDS}\`](../${RECORDS})`)

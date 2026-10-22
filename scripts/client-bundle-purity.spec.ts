@@ -53,17 +53,17 @@ describe('client bundle build faces', () => {
   it('names both configs and the loader registration after the package directory manifest', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-client-manifest-'))
     onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: '@xpeach/xph-dsh-client-fixture' }))
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: '@xpeach/xph-client-fixture' }))
     const configs = clientBundle(root, ['lib/types/index.js'])({ env: { DSH_BUILD_FACE: 'client' } })
     expect(configs.map(config => config.name)).toEqual([
-      '@xpeach/xph-dsh-client-fixture', '@xpeach/xph-dsh-client-fixture/client',
+      '@xpeach/xph-client-fixture', '@xpeach/xph-client-fixture/client',
     ])
     const outputOptions = configs[1]?.outputOptions
     if (typeof outputOptions !== 'object' || typeof outputOptions.banner !== 'function') {
       throw new Error('client banner missing')
     }
     expect(outputOptions.banner({ isEntry: true, fileName: 'client.js' } as Rolldown.RenderedChunk))
-      .toBe('window.__ModuleLoader__.load({ id: "@xpeach/xph-dsh-client-fixture", factory: (require) => {')
+      .toBe('window.__ModuleLoader__.load({ id: "@xpeach/xph-client-fixture", factory: (require) => {')
   })
 
   it('rejects a package directory without a named manifest', () => {
@@ -454,7 +454,7 @@ describe('client bundle experimental input isolation', () => {
 
 describe('client bundle module requests', () => {
   it('requests what the declaration lists', () => {
-    const requests = requestedExternals('@xpeach/xph-dsh-client-fixture', {
+    const requests = requestedExternals('@xpeach/xph-client-fixture', {
       external: ['react', 'react/jsx-runtime', '@xpeach/xph-client-ui-slots'],
     })
 
@@ -464,11 +464,11 @@ describe('client bundle module requests', () => {
   })
 
   it('requests nothing when the declaration is absent', () => {
-    expect(requestedExternals('@xpeach/xph-dsh-client-fixture', {}).size).toBe(0)
+    expect(requestedExternals('@xpeach/xph-client-fixture', {}).size).toBe(0)
   })
 
   it('rejects a malformed declaration instead of reading past it', () => {
-    expect(() => requestedExternals('@xpeach/xph-dsh-client-fixture', { external: 'react' }))
+    expect(() => requestedExternals('@xpeach/xph-client-fixture', { external: 'react' }))
       .toThrow(/dsh\.client\.external must be a string array/)
   })
 })

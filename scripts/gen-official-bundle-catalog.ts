@@ -45,7 +45,7 @@ export function generateOfficialBundleCatalog(root: string, names: readonly stri
   checkInstallation('@xpeach/xph-dsh')
   return names.map((packageName) => {
     const entry = manifests.get(packageName)
-    if (entry === undefined || !entry.path.startsWith('packages/') || !packageName.startsWith('@xpeach/xph-dsh-') || entry.private || !entry.bundle) {
+    if (entry === undefined || !entry.path.startsWith('packages/') || !packageName.startsWith('@xpeach/xph-') || entry.private || !entry.bundle) {
       throw new Error(`${packageName}: Official catalog entries must be public DSH bundle packages`)
     }
     const parentURL = pathToFileURL(resolve(root, entry.path)).href

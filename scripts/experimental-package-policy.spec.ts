@@ -28,8 +28,8 @@ describe('experimental package identities', () => {
   })
 
   it('keeps new experimental packages under their prefixed namespaces', () => {
-    expect(experimentalPackageRecordNamespace('@xpeach/xph-dsh-experimental-bridge')).toBe('bridge')
-    expect(hasExperimentalPackageReference('@xpeach/xph-dsh-core')).toBe(false)
+    expect(experimentalPackageRecordNamespace('@xpeach/xph-experimental-bridge')).toBe('bridge')
+    expect(hasExperimentalPackageReference('@xpeach/xph-core')).toBe(false)
   })
 
   it.each(Object.entries(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS))('keeps %s record names independent of the retained npm name', (directory, name) => {

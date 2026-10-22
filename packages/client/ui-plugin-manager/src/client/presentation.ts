@@ -120,7 +120,7 @@ export function packageText(
   return {
     title: pkg.meta?.title === undefined ? pkg.name : resolveText(pkg.meta.title),
     description: pkg.meta?.description === undefined ? undefined : resolveText(pkg.meta.description) || undefined,
-    beta: pkg.name.startsWith('@xpeach/xph-dsh-experimental-'),
+    beta: pkg.name.startsWith('@xpeach/xph-experimental-'),
   }
 }
 

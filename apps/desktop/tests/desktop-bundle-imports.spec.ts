@@ -86,7 +86,7 @@ describe('packaged imports plugin', () => {
     }
   }
 
-  const unshipped = /imports @deepseek-ai\/dsh-home-paths, which the packaged application does not ship/u
+  const unshipped = /imports @xpeach\/xph-home-paths, which the packaged application does not ship/u
 
   it('fails the bundle whose static import the packaged application does not ship', async () => {
     await expect(generate('static', { ...MAIN, packages: new Set(['electron']) })).rejects.toThrow(unshipped)

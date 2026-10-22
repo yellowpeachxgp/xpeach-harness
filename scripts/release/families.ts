@@ -407,7 +407,7 @@ class DshFamily extends ReleaseFamily {
       const dependencies = manifest[section]
       if (dependencies === null || typeof dependencies !== 'object' || Array.isArray(dependencies)) continue
       for (const [name, range] of Object.entries(dependencies)) {
-        if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-dsh-')) continue
+        if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-')) continue
         if (range !== member.version) {
           throw new Error(`${member.name}: packed ${section}.${name} must equal ${member.version}, got ${String(range)}`)
         }

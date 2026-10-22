@@ -56,7 +56,7 @@ const ASSET_GLOBS = [
   'node_modules/**/package.json',
   'node_modules/**/*.json',
   // Plugin display metadata resolves these package-owned images at runtime.
-  'node_modules/@xpeach/xph-dsh-*/**/*.{svg,png,jpg,jpeg,webp}',
+  'node_modules/@xpeach/xph-*/**/*.{svg,png,jpg,jpeg,webp}',
   // Package-owned Markdown includes runtime skill instructions.
   'node_modules/**/*.md',
   'node_modules/**/*.dylib',

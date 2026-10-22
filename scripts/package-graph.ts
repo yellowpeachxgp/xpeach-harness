@@ -8,11 +8,11 @@
 import { globSync, readFileSync } from 'node:fs'
 import { dirname, resolve, sep } from 'node:path'
 
-const SCOPE = '@xpeach/xph-dsh-'
+const SCOPE = '@xpeach/xph-'
 
 /** One harness package and its in-repo peer-dependency edges. */
 export interface PackageGraphNode {
-  /** Package name with the `@xpeach/xph-dsh-` prefix removed. */
+  /** Package name with the `@xpeach/xph-` prefix removed. */
   short: string
   /** Full npm package name. */
   name: string

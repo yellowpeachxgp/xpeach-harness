@@ -55,19 +55,19 @@ function workspace(entries: Record<string, Manifest>): { manifests: Map<string, 
 describe('tierExternalDeps', () => {
   it('limits the LibreOffice exception to its reviewed package identity and MPL terms', () => {
     for (const name of [
-      '@xpeach/xph-libreoffice-kit', '@xpeach/xph-libreoffice-kit-wasm',
-      '@xpeach/xph-libreoffice-kit-darwin-arm64', '@xpeach/xph-libreoffice-kit-darwin-x64',
-      '@xpeach/xph-libreoffice-kit-win32-arm64', '@xpeach/xph-libreoffice-kit-win32-x64',
+      '@deepseek-ai/libreoffice-kit', '@deepseek-ai/libreoffice-kit-wasm',
+      '@deepseek-ai/libreoffice-kit-darwin-arm64', '@deepseek-ai/libreoffice-kit-darwin-x64',
+      '@deepseek-ai/libreoffice-kit-win32-arm64', '@deepseek-ai/libreoffice-kit-win32-x64',
     ]) {
       expect(() => { assertRuntimeLicenses([{ name, license: 'MPL-2.0' }]) }).not.toThrow()
       expect(() => { assertRuntimeLicenses([{ name, license: 'GPL-3.0-only' }]) }).toThrow(name)
     }
     for (const dependency of [
       { name: 'unrelated-library', license: 'MPL-2.0' },
-      { name: '@xpeach/xph-dsh-libreoffice-kit', license: 'MPL-2.0' },
-      { name: '@xpeach/xph-libreoffice-kit-unreviewed', license: 'MPL-2.0' },
-      { name: '@xpeach/xph-libreoffice-kit', license: 'GPL-3.0-only' },
-      { name: '@xpeach/xph-libreoffice-kit', license: 'UNKNOWN' },
+      { name: '@deepseek-ai/libreoffice-kit', license: 'MPL-2.0' },
+      { name: '@deepseek-ai/libreoffice-kit-unreviewed', license: 'MPL-2.0' },
+      { name: '@deepseek-ai/libreoffice-kit', license: 'GPL-3.0-only' },
+      { name: '@deepseek-ai/libreoffice-kit', license: 'UNKNOWN' },
     ]) {
       expect(() => { assertRuntimeLicenses([dependency]) }).toThrow(`${dependency.name} (${dependency.license})`)
     }
@@ -114,7 +114,7 @@ describe('tierExternalDeps', () => {
       'website/package.json': { devDependencies: { 'site-tool': '^1' } },
       // A plugin package's runtime dependency ships even when no app mounts it by default.
       'packages/mcp/mcp-client/package.json': { name: '@xpeach/xph-mcp-client', dependencies: { 'protocol-sdk': '^1' }, devDependencies: { 'protocol-fixture-server': '^1' } },
-      'apps/cli/package.json': { name: '@xpeach/xph-dsh-cli', dependencies: { 'cli-lib': '^1', '@xpeach/xph-mcp-client': 'workspace:^' } },
+      'apps/cli/package.json': { name: '@xpeach/xph-cli', dependencies: { 'cli-lib': '^1', '@xpeach/xph-mcp-client': 'workspace:^' } },
     })
 
     expect(tierExternalDeps(manifests, names)).toEqual(new Map([
@@ -133,12 +133,12 @@ describe('tierExternalDeps', () => {
   it('keeps a package runtime when any shipping area declares it, and excludes workspace links', () => {
     const { manifests, names } = workspace({
       'package.json': { devDependencies: { shared: '^1' } },
-      'packages/interaction/tui/package.json': { name: '@xpeach/xph-dsh-tui', dependencies: { shared: '^1', '@xpeach/xph-dsh-cli': 'workspace:^' } },
-      'apps/cli/package.json': { name: '@xpeach/xph-dsh-cli' },
+      'packages/interaction/tui/package.json': { name: '@xpeach/xph-tui', dependencies: { shared: '^1', '@xpeach/xph-cli': 'workspace:^' } },
+      'apps/cli/package.json': { name: '@xpeach/xph-cli' },
     })
 
     expect(tierExternalDeps(manifests, names).get('shared')).toBe(true)
-    expect(tierExternalDeps(manifests, names).has('@xpeach/xph-dsh-cli')).toBe(false)
+    expect(tierExternalDeps(manifests, names).has('@xpeach/xph-cli')).toBe(false)
   })
 })
 
