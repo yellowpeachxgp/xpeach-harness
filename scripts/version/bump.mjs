@@ -25,7 +25,7 @@ const MANIFEST_ROOTS = ['packages', 'apps', 'vendor', 'native']
 /** Never descended into. */
 const SKIP = new Set(['node_modules', 'lib', 'dist', '.git', '.desktop-build', 'coverage'])
 
-const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/u
+const SEMVER = /^(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/u
 
 /**
  * Read the counter file.
@@ -43,15 +43,18 @@ export function readCounter() {
  */
 export function nextVersion(current, request) {
   const parsed = SEMVER.exec(current)
-  if (parsed === null) throw new Error(`version: ${JSON.stringify(current)} is not X.Y.Z`)
+  if (parsed === null) throw new Error(`version: ${JSON.stringify(current)} is not a semantic version`)
   const [major, minor, patch] = [Number(parsed[1]), Number(parsed[2]), Number(parsed[3])]
-  if (request === 'major') return `${major + 1}.0.0`
-  if (request === 'minor') return `${major}.${minor + 1}.0`
-  // A bump off a prerelease lands on the corresponding stable number.
-  if (request === 'patch' || request === undefined) return `${major}.${minor}.${patch + 1}`
+  // A prerelease line stays on its label: 0.0.1-alpha -> 0.0.2-alpha, not 0.0.2.
+  const label = parsed[4]
+  const suffix = label === undefined ? '' : label
+  if (request === 'major') return `${major + 1}.0.0${suffix}`
+  if (request === 'minor') return `${major}.${minor + 1}.0${suffix}`
+  if (request === 'patch' || request === undefined) return `${major}.${minor}.${patch + 1}${suffix}`
+  // Explicitly leaving the prerelease line.
   if (request === 'stable') return `${major}.${minor}.${patch}`
   if (SEMVER.test(request)) return request
-  throw new Error(`version: ${JSON.stringify(request)} is not a bump keyword or X.Y.Z`)
+  throw new Error(`version: ${JSON.stringify(request)} is not a bump keyword or semantic version`)
 }
 
 /** Every workspace manifest path. */

@@ -72,7 +72,7 @@ const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@xpeach/xph-dsh': ['lib/*.js', 'lib/types/*.d.ts'],
-  '@xpeach/xph-dsh-desktop-host': [
+  '@xpeach/xph-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],
   // Sourcemaps stay out by payload policy; the worker-preview surface
@@ -419,7 +419,7 @@ function isReleaseMemberDirectory(dir: string): boolean {
  */
 export function checkDshFamilyVersion(manifest: PackageManifest, expected: string | undefined): string | undefined {
   const name = manifest.name
-  if (name !== '@xpeach/xph-dsh' && name?.startsWith('@xpeach/xph-dsh-') !== true) return undefined
+  if (name !== '@xpeach/xph-dsh' && name?.startsWith('@xpeach/xph-') !== true) return undefined
   if (manifest.version !== expected) {
     return `${name}: package.json version must match root version ${expected ?? '(missing)'}`
   }
@@ -510,7 +510,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     }
   }
 
-  if (dir.startsWith('packages/') && manifest.name?.startsWith('@xpeach/xph-dsh-')) {
+  if (dir.startsWith('packages/') && manifest.name?.startsWith('@xpeach/xph-')) {
     const peer = manifest.peerDependencies?.['@xpeach/xph-cordis']
     const dev = manifest.devDependencies?.['@xpeach/xph-cordis']
 
@@ -634,7 +634,7 @@ export function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]):
     for (const section of dependencySections) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         if (!members.has(name)) continue
-        const expected = name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-dsh-')
+        const expected = name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-')
           ? 'workspace:*'
           : vendors.has(name) ? 'workspace:~' : undefined
         if (expected !== undefined ? range === expected : range.startsWith('workspace:')) continue

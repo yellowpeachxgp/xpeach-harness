@@ -4,7 +4,7 @@
  *
  * It also owns the mode-aware launch resolver every example subprocess harness shares
  * ({@link resolveExampleLaunch}): booting an example bin from TypeScript source under `tsx` (the
- * zero-build dev path, resolving `@xpeach/xph-dsh-*` / `@cordisjs/*` through the tsconfig `paths`
+ * zero-build dev path, resolving `@xpeach/xph-*` / `@cordisjs/*` through the tsconfig `paths`
  * map) or from built `lib/` under plain Node (resolving bare packages through real `exports`, as an
  * installed consumer does, while Node type-strips relative example-local TypeScript plugins).
  *

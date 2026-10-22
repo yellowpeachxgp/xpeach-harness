@@ -354,7 +354,7 @@ describe('registry HTTP', () => {
     const destination = temporaryDirectory('dsh-local-registry-miss-')
     const { artifact } = fabricate({ destination, name: '@scope/local', version: '1.0.0', source: 'export default 1\n' })
     const url = await servingRun({
-      destination, artifacts: [artifact], workspaceNames: ['@scope/local', '@xpeach/xph-dsh-private-thing'],
+      destination, artifacts: [artifact], workspaceNames: ['@scope/local', '@xpeach/xph-private-thing'],
     })
     const owned = await fetch(`${url}@deepseek-ai%2fdsh-private-thing`)
     expect(owned.status).toBe(404)

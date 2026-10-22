@@ -40,12 +40,12 @@ describe('release process helpers', () => {
 describe('release tarball readers', () => {
   it('lists members of an archive under an absolute path', async () => {
     // GNU tar reads the colon in a Windows drive path as a remote host, so the readers run beside the archive.
-    const archive = await packedTarball('@xpeach/xph-dsh-probe', '1.2.3')
+    const archive = await packedTarball('@xpeach/xph-probe', '1.2.3')
     expect(tarballFiles(archive)).toEqual(expect.arrayContaining(['package/package.json', 'package/index.js']))
   })
 
   it('reads what an archive declares about itself', async () => {
-    const archive = await packedTarball('@xpeach/xph-dsh-probe', '1.2.3')
-    expect(packedIdentity(archive)).toEqual({ name: '@xpeach/xph-dsh-probe', version: '1.2.3' })
+    const archive = await packedTarball('@xpeach/xph-probe', '1.2.3')
+    expect(packedIdentity(archive)).toEqual({ name: '@xpeach/xph-probe', version: '1.2.3' })
   })
 })

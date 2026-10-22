@@ -617,8 +617,8 @@ function electronInstallGate(): Gate {
   return {
     id: 'electron-install',
     label: 'Electron binary',
-    displayCommand: 'pnpm --filter @xpeach/xph-dsh-desktop exec install-electron',
-    ...pnpmInvocation(['--filter', '@xpeach/xph-dsh-desktop', 'exec', 'install-electron']),
+    displayCommand: 'pnpm --filter @xpeach/xph-desktop exec install-electron',
+    ...pnpmInvocation(['--filter', '@xpeach/xph-desktop', 'exec', 'install-electron']),
     env: { ELECTRON_GET_USE_PROXY: '1' },
   }
 }

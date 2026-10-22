@@ -134,9 +134,9 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
     throw new Error('desktop development: workspace dependency links are missing; run pnpm install')
   }
   const hostManifest = readManifest(join(options.hostDir, 'package.json'))
-  if (hostManifest.name !== '@xpeach/xph-dsh-desktop-host' || hostManifest.version !== options.release.version) {
+  if (hostManifest.name !== '@xpeach/xph-desktop-host' || hostManifest.version !== options.release.version) {
     throw new Error(
-      `desktop development: apps/desktop-host must be @xpeach/xph-dsh-desktop-host@${options.release.version}, found `
+      `desktop development: apps/desktop-host must be @xpeach/xph-desktop-host@${options.release.version}, found `
       + `${String(hostManifest.name)}@${String(hostManifest.version)}`,
     )
   }
@@ -152,13 +152,13 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
     ...mirrorDependencyLinks(options.dependencyDir, destinationModules),
     ...mirrorWorkspaceDependencies([options.cliDir, options.hostDir], destinationModules),
   ]
-  const dshLink = join(destinationModules, '@deepseek-ai', 'dsh')
+  const dshLink = join(destinationModules, '@xpeach', 'xph-dsh')
   removeOwnedPath(dshLink)
   linkDirectory(options.cliDir, dshLink)
-  const hostLink = join(destinationModules, '@deepseek-ai', 'dsh-desktop-host')
+  const hostLink = join(destinationModules, '@xpeach', 'xph-desktop-host')
   removeOwnedPath(hostLink)
   linkDirectory(options.hostDir, hostLink)
-  const sharedPackages = [...new Set([...names, '@xpeach/xph-dsh', '@xpeach/xph-dsh-desktop-host'])].flatMap((name) => {
+  const sharedPackages = [...new Set([...names, '@xpeach/xph-dsh', '@xpeach/xph-desktop-host'])].flatMap((name) => {
     const manifest = readManifest(join(destinationModules, name, 'package.json'))
     return typeof manifest.version === 'string' ? [{ name, version: manifest.version, path: `node_modules/${name}` }] : []
   })

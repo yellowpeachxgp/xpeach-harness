@@ -54,14 +54,14 @@ const FIRST_PARTY = new Set([
 export const CLAUDE_AGENT_SDK_PACKAGE = '@anthropic-ai/claude-agent-sdk'
 const CLAUDE_PLATFORM_PACKAGE_PREFIX = `${CLAUDE_AGENT_SDK_PACKAGE}-`
 const CLAUDE_PLATFORM_DECLARED_LICENSE = 'SEE LICENSE IN LICENSE.md'
-const LIBREOFFICE_KIT_PACKAGE = '@xpeach/xph-libreoffice-kit'
+const LIBREOFFICE_KIT_PACKAGE = '@deepseek-ai/libreoffice-kit'
 const LIBREOFFICE_PACKAGES = new Set([
   LIBREOFFICE_KIT_PACKAGE,
-  '@xpeach/xph-libreoffice-kit-wasm',
-  '@xpeach/xph-libreoffice-kit-darwin-arm64',
-  '@xpeach/xph-libreoffice-kit-darwin-x64',
-  '@xpeach/xph-libreoffice-kit-win32-arm64',
-  '@xpeach/xph-libreoffice-kit-win32-x64',
+  '@deepseek-ai/libreoffice-kit-wasm',
+  '@deepseek-ai/libreoffice-kit-darwin-arm64',
+  '@deepseek-ai/libreoffice-kit-darwin-x64',
+  '@deepseek-ai/libreoffice-kit-win32-arm64',
+  '@deepseek-ai/libreoffice-kit-win32-x64',
 ])
 
 /**

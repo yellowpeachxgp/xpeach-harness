@@ -46,6 +46,10 @@ export interface DesktopUpdateState {
   readonly failedOperation?: 'check' | 'download' | 'install'
   /** Main-owned preparation cause; UI wording is selected by the active locale. */
   readonly preparationFailure?: DesktopUpdatePreparationFailureKind
+  /** Human-readable changelog for the available version, when the feed carries one. */
+  readonly releaseNotes?: string
+  /** Feed-supplied release title, when it differs from the version. */
+  readonly releaseName?: string
 }
 
 /** Classified failure copy selected by the Web locale without exposing raw updater diagnostics. */

@@ -12,6 +12,27 @@ import { DesktopUpdatePreparationError } from './update-error.ts'
 const { autoUpdater } = electronUpdater
 
 /** Owns one updater target until its download and installation settle. */
+
+/**
+ * Read the changelog out of an electron-updater info record.
+ * @param info - the feed's update descriptor.
+ * @returns release-name and release-notes fields, omitting empty values.
+ */
+function changelog(info: { releaseName?: string | null, releaseNotes?: string | Array<{ note?: string | null }> | null }): { releaseName?: string, releaseNotes?: string } {
+  const name = typeof info.releaseName === 'string' && info.releaseName.trim() !== '' ? info.releaseName.trim() : undefined
+  const raw = info.releaseNotes
+  const notes = typeof raw === 'string'
+    ? raw
+    : Array.isArray(raw)
+      ? raw.map(entry => entry?.note ?? '').filter(note => note !== '').join('\n')
+      : undefined
+  const cleaned = notes === undefined ? undefined : notes.replace(/<[^>]+>/gu, '').trim()
+  return {
+    ...(name === undefined ? {} : { releaseName: name }),
+    ...(cleaned === undefined || cleaned === '' ? {} : { releaseNotes: cleaned }),
+  }
+}
+
 export class DesktopUpdateCoordinator {
   private current: DesktopUpdateState = { phase: 'idle' }
   private candidate: string | undefined
@@ -201,9 +222,15 @@ export class DesktopUpdateCoordinator {
       if (result === null) throw new Error('desktop update: no check result was returned')
       const version = result.updateInfo.version
       if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
-      if (this.channel === 'latest' && version.includes('-')) throw new Error('desktop update: latest feed contains a prerelease')
-      this.candidate = result.isUpdateAvailable && gt(version, this.currentVersion()) ? version : undefined
-      return this.setState(this.candidate === undefined ? { phase: 'idle' } : { phase: 'available', version })
+      // A stable channel refuses prereleases; a prerelease build follows the same
+      // feed so alpha and beta installs can still update themselves.
+      const running = this.currentVersion()
+      if (this.channel === 'latest' && version.includes('-') && !running.includes('-')) {
+        throw new Error('desktop update: latest feed contains a prerelease')
+      }
+      this.candidate = result.isUpdateAvailable && gt(version, running) ? version : undefined
+      if (this.candidate === undefined) return this.setState({ phase: 'idle' })
+      return this.setState({ phase: 'available', version, ...changelog(result.updateInfo) })
     } catch (error) {
       return this.failure(error, 'check')
     }

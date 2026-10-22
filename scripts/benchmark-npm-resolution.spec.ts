@@ -71,11 +71,11 @@ describe('npm resolution benchmark', () => {
     writeJson(root, 'apps/cli/package.json', {
       name: '@xpeach/xph-dsh',
       version: '0.1.0',
-      dependencies: { '@xpeach/xph-dsh-child': 'workspace:^', external: '^2.0.0' },
+      dependencies: { '@xpeach/xph-child': 'workspace:^', external: '^2.0.0' },
       devDependencies: { ignored: 'workspace:^' },
     })
     writeJson(root, 'packages/core/child/package.json', {
-      name: '@xpeach/xph-dsh-child',
+      name: '@xpeach/xph-child',
       version: '0.1.0',
     })
 
@@ -85,7 +85,7 @@ describe('npm resolution benchmark', () => {
     expect(index.get('@xpeach/xph-dsh')?.get('0.1.0')).toEqual({
       name: '@xpeach/xph-dsh',
       version: '0.1.0',
-      dependencies: { '@xpeach/xph-dsh-child': '^0.1.0', external: '^2.0.0' },
+      dependencies: { '@xpeach/xph-child': '^0.1.0', external: '^2.0.0' },
     })
   })
 
@@ -142,10 +142,10 @@ describe('npm resolution benchmark', () => {
         ['@xpeach/xph-dsh', new Map([['0.1.0', {
           name: '@xpeach/xph-dsh',
           version: '0.1.0',
-          peerDependencies: { '@xpeach/xph-dsh-peer': '1.0.0' },
+          peerDependencies: { '@xpeach/xph-peer': '1.0.0' },
         }]])],
-        ['@xpeach/xph-dsh-peer', new Map([['1.0.0', {
-          name: '@xpeach/xph-dsh-peer',
+        ['@xpeach/xph-peer', new Map([['1.0.0', {
+          name: '@xpeach/xph-peer',
           version: '1.0.0',
         }]])],
       ])
@@ -153,7 +153,7 @@ describe('npm resolution benchmark', () => {
       const result = await resolveNpmPackageLock(index, { '@xpeach/xph-dsh': '0.1.0' }, 10_000)
 
       expect(result.archiveRequests).toBe(0)
-      expect(result.packageLock.packages['node_modules/@xpeach/xph-dsh-peer']?.version).toBe('1.0.0')
+      expect(result.packageLock.packages['node_modules/@xpeach/xph-peer']?.version).toBe('1.0.0')
     } finally {
       if (previous.userConfig === undefined) delete process.env.npm_config_userconfig
       else process.env.npm_config_userconfig = previous.userConfig

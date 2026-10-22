@@ -24,13 +24,13 @@ import {
 const experimental = {
   dir: 'packages/experimental/prototype',
   manifest: {
-    name: '@xpeach/xph-dsh-experimental-prototype',
+    name: '@xpeach/xph-experimental-prototype',
     publishConfig: { access: 'public' },
   },
 } satisfies WorkspaceManifest
 
 describe('workspace dependency ranges', () => {
-  const dependency = { dir: 'packages/core/runtime', manifest: { name: '@xpeach/xph-dsh-runtime' } }
+  const dependency = { dir: 'packages/core/runtime', manifest: { name: '@xpeach/xph-runtime' } }
   const cli = { dir: 'apps/cli', manifest: { name: '@xpeach/xph-dsh' } }
   const vendor = { dir: 'vendor/cordis', manifest: { name: '@xpeach/xph-cordis' } }
   const native = { dir: 'native/system', manifest: { name: '@xpeach/xph-node-addon-system' } }
@@ -50,7 +50,7 @@ describe('workspace dependency ranges', () => {
         })
         const check = (name: string, range: string): string[] =>
           checkWorkspaceProtocol([dependency, cli, vendor, native, platform, unrelated, consumer(name, range)])
-        for (const name of ['@xpeach/xph-dsh', '@xpeach/xph-dsh-runtime']) {
+        for (const name of ['@xpeach/xph-dsh', '@xpeach/xph-runtime']) {
           expect(check(name, 'workspace:*')).toEqual([])
           for (const range of ['workspace:^', 'workspace:~', 'workspace:^0.1.7', '^0.1.7', '*']) {
             expect(check(name, range)).toEqual([
@@ -90,13 +90,13 @@ describe('workspace manifest discovery', () => {
     for (const dir of [...consumers, 'tools/excluded', 'unlisted/probe', 'packages/core/runtime']) {
       mkdirSync(join(root, dir), { recursive: true })
       writeFileSync(join(root, dir, 'package.json'), JSON.stringify(dir === 'packages/core/runtime'
-        ? { name: '@xpeach/xph-dsh-runtime' }
-        : { dependencies: { '@xpeach/xph-dsh-runtime': 'workspace:^' } }))
+        ? { name: '@xpeach/xph-runtime' }
+        : { dependencies: { '@xpeach/xph-runtime': 'workspace:^' } }))
     }
     const manifests = readWorkspaceManifests(root)
     expect(manifests.map(entry => entry.dir).sort()).toEqual([...consumers, 'packages/core/runtime'].sort())
     expect(checkWorkspaceProtocol(manifests).sort()).toEqual(consumers.map(dir =>
-      `${dir}: dependencies.@xpeach/xph-dsh-runtime must use workspace:*, got workspace:^`).sort())
+      `${dir}: dependencies.@xpeach/xph-runtime must use workspace:*, got workspace:^`).sort())
   })
 
   it.each(['', 'null', '{}', 'packages: []', 'packages: [false]', 'packages: [""]', 'packages: wrong'])(
@@ -120,9 +120,9 @@ describe('experimental workspace constraints', () => {
   it('requires the experimental package-name prefix', () => {
     expect(checkExperimentalManifest({
       ...experimental,
-      manifest: { ...experimental.manifest, name: '@xpeach/xph-dsh-prototype' },
+      manifest: { ...experimental.manifest, name: '@xpeach/xph-prototype' },
     })).toEqual([
-      '@xpeach/xph-dsh-prototype: experimental package name must start with "@xpeach/xph-dsh-experimental-" or match its declared directory exception',
+      '@xpeach/xph-prototype: experimental package name must start with "@xpeach/xph-experimental-" or match its declared directory exception',
     ])
   })
 
@@ -143,7 +143,7 @@ describe('experimental workspace constraints', () => {
     const [first, ...rest] = manifests
     for (const invalid of [
       rest,
-      [{ ...first!, manifest: { name: '@xpeach/xph-dsh-experimental-replacement' } }, ...rest],
+      [{ ...first!, manifest: { name: '@xpeach/xph-experimental-replacement' } }, ...rest],
       [{ ...first!, dir: 'packages/core/replacement' }, ...rest],
       [...manifests, { ...first!, dir: 'packages/experimental/duplicate' }],
     ]) expect(checkExperimentalNameExceptions(invalid)).toEqual([expect.stringContaining(first!.manifest.name)])
@@ -163,8 +163,8 @@ describe('experimental workspace constraints', () => {
       ...experimental,
       manifest: { name: experimental.manifest.name, private: true },
     })).toEqual([
-      '@xpeach/xph-dsh-experimental-prototype: public experimental package must not set "private": true',
-      '@xpeach/xph-dsh-experimental-prototype: public experimental package must set publishConfig.access to "public"',
+      '@xpeach/xph-experimental-prototype: public experimental package must not set "private": true',
+      '@xpeach/xph-experimental-prototype: public experimental package must set publishConfig.access to "public"',
     ])
   })
 
@@ -203,28 +203,28 @@ describe('experimental workspace constraints', () => {
       expect(checkExperimentalDependencyIsolation([experimental, {
         dir: 'packages/core/consumer',
         manifest: {
-          name: '@xpeach/xph-dsh-consumer',
-          [section]: { '@xpeach/xph-dsh-experimental-prototype': 'workspace:^' },
+          name: '@xpeach/xph-consumer',
+          [section]: { '@xpeach/xph-experimental-prototype': 'workspace:^' },
         },
       }])).toEqual([
-        `@xpeach/xph-dsh-consumer: ${section}.@xpeach/xph-dsh-experimental-prototype must not reference an experimental package`,
+        `@xpeach/xph-consumer: ${section}.@xpeach/xph-experimental-prototype must not reference an experimental package`,
       ])
     },
   )
 
   it('allows the dsh installation to ship the optional bundles the launcher names, and nothing else experimental', () => {
-    const listed = { '@xpeach/xph-dsh-experimental-prototype': 'workspace:^' }
+    const listed = { '@xpeach/xph-experimental-prototype': 'workspace:^' }
     const installation = { dir: 'apps/cli', manifest: { name: '@xpeach/xph-dsh', dependencies: listed } } satisfies WorkspaceManifest
-    expect(checkExperimentalDependencyIsolation([experimental, installation], ['@xpeach/xph-dsh-experimental-prototype'])).toEqual([])
+    expect(checkExperimentalDependencyIsolation([experimental, installation], ['@xpeach/xph-experimental-prototype'])).toEqual([])
     expect(checkExperimentalDependencyIsolation([experimental, installation], [])).toEqual([
-      '@xpeach/xph-dsh: dependencies.@xpeach/xph-dsh-experimental-prototype must not reference an experimental package',
+      '@xpeach/xph-dsh: dependencies.@xpeach/xph-experimental-prototype must not reference an experimental package',
     ])
     // Only a plain dependency edge is offered; a peer would make the bundle a requirement of every consumer.
     expect(checkExperimentalDependencyIsolation([experimental, {
       dir: 'apps/cli',
       manifest: { name: '@xpeach/xph-dsh', peerDependencies: listed },
-    }], ['@xpeach/xph-dsh-experimental-prototype'])).toEqual([
-      '@xpeach/xph-dsh: peerDependencies.@xpeach/xph-dsh-experimental-prototype must not reference an experimental package',
+    }], ['@xpeach/xph-experimental-prototype'])).toEqual([
+      '@xpeach/xph-dsh: peerDependencies.@xpeach/xph-experimental-prototype must not reference an experimental package',
     ])
   })
 
@@ -232,25 +232,25 @@ describe('experimental workspace constraints', () => {
     const manifests: WorkspaceManifest[] = [experimental, {
       dir: 'packages/core/test-only',
       manifest: {
-        name: '@xpeach/xph-dsh-test-only',
-        devDependencies: { '@xpeach/xph-dsh-experimental-prototype': 'workspace:^' },
+        name: '@xpeach/xph-test-only',
+        devDependencies: { '@xpeach/xph-experimental-prototype': 'workspace:^' },
       },
     }, {
       dir: 'packages/experimental/consumer',
       manifest: {
-        name: '@xpeach/xph-dsh-experimental-consumer',
-        dependencies: { '@xpeach/xph-dsh-experimental-prototype': 'workspace:^' },
+        name: '@xpeach/xph-experimental-consumer',
+        dependencies: { '@xpeach/xph-experimental-prototype': 'workspace:^' },
       },
     }, {
       dir: 'python/sdk-runtime',
       manifest: {
-        name: '@xpeach/xph-dsh-python-runtime',
-        dependencies: { '@xpeach/xph-dsh-experimental-prototype': 'workspace:^' },
+        name: '@xpeach/xph-python-runtime',
+        dependencies: { '@xpeach/xph-experimental-prototype': 'workspace:^' },
       },
     }]
 
     expect(checkExperimentalDependencyIsolation(manifests)).toEqual([
-      '@xpeach/xph-dsh-python-runtime: dependencies.@xpeach/xph-dsh-experimental-prototype must not reference an experimental package',
+      '@xpeach/xph-python-runtime: dependencies.@xpeach/xph-experimental-prototype must not reference an experimental package',
     ])
   })
 })
@@ -322,7 +322,7 @@ describe('package payload constraints', () => {
     { exports: { './locale/*.json': './locale/*.json', './search/locale/*.json': './locale/*.json' }, resources: ['locale/*.json'] },
     { exports: { './search/locale/*.json': './z/*.json', './locale/*.json': './a/*.json' }, resources: ['a/*.json', 'z/*.json'] },
   ])('includes declared locale resources in the canonical payload: $exports', ({ exports, resources }) => {
-    expect(expectedDshPackageFiles({ name: '@xpeach/xph-dsh-localized', exports })).toEqual([
+    expect(expectedDshPackageFiles({ name: '@xpeach/xph-localized', exports })).toEqual([
       ...resources, 'lib/index.js', 'lib/types/**/*.d.ts',
     ])
   })
@@ -368,7 +368,7 @@ describe('package payload constraints', () => {
 
   it('includes a declared profile patch without a package-name allowlist', () => {
     expect(expectedDshPackageFiles({
-      name: '@xpeach/xph-dsh-private-profile',
+      name: '@xpeach/xph-private-profile',
       dsh: { bundle: { patch: './cordis.patch.yml' } },
     })).toEqual([
       'lib/index.js',
@@ -376,7 +376,7 @@ describe('package payload constraints', () => {
       'lib/types/**/*.d.ts',
     ])
     expect(expectedDshPackageFiles({
-      name: '@xpeach/xph-dsh-private-profile',
+      name: '@xpeach/xph-private-profile',
       dsh: { bundle: { patch: ['./cordis.patch.yml', './layers/web.patch.yml'] } },
     })).toEqual([
       'lib/index.js',

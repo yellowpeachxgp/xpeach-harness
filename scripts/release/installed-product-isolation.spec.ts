@@ -8,7 +8,7 @@ import { EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS } from '../experimental-package-po
 import { verifyInstalledProductIsolation } from './installed-product-isolation.ts'
 
 const roots: string[] = []
-const experimental = '@xpeach/xph-dsh-experimental-example'
+const experimental = '@xpeach/xph-experimental-example'
 
 function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-installed-isolation-'))
@@ -57,14 +57,14 @@ describe.each([experimental, ...Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIO
     const root = fixture()
     const entry = writePackage(root, '@xpeach/xph-dsh', { dependencies: { core: '1.0.0', [experimental]: '1.0.0' } })
     writePackage(root, 'core', {})
-    writePackage(root, experimental, { dependencies: { '@xpeach/xph-dsh-experimental-inner': '1.0.0' } })
+    writePackage(root, experimental, { dependencies: { '@xpeach/xph-experimental-inner': '1.0.0' } })
     expect(verifyInstalledProductIsolation(entry, [experimental])).toBe(2)
 
     writePackage(root, 'core', { dependencies: { [experimental]: '1.0.0' } })
     expect(() => verifyInstalledProductIsolation(entry, [experimental])).toThrow(`core -> ${experimental}`)
 
-    const missing = writePackage(root, '@xpeach/xph-dsh-missing', { dependencies: { absent: '1.0.0' } })
-    expect(() => verifyInstalledProductIsolation(missing, ['absent'])).toThrow('optional bundle is missing: @xpeach/xph-dsh-missing -> absent')
+    const missing = writePackage(root, '@xpeach/xph-missing', { dependencies: { absent: '1.0.0' } })
+    expect(() => verifyInstalledProductIsolation(missing, ['absent'])).toThrow('optional bundle is missing: @xpeach/xph-missing -> absent')
   })
 
   it('rejects experimental identities hidden behind an installed alias', () => {

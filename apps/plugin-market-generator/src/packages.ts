@@ -72,7 +72,7 @@ const MAX_RANGE_ALTERNATIVES = 256
 
 /**
  * The `engines.dsh` range an index lists for a manifest: its own `engines.dsh` string, otherwise the conjunction of
- * its `@xpeach/xph-dsh` and `@xpeach/xph-dsh-*` peer ranges. A peer of exactly `workspace:*`, `workspace:^`, or
+ * its `@xpeach/xph-dsh` and `@xpeach/xph-*` peer ranges. A peer of exactly `workspace:*`, `workspace:^`, or
  * `workspace:~` means the running DSH version, and a `*` range admits every version; both impose nothing. A single
  * remaining range is listed as written. Several ranges are combined: the conjunction combines one `||` alternative of
  * each range, keeps each comparator once, and drops combinations that no version satisfies, prereleases included.

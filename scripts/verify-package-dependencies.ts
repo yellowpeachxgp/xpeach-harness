@@ -30,7 +30,7 @@ const CORDIS = '@xpeach/xph-cordis'
  */
 const ROOT_TYPE_PACKAGES: ReadonlySet<string> = new Set(['@types/react', '@types/react-dom'])
 function workspaceRange(name: string): 'workspace:*' | 'workspace:~' {
-  return name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-dsh-') ? 'workspace:*' : 'workspace:~'
+  return name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-') ? 'workspace:*' : 'workspace:~'
 }
 const RELEASE_MANIFEST_GLOB = 'packages/!(experimental)/*/package.json'
 /** Every package group, experimental included, follows the same published dependency policy. */

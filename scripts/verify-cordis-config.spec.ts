@@ -60,7 +60,7 @@ describe('workspace Bundle discovery and product dependency closures', () => {
         dsh: { bundle: { patch: './cordis.patch.yml' } },
       }))
       writeFileSync(join(plainDir, 'package.json'), JSON.stringify({
-        name: '@xpeach/xph-dsh-plain',
+        name: '@xpeach/xph-plain',
       }))
 
       expect(bundleManifestPaths(fixture)).toEqual([
@@ -82,9 +82,9 @@ describe('workspace Bundle discovery and product dependency closures', () => {
     expect(bundlePluginDependencyErrors(manifestPath, manifest, [self])).toEqual([])
     expect(bundlePluginDependencyErrors(manifestPath, manifest, [
       self,
-      { file, name: '@xpeach/xph-dsh-missing-plugin' },
+      { file, name: '@xpeach/xph-missing-plugin' },
     ])).toEqual([
-      `${file}: @xpeach/xph-dsh-missing-plugin must be declared in ${manifestPath} dependencies`,
+      `${file}: @xpeach/xph-missing-plugin must be declared in ${manifestPath} dependencies`,
     ])
   })
 })
@@ -94,18 +94,18 @@ describe('package-owned Loader test dependency closures', () => {
     const manifestPath = 'packages/example/owner/package.json'
     const file = 'packages/example/owner/tests/fixtures/cordis.yml'
     const manifest = {
-      name: '@xpeach/xph-dsh-owner',
+      name: '@xpeach/xph-owner',
       dependencies: {},
       devDependencies: {
-        '@xpeach/xph-dsh-declared': 'workspace:^',
+        '@xpeach/xph-declared': 'workspace:^',
       },
     }
     expect(packageTestPluginDependencyErrors(manifestPath, manifest, [
-      { file, name: '@xpeach/xph-dsh-owner' },
-      { file, name: '@xpeach/xph-dsh-declared' },
-      { file, name: '@xpeach/xph-dsh-missing' },
+      { file, name: '@xpeach/xph-owner' },
+      { file, name: '@xpeach/xph-declared' },
+      { file, name: '@xpeach/xph-missing' },
     ])).toEqual([
-      `${file}: @xpeach/xph-dsh-missing must be declared in ${manifestPath} dependencies or devDependencies`,
+      `${file}: @xpeach/xph-missing must be declared in ${manifestPath} dependencies or devDependencies`,
     ])
   })
 
@@ -116,25 +116,25 @@ describe('package-owned Loader test dependency closures', () => {
       const driverDir = join(packageDir, 'tests/fixtures/loader')
       mkdirSync(driverDir, { recursive: true })
       writeFileSync(join(packageDir, 'package.json'), JSON.stringify({
-        name: '@xpeach/xph-dsh-owner',
+        name: '@xpeach/xph-owner',
         devDependencies: {
-          '@xpeach/xph-dsh-declared': 'workspace:^',
+          '@xpeach/xph-declared': 'workspace:^',
         },
       }))
       writeFileSync(join(driverDir, 'driver.ts'), [
-        "import '@xpeach/xph-dsh-owner'",
-        "import '@xpeach/xph-dsh-declared'",
-        "import '@xpeach/xph-dsh-missing'",
+        "import '@xpeach/xph-owner'",
+        "import '@xpeach/xph-declared'",
+        "import '@xpeach/xph-missing'",
       ].join('\n'))
       writeFileSync(join(driverDir, 'cordis.yml'), '[]\n')
-      writeFileSync(join(driverDir, 'fixture.mjs'), "import '@xpeach/xph-dsh-declared'\n")
+      writeFileSync(join(driverDir, 'fixture.mjs'), "import '@xpeach/xph-declared'\n")
       const unrelatedDir = join(packageDir, 'tests/fixtures/unrelated')
       mkdirSync(unrelatedDir, { recursive: true })
-      writeFileSync(join(unrelatedDir, 'driver.ts'), "import '@xpeach/xph-dsh-unrelated'\n")
+      writeFileSync(join(unrelatedDir, 'driver.ts'), "import '@xpeach/xph-unrelated'\n")
 
       expect(packageTestFixtureDependencyErrors(fixture)).toEqual([
         'packages/example/owner/tests/fixtures/loader/driver.ts: '
-        + '@xpeach/xph-dsh-missing must be declared in '
+        + '@xpeach/xph-missing must be declared in '
         + 'packages/example/owner/package.json dependencies or devDependencies',
       ])
     } finally {

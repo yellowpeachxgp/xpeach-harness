@@ -42,7 +42,7 @@ async function fixture() {
     import { mkdir, writeFile } from 'node:fs/promises';
     import { join } from 'node:path';
     export async function downloadOfficeSidecar(packages, destination) {
-      const directory = join(destination, 'node_modules/@xpeach/xph-libreoffice-kit/lib');
+      const directory = join(destination, 'node_modules/@deepseek-ai/libreoffice-kit/lib');
       await mkdir(directory, { recursive: true });
       await writeFile(join(directory, 'cli.js'), 'cli');
       if (process.env.DSH_FIXTURE_FAIL) throw new Error('fixture download failed');
@@ -87,7 +87,7 @@ it('starts without downloading, independently downloads either resource, and reu
     const office = await run('office').done
     expect(office.code, office.stderr).toBe(0)
     const location = JSON.parse(office.stdout) as string
-    expect(await readFile(join(location, 'node_modules/@xpeach/xph-libreoffice-kit/lib/cli.js'), 'utf8')).toBe('cli')
+    expect(await readFile(join(location, 'node_modules/@deepseek-ai/libreoffice-kit/lib/cli.js'), 'utf8')).toBe('cli')
     expect(await run('office', { DSH_FIXTURE_FAIL: '1' }).done).toMatchObject({ code: 0, stdout: office.stdout })
   } finally { await rm(root, { recursive: true, force: true }) }
 })

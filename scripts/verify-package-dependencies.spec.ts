@@ -66,26 +66,26 @@ function facts(manifest: PackageDependencyManifest): PackageDependencyFacts {
     manifest,
     workspaceNames: new Set([
       CORDIS,
-      '@xpeach/xph-dsh-runtime',
-      '@xpeach/xph-dsh-types',
-      '@xpeach/xph-dsh-stale',
+      '@xpeach/xph-runtime',
+      '@xpeach/xph-types',
+      '@xpeach/xph-stale',
       '@xpeach/xph-schemastery',
     ]),
     allSourceUses: new Map([
-      ['@xpeach/xph-dsh-runtime', ['packages/core/probe/src/index.ts']],
-      ['@xpeach/xph-dsh-types', ['packages/core/probe/src/types.ts']],
+      ['@xpeach/xph-runtime', ['packages/core/probe/src/index.ts']],
+      ['@xpeach/xph-types', ['packages/core/probe/src/types.ts']],
     ]),
     hostRuntimeSourceUses: new Map([
-      ['@xpeach/xph-dsh-runtime', ['packages/core/probe/src/index.ts']],
+      ['@xpeach/xph-runtime', ['packages/core/probe/src/index.ts']],
     ]),
     hostRuntimeExportUses: [{
-      packageName: '@xpeach/xph-dsh-runtime',
-      specifier: '@xpeach/xph-dsh-runtime',
+      packageName: '@xpeach/xph-runtime',
+      specifier: '@xpeach/xph-runtime',
       exportName: 'runtimeValue',
       sourcePath: 'packages/core/probe/src/index.ts',
       line: 1,
       column: 10,
-      sourceLine: "import { runtimeValue } from '@xpeach/xph-dsh-runtime'",
+      sourceLine: "import { runtimeValue } from '@xpeach/xph-runtime'",
     }],
     peerRequiredHostDependencies: new Set(),
     configurationOnlyDevDependencies: new Set(),
@@ -360,16 +360,16 @@ const CORDIS_PEER = { peerDependencies: { [CORDIS]: 'workspace:~' }, devDependen
 describe('experimental packages and Host build entries', () => {
   it('applies the published policy to an experimental Client package that declares browser packages as peers', async () => {
     const root = writeWorkspace({
-      'packages/client/ui-probe/package.json': { name: '@xpeach/xph-dsh-client-ui-probe', ...CORDIS_PEER },
+      'packages/client/ui-probe/package.json': { name: '@xpeach/xph-client-ui-probe', ...CORDIS_PEER },
       'packages/experimental/client-ui-probe/package.json': {
-        name: '@xpeach/xph-dsh-experimental-client-ui-probe',
+        name: '@xpeach/xph-experimental-client-ui-probe',
         dsh: { client: {} },
-        peerDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-client-ui-probe': 'workspace:*' },
-        devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-client-ui-probe': 'workspace:*' },
+        peerDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-client-ui-probe': 'workspace:*' },
+        devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-client-ui-probe': 'workspace:*' },
       },
       'packages/experimental/client-ui-probe/src/index.ts': 'export function apply() {}\n',
       'packages/experimental/client-ui-probe/src/client/index.ts':
-        "import { Button } from '@xpeach/xph-dsh-client-ui-probe'\nexport const control = Button\n",
+        "import { Button } from '@xpeach/xph-client-ui-probe'\nexport const control = Button\n",
     })
 
     const state = await readPackageDependencyState(root, policy())
@@ -378,7 +378,7 @@ describe('experimental packages and Host build entries', () => {
       ['packages/experimental/client-ui-probe/package.json', 'client-host'],
     )
     expect(collectPackageDependencyViolations(state)).toEqual([
-      'packages/experimental/client-ui-probe/package.json: @xpeach/xph-dsh-client-ui-probe (existing non-Cordis peer, '
+      'packages/experimental/client-ui-probe/package.json: @xpeach/xph-client-ui-probe (existing non-Cordis peer, '
       + 'packages/experimental/client-ui-probe/src/client/index.ts) must be devDependencies-only at workspace:*; '
       + 'found devDependencies + peerDependencies',
     ])
@@ -386,11 +386,11 @@ describe('experimental packages and Host build entries', () => {
 
   it('accepts an experimental package in the configured Host roster', async () => {
     const root = writeWorkspace({
-      'packages/experimental/host-probe/package.json': { name: '@xpeach/xph-dsh-experimental-host-probe', ...CORDIS_PEER },
+      'packages/experimental/host-probe/package.json': { name: '@xpeach/xph-experimental-host-probe', ...CORDIS_PEER },
       'packages/experimental/host-probe/src/index.ts': 'export function apply() {}\n',
     })
 
-    const state = await readPackageDependencyState(root, policy({ hostPackages: ['@xpeach/xph-dsh-experimental-host-probe'] }))
+    const state = await readPackageDependencyState(root, policy({ hostPackages: ['@xpeach/xph-experimental-host-probe'] }))
 
     expect(state.policyViolations).toEqual([])
     expect(state.facts.map(fact => [fact.manifestPath, fact.role])).toEqual(
@@ -401,7 +401,7 @@ describe('experimental packages and Host build entries', () => {
   it('reads Host Worker entries from the package build configuration', async () => {
     const root = writeWorkspace({
       'packages/g/inspect/package.json': {
-        name: '@xpeach/xph-dsh-inspect-probe',
+        name: '@xpeach/xph-inspect-probe',
         dsh: { client: {} },
         dependencies: { ws: '^8.0.0' },
         ...CORDIS_PEER,
@@ -430,7 +430,7 @@ describe('experimental packages and Host build entries', () => {
 
   it('evaluates every build face and keeps only Host entries outside the Client source tree', async () => {
     const root = writeWorkspace({
-      'packages/g/faces/package.json': { name: '@xpeach/xph-dsh-faces-probe' },
+      'packages/g/faces/package.json': { name: '@xpeach/xph-faces-probe' },
       'packages/g/faces/tsdown.config.ts': [
         'export default ({ env }: { env: { DSH_BUILD_FACE?: string } }) => env.DSH_BUILD_FACE === \'host\'',
         "  ? [{ entry: '' }, { entry: { runner: './lib/types/runner.js' }, platform: 'neutral' }]",
@@ -444,7 +444,7 @@ describe('experimental packages and Host build entries', () => {
       'packages/g/faces/src/helper.ts': 'export {}\n',
       'packages/g/faces/src/client/index.ts': 'export {}\n',
     })
-    const subject = pkg('@xpeach/xph-dsh-faces-probe', 'packages/g/faces/package.json')
+    const subject = pkg('@xpeach/xph-faces-probe', 'packages/g/faces/package.json')
 
     expect((await readHostBuildEntries(root, subject)).map(path => relative(root, path).split(sep).join('/'))).toEqual([
       'packages/g/faces/src/helper.ts',
@@ -461,12 +461,12 @@ describe('experimental packages and Host build entries', () => {
     ["export default { entry: 'lib/types/missing.js' }", 'tsdown entry lib/types/missing.js has no source module'],
   ])('rejects a build configuration Host entry discovery cannot follow: %s', async (config, message) => {
     const root = writeWorkspace({
-      'packages/g/broken/package.json': { name: '@xpeach/xph-dsh-broken-probe' },
+      'packages/g/broken/package.json': { name: '@xpeach/xph-broken-probe' },
       'packages/g/broken/tsdown.config.ts': `${config}\n`,
       'packages/g/broken/src/index.ts': 'export {}\n',
     })
 
-    await expect(readHostBuildEntries(root, pkg('@xpeach/xph-dsh-broken-probe', 'packages/g/broken/package.json')))
+    await expect(readHostBuildEntries(root, pkg('@xpeach/xph-broken-probe', 'packages/g/broken/package.json')))
       .rejects.toThrow(`packages/g/broken/tsdown.config.ts: ${message}`)
   })
 })
@@ -898,8 +898,8 @@ describe('dependency sections', () => {
   it('validates every third-party range before writing any manifest in a repair batch', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-dependency-batch-'))
     roots.push(root)
-    const valid = { ...facts({ name: '@xpeach/xph-dsh-first' }), manifestPath: 'first.json' }
-    const base = facts({ name: '@xpeach/xph-dsh-second' })
+    const valid = { ...facts({ name: '@xpeach/xph-first' }), manifestPath: 'first.json' }
+    const base = facts({ name: '@xpeach/xph-second' })
     const invalid: PackageDependencyFacts = {
       ...base,
       manifestPath: 'second.json',
@@ -922,9 +922,9 @@ describe('dependency sections', () => {
 
   it('moves browser-only third-party imports to development dependencies without changing their ranges', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
-      dependencies: { '@xpeach/xph-dsh-runtime': 'workspace:*', external: '^1.2.3' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-types': 'workspace:*' },
+      name: '@xpeach/xph-probe',
+      dependencies: { '@xpeach/xph-runtime': 'workspace:*', external: '^1.2.3' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-types': 'workspace:*' },
       peerDependencies: { [CORDIS]: 'workspace:~' },
     }
     const base = facts(manifest)
@@ -950,8 +950,8 @@ describe('dependency sections', () => {
   it('does not leak repository configuration into captured dependency facts', () => {
     const manifest: PackageDependencyManifest = {
       name: '@xpeach/xph-client-locale',
-      dependencies: { '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-types': 'workspace:*' },
+      dependencies: { '@xpeach/xph-runtime': 'workspace:*' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-types': 'workspace:*' },
       peerDependencies: { [CORDIS]: 'workspace:~' },
     }
     const base = facts(manifest)
@@ -967,15 +967,15 @@ describe('dependency sections', () => {
 
   it('requires non-workspace Host runtime imports in dependencies', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
-      dependencies: { '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-types': 'workspace:*', external: '^1.0.0' },
+      name: '@xpeach/xph-probe',
+      dependencies: { '@xpeach/xph-runtime': 'workspace:*' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-types': 'workspace:*', external: '^1.0.0' },
       peerDependencies: { [CORDIS]: 'workspace:~' },
     }
     const subject: PackageDependencyFacts = {
       ...facts(manifest),
       hostRuntimeSourceUses: new Map([
-        ['@xpeach/xph-dsh-runtime', ['packages/core/probe/src/index.ts']],
+        ['@xpeach/xph-runtime', ['packages/core/probe/src/index.ts']],
         ['external', ['packages/core/probe/src/index.ts']],
       ]),
       allSourceUses: new Map([
@@ -1007,14 +1007,14 @@ describe('dependency sections', () => {
 
   it('accepts Host dependencies, development-only inputs, and shared Cordis', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
+      name: '@xpeach/xph-probe',
       dependencies: {
-        '@xpeach/xph-dsh-runtime': 'workspace:*',
+        '@xpeach/xph-runtime': 'workspace:*',
         '@xpeach/xph-schemastery': 'workspace:~',
         external: '^1.0.0',
       },
       devDependencies: {
-        '@xpeach/xph-dsh-types': 'workspace:*',
+        '@xpeach/xph-types': 'workspace:*',
         [CORDIS]: 'workspace:~',
       },
       peerDependencies: { [CORDIS]: 'workspace:~' },
@@ -1025,20 +1025,20 @@ describe('dependency sections', () => {
   })
 
   it('lists managed Host runtime dependencies for fix review', () => {
-    const subject = facts({ name: '@xpeach/xph-dsh-probe' })
+    const subject = facts({ name: '@xpeach/xph-probe' })
     expect(formatManagedRuntimeDependencies({
       facts: [subject], packages: [], policyViolations: [], workspaceNames: subject.workspaceNames,
     })).toEqual([
       'verify-package-dependencies: 1 managed Host runtime edge(s) remain in dependencies across 1 package(s):',
-      '  @xpeach/xph-dsh-probe -> @xpeach/xph-dsh-runtime: @xpeach/xph-dsh-runtime#runtimeValue',
+      '  @xpeach/xph-probe -> @xpeach/xph-runtime: @xpeach/xph-runtime#runtimeValue',
     ])
   })
 
   it('reports an unapproved Host runtime export without rewriting its dependency section', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
-      dependencies: { '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-types': 'workspace:*' },
+      name: '@xpeach/xph-probe',
+      dependencies: { '@xpeach/xph-runtime': 'workspace:*' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-types': 'workspace:*' },
       peerDependencies: { [CORDIS]: 'workspace:~' },
     }
     const subject = facts(manifest)
@@ -1052,23 +1052,23 @@ describe('dependency sections', () => {
     }
 
     expect(safetyViolations).toEqual([
-      'packages/core/probe/src/index.ts:1:10: @xpeach/xph-dsh-runtime#runtimeValue is not classified as '
-      + 'safe or peer-required — import { runtimeValue } from \'@xpeach/xph-dsh-runtime\'',
+      'packages/core/probe/src/index.ts:1:10: @xpeach/xph-runtime#runtimeValue is not classified as '
+      + 'safe or peer-required — import { runtimeValue } from \'@xpeach/xph-runtime\'',
     ])
     expect(fixPackageDependencies('/unused', state)).toEqual([])
-    expect(manifest.dependencies).toEqual({ '@xpeach/xph-dsh-runtime': 'workspace:*' })
+    expect(manifest.dependencies).toEqual({ '@xpeach/xph-runtime': 'workspace:*' })
   })
 
   it('keeps an edge as a peer when one imported export requires shared identity', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
-      dependencies: { '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-types': 'workspace:*' },
+      name: '@xpeach/xph-probe',
+      dependencies: { '@xpeach/xph-runtime': 'workspace:*' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-types': 'workspace:*' },
       peerDependencies: { [CORDIS]: 'workspace:~' },
     }
     const subject: PackageDependencyFacts = {
       ...facts(manifest),
-      peerRequiredHostDependencies: new Set(['@xpeach/xph-dsh-runtime']),
+      peerRequiredHostDependencies: new Set(['@xpeach/xph-runtime']),
     }
     expect(collectHostDependencyExportPolicyViolations(
       [subject],
@@ -1076,7 +1076,7 @@ describe('dependency sections', () => {
       {
         safeHostDependencyExports: {},
         peerRequiredHostExports: {
-          '@xpeach/xph-dsh-runtime': ['runtimeValue'],
+          '@xpeach/xph-runtime': ['runtimeValue'],
         },
       },
     )).toEqual([])
@@ -1085,28 +1085,28 @@ describe('dependency sections', () => {
     expect(manifest.dependencies).toBeUndefined()
     expect(manifest.peerDependencies).toMatchObject({
       [CORDIS]: 'workspace:~',
-      '@xpeach/xph-dsh-runtime': 'workspace:*',
+      '@xpeach/xph-runtime': 'workspace:*',
     })
     expect(manifest.devDependencies).toMatchObject({
       [CORDIS]: 'workspace:~',
-      '@xpeach/xph-dsh-runtime': 'workspace:*',
+      '@xpeach/xph-runtime': 'workspace:*',
     })
     expect(formatPeerRequiredRuntimeDependencies({
       facts: [subject], packages: [], policyViolations: [], workspaceNames: subject.workspaceNames,
     })).toEqual([
       'verify-package-dependencies: 1 Host runtime edge(s) remain in peerDependencies for shared exports or required services across 1 package(s):',
-      '  @xpeach/xph-dsh-probe -> @xpeach/xph-dsh-runtime: @xpeach/xph-dsh-runtime#runtimeValue',
+      '  @xpeach/xph-probe -> @xpeach/xph-runtime: @xpeach/xph-runtime#runtimeValue',
     ])
   })
 
   it('requires both peer and development declarations for a service without a value import', () => {
-    const dependency = '@xpeach/xph-dsh-runtime'
+    const dependency = '@xpeach/xph-runtime'
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
+      name: '@xpeach/xph-probe',
       devDependencies: {
         [CORDIS]: 'workspace:~',
         [dependency]: 'workspace:*',
-        '@xpeach/xph-dsh-types': 'workspace:*',
+        '@xpeach/xph-types': 'workspace:*',
       },
       peerDependencies: { [CORDIS]: 'workspace:~' },
     }
@@ -1142,22 +1142,22 @@ describe('dependency sections', () => {
 
   it('reports wrong sections, workspace ranges, and stale peer metadata', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
-      dependencies: { '@xpeach/xph-dsh-types': 'workspace:^' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      peerDependencies: { [CORDIS]: 'workspace:*', '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      peerDependenciesMeta: { '@xpeach/xph-dsh-missing': { optional: true } },
+      name: '@xpeach/xph-probe',
+      dependencies: { '@xpeach/xph-types': 'workspace:^' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-runtime': 'workspace:*' },
+      peerDependencies: { [CORDIS]: 'workspace:*', '@xpeach/xph-runtime': 'workspace:*' },
+      peerDependenciesMeta: { '@xpeach/xph-missing': { optional: true } },
     }
     const state = {
       facts: [facts(manifest)], packages: [], policyViolations: [], workspaceNames: facts(manifest).workspaceNames,
     }
     const violations = collectPackageDependencyViolations(state)
     expect(violations).toEqual(expect.arrayContaining([
-      expect.stringContaining('@xpeach/xph-dsh-runtime'),
-      expect.stringContaining('@xpeach/xph-dsh-types'),
+      expect.stringContaining('@xpeach/xph-runtime'),
+      expect.stringContaining('@xpeach/xph-types'),
       expect.stringContaining(`${CORDIS} must be matching peerDependencies + devDependencies`),
-      expect.stringContaining('dependencies.@xpeach/xph-dsh-types must use workspace:*'),
-      expect.stringContaining('peerDependenciesMeta.@xpeach/xph-dsh-missing has no matching'),
+      expect.stringContaining('dependencies.@xpeach/xph-types must use workspace:*'),
+      expect.stringContaining('peerDependenciesMeta.@xpeach/xph-missing has no matching'),
     ]))
   })
 
@@ -1166,15 +1166,15 @@ describe('dependency sections', () => {
     roots.push(root)
     const manifestPath = 'package.json'
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
+      name: '@xpeach/xph-probe',
       dependencies: { '@xpeach/xph-schemastery': 'workspace:*', external: '^1.0.0' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-runtime': 'workspace:*' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-runtime': 'workspace:*' },
       peerDependencies: {
         [CORDIS]: 'workspace:~',
-        '@xpeach/xph-dsh-runtime': 'workspace:*',
-        '@xpeach/xph-dsh-stale': 'workspace:*',
+        '@xpeach/xph-runtime': 'workspace:*',
+        '@xpeach/xph-stale': 'workspace:*',
       },
-      peerDependenciesMeta: { '@xpeach/xph-dsh-stale': { optional: true } },
+      peerDependenciesMeta: { '@xpeach/xph-stale': { optional: true } },
     }
     writeFileSync(join(root, manifestPath), `${JSON.stringify(manifest, null, 2)}\n`)
     const subject = { ...facts(manifest), manifestPath }
@@ -1185,12 +1185,12 @@ describe('dependency sections', () => {
     expect(fixed.dependencies).toEqual({
       '@xpeach/xph-schemastery': 'workspace:~',
       external: '^1.0.0',
-      '@xpeach/xph-dsh-runtime': 'workspace:*',
+      '@xpeach/xph-runtime': 'workspace:*',
     })
     expect(fixed.devDependencies).toEqual({
       [CORDIS]: 'workspace:~',
-      '@xpeach/xph-dsh-types': 'workspace:*',
-      '@xpeach/xph-dsh-stale': 'workspace:*',
+      '@xpeach/xph-types': 'workspace:*',
+      '@xpeach/xph-stale': 'workspace:*',
     })
     expect(fixed.peerDependencies).toEqual({ [CORDIS]: 'workspace:~' })
     expect(fixed.peerDependenciesMeta).toBeUndefined()
@@ -1198,12 +1198,12 @@ describe('dependency sections', () => {
 
   it('repairs an in-memory manifest for benchmark simulation', () => {
     const manifest: PackageDependencyManifest = {
-      name: '@xpeach/xph-dsh-probe',
-      peerDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-runtime': 'workspace:*' },
-      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-dsh-runtime': 'workspace:*' },
+      name: '@xpeach/xph-probe',
+      peerDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-runtime': 'workspace:*' },
+      devDependencies: { [CORDIS]: 'workspace:~', '@xpeach/xph-runtime': 'workspace:*' },
     }
     repairPackageDependencyManifest(facts(manifest))
-    expect(manifest.dependencies).toEqual({ '@xpeach/xph-dsh-runtime': 'workspace:*' })
+    expect(manifest.dependencies).toEqual({ '@xpeach/xph-runtime': 'workspace:*' })
     expect(manifest.peerDependencies).toEqual({ [CORDIS]: 'workspace:~' })
   })
 })

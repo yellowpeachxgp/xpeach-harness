@@ -11,7 +11,7 @@ export const DESKTOP_PACKAGE_SET_FILE = 'desktop-packages.json'
 export const DESKTOP_PACKAGES_DIR = 'desktop-packages'
 
 /** Private package installed beside dsh to boot the Desktop Host process. */
-export const DESKTOP_HOST_PACKAGE = '@xpeach/xph-dsh-desktop-host'
+export const DESKTOP_HOST_PACKAGE = '@xpeach/xph-desktop-host'
 
 /** Package-relative Desktop Host files required before a profile can boot. */
 export const DESKTOP_HOST_RUNTIME_FILES = [

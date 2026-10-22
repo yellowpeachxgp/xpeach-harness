@@ -10,8 +10,8 @@ import { writeFixtureFile as write } from './fixture-file.ts'
 
 const roots: string[] = []
 const base = '@xpeach/xph-base'
-const core = '@xpeach/xph-dsh-core'
-const candidate = '@xpeach/xph-dsh-candidate'
+const core = '@xpeach/xph-core'
+const candidate = '@xpeach/xph-candidate'
 const candidateDir = 'packages/core/candidate'
 const profile = 'packages/boot/app-boot/src/profile.ts'
 const catalog = 'packages/boot/app-boot/src/official-bundle-packages.ts'
@@ -197,11 +197,11 @@ describe('product package use', () => {
 
   it.each(['shipped', 'on-demand'])('keeps %s optional selection and its runtime closure separate from default use', (delivery) => {
     const root = fixture()
-    const bundle = '@xpeach/xph-dsh-experimental-feature'
+    const bundle = '@xpeach/xph-experimental-feature'
     pkg(root, 'packages/experimental/feature', bundle, { dsh: { bundle: { patch: './cordis.patch.yml' } } })
     pkg(root, candidateDir, candidate)
-    pkg(root, 'packages/core/indirect', '@xpeach/xph-dsh-indirect')
-    write(root, `${candidateDir}/src/index.ts`, "import '@xpeach/xph-dsh-indirect'")
+    pkg(root, 'packages/core/indirect', '@xpeach/xph-indirect')
+    write(root, `${candidateDir}/src/index.ts`, "import '@xpeach/xph-indirect'")
     write(root, 'packages/experimental/feature/cordis.patch.yml', [{ insert: [{ name: candidate }] }])
     profiles(root, delivery === 'shipped' ? [bundle] : [], delivery === 'on-demand' ? [bundle] : [])
     const result = verifyProductUse(root, declarations())
@@ -212,7 +212,7 @@ describe('product package use', () => {
 
   it.each(['shipped', 'on-demand'])('does not count a %s optional patch whose target is absent', (delivery) => {
     const root = fixture()
-    const bundle = '@xpeach/xph-dsh-experimental-feature'
+    const bundle = '@xpeach/xph-experimental-feature'
     pkg(root, 'packages/experimental/feature', bundle, { dsh: { bundle: { patch: './cordis.patch.yml' } } })
     pkg(root, candidateDir, candidate)
     write(root, 'packages/experimental/feature/cordis.patch.yml', [{ id: 'absent', insert: [{ name: candidate }] }])
@@ -225,14 +225,14 @@ describe('product package use', () => {
     pkg(root, candidateDir, candidate, { exports: { './remote': {
       types: './lib/typert.remote-client.d.ts', default: './lib/typert.remote-client.js',
     } } })
-    pkg(root, 'packages/core/host-only', '@xpeach/xph-dsh-host-only')
-    write(root, `${candidateDir}/src/index.ts`, "import '@xpeach/xph-dsh-host-only'")
+    pkg(root, 'packages/core/host-only', '@xpeach/xph-host-only')
+    write(root, `${candidateDir}/src/index.ts`, "import '@xpeach/xph-host-only'")
     write(root, 'apps/web/src/main.ts', `import '${candidate}/remote'`)
     const result = verifyProductUse(root, {})
     expect(result.defaultPackages).toContain(candidateDir)
     expect(result.defaultPackages).not.toContain('packages/core/host-only')
     expect(result.failures).toEqual([
-      'packages/core/host-only (@xpeach/xph-dsh-host-only): no product runtime use; mount it, declare its maintained role, or move it to experimental',
+      'packages/core/host-only (@xpeach/xph-host-only): no product runtime use; mount it, declare its maintained role, or move it to experimental',
     ])
   })
 
@@ -263,8 +263,8 @@ describe('product package use', () => {
     const picker = '@xpeach/xph-host-directory-picker-auto'
     pkg(root, 'packages/host/directory-picker-auto', picker)
     pkg(root, candidateDir, candidate, { dsh: { client: { platform: 'web' } } })
-    pkg(root, 'packages/client/indirect', '@xpeach/xph-dsh-client-indirect')
-    write(root, `${candidateDir}/src/client.ts`, "import '@xpeach/xph-dsh-client-indirect'")
+    pkg(root, 'packages/client/indirect', '@xpeach/xph-client-indirect')
+    write(root, `${candidateDir}/src/client.ts`, "import '@xpeach/xph-client-indirect'")
     write(root, 'packages/host/directory-picker-auto/src/index.ts',
       `export const BACKEND_PACKAGES = { native: '${candidate}' }\nexport const SURFACE_PACKAGES = { native: '${candidate}' }\n`)
     write(root, patch, [{ insert: [{ name: core }, { name: picker }] }])

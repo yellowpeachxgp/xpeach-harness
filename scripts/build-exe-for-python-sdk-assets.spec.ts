@@ -22,7 +22,7 @@ describe('Python runtime executable assets', () => {
 
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('node_modules/@xpeach/xph-web-frontend/dist/**/*')
-    expect(result.stdout).toContain('node_modules/@xpeach/xph-dsh-*/**/*.{svg,png,jpg,jpeg,webp}')
+    expect(result.stdout).toContain('node_modules/@xpeach/xph-*/**/*.{svg,png,jpg,jpeg,webp}')
     expect(result.stdout).not.toContain('skill-badge/assets/**/*')
     expect(result.stdout).toContain('node_modules/@xpeach/xph-sandbox-windows-acl/assets/**/*')
     expect(result.stdout).not.toContain('node_modules/**/*.py')

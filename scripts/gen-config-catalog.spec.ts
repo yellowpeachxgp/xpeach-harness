@@ -159,14 +159,14 @@ export const Shared = Schema.union([MissingSchema])
 describe('config catalog rendering', () => {
   const entries = (inject: string[]): CatalogEntry[] => [
     {
-      pkg: '@xpeach/xph-dsh-demo',
+      pkg: '@xpeach/xph-demo',
       dir: 'packages/demo/demo',
       entry: 'packages/demo/demo/src/index.ts',
       kind: 'config',
       inject,
       pastes: [{ text: 'export interface DemoConfig {}', source: 'packages/demo/demo/src/index.ts:3' }],
     },
-    { pkg: '@xpeach/xph-dsh-plain', dir: 'packages/demo/plain', entry: 'packages/demo/plain/src/index.ts', kind: 'no-config', inject },
+    { pkg: '@xpeach/xph-plain', dir: 'packages/demo/plain', entry: 'packages/demo/plain/src/index.ts', kind: 'no-config', inject },
   ]
   const paths = translationPairPaths('docs/config-catalog.md')
   const record = (inject: string[]) => computeTranslationPairingRecord(
@@ -179,7 +179,7 @@ describe('config catalog rendering', () => {
   it('keeps package data in generated regions shared by both languages', () => {
     const en = generatedRegions(render(entries(['jobs']), 'en')).map(region => region.text)
     expect(en.map(region => region.split('\n')[0])).toEqual([
-      '<!-- BEGIN GENERATED config-catalog:@xpeach/xph-dsh-demo -->',
+      '<!-- BEGIN GENERATED config-catalog:@xpeach/xph-demo -->',
       '<!-- BEGIN GENERATED config-catalog:no-config -->',
       '<!-- BEGIN GENERATED config-catalog:seam -->',
       '<!-- BEGIN GENERATED config-catalog:library -->',

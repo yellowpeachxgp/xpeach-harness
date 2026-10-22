@@ -61,11 +61,11 @@ describe('desktop development project', () => {
     mkdirSync(join(cli, 'lib'), { recursive: true })
     mkdirSync(join(host, 'lib'), { recursive: true })
     mkdirSync(join(dependencies, '@scope'), { recursive: true })
-    mkdirSync(join(dependencies, '@deepseek-ai', 'dsh'), { recursive: true })
+    mkdirSync(join(dependencies, '@xpeach', 'xph-dsh'), { recursive: true })
     writeFileSync(join(cli, 'package.json'), '{"name":"@xpeach/xph-dsh","version":"1.2.3"}\n')
     writeFileSync(join(host, 'package.json'), '{"name":"@xpeach/xph-desktop-host","version":"1.2.3"}\n')
     writeFileSync(join(host, 'lib', 'index.js'), '')
-    writeFileSync(join(dependencies, '@deepseek-ai', 'dsh', 'package.json'), '{}\n')
+    writeFileSync(join(dependencies, '@xpeach', 'xph-dsh', 'package.json'), '{}\n')
     mkdirSync(join(dependencies, 'plain-dependency'))
     writeFileSync(join(dependencies, 'plain-dependency', 'package.json'), '{}\n')
     mkdirSync(join(dependencies, '@scope', 'dependency'))
@@ -79,8 +79,8 @@ describe('desktop development project', () => {
       release: release(),
       target: 'win-x64',
     })
-    expect(realpathSync(join(project, 'node_modules', '@deepseek-ai', 'dsh'))).toBe(realpathSync(cli))
-    expect(realpathSync(join(project, 'node_modules', '@deepseek-ai', 'dsh-desktop-host'))).toBe(realpathSync(host))
+    expect(realpathSync(join(project, 'node_modules', '@xpeach', 'xph-dsh'))).toBe(realpathSync(cli))
+    expect(realpathSync(join(project, 'node_modules', '@xpeach', 'xph-desktop-host'))).toBe(realpathSync(host))
     expect(realpathSync(join(project, 'node_modules', 'plain-dependency')))
       .toBe(realpathSync(join(dependencies, 'plain-dependency')))
     expect(realpathSync(join(project, 'node_modules', '@scope', 'dependency')))
@@ -120,6 +120,6 @@ describe('desktop development project', () => {
       dependencyDir: dependencies,
       release: release(),
       target: 'mac-x64',
-    })).toThrow(/must be @deepseek-ai\/dsh@1\.2\.3/u)
+    })).toThrow(/must be @xpeach\/xph-dsh@1\.2\.3/u)
   })
 })

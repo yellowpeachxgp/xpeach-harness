@@ -395,9 +395,9 @@ const KIND_EXAMPLE: Readonly<Record<string, readonly string[]>> = {
   chain: ['select: owner => null'],
 }
 
-/** Drop the `@xpeach/xph-dsh-` prefix so rows stay readable. */
+/** Drop the `@xpeach/xph-` prefix so rows stay readable. */
 function shortPackage(name: string): string {
-  return name.replace('@xpeach/xph-dsh-', '')
+  return name.replace('@xpeach/xph-', '')
 }
 
 /** Truncate an over-long declaration, naming the truncation. */

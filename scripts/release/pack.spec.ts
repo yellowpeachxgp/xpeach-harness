@@ -323,12 +323,12 @@ describe('release pack CLI', () => {
   it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
     'rejects nonexact DSH %s in the produced tarball before recording publication', async (section) => {
       const root = fixture()
-      packageFixture(root, 'packages/util/probe', '@xpeach/xph-dsh-probe', { [section]: { '@xpeach/xph-dsh-library': '^1.2.3' } })
+      packageFixture(root, 'packages/util/probe', '@xpeach/xph-probe', { [section]: { '@xpeach/xph-library': '^1.2.3' } })
       write(join(root, 'apps/web/dist/index.html'), '<main></main>')
       writeClientBuildRecord(root, officialClientBuildEnvironment(root, { DSH_CLIENT_COMMIT_HASH: commit }))
       const result = await runPack(root, ['--family', 'dsh'])
       expect(result.status).not.toBe(0)
-      expect(result.stderr).toContain(`packed ${section}.@xpeach/xph-dsh-library must equal 1.2.3`)
+      expect(result.stderr).toContain(`packed ${section}.@xpeach/xph-library must equal 1.2.3`)
       expect(existsSync(join(root, 'packed', PUBLISH_ORDER_FILE))).toBe(false)
     },
   )

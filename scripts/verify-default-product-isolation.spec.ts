@@ -10,8 +10,8 @@ import { verifyDefaultProductIsolation } from './verify-default-product-isolatio
 import { writeFixtureFile as write } from './fixture-file.ts'
 
 const roots: string[] = []
-const experimental = '@xpeach/xph-dsh-experimental-prototype'
-const core = '@xpeach/xph-dsh-core'
+const experimental = '@xpeach/xph-experimental-prototype'
+const core = '@xpeach/xph-core'
 const base = '@xpeach/xph-base'
 const profile = 'packages/boot/app-boot/src/profile.ts'
 const preset = 'packages/bundle/web-app/presets/standard.patch.yml'
@@ -30,7 +30,7 @@ function fixture(): string {
   write(root, 'apps/web/package.json', { name: '@xpeach/xph-web-frontend' })
   write(root, 'apps/web/index.html', '<script type="module" src="/src/main.ts"></script>')
   write(root, 'apps/web/src/main.ts', 'export {}\n')
-  write(root, 'python/sdk-runtime/package.json', { name: '@xpeach/xph-dsh-python-runtime' })
+  write(root, 'python/sdk-runtime/package.json', { name: '@xpeach/xph-python-runtime' })
   write(root, 'packages/core/core/package.json', { name: core })
   write(root, 'packages/core/core/src/index.ts', 'export {}\n')
   write(root, 'packages/bundle/base/package.json', { name: base, dsh: { bundle: { patch: './cordis.patch.yml' } } })
@@ -74,7 +74,7 @@ describe('default product isolation', () => {
     })
   })
 
-  it.each(['@xpeach/xph-libreoffice-kit'])(
+  it.each(['@deepseek-ai/libreoffice-kit'])(
     'accepts independently published %s but rejects unknown workspace packages', (name) => {
       const root = fixture()
       const file = 'packages/core/core/package.json'
@@ -89,7 +89,7 @@ describe('default product isolation', () => {
   it.each(['wasm', 'darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64'])(
     'rejects a direct dependency on the %s engine', (engine) => {
       const root = fixture()
-      const name = `@xpeach/xph-libreoffice-kit-${engine}`
+      const name = `@deepseek-ai/libreoffice-kit-${engine}`
       manifest(root, 'packages/core/core/package.json', { dependencies: { [name]: '0.0.1' } })
       expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`unknown workspace package ${name}`)
     },
@@ -115,7 +115,7 @@ describe('default product isolation', () => {
 
   it.each([true, false])('ships an optional bundle switched off with legacy icon=%s', (legacy) => {
     const root = fixture()
-    const layer = '@xpeach/xph-dsh-experimental-layer'
+    const layer = '@xpeach/xph-experimental-layer'
     write(root, 'packages/experimental/layer/package.json', {
       name: layer, ...legacy ? { icon: './icon.svg' } : {},
       exports: { ...legacy ? {} : { './icon': './icon.svg' }, './locale/*.json': './locale/*.json' },
@@ -141,7 +141,7 @@ describe('default product isolation', () => {
   it.each(['dependencies', 'source', 'patch'])(
     'checks a nonexperimental optional bundle for experimental %s', (kind) => {
       const root = fixture()
-      const layer = '@xpeach/xph-dsh-optional-layer'
+      const layer = '@xpeach/xph-optional-layer'
       write(root, 'packages/bundle/optional-layer/package.json', {
         name: layer, icon: './icon.svg', exports: { './locale/*.json': './locale/*.json' },
         dsh: { bundle: { patch: './cordis.patch.yml' } },
@@ -204,12 +204,12 @@ describe('default product isolation', () => {
 
   it('rejects experimental names absent from the inventory and paths with another package name', () => {
     const root = fixture()
-    manifest(root, 'apps/cli/package.json', { dependencies: { '@xpeach/xph-dsh-experimental-missing': '*' } })
+    manifest(root, 'apps/cli/package.json', { dependencies: { '@xpeach/xph-experimental-missing': '*' } })
     manifest(root, 'packages/experimental/prototype/package.json', { name: '@fixture/innocent' })
     manifest(root, 'python/sdk-runtime/package.json', { dependencies: { '@fixture/innocent': '*' } })
 
     const failures = verifyDefaultProductIsolation(root).failures.join('\n')
-    expect(failures).toContain('@xpeach/xph-dsh-experimental-missing')
+    expect(failures).toContain('@xpeach/xph-experimental-missing')
     expect(failures).toContain('@fixture/innocent')
   })
 

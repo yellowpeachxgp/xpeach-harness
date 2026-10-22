@@ -30,7 +30,7 @@ function declaration(
   fields: Partial<Omit<ClientDeclaration, 'name' | 'manifest'>> = {},
 ): ClientDeclaration {
   return {
-    name: short.startsWith('@') ? short : '@xpeach/xph-dsh-client-' + short,
+    name: short.startsWith('@') ? short : '@xpeach/xph-client-' + short,
     manifest: 'packages/client/' + short.replace(/^.*\//, '') + '/package.json',
     dynamic: true,
     external: [],
@@ -96,34 +96,34 @@ describe('source package uses', () => {
 
   it('counts type imports, module augmentations, dynamic imports, and JSX', () => {
     const uses = collectSourcePackageUses('feature.tsx', [
-      "import type { A } from '@xpeach/xph-dsh-a/subpath'",
+      "import type { A } from '@xpeach/xph-a/subpath'",
       "declare module '@xpeach/xph-client-ui-slots' {}",
-      "const load = () => import('@xpeach/xph-dsh-b/remote')",
+      "const load = () => import('@xpeach/xph-b/remote')",
       'export const view = <div />',
       "export type { Local } from './local.ts'",
     ].join('\n'))
 
     expect([...uses].sort()).toEqual([
-      '@xpeach/xph-dsh-a',
-      '@xpeach/xph-dsh-b',
+      '@xpeach/xph-a',
+      '@xpeach/xph-b',
       '@xpeach/xph-client-ui-slots',
       'react',
     ])
     expect([...collectRuntimeSourcePackageUses('feature.tsx', [
-      "import type { A } from '@xpeach/xph-dsh-a/subpath'",
+      "import type { A } from '@xpeach/xph-a/subpath'",
       "declare module '@xpeach/xph-client-ui-slots' {}",
-      "const load = () => import('@xpeach/xph-dsh-b')",
+      "const load = () => import('@xpeach/xph-b')",
       'export const view = <div />',
     ].join('\n'))].sort()).toEqual([
-      '@xpeach/xph-dsh-b',
+      '@xpeach/xph-b',
       'react',
     ])
     expect([...collectRuntimeSourceSpecifiers('feature.tsx', [
-      "import type { A } from '@xpeach/xph-dsh-a/subpath'",
-      "const load = () => import('@xpeach/xph-dsh-b/remote')",
+      "import type { A } from '@xpeach/xph-a/subpath'",
+      "const load = () => import('@xpeach/xph-b/remote')",
       'export const view = <div />',
     ].join('\n'))].sort()).toEqual([
-      '@xpeach/xph-dsh-b/remote',
+      '@xpeach/xph-b/remote',
       'react',
     ])
     expect([...collectLocalSourceSpecifiers('feature.ts', [
@@ -132,7 +132,7 @@ describe('source package uses', () => {
       "const load = () => import('./lazy.ts')",
       "const legacy = require('./legacy.ts')",
       "declare module './augmentation.ts' {}",
-      "import '@xpeach/xph-dsh-a'",
+      "import '@xpeach/xph-a'",
     ].join('\n'))].sort()).toEqual([
       './lazy.ts',
       './legacy.ts',
@@ -179,7 +179,7 @@ describe('package modes', () => {
       parserPreloadIds: [],
     }))).toEqual([
       'packages/client/web/src/platform.ts: parser-preloaded external '
-      + '"@xpeach/xph-dsh-client-bootstrap/client" has no matching PARSER_PRELOAD_IDS row in '
+      + '"@xpeach/xph-client-bootstrap/client" has no matching PARSER_PRELOAD_IDS row in '
       + 'packages/client/modules/src/index.ts',
     ])
   })
@@ -188,15 +188,15 @@ describe('package modes', () => {
 describe('module requests', () => {
   it('rejects runtime requests from one client feature package to another dynamic row', () => {
     const ui = declaration('ui', {
-      external: ['@xpeach/xph-dsh-client-slots/client'],
+      external: ['@xpeach/xph-client-slots/client'],
       runtimeSourceUses: {
-        '@xpeach/xph-dsh-client-slots': ['packages/client/ui/src/client/index.ts'],
+        '@xpeach/xph-client-slots': ['packages/client/ui/src/client/index.ts'],
       },
     })
     const slots = declaration('slots')
     expect(collectClientPackageViolations(facts([], { declarations: [ui, slots] }))).toEqual([
       ui.manifest + ': client feature package requests runtime external '
-      + '"@xpeach/xph-dsh-client-slots/client"; import shared types only or call an injected Cordis service',
+      + '"@xpeach/xph-client-slots/client"; import shared types only or call an injected Cordis service',
     ])
   })
 
@@ -204,10 +204,10 @@ describe('module requests', () => {
     const gateway = {
       ...declaration('@xpeach/xph-api-gateway'), manifest: 'packages/api/gateway/package.json',
     }
-    const stale = { ...declaration('@xpeach/xph-dsh-api-stale', {
+    const stale = { ...declaration('@xpeach/xph-api-stale', {
       external: ['@xpeach/xph-api-gateway/client'],
     }), manifest: 'packages/api/stale/package.json' }
-    const live = { ...declaration('@xpeach/xph-dsh-api-live', {
+    const live = { ...declaration('@xpeach/xph-api-live', {
       external: ['@xpeach/xph-api-gateway/client'],
       runtimeSourceUses: {
         '@xpeach/xph-api-gateway': ['packages/api/live/src/client/index.ts'],
@@ -255,8 +255,8 @@ describe('module requests', () => {
 
   it('rejects duplicates, empty values, self-requests, and missing suppliers', () => {
     const ui = declaration('ui', {
-      external: ['', '@xpeach/xph-dsh-client-ui', '@xpeach/xph-dsh-missing', '@xpeach/xph-dsh-missing'],
-      inject: ['', '@xpeach/xph-dsh-a', '@xpeach/xph-dsh-a'],
+      external: ['', '@xpeach/xph-client-ui', '@xpeach/xph-missing', '@xpeach/xph-missing'],
+      inject: ['', '@xpeach/xph-a', '@xpeach/xph-a'],
     })
     const found = collectClientPackageViolations(facts([], { declarations: [ui] }))
     expect(found).toHaveLength(6)
@@ -267,17 +267,17 @@ describe('module requests', () => {
   })
 
   it('rejects synchronous module-request cycles but ignores inject cycles', () => {
-    const a = { ...declaration('@xpeach/xph-dsh-api-a', {
-      external: ['@xpeach/xph-dsh-api-b'],
-      inject: ['@xpeach/xph-dsh-api-b'],
-      runtimeSourceUses: { '@xpeach/xph-dsh-api-b': ['packages/api/a/src/client.ts'] },
-      runtimeSourceSpecifiers: { '@xpeach/xph-dsh-api-b': ['packages/api/a/src/client.ts'] },
+    const a = { ...declaration('@xpeach/xph-api-a', {
+      external: ['@xpeach/xph-api-b'],
+      inject: ['@xpeach/xph-api-b'],
+      runtimeSourceUses: { '@xpeach/xph-api-b': ['packages/api/a/src/client.ts'] },
+      runtimeSourceSpecifiers: { '@xpeach/xph-api-b': ['packages/api/a/src/client.ts'] },
     }), manifest: 'packages/api/a/package.json' }
-    const b = { ...declaration('@xpeach/xph-dsh-api-b', {
-      external: ['@xpeach/xph-dsh-api-a'],
-      inject: ['@xpeach/xph-dsh-api-a'],
-      runtimeSourceUses: { '@xpeach/xph-dsh-api-a': ['packages/client/b/src/client.ts'] },
-      runtimeSourceSpecifiers: { '@xpeach/xph-dsh-api-a': ['packages/client/b/src/client.ts'] },
+    const b = { ...declaration('@xpeach/xph-api-b', {
+      external: ['@xpeach/xph-api-a'],
+      inject: ['@xpeach/xph-api-a'],
+      runtimeSourceUses: { '@xpeach/xph-api-a': ['packages/client/b/src/client.ts'] },
+      runtimeSourceSpecifiers: { '@xpeach/xph-api-a': ['packages/client/b/src/client.ts'] },
     }), manifest: 'packages/api/b/package.json' }
     const found = collectClientPackageViolations(facts([], { declarations: [a, b] }))
     expect(found).toHaveLength(1)
@@ -312,7 +312,7 @@ describe('manifest declarations', () => {
     const root = mkdtempSync(join(tmpdir(), 'client-packages-fix-'))
     roots.push(root)
     const subject = pkg('feature', {
-      external: ['', 'react', '@xpeach/xph-dsh-client-feature', '@xpeach/xph-dsh-missing'],
+      external: ['', 'react', '@xpeach/xph-client-feature', '@xpeach/xph-missing'],
       inject: ['', '@xpeach/xph-agent', '@xpeach/xph-agent'],
       sourceUses: {
         '@xpeach/xph-agent': ['packages/client/feature/src/index.ts'],
@@ -353,7 +353,7 @@ describe('manifest declarations', () => {
       devDependencies: Record<string, string>
     }
     expect(fixed.dsh.client).toMatchObject({
-      external: ['@xpeach/xph-dsh-missing'],
+      external: ['@xpeach/xph-missing'],
       inject: ['@xpeach/xph-agent'],
     })
     expect(fixed.dependencies).toEqual(subject.dependencies)

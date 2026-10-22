@@ -15,7 +15,7 @@ function write(root: string, path: string, content: unknown): void {
   writeFileSync(join(root, path), typeof content === 'string' ? content : `${JSON.stringify(content)}\n`)
 }
 
-function directory(name: string): string { return `packages/subagent/${name.slice('@xpeach/xph-dsh-'.length)}` }
+function directory(name: string): string { return `packages/subagent/${name.slice('@xpeach/xph-'.length)}` }
 
 function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-official-catalog-'))
@@ -68,8 +68,8 @@ describe('Official bundle catalog generation', () => {
   it.each([false, true])('rejects an on-demand provider in the installed dependency closure (indirect=%s)', (indirect) => {
     const root = fixture()
     const name = ON_DEMAND_BUNDLES[0]!
-    write(root, 'apps/cli/package.json', { name: '@xpeach/xph-dsh', dependencies: { [indirect ? '@xpeach/xph-dsh-layer' : name]: '*' } })
-    if (indirect) write(root, 'packages/bundle/layer/package.json', { name: '@xpeach/xph-dsh-layer', dependencies: { [name]: '*' } })
+    write(root, 'apps/cli/package.json', { name: '@xpeach/xph-dsh', dependencies: { [indirect ? '@xpeach/xph-layer' : name]: '*' } })
+    if (indirect) write(root, 'packages/bundle/layer/package.json', { name: '@xpeach/xph-layer', dependencies: { [name]: '*' } })
     expect(() => generateOfficialBundleCatalog(root)).toThrow('must not be installed by the DSH distribution')
   })
 

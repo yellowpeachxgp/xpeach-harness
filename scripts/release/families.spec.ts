@@ -102,17 +102,17 @@ describe('release families', () => {
   it('excludes private applications from the publish set', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-release-private-'))
     roots.push(root)
-    write(join(root, 'apps/public/package.json'), '{"name":"@xpeach/xph-dsh-public","version":"0.0.1"}\n')
-    write(join(root, 'apps/private/package.json'), '{"name":"@xpeach/xph-dsh-private","version":"0.0.1","private":true}\n')
+    write(join(root, 'apps/public/package.json'), '{"name":"@xpeach/xph-public","version":"0.0.1"}\n')
+    write(join(root, 'apps/private/package.json'), '{"name":"@xpeach/xph-private","version":"0.0.1","private":true}\n')
 
-    expect(releaseFamily('dsh').members(root).map(entry => entry.name)).toEqual(['@xpeach/xph-dsh-public'])
+    expect(releaseFamily('dsh').members(root).map(entry => entry.name)).toEqual(['@xpeach/xph-public'])
   })
 
   it('publishes unlisted experimental packages while retaining private exclusions', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-release-experimental-'))
     roots.push(root)
     write(join(root, 'packages/experimental/prototype/package.json'), JSON.stringify({
-      name: '@xpeach/xph-dsh-experimental-prototype',
+      name: '@xpeach/xph-experimental-prototype',
       version: '0.0.1',
       publishConfig: { access: 'public' },
     }))
@@ -123,7 +123,7 @@ describe('release families', () => {
     }))
 
     expect(releaseFamily('dsh').members(root).map(entry => entry.name)).toEqual([
-      '@xpeach/xph-dsh-experimental-prototype',
+      '@xpeach/xph-experimental-prototype',
     ])
   })
 
@@ -136,7 +136,7 @@ describe('release families', () => {
     write(join(root, 'packages/core/unselected/package.json'), '{"version":"0.0.1"}\n')
 
     const dsh = releaseFamily('dsh')
-    const published = member('packages/core/published', '@xpeach/xph-dsh-published')
+    const published = member('packages/core/published', '@xpeach/xph-published')
     const { planned } = planShared(dsh, root, [published], '0.0.2')
 
     expect(planned.map(entry => ({ path: entry.manifestPath, tag: entry.tag }))).toEqual([
@@ -155,7 +155,7 @@ describe('release families', () => {
       write(join(root, 'package.json'), '{"version":"0.0.1"}\n')
 
       const dsh = releaseFamily('dsh')
-      const published = member('packages/core/published', '@xpeach/xph-dsh-published')
+      const published = member('packages/core/published', '@xpeach/xph-published')
       const plan = planShared(dsh, root, [published], version)
 
       expect(plan.version).toBe(version)
@@ -230,15 +230,15 @@ describe('release families', () => {
   it('publishes a dependency before its consumer, and orders ties by name', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/consumer', '@xpeach/xph-dsh-consumer', { dependencies: { '@xpeach/xph-dsh-library': 'workspace:^' } }),
-      member('packages/a/library', '@xpeach/xph-dsh-library'),
-      member('packages/a/zebra', '@xpeach/xph-dsh-zebra'),
+      member('packages/a/consumer', '@xpeach/xph-consumer', { dependencies: { '@xpeach/xph-library': 'workspace:^' } }),
+      member('packages/a/library', '@xpeach/xph-library'),
+      member('packages/a/zebra', '@xpeach/xph-zebra'),
     ]
 
     expect(dsh.publishOrder(members).order.map(entry => entry.name)).toEqual([
-      '@xpeach/xph-dsh-library',
-      '@xpeach/xph-dsh-consumer',
-      '@xpeach/xph-dsh-zebra',
+      '@xpeach/xph-library',
+      '@xpeach/xph-consumer',
+      '@xpeach/xph-zebra',
     ])
   })
 
@@ -268,7 +268,7 @@ describe('release families', () => {
 
   it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
     'requires exact packed DSH %s while preserving external ranges', (section) => {
-      const pkg = member('packages/example/provider', '@xpeach/xph-dsh-provider')
+      const pkg = member('packages/example/provider', '@xpeach/xph-provider')
       const family = releaseFamily('dsh')
       const manifest = { name: pkg.name, version: pkg.version, [section]: { '@xpeach/xph-tools': pkg.version, external: '^4.0.0' } }
       expect(() => { family.validatePackedManifest(pkg, manifest) }).not.toThrow()
@@ -291,8 +291,8 @@ describe('release families', () => {
   it('reports a runtime dependency cycle instead of emitting an arbitrary order', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/left', '@xpeach/xph-dsh-left', { dependencies: { '@xpeach/xph-dsh-right': 'workspace:^' } }),
-      member('packages/a/right', '@xpeach/xph-dsh-right', { dependencies: { '@xpeach/xph-dsh-left': 'workspace:^' } }),
+      member('packages/a/left', '@xpeach/xph-left', { dependencies: { '@xpeach/xph-right': 'workspace:^' } }),
+      member('packages/a/right', '@xpeach/xph-right', { dependencies: { '@xpeach/xph-left': 'workspace:^' } }),
     ]
 
     expect(() => { dsh.publishOrder(members) }).toThrow(/dependency cycle/)
@@ -301,42 +301,42 @@ describe('release families', () => {
   it('publishes a peer before its consumer', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/consumer', '@xpeach/xph-dsh-consumer', { peerDependencies: { '@xpeach/xph-dsh-zebra': 'workspace:^' } }),
-      member('packages/a/zebra', '@xpeach/xph-dsh-zebra'),
+      member('packages/a/consumer', '@xpeach/xph-consumer', { peerDependencies: { '@xpeach/xph-zebra': 'workspace:^' } }),
+      member('packages/a/zebra', '@xpeach/xph-zebra'),
     ]
 
     // Name order alone would place the consumer first; the peer edge moves it.
     expect(dsh.publishOrder(members).order.map(entry => entry.name)).toEqual([
-      '@xpeach/xph-dsh-zebra',
-      '@xpeach/xph-dsh-consumer',
+      '@xpeach/xph-zebra',
+      '@xpeach/xph-consumer',
     ])
   })
 
   it('orders around a peer cycle rather than refusing to publish, and reports the edge it dropped', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/left', '@xpeach/xph-dsh-left', { peerDependencies: { '@xpeach/xph-dsh-right': 'workspace:^' } }),
-      member('packages/a/right', '@xpeach/xph-dsh-right', { peerDependencies: { '@xpeach/xph-dsh-left': 'workspace:^' } }),
+      member('packages/a/left', '@xpeach/xph-left', { peerDependencies: { '@xpeach/xph-right': 'workspace:^' } }),
+      member('packages/a/right', '@xpeach/xph-right', { peerDependencies: { '@xpeach/xph-left': 'workspace:^' } }),
     ]
 
     // Sibling packages declare each other as peers, and npm treats an unmet peer
     // as a warning, so this pair has to publish rather than fail the release.
     const plan = dsh.publishOrder(members)
     expect(plan.order.map(entry => entry.name)).toEqual([
-      '@xpeach/xph-dsh-right',
-      '@xpeach/xph-dsh-left',
+      '@xpeach/xph-right',
+      '@xpeach/xph-left',
     ])
     // One of the two edges has to give, and which one it is belongs in the log.
     expect(plan.droppedPeerEdges).toEqual([
-      { consumer: '@xpeach/xph-dsh-right', peer: '@xpeach/xph-dsh-left' },
+      { consumer: '@xpeach/xph-right', peer: '@xpeach/xph-left' },
     ])
   })
 
   it('honours an install edge even when a peer cycle surrounds it', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/base', '@xpeach/xph-base', { peerDependencies: { '@xpeach/xph-dsh-consumer': 'workspace:^' } }),
-      member('packages/a/consumer', '@xpeach/xph-dsh-consumer', {
+      member('packages/a/base', '@xpeach/xph-base', { peerDependencies: { '@xpeach/xph-consumer': 'workspace:^' } }),
+      member('packages/a/consumer', '@xpeach/xph-consumer', {
         dependencies: { '@xpeach/xph-base': 'workspace:^' },
         peerDependencies: { '@xpeach/xph-base': 'workspace:^' },
       }),
@@ -347,19 +347,19 @@ describe('release families', () => {
     const plan = dsh.publishOrder(members)
     expect(plan.order.map(entry => entry.name)).toEqual([
       '@xpeach/xph-base',
-      '@xpeach/xph-dsh-consumer',
+      '@xpeach/xph-consumer',
     ])
     expect(plan.droppedPeerEdges).toEqual([
-      { consumer: '@xpeach/xph-base', peer: '@xpeach/xph-dsh-consumer' },
+      { consumer: '@xpeach/xph-base', peer: '@xpeach/xph-consumer' },
     ])
   })
 
   it('refuses an order that would publish a consumer before a dependency it installs', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/alpha', '@xpeach/xph-dsh-alpha', { peerDependencies: { '@xpeach/xph-dsh-bravo': 'workspace:^' } }),
-      member('packages/a/bravo', '@xpeach/xph-dsh-bravo', { peerDependencies: { '@xpeach/xph-dsh-charlie': 'workspace:^' } }),
-      member('packages/a/charlie', '@xpeach/xph-dsh-charlie', { dependencies: { '@xpeach/xph-dsh-alpha': 'workspace:^' } }),
+      member('packages/a/alpha', '@xpeach/xph-alpha', { peerDependencies: { '@xpeach/xph-bravo': 'workspace:^' } }),
+      member('packages/a/bravo', '@xpeach/xph-bravo', { peerDependencies: { '@xpeach/xph-charlie': 'workspace:^' } }),
+      member('packages/a/charlie', '@xpeach/xph-charlie', { dependencies: { '@xpeach/xph-alpha': 'workspace:^' } }),
     ]
 
     // A cycle of two peer edges closed by one install edge: dropping a peer edge
@@ -372,22 +372,22 @@ describe('release families', () => {
   it('ignores devDependencies when ordering', () => {
     const dsh = releaseFamily('dsh')
     const members = [
-      member('packages/a/alpha', '@xpeach/xph-dsh-alpha', { devDependencies: { '@xpeach/xph-dsh-zebra': 'workspace:^' } }),
-      member('packages/a/zebra', '@xpeach/xph-dsh-zebra'),
+      member('packages/a/alpha', '@xpeach/xph-alpha', { devDependencies: { '@xpeach/xph-zebra': 'workspace:^' } }),
+      member('packages/a/zebra', '@xpeach/xph-zebra'),
     ]
 
     // A dev dependency is absent from the published package, so it must not move
     // the consumer behind it.
     expect(dsh.publishOrder(members).order.map(entry => entry.name)).toEqual([
-      '@xpeach/xph-dsh-alpha',
-      '@xpeach/xph-dsh-zebra',
+      '@xpeach/xph-alpha',
+      '@xpeach/xph-zebra',
     ])
   })
 
   it('applies the harness payload policy to dsh and keeps upstream payloads for vendored packages', () => {
     const dsh = releaseFamily('dsh')
     const vendor = releaseFamily('vendor')
-    const harness = member('packages/a/library', '@xpeach/xph-dsh-library')
+    const harness = member('packages/a/library', '@xpeach/xph-library')
     const vendored = member('vendor/cordis', '@xpeach/xph-cordis')
 
     expect(() => { dsh.validatePayload(harness, ['package/lib/index.js', 'package/src/index.ts']) })
@@ -486,7 +486,7 @@ describe('payload change judgement', () => {
     // unnecessary patch bump, while under-reporting fails the next publish on a
     // version whose bytes moved.
     expect(reachesPayload(sourceShipping, 'vendor/cosmokit/README.i18n.yaml')).toBe(true)
-    expect(reachesPayload(member('packages/a/library', '@xpeach/xph-dsh-library', { files: ['lib/index.js'] }),
+    expect(reachesPayload(member('packages/a/library', '@xpeach/xph-library', { files: ['lib/index.js'] }),
       'packages/a/library/tests/library.spec.ts')).toBe(false)
   })
 })
