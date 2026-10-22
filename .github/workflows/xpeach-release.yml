@@ -32,7 +32,7 @@ jobs:
       build: ${{ steps.resolve.outputs.build }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
       - name: Resolve the release version
@@ -94,7 +94,7 @@ jobs:
       - name: Apply the release version
         run: node scripts/version/bump.mjs "${{ needs.version.outputs.version }}"
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: pnpm
