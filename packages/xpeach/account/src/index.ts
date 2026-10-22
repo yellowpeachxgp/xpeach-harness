@@ -28,7 +28,8 @@ import type {
   XPeachSelfRequest, XPeachTokenLogEntry, XPeachTokenLogsRequest,
   XPeachChatReply, XPeachChatRequest, XPeachChannel, XPeachRedemption, XPeachWriteResult,
   XPeachTokenPage, XPeachTokenUsage, XPeachTokenUsageRequest, XPeachTokensRequest, XPeachUserSelf,
-  XPeachModelPricingChange, XPeachModelSyncResult, XPeachSiteCatalog, XPeachSelfLogPage, XPeachSelfLogStat, XPeachNetworkPoint, XPeachNetworkSnapshot, XPeachModelPricingSnapshot,
+  XPeachModelPricingChange, XPeachModelSyncResult, XPeachSiteCatalog, XPeachSelfLogPage,
+  XPeachSelfLogStat, XPeachNetworkPoint, XPeachNetworkSnapshot, XPeachModelPricingSnapshot,
   XPeachPlaygroundChunk,
 } from './types.ts'
 
@@ -56,7 +57,7 @@ declare module '@xpeach/xph-typert-protocol' {
     /** No credential resolved for the configured reference. */
     'xpeach/missing-credential': { readonly ref: string }
     /** The site rejected or failed the management request. */
-    'xpeach/request-failed': { readonly status: number, readonly message: string }
+    'xpeach/request-failed': { readonly status: number; readonly message: string }
   }
 }
 
@@ -139,7 +140,7 @@ export class XPeachAccount extends TypertRemoteService {
   private readonly timeoutMs: number
   private readonly watchModels: string[]
   private readonly api: XPeachApi
-  private healthCache: { at: number, rows: readonly XPeachHealthRow[] } | undefined
+  private healthCache: { at: number; rows: readonly XPeachHealthRow[] } | undefined
   private readonly adminKeyFile: string
   private readonly adminKeyVar: string
   private readonly sessionKeyFile: string
@@ -200,13 +201,26 @@ export class XPeachAccount extends TypertRemoteService {
         key = ambient.trim()
         this.persistKey(key)
       }
-      writeFileSync(this.seededMarker(), '', { mode: 0o600 })
+      this.writeState(this.seededMarker(), '')
     }
     if (key !== undefined) { process.env[this.keyVar] = key; void this.publishCredential(key) }
   }
 
   /** Sentinel that "the shared store already contributed once". */
   private seededMarker(): string { return this.keyFile + '.seeded' }
+
+  /**
+   * Write one profile-local state file, creating its directory first.
+   *
+   * Every path here is profile-scoped and absent on a fresh install, so a
+   * direct `writeFileSync` fails with ENOENT and the plugin never activates.
+   * @param path - Absolute state file path.
+   * @param body - Complete file contents.
+   */
+  private writeState(path: string, body: string): void {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, body, { mode: 0o600 })
+  }
 
   /** Read the profile-local key file; absent or empty → undefined. */
   private readKeyFile(): string | undefined {
@@ -218,22 +232,22 @@ export class XPeachAccount extends TypertRemoteService {
   /** Write the key file with 0600 permissions, mkdir -p its parent. */
   private writeKeyFile(key: string): void {
     mkdirSync(dirname(this.keyFile), { recursive: true })
-    writeFileSync(this.keyFile, key + '\n', { mode: 0o600 })
+    this.writeState(this.keyFile, key + '\n')
   }
 
   /** Multi-slot key store: xpeach.keys JSON [{name,key}] next to keyFile. */
   private slotsFile(): string { return this.keyFile.replace(/\.key$/, '.keys') }
-  private readSlots(): { name: string, key: string }[] {
+  private readSlots(): { name: string; key: string }[] {
     try {
       const raw = readFileSync(this.slotsFile(), 'utf8')
-      const arr = JSON.parse(raw) as { name?: unknown, key?: unknown }[]
+      const arr = JSON.parse(raw) as { name?: unknown; key?: unknown }[]
       return Array.isArray(arr) ? arr.filter(e => typeof e?.key === 'string' && (e.key as string).startsWith('sk-'))
         .map(e => ({ name: typeof e.name === 'string' && e.name.length > 0 ? e.name : 'slot', key: e.key as string })) : []
     } catch { return [] }
   }
-  private writeSlots(slots: { name: string, key: string }[]): void {
+  private writeSlots(slots: { name: string; key: string }[]): void {
     mkdirSync(dirname(this.slotsFile()), { recursive: true })
-    writeFileSync(this.slotsFile(), JSON.stringify(slots), { mode: 0o600 })
+    this.writeState(this.slotsFile(), JSON.stringify(slots))
   }
 
   /** This runtime's own home (XPH_HOME > DSH_HOME > ~/.dsh). */
@@ -243,7 +257,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Relay-token metadata (id / name / groups) beside the key file. */
   private tokenInfoFile(): string { return this.keyFile.replace(/\.key$/, '.token') }
-  private readTokenInfo(): { id?: number, name?: string, groups?: string[] } {
+  private readTokenInfo(): { id?: number; name?: string; groups?: string[] } {
     try {
       const parsed = JSON.parse(readFileSync(this.tokenInfoFile(), 'utf8')) as Record<string, unknown>
       return {
@@ -255,16 +269,16 @@ export class XPeachAccount extends TypertRemoteService {
       }
     } catch { return {} }
   }
-  private writeTokenInfo(info: { id?: number, name?: string, groups?: string[] }): void {
+  private writeTokenInfo(info: { id?: number; name?: string; groups?: string[] }): void {
     mkdirSync(dirname(this.tokenInfoFile()), { recursive: true })
-    writeFileSync(this.tokenInfoFile(), JSON.stringify(info), { mode: 0o600 })
+    this.writeState(this.tokenInfoFile(), JSON.stringify(info))
   }
 
   /**
    * Backfill the token metadata for a bind made before this file existed:
    * find the newest xph-/dsh- token and record its id/name/groups.
    */
-  private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number, name?: string, groups?: string[] }> {
+  private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number; name?: string; groups?: string[] }> {
     const info = this.readTokenInfo()
     if (info.id !== undefined) {
       // Refresh groups from the site: the token may have been edited elsewhere.
@@ -405,13 +419,13 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private persistAdmin(token: string): void {
     mkdirSync(dirname(this.adminKeyFile), { recursive: true })
-    writeFileSync(this.adminKeyFile, token + '\n', { mode: 0o600 })
+    this.writeState(this.adminKeyFile, token + '\n')
     process.env[this.adminKeyVar] = token
   }
 
   /** Best-effort runtime record under the provider's apiKeyEnv name. */
   private async publishCredential(key: string): Promise<void> {
-    const creds = this.ctx.get('credentials') as { set?: (ref: CredentialRef, value: string) => Promise<void>, unset?: (ref: CredentialRef) => Promise<void> } | undefined
+    const creds = this.ctx.get('credentials') as { set?: (ref: CredentialRef, value: string) => Promise<void>; unset?: (ref: CredentialRef) => Promise<void> } | undefined
     try {
       await creds?.set?.(credentialRef(this.keyVar), key)
     } catch (e) {
@@ -475,7 +489,7 @@ export class XPeachAccount extends TypertRemoteService {
    * @returns the match rows.
    */
   @Remote('modelMatch')
-  async modelMatch(_request: XPeachModelsRequest, signal: AbortSignal): Promise<readonly { id: string, available: boolean }[]> {
+  async modelMatch(_request: XPeachModelsRequest, signal: AbortSignal): Promise<readonly { id: string; available: boolean }[]> {
     const catalog = await this.models({}, signal)
     const site = new Set(catalog.map(m => m.id))
     return this.watchModels.map(id => ({ id, available: site.has(id) }))
@@ -489,7 +503,7 @@ export class XPeachAccount extends TypertRemoteService {
    */
   /** List stored key slots: masked prefix + which is active. */
   @Remote('keySlots')
-  keySlotsOp(): { slots: readonly { name: string, prefix: string, active: boolean }[] } {
+  keySlotsOp(): { slots: readonly { name: string; prefix: string; active: boolean }[] } {
     const active = this.readKeyFile()
     return {
       slots: this.readSlots().map(s => ({
@@ -500,7 +514,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Add a slot (validates the key first), then activate it. */
   @Remote('keySlotAdd')
-  async keySlotAddOp(request: { name: string, key: string }, signal: AbortSignal): Promise<{ ok: boolean, message: string }> {
+  async keySlotAddOp(request: { name: string; key: string }, signal: AbortSignal): Promise<{ ok: boolean; message: string }> {
     const key = request.key.trim()
     if (!key.startsWith('sk-')) return { ok: false, message: 'xpeach: key must start with sk-' }
     const prev = this.readKeyFile()
@@ -520,7 +534,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Switch the active slot by index. */
   @Remote('keySlotSwitch')
-  keySlotSwitchOp(request: { index: number }): { ok: boolean, message: string } {
+  keySlotSwitchOp(request: { index: number }): { ok: boolean; message: string } {
     const slots = this.readSlots()
     const target = slots[request.index]
     if (target === undefined) return { ok: false, message: 'xpeach: slot index out of range' }
@@ -530,7 +544,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Remove a slot; when active, clears the key file too. */
   @Remote('keySlotRemove')
-  keySlotRemoveOp(request: { index: number }): { ok: boolean, message: string } {
+  keySlotRemoveOp(request: { index: number }): { ok: boolean; message: string } {
     const slots = this.readSlots()
     const target = slots[request.index]
     if (target === undefined) return { ok: false, message: 'xpeach: slot index out of range' }
@@ -571,7 +585,7 @@ export class XPeachAccount extends TypertRemoteService {
     } catch (e) {
       // A rejected token must not linger as a stored credential.
       try { unlinkSync(this.adminKeyFile) } catch { /* absent */ }
-      delete process.env[this.adminKeyVar]
+      Reflect.deleteProperty(process.env, this.adminKeyVar)
       throw e
     }
     const mint = await this.mintKeyWithAccessToken(signal)
@@ -606,9 +620,9 @@ export class XPeachAccount extends TypertRemoteService {
     // The Access Token is the management credential the relay key was minted
     // from — unbinding drops both so a shared machine leaves no admin power.
     if (existsSync(this.adminKeyFile)) unlinkSync(this.adminKeyFile)
-    delete process.env[this.adminKeyVar]
-    writeFileSync(this.seededMarker(), '', { mode: 0o600 })
-    delete process.env[this.keyVar]
+    Reflect.deleteProperty(process.env, this.adminKeyVar)
+    this.writeState(this.seededMarker(), '')
+    Reflect.deleteProperty(process.env, this.keyVar)
     void this.revokeCredential()
     this.notifyKeyChanged()
     return { bound: false }
@@ -643,7 +657,7 @@ export class XPeachAccount extends TypertRemoteService {
   async chat(request: XPeachChatRequest, signal: AbortSignal): Promise<XPeachChatReply> {
     const callId = request.callId
     if (callId !== undefined && callId.length > 0) {
-      return await this.api.chatStream(request, delta => { this.emitChunk(callId, delta) }, signal)
+      return await this.api.chatStream(request, (delta) => { this.emitChunk(callId, delta) }, signal)
     }
     return await this.api.chat(request, signal)
   }
@@ -743,18 +757,21 @@ export class XPeachAccount extends TypertRemoteService {
    * composer cost pill's live session spend.
    */
   @Remote('priceSync')
-  async priceSync(request: { readonly force?: boolean }, signal: AbortSignal): Promise<{ at: number, entries: number, groups: number, stale: boolean }> {
+  async priceSync(request: { readonly force?: boolean }, signal: AbortSignal):
+  Promise<{ at: number; entries: number; groups: number; stale: boolean }> {
     const snap = await this.api.pricingSync(request.force === true, signal)
     return { at: snap.at, entries: snap.entries.length, groups: Object.keys(snap.groups).length, stale: snap.stale }
   }
 
   @Remote('groups')
-  async groups(_request: Record<string, never>, signal: AbortSignal): Promise<Record<string, { desc?: string, models?: readonly string[], ratio?: string | number }>> {
+  async groups(_request: Record<string, never>, signal: AbortSignal):
+  Promise<Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }>> {
     return await this.api.groups(signal)
   }
 
   @Remote('billingRate')
-  async billingRate(request: { readonly model: string, readonly group?: string }, signal: AbortSignal): Promise<XPeachBillingRate | undefined> {
+  async billingRate(request: { readonly model: string; readonly group?: string }, signal: AbortSignal):
+  Promise<XPeachBillingRate | undefined> {
     return await this.api.billingRate(request.model, signal, request.group)
   }
 
@@ -794,7 +811,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('userLogs')
-  async userLogsOp(request: { page?: number, size?: number }, signal: AbortSignal): Promise<XPeachSelfLogPage> {
+  async userLogsOp(request: { page?: number; size?: number }, signal: AbortSignal): Promise<XPeachSelfLogPage> {
     signal.throwIfAborted()
     return await this.api.userLogs(request.page ?? 0, request.size ?? 100, signal)
   }
@@ -816,10 +833,10 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('bindSession')
-  async bindSession(value: string, signal: AbortSignal): Promise<{ bound: boolean, as?: string }> {
+  async bindSession(value: string, signal: AbortSignal): Promise<{ bound: boolean; as?: string }> {
     const trimmed = value.trim()
     if (trimmed.length === 0) throw new RemoteError('xpeach/request-failed', 'xpeach: empty session cookie', { status: 0, message: 'empty session cookie' })
-    writeFileSync(this.sessionKeyFile, trimmed + '\n', { mode: 0o600 })
+    this.writeState(this.sessionKeyFile, trimmed + '\n')
     // Prove it: one self fetch must succeed or the write is rolled back.
     try {
       const me = await this.api.userSelf(signal)
@@ -831,9 +848,9 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('sessionLogin')
-  async sessionLoginOp(signal: AbortSignal): Promise<{ bound: boolean, as?: string, minted?: boolean, mintErr?: string }> {
+  async sessionLoginOp(signal: AbortSignal): Promise<{ bound: boolean; as?: string; minted?: boolean; mintErr?: string }> {
     const cookie = await this.api.sessionLoginInteractive(signal)
-    writeFileSync(this.sessionKeyFile, cookie + '\n', { mode: 0o600 })
+    this.writeState(this.sessionKeyFile, cookie + '\n')
     try {
       const me = await this.api.userSelf(signal)
       const mint = await this.mintConsoleKey(signal)
@@ -852,7 +869,7 @@ export class XPeachAccount extends TypertRemoteService {
   /** Codex-style: mint a console PAT through the fresh session so a single
    * browser login binds BOTH the session cookie and an sk- key. Best-effort —
    * a mint failure leaves the session bound and reports mintErr instead. */
-  private async mintConsoleKey(signal: AbortSignal): Promise<{ ok: boolean, err?: string }> {
+  private async mintConsoleKey(signal: AbortSignal): Promise<{ ok: boolean; err?: string }> {
     try {
       // Reuse the newest living dsh-* token when one exists — repeat logins
       // re-bind the same key instead of sprawling one token per sign-in.
@@ -894,7 +911,7 @@ export class XPeachAccount extends TypertRemoteService {
    * once per bind: reuse the newest living xph-/dsh- token, otherwise create
    * one and reveal it. Returns the masked preview for the bind receipt.
    */
-  private async mintKeyWithAccessToken(signal: AbortSignal): Promise<{ ok: boolean, err?: string, preview?: string }> {
+  private async mintKeyWithAccessToken(signal: AbortSignal): Promise<{ ok: boolean; err?: string; preview?: string }> {
     try {
       const defaults = await this.defaultGroups(signal)
       let id: number | undefined
@@ -960,7 +977,7 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('onboardingComplete')
   async onboardingCompleteOp(_request: XPeachSelfRequest, signal: AbortSignal): Promise<{ done: boolean }> {
     signal.throwIfAborted()
-    writeFileSync(join(this.ownHome(), '.xpeach-onboarded'), new Date().toISOString() + '\n', { mode: 0o600 })
+    this.writeState(join(this.ownHome(), '.xpeach-onboarded'), new Date().toISOString() + '\n')
     return { done: true }
   }
 
@@ -1030,7 +1047,7 @@ export class XPeachAccount extends TypertRemoteService {
   /** Copy skills, merge prompts, and append MCP server rows to the profile. */
   @Remote('importAssets')
   async importAssetsOp(
-    request: { mcp?: boolean, skills?: boolean, prompts?: boolean },
+    request: { mcp?: boolean; skills?: boolean; prompts?: boolean },
     signal: AbortSignal,
   ): Promise<XPeachAssetImportResult> {
     signal.throwIfAborted()
@@ -1088,7 +1105,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Who the bound session cookie resolves to (for the bound-row display). */
   @Remote('sessionUser')
-  async sessionUserOp(signal: AbortSignal): Promise<{ bound: boolean, as?: string }> {
+  async sessionUserOp(signal: AbortSignal): Promise<{ bound: boolean; as?: string }> {
     if (this.resolveSession() === undefined) return { bound: false }
     try {
       const me = await this.api.userSelf(signal)
@@ -1101,7 +1118,7 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('unbindSession')
   unbindSessionOp(): { bound: boolean } {
     if (existsSync(this.sessionKeyFile)) { unlinkSync(this.sessionKeyFile) }
-    delete process.env[this.sessionKeyVar]
+    Reflect.deleteProperty(process.env, this.sessionKeyVar)
     return { bound: false }
   }
 
@@ -1136,7 +1153,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('userTokenUpdate')
-  async userTokenUpdateOp(request: { id: number, payload: Record<string, JsonValue> }, signal: AbortSignal): Promise<XPeachWriteResult> {
+  async userTokenUpdateOp(request: { id: number; payload: Record<string, JsonValue> }, signal: AbortSignal): Promise<XPeachWriteResult> {
     return await this.api.userTokenUpdate(request.id, request.payload, signal)
   }
 
@@ -1151,7 +1168,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('stripePay')
-  async stripePayOp(request: { amount: number, method: string }, signal: AbortSignal): Promise<XPeachWriteResult> {
+  async stripePayOp(request: { amount: number; method: string }, signal: AbortSignal): Promise<XPeachWriteResult> {
     return await this.api.stripePay(request.amount, request.method, signal)
   }
 
@@ -1171,7 +1188,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('adminOptionSet')
-  async adminOptionSetOp(request: { key: string, value: string }, signal: AbortSignal): Promise<XPeachWriteResult> {
+  async adminOptionSetOp(request: { key: string; value: string }, signal: AbortSignal): Promise<XPeachWriteResult> {
     return await this.api.adminOptionSet(request.key, request.value, signal)
   }
 
@@ -1216,7 +1233,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('adminUserManage')
-  async adminUserManageOp(request: { id: number, action: string, value: number }, signal: AbortSignal): Promise<XPeachWriteResult> {
+  async adminUserManageOp(request: { id: number; action: string; value: number }, signal: AbortSignal): Promise<XPeachWriteResult> {
     return await this.api.adminUserManage(request.id, request.action, request.value, signal)
   }
 
@@ -1226,22 +1243,24 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   @Remote('adminModelPricingPatch')
-  async adminModelPricingPatchOp(request: { changes: readonly XPeachModelPricingChange[] }, signal: AbortSignal): Promise<XPeachWriteResult> {
+  async adminModelPricingPatchOp(request: { changes: readonly XPeachModelPricingChange[] }, signal: AbortSignal):
+  Promise<XPeachWriteResult> {
     return await this.api.adminModelPricingPatch(request.changes, signal)
   }
 
   @Remote('adminOptions')
-  async adminOptionsOp(signal: AbortSignal): Promise<{ entries: readonly { key: string, value: string }[] }> {
+  async adminOptionsOp(signal: AbortSignal): Promise<{ entries: readonly { key: string; value: string }[] }> {
     return { entries: await this.api.adminOptions(signal) }
   }
 
   @Remote('adminRedemptionCreate')
-  async adminRedemptionCreateOp(request: { quota: number, count: number, name: string }, signal: AbortSignal): Promise<{ keys: readonly string[] }> {
+  async adminRedemptionCreateOp(request: { quota: number; count: number; name: string }, signal: AbortSignal):
+  Promise<{ keys: readonly string[] }> {
     return { keys: await this.api.adminRedemptionCreate(request.quota, request.count, request.name, signal) }
   }
 
   /** Persisted route choice ({ url, auto, at }). */
-  private readRouteFile(): { url?: string, auto?: boolean } {
+  private readRouteFile(): { url?: string; auto?: boolean } {
     try {
       const parsed = JSON.parse(readFileSync(this.routeFile, 'utf8')) as Record<string, unknown>
       return {
@@ -1253,8 +1272,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   private writeRouteFile(): void {
     try {
-      mkdirSync(dirname(this.routeFile), { recursive: true })
-      writeFileSync(this.routeFile, JSON.stringify({ url: this.activeBaseURL, auto: this.networkAuto, at: Date.now() }), { mode: 0o600 })
+      this.writeState(this.routeFile, JSON.stringify({ url: this.activeBaseURL, auto: this.networkAuto, at: Date.now() }))
     } catch { /* best effort */ }
   }
 
@@ -1333,7 +1351,7 @@ export class XPeachAccount extends TypertRemoteService {
       const hit = credentials === undefined ? undefined : await credentials.resolve(this.apiKeyEnv)
       const legacy = hit ?? launchEnvironmentOf(this.ctx).get(this.apiKeyEnv)
       if (legacy !== undefined && legacy.value.length > 0) { this.persistKey(legacy.value); return legacy.value }
-      writeFileSync(this.seededMarker(), '', { mode: 0o600 })
+      this.writeState(this.seededMarker(), '')
     }
     throw new RemoteError(
       'xpeach/missing-credential',
@@ -1351,7 +1369,7 @@ export class XPeachAccount extends TypertRemoteService {
    * @returns copied/skipped counters plus the resolved roots for the UI note.
    */
   @Remote('importDeepseek')
-  async importDeepseekOp(signal: AbortSignal): Promise<{ imported: number, skipped: number, files: number, source: string, dest: string }> {
+  async importDeepseekOp(signal: AbortSignal): Promise<{ imported: number; skipped: number; files: number; source: string; dest: string }> {
     signal.throwIfAborted()
     // Source is always the stock DeepSeek home (its product root is fixed
     // ~/.dsh); destination follows this runtime's own home — under pnpm xph

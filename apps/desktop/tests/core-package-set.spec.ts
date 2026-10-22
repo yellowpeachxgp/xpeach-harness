@@ -62,9 +62,9 @@ describe('desktop core package set', () => {
     const packageSet = verifyDesktopCorePackageSet(root, '1.2.3')
     expect(desktopDshPackageSpec(packageSet)).toBe('file:./desktop-packages/dsh.tgz')
     expect(desktopCorePackageOverrides(packageSet)).toEqual({
-      '@xpeach/xph-dsh': 'file:./desktop-packages/dsh.tgz',
       '@xpeach/xph-base': 'file:./desktop-packages/dsh-base.tgz',
       '@xpeach/xph-desktop-host': 'file:./desktop-packages/dsh-desktop-host.tgz',
+      '@xpeach/xph-dsh': 'file:./desktop-packages/dsh.tgz',
     })
   })
 

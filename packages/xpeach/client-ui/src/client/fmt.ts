@@ -49,8 +49,8 @@ export function sparkBars(logs: readonly XPeachTokenLogEntry[], bars = 24): numb
 }
 
 /** Daily quota spend for the last `days` calendar days, oldest → newest. */
-export function dailySpend(logs: readonly XPeachTokenLogEntry[], days = 7): { label: string, usd: number }[] {
-  const out: { label: string, usd: number }[] = []
+export function dailySpend(logs: readonly XPeachTokenLogEntry[], days = 7): { label: string; usd: number }[] {
+  const out: { label: string; usd: number }[] = []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   for (let i = days - 1; i >= 0; i--) {
@@ -89,13 +89,20 @@ export const SITE = {
   host: 'xpeach.codes',
   console: 'https://xpeach.codes/console',
   token: 'https://xpeach.codes/console/token',
-  accessToken: 'https://xpeach.codes/console/personal',
+  accessToken: 'https://xpeach.codes/security',
   topup: 'https://xpeach.codes/console/topup',
   apiBase: 'https://xpeach.codes/v1',
 } as const
 
 /** Fields we surface from a log row's 'other' JSON blob (site's billing record). */
-export interface LogOther { readonly billing_mode?: string, readonly cache_tokens?: number, readonly group_ratio?: number, readonly frt?: number, readonly expr_b64?: string, readonly ip?: string }
+export interface LogOther {
+  readonly billing_mode?: string
+  readonly cache_tokens?: number
+  readonly group_ratio?: number
+  readonly frt?: number
+  readonly expr_b64?: string
+  readonly ip?: string
+}
 export function parseOther(raw: string | undefined): LogOther | undefined {
   if (raw === undefined) return undefined
   try { return JSON.parse(raw) as LogOther } catch { return undefined }
@@ -107,12 +114,13 @@ export function decodeExpr(b64: string | undefined): string | undefined {
 }
 
 /** Per-model daily cost stacks: top-4 models + 'other', newest palette-stable. */
-export function dailySpendByModel(logs: readonly XPeachTokenLogEntry[], days = 7): { label: string, usd: number, stacks: { model: string, usd: number }[] }[] {
+export function dailySpendByModel(logs: readonly XPeachTokenLogEntry[], days = 7):
+{ label: string; usd: number; stacks: { model: string; usd: number }[] }[] {
   const totals = new Map<string, number>()
   for (const e of logs) totals.set(e.model_name, (totals.get(e.model_name) ?? 0) + (e.quota ?? 0))
   const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([m]) => m)
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const out: { label: string, usd: number, stacks: { model: string, usd: number }[] }[] = []
+  const out: { label: string; usd: number; stacks: { model: string; usd: number }[] }[] = []
   for (let i = days - 1; i >= 0; i--) {
     const start = new Date(today.getTime() - i * 86400000).getTime()
     const end = start + 86400000
