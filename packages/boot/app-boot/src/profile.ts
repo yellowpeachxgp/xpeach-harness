@@ -270,6 +270,25 @@ export function initProfile(
 ): void {
   mkdirSync(dir, { recursive: true })
   const manifestPath = join(dir, 'package.json')
+  // A profile written before a namespace migration names packages that no longer
+  // exist, so its bundles silently fail to load. Only those names are rewritten:
+  // bundles the user added themselves must survive untouched.
+  if (existsSync(manifestPath)) {
+    const current = JSON.parse(readFileSync(manifestPath, 'utf8')) as ProfileManifest
+    const recorded = current.dsh?.profile?.bundles ?? []
+    const legacy = recorded.filter(name => name.startsWith('@deepseek-ai/'))
+    if (legacy.length > 0) {
+      const migrated: ProfileManifest & { private: boolean } = {
+        ...current,
+        private: true,
+        dsh: {
+          ...current.dsh,
+          profile: { bundles: [...new Set([...bundles, ...recorded.filter(name => !legacy.includes(name))])] },
+        },
+      }
+      writeFileSync(manifestPath, JSON.stringify(migrated, undefined, 2) + '\n')
+    }
+  }
   if (!existsSync(manifestPath)) {
     const manifest: ProfileManifest & { private: boolean } = {
       name: `dsh-profile-${basename(dir)}`,

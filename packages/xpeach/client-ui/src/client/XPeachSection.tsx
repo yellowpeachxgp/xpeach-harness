@@ -174,7 +174,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
                 onChange={e => { setKey(e.target.value) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !bindBusy) void doBind() }}
               />
-              <button type="button" className={css.bindButton} disabled={bindBusy || !key.trim().startsWith('sk-')} onClick={() => { void doBind() }}>
+              <button type="button" className={css.bindButton} disabled={bindBusy || !key.trim().match(/^(?:xpk|sk)-/u) !== null} onClick={() => { void doBind() }}>
                 {bindBusy ? t('bind.working') : t('bind.submit')}
               </button>
             </div>
@@ -214,7 +214,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
         <div className={css.bindRow}>
           <input className={css.bindInput} style={{ maxWidth: '140px' }} placeholder={t('slots.namePh')} value={slotName} onChange={e => { setSlotName(e.target.value) }} />
           <input className={css.bindInput} type="password" placeholder={t('slots.keyPh')} value={slotKey} onChange={e => { setSlotKey(e.target.value) }} />
-          <button type="button" className={css.bindGhost} disabled={slotBusy || !slotKey.trim().startsWith('sk-')} onClick={() => { void doSlotAdd() }}>
+          <button type="button" className={css.bindGhost} disabled={slotBusy || !slotKey.trim().match(/^(?:xpk|sk)-/u) !== null} onClick={() => { void doSlotAdd() }}>
             {slotBusy ? t('bind.working') : t('slots.add')}
           </button>
         </div>

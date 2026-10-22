@@ -6,6 +6,7 @@
  * one module means upstream New API changes touch this file and only this file.
  */
 import { RemoteError } from '@xpeach/xph-typert-protocol'
+import { ROUTES } from './network.ts'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import type { JsonValue } from '@xpeach/xph-util-values'
 import { dirname } from 'node:path'
@@ -183,13 +184,47 @@ export class XPeachApi {
   }
 
   /** Core fetch + envelope handling shared by both credential channels. */
+  /**
+   * Send one request, failing over to the other relay routes when the transport
+   * itself fails.
+   *
+   * A dropped connection is a property of the route, not of the request, so the
+   * same call is retried against the remaining routes before it is reported.
+   * Whichever route answers becomes the active one.
+   * @param url - absolute URL on the active route.
+   * @param init - request to repeat.
+   * @param timeoutMs - per-attempt deadline.
+   * @param signal - carrier cancellation.
+   * @returns the first successful response.
+   */
+  private async send(url: string, init: RequestInit, timeoutMs: number, signal: AbortSignal): Promise<Response> {
+    const origin = new URL(url).origin
+    const attempts = [url]
+    for (const route of ROUTES) {
+      if (route.url === origin) continue
+      attempts.push(route.url + new URL(url).pathname + new URL(url).search)
+    }
+    let last: unknown
+    for (const [index, target] of attempts.entries()) {
+      try {
+        const response = await fetch(target, {
+          ...init,
+          signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
+        })
+        if (index > 0) this.setBaseURL(new URL(target).origin)
+        return response
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        last = cause
+      }
+    }
+    throw last
+  }
+
   private async fetchJson<T>(url: string, init: RequestInit, timeoutMs: number, signal: AbortSignal): Promise<T> {
     let response: Response
     try {
-      response = await fetch(url, {
-        ...init,
-        signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
-      })
+      response = await this.send(url, init, timeoutMs, signal)
     } catch (cause) {
       if (signal.aborted) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
@@ -229,10 +264,10 @@ export class XPeachApi {
     return Array.isArray(items) ? items as readonly XPeachModel[] : []
   }
   self(signal: AbortSignal): Promise<XPeachUserSelf> {
-    return this.keyGet('/api/user/self', signal)
+    return this.adminGet('/api/user/self', signal)
   }
   tokens(signal: AbortSignal): Promise<XPeachTokenPage> {
-    return this.keyGet('/api/token/?p=1&size=50', signal)
+    return this.adminGet('/api/token/?p=1&size=50', signal)
   }
 
   /** Non-streamed chat completion (playground fallback path). */
