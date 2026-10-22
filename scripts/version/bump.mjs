@@ -35,6 +35,23 @@ export function readCounter() {
   return JSON.parse(readFileSync(COUNTER, 'utf8'))
 }
 
+/** The prerelease label each long-lived branch publishes under. */
+export const BRANCH_LABEL = { alpha: '-alpha', beta: '-beta', main: '-least' }
+
+/**
+ * Apply a branch's label to a version core.
+ * @param version - any semantic version.
+ * @param branch - the branch being released.
+ * @returns the version carrying that branch's label.
+ */
+export function labelFor(version, branch) {
+  const parsed = SEMVER.exec(version)
+  if (parsed === null) throw new Error(`version: ${JSON.stringify(version)} is not a semantic version`)
+  const label = BRANCH_LABEL[branch]
+  if (label === undefined) throw new Error(`version: ${JSON.stringify(branch)} is not a release branch`)
+  return `${parsed[1]}.${parsed[2]}.${parsed[3]}${label}`
+}
+
 /**
  * Compute the next version.
  * @param {string} current - current X.Y.Z.
@@ -94,6 +111,12 @@ export function writeVersion(version) {
 }
 
 const argv = process.argv.slice(2)
+const labelIndex = argv.indexOf('--label')
+if (labelIndex !== -1) {
+  const branch = argv[labelIndex + 1]
+  console.log(labelFor(readCounter().version, branch))
+  process.exit(0)
+}
 const dryRun = argv.includes('--dry-run')
 const syncOnly = argv.includes('--sync')
 const request = argv.find((value) => !value.startsWith('--'))

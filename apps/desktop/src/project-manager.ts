@@ -7,7 +7,10 @@ import {
   mkdirSync,
   openSync,
   realpathSync,
+  rmSync,
+  statSync,
   closeSync,
+  chmodSync,
   readFileSync,
   unlinkSync,
   writeFileSync,
@@ -98,6 +101,7 @@ export class DesktopProjectManager {
       migrateProfileSettings(this.paths.profile)
       createPluginProfile(this.paths.profile)
       seedProductProfilePatch(this.paths.profile, this.productPatch)
+      adoptSharedSiteCredentials(this.paths.profile)
       installProductPlugins(this.paths.profile, this.runtime.dsh)
       removeLinkProjections(this.paths.profile)
     })
@@ -194,6 +198,28 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
  * @param profileDir - Desktop profile directory.
  * @param source - Packaged product patch, when this build shipped one.
  */
+/**
+ * Carry the site credentials a user already bound in another profile.
+ *
+ * A machine that used the CLI or an earlier desktop profile already holds the
+ * site access token; the desktop profile must not start unbound just because it
+ * is a different directory.
+ * @param profileDir - the desktop profile directory.
+ */
+export function adoptSharedSiteCredentials(profileDir: string): void {
+  const home = process.env.XPH_HOME ?? join(process.env.HOME ?? '', '.xph')
+  for (const file of ['xpeach.admin', 'xpeach.key', 'xpeach.session']) {
+    const target = join(profileDir, file)
+    if (existsSync(target)) continue
+    const candidate = join(home, 'profiles', 'xpeach', file)
+    if (!existsSync(candidate)) continue
+    try {
+      copyFileSync(candidate, target)
+      chmodSync(target, 0o600)
+    } catch { /* a read-only source simply leaves this profile unbound */ }
+  }
+}
+
 export function seedProductProfilePatch(profileDir: string, source: string | undefined): void {
   if (source === undefined || !existsSync(source)) return
   const target = join(profileDir, PROFILE_PATCH_FILENAME)
@@ -217,16 +243,39 @@ export function seedProductProfilePatch(profileDir: string, source: string | und
  */
 export function installProductPlugins(profileDir: string, runtimeDir: string): void {
   const unpacked = runtimeDir.replace(/app\.asar(?=$|[\\/])/u, 'app.asar.unpacked')
+  const stampPath = join(profileDir, 'node_modules', '@xpeach', '.installed-version')
+  // The profile keeps its own copy of the product plugins, so an upgraded
+  // application would otherwise run last version's code from the profile.
+  // The version alone cannot tell two development builds apart, so the stamp
+  // also carries the size and mtime of each bundled entry file.
+  const versions = XPEACH_PROFILE_BUNDLES.map((name) => {
+    const entry = join(unpacked === runtimeDir ? runtimeDir : unpacked, 'node_modules', name, 'lib', 'index.js')
+    if (!existsSync(entry)) return ''
+    const stats = statSync(entry)
+    return `${stats.size}@${Math.trunc(stats.mtimeMs)}`
+  })
+  const stamp = versions.join(',')
+  const previous = existsSync(stampPath) ? readFileSync(stampPath, 'utf8') : undefined
+  // A profile with no stamp predates this bookkeeping: leave its files alone and
+  // record the current version, so only a real version change replaces them.
+  if (previous === undefined) {
+    mkdirSync(dirname(stampPath), { recursive: true, mode: 0o700 })
+    writeFileSync(stampPath, stamp, { mode: 0o600 })
+    return
+  }
+  if (previous === stamp) return
   for (const name of XPEACH_PROFILE_BUNDLES) {
     // A packaged runtime keeps these packages unpacked; only a development
     // checkout has them as ordinary directories.
     const source = join(unpacked === runtimeDir ? runtimeDir : unpacked, 'node_modules', name)
     if (!existsSync(source)) continue
     const target = join(profileDir, 'node_modules', name)
-    if (existsSync(target)) continue
+    rmSync(target, { recursive: true, force: true })
     mkdirSync(dirname(target), { recursive: true, mode: 0o700 })
     cpSync(source, target, { recursive: true, dereference: true, verbatimSymlinks: false })
   }
+  mkdirSync(dirname(stampPath), { recursive: true, mode: 0o700 })
+  writeFileSync(stampPath, stamp, { mode: 0o600 })
 }
 
 /** Create the first external plugin profile without running a package manager. */

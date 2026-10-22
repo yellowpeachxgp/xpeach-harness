@@ -6,6 +6,7 @@ name: Release Desktop (XPeach)
 #                         (optionally pass an exact version to override)
 on:
   push:
+    branches: [alpha, beta, main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -52,8 +53,16 @@ jobs:
             VERSION="${VERSION#v}"
             echo "tag release: $VERSION"
           else
-            VERSION=$(node scripts/version/bump.mjs --dry-run "$BUMP")
-            echo "automatic bump: $CURRENT -> $VERSION"
+            # The branch decides the prerelease label; the counter only moves the
+            # numeric core. See docs/product/RELEASE-CONTRACT.md.
+            BRANCH="${{ github.ref_name }}"
+            CORE=$(node -e "const v=require('./version.json').version.replace(/-.*\$/,'');const p=v.split('.').map(Number);p[2]+=1;console.log(p.join('.'))")
+            VERSION=$(node -e "
+              const label={alpha:'-alpha',beta:'-beta',main:'-least'}['$BRANCH']
+              if(label===undefined){console.error('not a release branch: $BRANCH');process.exit(1)}
+              console.log('$CORE'+label)
+            ")
+            echo "branch release on $BRANCH: $CURRENT -> $VERSION"
           fi
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+[.][0-9]+[.][0-9]+(-[0-9A-Za-z.-]+)?$'; then
             echo "::error::resolved version $VERSION is not a semantic version"

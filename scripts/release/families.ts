@@ -408,7 +408,11 @@ class DshFamily extends ReleaseFamily {
       if (dependencies === null || typeof dependencies !== 'object' || Array.isArray(dependencies)) continue
       for (const [name, range] of Object.entries(dependencies)) {
         if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-')) continue
-        if (range !== member.version) {
+        // A workspace spec packs as a range (`workspace:~' becomes `~x.y.z'), so the
+        // invariant is that the range targets the release version, not that the
+        // string is bare.
+        const pinned = String(range).replace(/^[~^]/u, '')
+        if (pinned !== member.version) {
           throw new Error(`${member.name}: packed ${section}.${name} must equal ${member.version}, got ${String(range)}`)
         }
       }

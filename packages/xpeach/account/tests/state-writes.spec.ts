@@ -27,7 +27,7 @@ afterEach(() => {
 })
 
 /** Reach the private writer without constructing the whole cordis service. */
-function writeState(target: string, path: string, body: string): void {
+function writeState(path: string, body: string): void {
   const prototype = XPeachAccount.prototype as unknown as Record<string, (path: string, body: string) => void>
   const writer = prototype.writeState
   if (typeof writer !== 'function') throw new Error('XPeachAccount.writeState is missing')
@@ -39,7 +39,7 @@ describe('account state writes on a fresh install', () => {
     const profile = freshProfile()
     const marker = join(profile, 'xpeach.key.seeded')
 
-    expect(() => writeState(profile, marker, '')).not.toThrow()
+    expect(() => writeState(marker, '')).not.toThrow()
     expect(readFileSync(marker, 'utf8')).toBe('')
   })
 
@@ -47,7 +47,7 @@ describe('account state writes on a fresh install', () => {
     const profile = freshProfile()
     const nested = join(profile, 'state', 'xpeach.admin')
 
-    writeState(profile, nested, 'token\n')
+    writeState(nested, 'token\n')
     expect(readFileSync(nested, 'utf8')).toBe('token\n')
   })
 
@@ -55,7 +55,7 @@ describe('account state writes on a fresh install', () => {
     const profile = freshProfile()
     const marker = join(profile, 'xpeach.key')
 
-    writeState(profile, marker, 'sk-test\n')
+    writeState(marker, 'sk-test\n')
     expect(statSync(marker).mode & 0o777).toBe(0o600)
   })
 
@@ -63,8 +63,8 @@ describe('account state writes on a fresh install', () => {
     const profile = freshProfile()
     const marker = join(profile, 'xpeach.key')
 
-    writeState(profile, marker, 'first\n')
-    writeState(profile, marker, 'second\n')
+    writeState(marker, 'first\n')
+    writeState(marker, 'second\n')
     expect(readFileSync(marker, 'utf8')).toBe('second\n')
   })
 })

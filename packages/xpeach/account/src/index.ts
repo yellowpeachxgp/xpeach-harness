@@ -105,6 +105,19 @@ export interface Config {
   readonly keyVar?: string
 }
 
+/**
+ * Directory holding this profile's own state files.
+ *
+ * The desktop application runs a distinct profile, so the path cannot be
+ * hard-coded to the CLI profile name.
+ * @returns absolute profile directory.
+ */
+function profileHome(): string {
+  const home = process.env.XPH_HOME ?? `${process.env.HOME ?? ''}/.dsh`
+  const profile = process.env.XPH_PROFILE ?? 'xpeach'
+  return `${home}/profiles/${profile}`
+}
+
 /** Host service backing the generated `xpeach` Remote namespace. */
 export class XPeachAccount extends TypertRemoteService {
   static inject = ['typert', 'credentials', 'settings']
@@ -121,11 +134,11 @@ export class XPeachAccount extends TypertRemoteService {
     watchModels: z.array(z.string()).default([
       'swe-2-max',
     ]),
-    adminKeyFile: z.string().default(`${process.env.XPH_HOME ?? process.env.HOME + '/.dsh'}/profiles/xpeach/xpeach.admin`),
+    adminKeyFile: z.string().default(`${profileHome()}/xpeach.admin`),
     adminKeyVar: z.string().default('XPEACH_ADMIN_KEY'),
-    sessionKeyFile: z.string().default(`${process.env.XPH_HOME ?? process.env.HOME + '/.dsh'}/profiles/xpeach/xpeach.session`),
+    sessionKeyFile: z.string().default(`${profileHome()}/xpeach.session`),
     sessionKeyVar: z.string().default('XPEACH_SESSION'),
-    keyFile: z.string().default(join(process.env.XPH_HOME ?? homedir() + '/.dsh', 'profiles/xpeach/xpeach.key')),
+    keyFile: z.string().default(`${profileHome()}/xpeach.key`),
     keyVar: z.string().default('XPEACH_RELAY_KEY'),
   })
 
@@ -195,6 +208,18 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private bootstrapKey(): void {
     let key = this.readKeyFile()
+    // A profile can hold the site token but no local xpk (first launch after an
+    // upgrade, or a wiped key file). Re-derive the relay credential from the
+    // server rather than starting keyless; the server reuses its own token, so
+    // this does not mint a new one each boot.
+    if (key === undefined && this.resolveAdmin() !== undefined) {
+      setTimeout(() => {
+        void (async () => {
+          const minted = await this.mintKeyWithAccessToken(AbortSignal.timeout(30_000)).catch(() => ({ ok: false }))
+          if (minted.ok) this.notifyKeyChanged()
+        })()
+      }, 1_500).unref?.()
+    }
     if (key === undefined && !existsSync(this.seededMarker())) {
       const ambient = process.env[this.keyVar] ?? process.env[this.apiKeyEnv]
       if (ambient !== undefined && ambient.trim().length > 0) {
@@ -241,7 +266,7 @@ export class XPeachAccount extends TypertRemoteService {
     try {
       const raw = readFileSync(this.slotsFile(), 'utf8')
       const arr = JSON.parse(raw) as { name?: unknown; key?: unknown }[]
-      return Array.isArray(arr) ? arr.filter(e => typeof e?.key === 'string' && (e.key as string).startsWith('sk-'))
+      return Array.isArray(arr) ? arr.filter(e => typeof e?.key === 'string' && (e.key as string).match(/^(?:xpk|sk)-/u) !== null)
         .map(e => ({ name: typeof e.name === 'string' && e.name.length > 0 ? e.name : 'slot', key: e.key as string })) : []
     } catch { return [] }
   }
@@ -516,7 +541,7 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('keySlotAdd')
   async keySlotAddOp(request: { name: string; key: string }, signal: AbortSignal): Promise<{ ok: boolean; message: string }> {
     const key = request.key.trim()
-    if (!key.startsWith('sk-')) return { ok: false, message: 'xpeach: key must start with sk-' }
+    if (!key.match(/^(?:xpk|sk)-/u) !== null) return { ok: false, message: 'xpeach: key must start with sk-' }
     const prev = this.readKeyFile()
     this.persistKey(key)
     try {
@@ -572,12 +597,20 @@ export class XPeachAccount extends TypertRemoteService {
     if (token.length === 0) {
       throw new RemoteError('xpeach/request-failed', 'xpeach: paste your site Access Token', { status: 0, message: 'empty token' })
     }
-    if (token.startsWith('sk-')) {
+    if (token.match(/^(?:xpk|sk)-/u) !== null) {
       throw new RemoteError(
         'xpeach/request-failed',
         'xpeach: 这是 API 令牌(sk-),不是管理令牌。请粘贴站点「个人设置 → 系统访问令牌」里的 Access Token。',
         { status: 0, message: 'api key, not access token' },
       )
+    }
+    // A different account must not inherit the previous account's relay
+    // credential: drop it and the key slots before minting the new one.
+    const previousAdmin = this.resolveAdmin()
+    if (previousAdmin !== undefined && previousAdmin !== token) {
+      try { unlinkSync(this.keyFile) } catch { /* absent */ }
+      try { unlinkSync(this.slotsFile()) } catch { /* absent */ }
+      Reflect.deleteProperty(process.env, this.keyVar)
     }
     this.persistAdmin(token)
     try {
@@ -897,7 +930,7 @@ export class XPeachAccount extends TypertRemoteService {
       // needs the prefixed form.
       let key = revealed?.key
       if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
-      if (!key.startsWith('sk-')) key = 'sk-' + key
+      if (!key.match(/^(?:xpk|sk)-/u) !== null) key = 'sk-' + key
       this.persistKey(key)
       this.notifyKeyChanged()
       return { ok: true }
@@ -955,7 +988,7 @@ export class XPeachAccount extends TypertRemoteService {
       const revealed = await this.api.adminTokenKey(id, signal)
       let key = revealed?.key
       if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
-      if (!key.startsWith('sk-')) key = 'sk-' + key
+      if (!key.match(/^(?:xpk|sk)-/u) !== null) key = 'sk-' + key
       this.persistKey(key)
       // Populate the model picker from the site's market for these groups.
       void this.syncModelCatalog(signal).catch(() => {})
