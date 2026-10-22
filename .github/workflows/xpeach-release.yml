@@ -93,7 +93,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Apply the release version
         run: node scripts/version/bump.mjs "${{ needs.version.outputs.version }}"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
