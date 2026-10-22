@@ -218,12 +218,6 @@ jobs:
             echo "::warning::$TAG has no latest-*.yml; leaving the previous latest release in place"
           fi
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,assets
-; then
-            echo "::error::resolved version $VERSION is not a semver release"
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build=$((BUILD + 1))" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.target }}
