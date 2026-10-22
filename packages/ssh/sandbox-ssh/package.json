@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-sandbox-ssh",
   "description": "Remote POSIX sandbox argv provider over the shared SSH helper",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

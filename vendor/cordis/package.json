@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cordis",
   "description": "Meta-Framework for Modern JavaScript Applications",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

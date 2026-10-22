@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-account-controller",
   "description": "Expose safe account operations over authenticated Remote",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

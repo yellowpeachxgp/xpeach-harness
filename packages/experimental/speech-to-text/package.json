@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-speech-to-text",
   "description": "Experimental speech recognition with independently selectable providers",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

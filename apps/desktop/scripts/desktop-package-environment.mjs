@@ -48,7 +48,8 @@ export function localMacOSPackageEnvironment(environment = process.env) {
  */
 export function loadDesktopPackageEnvironment(platform, environment = process.env, appRoot = APP_ROOT, options = {}) {
   const preset = environment.DSH_PACKAGING_PRESET
-  let path = join(appRoot, platform === 'win32' ? '.env.windows' : '.env.macos')
+  const dotenvName = platform === 'win32' ? '.env.windows' : platform === 'linux' ? '.env.linux' : '.env.macos'
+  let path = join(appRoot, dotenvName)
   if (preset !== undefined) {
     if (preset !== 'test' && preset !== 'production') throw new Error('desktop package: preset must be test or production')
     const root = environment.DSH_PACKAGING_CONFIG_DIR

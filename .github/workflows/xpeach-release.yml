@@ -109,11 +109,13 @@ jobs:
           DSH_CLIENT_BUILD_PROFILE: official
           DSH_CLIENT_TITLE: XPeach Harness
         run: pnpm run build
-      - name: Provide Windows packaging env
-        if: matrix.target == 'win-x64'
+      - name: Provide the packaging dotenv
         shell: bash
         run: |
-          cat > apps/desktop/.env.windows <<'EOF'
+          # An unsigned community build owns no signing credential and no update
+          # policy surface, so the dotenv only carries identity and registry.
+          for name in .env.macos .env.linux .env.windows; do
+            cat > "apps/desktop/${name}" <<'EOF'
           DSH_DESKTOP_APP_ID=codes.xpeach.harness
           DSH_DESKTOP_AUTO_UPDATE_ENV=test
           DOWNLOAD_TEST_ORIGIN=https://xpeach.codes
@@ -122,6 +124,8 @@ jobs:
           DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://xpeach.codes
           DSH_DESKTOP_MANDATORY_UPDATE_CONFIG={"allowedAuthOrigins":["https://xpeach.codes"]}
           EOF
+          done
+          ls -la apps/desktop/.env.*
       - name: Build desktop app
         run: pnpm run build:desktop
       - name: Package (macOS)

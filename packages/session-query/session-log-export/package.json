@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-log-export",
   "description": "Web Session-log export command and shared download dialog",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

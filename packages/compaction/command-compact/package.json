@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-command-compact",
   "description": "Human-facing slash command for explicit session compaction",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

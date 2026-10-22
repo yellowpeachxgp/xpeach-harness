@@ -25,7 +25,7 @@ const MANIFEST_ROOTS = ['packages', 'apps', 'vendor', 'native']
 /** Never descended into. */
 const SKIP = new Set(['node_modules', 'lib', 'dist', '.git', '.desktop-build', 'coverage'])
 
-const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/u
+const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/u
 
 /**
  * Read the counter file.
@@ -47,7 +47,9 @@ export function nextVersion(current, request) {
   const [major, minor, patch] = [Number(parsed[1]), Number(parsed[2]), Number(parsed[3])]
   if (request === 'major') return `${major + 1}.0.0`
   if (request === 'minor') return `${major}.${minor + 1}.0`
+  // A bump off a prerelease lands on the corresponding stable number.
   if (request === 'patch' || request === undefined) return `${major}.${minor}.${patch + 1}`
+  if (request === 'stable') return `${major}.${minor}.${patch}`
   if (SEMVER.test(request)) return request
   throw new Error(`version: ${JSON.stringify(request)} is not a bump keyword or X.Y.Z`)
 }

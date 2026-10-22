@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-ptc-runtime-python",
   "description": "CPython subprocess implementation of the DeepSeek Harness PTC execution seam",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",

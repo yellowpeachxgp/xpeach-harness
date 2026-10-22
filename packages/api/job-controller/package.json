@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-job-controller",
   "description": "Job Remote observation stream and the reference-counted client job-output service",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-browser-use",
   "description": "Exclusive named browser-use provider registration",
-  "version": "0.6.1",
+  "version": "0.0.1-alpha",
   "publishConfig": {
     "access": "public"
   },

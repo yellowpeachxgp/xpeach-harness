@@ -59,3 +59,5 @@ packages/*/*/src/**/*.js.map
 # declaration emitted next to its own source
 packages/*/*/src/index.d.ts
 packages/*/*/src/**/index.d.ts
+
+packages/*/*/src/**/*.d.ts.map

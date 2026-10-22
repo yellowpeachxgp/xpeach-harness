@@ -8,5 +8,5 @@
       "default": "./lib/index.js"
     }
   },
-  "version": "0.6.1"
+  "version": "0.0.1-alpha"
 }
