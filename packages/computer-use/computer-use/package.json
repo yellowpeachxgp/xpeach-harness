@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-computer-use",
   "description": "Exclusive named computer-use provider registration",
-  "version": "0.0.1-alpha",
+  "version": "0.0.2-alpha",
   "publishConfig": {
     "access": "public"
   },
