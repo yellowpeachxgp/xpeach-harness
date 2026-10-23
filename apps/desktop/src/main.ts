@@ -366,8 +366,6 @@ async function main(): Promise<void> {
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
   let welcomeWindow: BrowserWindow | undefined
-  /** Product sign-in surface shown while no site token is bound. */
-  let signInWindow: BrowserWindow | undefined
   /** Whether the renderer must hold the sign-in gate before revealing the workspace. */
   let authGateRequired = false
   let enteredWorkspace = false
