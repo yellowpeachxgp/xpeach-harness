@@ -256,9 +256,10 @@ export function installProductPlugins(profileDir: string, runtimeDir: string): v
   })
   const stamp = versions.join(',')
   const previous = existsSync(stampPath) ? readFileSync(stampPath, 'utf8') : undefined
-  // A profile with no stamp predates this bookkeeping: leave its files alone and
-  // record the current version, so only a real version change replaces them.
-  if (previous === undefined) {
+  // A profile with no stamp either predates this bookkeeping or is brand new. A
+  // missing copy means new, so install it; an existing copy predates the stamp,
+  // so leave it alone and only record the fingerprint.
+  if (previous === undefined && XPEACH_PROFILE_BUNDLES.every((name) => existsSync(join(profileDir, 'node_modules', name)))) {
     mkdirSync(dirname(stampPath), { recursive: true, mode: 0o700 })
     writeFileSync(stampPath, stamp, { mode: 0o600 })
     return
