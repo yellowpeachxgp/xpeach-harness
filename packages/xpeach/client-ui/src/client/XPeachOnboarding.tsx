@@ -149,7 +149,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
           </li>
         ))}
       </ol>
-      <p className={css.onbPrivacy}>{t('onb.privacy')}</p>
+      {t('onb.privacy') !== '' && <p className={css.onbPrivacy}>{t('onb.privacy')}</p>}
     </aside>
   )
 
@@ -164,20 +164,8 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                 <span className={css.onbHeroMark} aria-hidden="true">🍑</span>
                 <div>
                   <h2>{t('onb.welcomeTitle')}</h2>
-                  <p>{t('onb.welcomeSub')}</p>
+                  {t('onb.welcomeSub') !== '' && <p>{t('onb.welcomeSub')}</p>}
                 </div>
-              </div>
-              <div className={css.onbFeatures}>
-                {([
-                  ['🧭', 'onb.featureLocal', 'onb.featureLocalDesc'],
-                  ['🔒', 'onb.featureSafe', 'onb.featureSafeDesc'],
-                  ['⏭️', 'onb.featureFast', 'onb.featureFastDesc'],
-                ] as const).map(([icon, title, desc]) => (
-                  <div key={title} className={css.onbFeature}>
-                    <span className={css.onbFeatureIcon}>{icon}</span>
-                    <div><b>{t(title)}</b><p>{t(desc)}</p></div>
-                  </div>
-                ))}
               </div>
               <div className={css.onbFooter}>
                 <button type="button" className={css.onbPrimary} onClick={() => { void goLoginOrSources() }}>{t('onb.start')}</button>
@@ -190,7 +178,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
             <>
               <div className={css.onbHead}>
                 <h2>{t('onb.loginTitle')}</h2>
-                <p>{t('onb.loginSub')}</p>
+                {t('onb.loginSub') !== '' && <p>{t('onb.loginSub')}</p>}
               </div>
               <div className={css.onbLoginCard}>
                 <label className={css.onbLabel}>{t('onb.loginToken')}</label>
@@ -214,10 +202,10 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
             <>
               <div className={css.onbHead}>
                 <h2>{t('onb.sourcesTitle')}</h2>
-                <p>{t('onb.sourcesSub')}</p>
+                {t('onb.sourcesSub') !== '' && <p>{t('onb.sourcesSub')}</p>}
               </div>
               {sourceList.length === 0 ? (
-                <div className={css.onbEmpty}><span>🍑</span><b>{t('onb.noneTitle')}</b><p>{t('onb.noneSub')}</p></div>
+                <div className={css.onbEmpty}><span>🍑</span><b>{t('onb.noneTitle')}</b>{t('onb.noneSub') !== '' && <p>{t('onb.noneSub')}</p>}</div>
               ) : (
                 <div className={css.onbCards}>
                   {sourceList.map(source => {
@@ -253,7 +241,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
             <>
               <div className={css.onbHead}>
                 <h2>{t('onb.extrasTitle')}</h2>
-                <p>{t('onb.extrasSub')}</p>
+                {t('onb.extrasSub') !== '' && <p>{t('onb.extrasSub')}</p>}
               </div>
               <div className={css.onbCards}>
                 {([
@@ -289,7 +277,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
               <div className={css.onbDone}>
                 <span className={css.onbDoneMark}>🎉</span>
                 <h2>{t('onb.doneTitle')}</h2>
-                <p>{t('onb.doneSub')}</p>
+                {t('onb.doneSub') !== '' && <p>{t('onb.doneSub')}</p>}
               </div>
               <div className={css.onbSummary}>
                 <div><b>{summary.threads}</b><span>{t('onboard.conversations')}</span></div>
@@ -308,7 +296,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
             <>
               <div className={css.onbHead}>
                 <h2>{t('onb.importingTitle')}</h2>
-                <p>{t('onb.importingSub')}</p>
+                {t('onb.importingSub') !== '' && <p>{t('onb.importingSub')}</p>}
               </div>
               <div className={css.onbProgress}>
                 {progress.map(row => (
