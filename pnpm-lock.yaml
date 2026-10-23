@@ -147,8 +147,8 @@ importers:
         specifier: 4.18.0
         version: 4.18.0
       eslint-plugin-sonarjs:
-        specifier: ^4.2.0
-        version: 4.2.0(eslint@10.5.0(jiti@2.7.0)(supports-color@9.4.0))
+        specifier: ^4.2.1
+        version: 4.2.1(eslint@10.5.0(jiti@2.7.0)(supports-color@9.4.0))
       execa:
         specifier: ^10.0.1
         version: 10.0.1
@@ -19101,6 +19101,9 @@ packages:
     resolution: {integrity: sha512-r7jh49VJxGerfAcTQA6gXcKc+98zOp/tqRwzYjgOE+iSQsP6cEU1hq2QzbuipmP68QtYdY9wKEhiCQZIzHgZ4Q==}
     engines: {node: '>=18.0.0'}
 
+  '@sonarsource/analyzer-commons-configurations@2.31.0-5284':
+    resolution: {integrity: sha512-ruk3blMs9BE9RNSp9LPpWZAIjxJmq4Cp00E3cELIHz7Kym3WxdWGRlKOMYLRQ5tJg/de7jN5AtEElY3bGIfTcw==}
+
   '@stablelib/base64@1.0.1':
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
 
@@ -20835,8 +20838,8 @@ packages:
     resolution: {integrity: sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==}
     engines: {node: '>=12'}
 
-  eslint-plugin-sonarjs@4.2.0:
-    resolution: {integrity: sha512-bqADfuNtTL7VK6RU29eoiFTtaaBKIpVPuX3bOl+rBpWSBa0zIBVZlqZNZQjfP6s4iXkAJokv5IsD8OsACkwApg==}
+  eslint-plugin-sonarjs@4.2.1:
+    resolution: {integrity: sha512-WGsnVkUxmHyBOytShcIeE+vhQaS8e+gYgbHNNi4y2e5Zj+DpE2DLTvarqDUhNwjceTZHGLgevSgfBSEVkt4EaA==}
     peerDependencies:
       eslint: ^8.0.0 || ^9.0.0 || ^10.0.0
 
@@ -21206,8 +21209,8 @@ packages:
     resolution: {integrity: sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==}
     engines: {node: '>=10.0'}
 
-  globals@17.7.0:
-    resolution: {integrity: sha512-Czmyns5dUsq4seFBR/Kdydhmo8y9kC79hiSkPn0YcGtNnYWnrgt0vjrSjx9tspoDGWm2CMarffRuLjM4xUz8xg==}
+  globals@17.12.0:
+    resolution: {integrity: sha512-cezEd/DTyyht9cvSSURyygXPfy04GtWO/5e6ZPvH7fCtjKz9PYOmuawphw1Ctd1f6C+5JypXfGD7ahNMXvevBA==}
     engines: {node: '>=18'}
 
   globalthis@1.0.4:
@@ -22150,6 +22153,10 @@ packages:
 
   minimatch@10.2.5:
     resolution: {integrity: sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==}
+    engines: {node: 18 || 20 || >=22}
+
+  minimatch@10.2.6:
+    resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
     engines: {node: 18 || 20 || >=22}
 
   minimatch@3.1.5:
@@ -26483,6 +26490,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  '@sonarsource/analyzer-commons-configurations@2.31.0-5284': {}
+
   '@stablelib/base64@1.0.1': {}
 
   '@standard-schema/spec@1.1.0': {}
@@ -28482,17 +28491,18 @@ snapshots:
 
   escape-string-regexp@5.0.0: {}
 
-  eslint-plugin-sonarjs@4.2.0(eslint@10.5.0(jiti@2.7.0)(supports-color@9.4.0)):
+  eslint-plugin-sonarjs@4.2.1(eslint@10.5.0(jiti@2.7.0)(supports-color@9.4.0)):
     dependencies:
       '@eslint-community/regexpp': 4.12.2
+      '@sonarsource/analyzer-commons-configurations': 2.31.0-5284
       builtin-modules: 3.3.0
       bytes: 3.1.2
       eslint: 10.5.0(jiti@2.7.0)(supports-color@9.4.0)
       functional-red-black-tree: 1.0.1
-      globals: 17.7.0
+      globals: 17.12.0
       jsx-ast-utils-x: 0.1.0
       lodash.merge: 4.6.2
-      minimatch: 10.2.5
+      minimatch: 10.2.6
       scslre: 0.3.0
       semver: 7.8.5
       ts-api-utils: 2.5.0(typescript@6.0.3)
@@ -28973,7 +28983,7 @@ snapshots:
       serialize-error: 7.0.1
     optional: true
 
-  globals@17.7.0: {}
+  globals@17.12.0: {}
 
   globalthis@1.0.4:
     dependencies:
@@ -30084,6 +30094,10 @@ snapshots:
   mimic-response@4.0.0: {}
 
   minimatch@10.2.5:
+    dependencies:
+      brace-expansion: 5.0.12
+
+  minimatch@10.2.6:
     dependencies:
       brace-expansion: 5.0.12
 
