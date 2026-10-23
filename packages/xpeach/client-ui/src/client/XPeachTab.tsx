@@ -406,7 +406,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
               value={loginKey} onChange={e => { setLoginKey(e.target.value) }}
               onKeyDown={e => { if (e.key === 'Enter' && !loginBusy) void doLogin() }} />
             <button type="button" className={css.bindButton}
-              disabled={loginBusy || !loginKey.trim().match(/^(?:xpk|sk)-/u) !== null}
+              disabled={loginBusy || (loginKey.trim().match(/^(?:xpk|sk)-/u) === null)}
               onClick={() => { void doLogin() }}>{loginBusy ? t('bind.working') : t('bind.submit')}</button>
           </div>
           {loginErr !== null && <p className={css.bindError}>{loginErr}</p>}
