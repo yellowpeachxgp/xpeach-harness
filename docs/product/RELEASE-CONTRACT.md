@@ -43,11 +43,14 @@ alpha ──(验证 + 我同意)──► beta ──(稳定测试 + 我同意)�
 
 | 事件 | 行为 |
 |---|---|
-| push 到 `alpha` | 递增 patch，构建三端，发布 `vX.Y.Z-alpha` |
-| push 到 `beta` | 递增 patch，构建三端，发布 `vX.Y.Z-beta` |
-| push 到 `main` | 递增 patch，构建三端，发布 `vX.Y.Z-least` |
+| push 到 `alpha` | **唯一的自动构建**：递增 patch，构建三端，发布 `vX.Y.Z-alpha` |
+| push 到 `beta` / `main` | **不自动构建** |
+| 手动触发（workflow_dispatch） | 由仓库所有者发起，指定分支与版本 |
 | push tag `v*` | 用 tag 里的版本号发布，不再递增 |
-| 手动触发 | 可指定精确版本或指定递增位置（patch/minor/major） |
+
+**beta 与 main 的发布只能由仓库所有者主动发起。** 日常开发一律只产出
+`-alpha`；需要 `-beta` 或 `-least` 时，由所有者明确指示后执行手动触发
+或推 tag，CI 才会构建并发布对应后缀的版本。
 
 每次发布后 CI 把递增后的 `version.json` 提交回对应分支。
 

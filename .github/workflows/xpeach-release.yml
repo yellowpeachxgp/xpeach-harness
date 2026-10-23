@@ -4,9 +4,11 @@ name: Release Desktop (XPeach)
 #   * push a v* tag     - that tag's number is published
 #   * run this workflow - the counter in version.json is bumped automatically
 #                         (optionally pass an exact version to override)
+# alpha builds on every push. beta and main are released only when the owner
+# asks for them, either by an explicit dispatch or by pushing a v* tag.
 on:
   push:
-    branches: [alpha, beta, main]
+    branches: [alpha]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -173,7 +175,7 @@ jobs:
     # that did succeed.
     if: always() && (startsWith(github.ref, 'refs/tags/v')
       || github.event_name == 'workflow_dispatch'
-      || github.ref == 'refs/heads/alpha' || github.ref == 'refs/heads/beta' || github.ref == 'refs/heads/main')
+      || github.ref == 'refs/heads/alpha')
     steps:
       - uses: actions/checkout@v4
         with:
