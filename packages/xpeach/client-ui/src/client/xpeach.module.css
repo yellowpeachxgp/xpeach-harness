@@ -1224,3 +1224,22 @@
 .networkSpark i[data-empty="true"] { background: var(--dsw-alias-bg-layer-2); }
 
 .badge img { vertical-align: -2px; }
+
+/* The identity mark follows the active theme: the packed logo is orange on
+   transparency, which loses contrast on a dark panel, so dark surfaces take the
+   white treatment. The theme sets the attribute; no component reads the scheme. */
+.mark {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+}
+.mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.markDark { display: none; }
+body[data-ds-dark-theme] .markLight { display: none; }
+body[data-ds-dark-theme] .markDark { display: block; }
