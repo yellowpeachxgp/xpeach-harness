@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-node-addon-system-workspace",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3-least",
   "private": true,
   "type": "module",
   "license": "BSD-3-Clause",
