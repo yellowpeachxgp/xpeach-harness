@@ -284,7 +284,6 @@ export function createElectronBuilderConfig(
             channel: update.channel,
             // CI keeps uploads in the release job; the provider still makes
             // electron-builder emit latest*.yml next to the installers.
-            ...(env.XPEACH_GITHUB_PUBLISH === 'never' ? { publishAutoUpdate: false } : {}),
           }]
         : [{ provider: 'generic', url: update.publicUrl, channel: update.channel }],
   }
