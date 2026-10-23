@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-workspace-controller",
   "description": "Workspace Remote commands and reconnect-safe state transport",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3-beta",
   "publishConfig": {
     "access": "public"
   },

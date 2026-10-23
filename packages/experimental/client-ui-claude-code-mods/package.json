@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-client-ui-claude-code-mods",
   "description": "Web band above the prompt for Claude Code mods: draws each session's mod tree and sends button presses back to the bridge",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3-beta",
   "publishConfig": {
     "access": "public"
   },
