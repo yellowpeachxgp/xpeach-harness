@@ -1,11 +1,16 @@
 {
-  "version": "0.0.1-alpha",
-  "build": 1,
+  "version": "0.0.2-alpha",
+  "build": 2,
   "history": [
     {
       "version": "0.0.1-alpha",
       "build": 1,
       "at": "2026-10-22T09:43:36.823Z"
+    },
+    {
+      "version": "0.0.2-alpha",
+      "build": 2,
+      "at": "2026-10-23T01:13:07.506Z"
     }
   ]
 }
