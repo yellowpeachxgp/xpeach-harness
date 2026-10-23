@@ -146,13 +146,18 @@ jobs:
       - name: Collect installers
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p out
-          # Only the installers and the update feed belong in the release; the
-          # unpacked application directories hold their own helper binaries.
-          find apps/desktop/.desktop-build apps/desktop/dist -type f \
-            -not -path '*-unpacked/*' -not -path '*/mac/*' -not -path '*/mac-arm64/*' \
-            \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name 'latest*.yml' -o -name '*.blockmap' \) \
-            -exec cp {} out/ \; 2>/dev/null || true
+          # Only the artifact root and the macOS bundle directory hold installers;
+          # every other directory is unpacked application content or an Electron
+          # download, and those must never reach the release.
+          for directory in apps/desktop/.desktop-build/targets/*/unsigned-artifacts \
+                           apps/desktop/.desktop-build/targets/*/unsigned-artifacts/mac-arm64; do
+            [ -d "$directory" ] || continue
+            find "$directory" -maxdepth 1 -type f \
+              \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name 'latest*.yml' -o -name '*.blockmap' \) \
+              -exec cp {} out/ \;
+          done
           ls -la out
       - uses: actions/upload-artifact@v4
         with:
