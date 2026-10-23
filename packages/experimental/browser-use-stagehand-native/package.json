@@ -46,7 +46,7 @@
     "@xpeach/xph-schemastery": "workspace:~",
     "zod": "4.4.3",
     "@xpeach/xph-subprocess": "workspace:*",
-    "@puppeteer/browsers": "3.2.2"
+    "@puppeteer/browsers": "3.2.3"
   },
   "devDependencies": {
     "@xpeach/xph-cordis": "workspace:~",
