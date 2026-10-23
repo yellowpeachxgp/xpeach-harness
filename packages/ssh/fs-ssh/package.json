@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-fs-ssh",
   "description": "Filesystem provider over the shared POSIX SSH helper",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3-alpha",
   "publishConfig": {
     "access": "public"
   },
