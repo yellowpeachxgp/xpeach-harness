@@ -366,6 +366,10 @@ async function main(): Promise<void> {
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
   let welcomeWindow: BrowserWindow | undefined
+  /** Product sign-in surface shown while no site token is bound. */
+  let signInWindow: BrowserWindow | undefined
+  /** Whether the renderer must hold the sign-in gate before revealing the workspace. */
+  let authGateRequired = false
   let enteredWorkspace = false
   // NSIS passes --updated when it launches the application after installation.
   let raiseAfterUpdate = process.platform === 'win32' && process.argv.includes('--updated')
@@ -719,7 +723,9 @@ async function main(): Promise<void> {
     assertDesktopSender(event, ['app'])
     await startup
     if (backend.host === undefined || hostUrl === undefined) throw new Error('Desktop Host is unavailable')
-    return { injections, streamBaseUrl: new URL(hostUrl).origin }
+    // The renderer holds the product sign-in gate when this profile has no site
+    // token, so the workspace cannot be used by an unauthenticated user.
+    return { injections, streamBaseUrl: new URL(hostUrl).origin, requireAuth: authGateRequired }
   })
 
   ipcMain.handle(DESKTOP_IPC.bootFailed, (event, message: unknown) => {
@@ -1145,8 +1151,9 @@ async function main(): Promise<void> {
     })
     return window
   }
-  const enterWorkspace = async ({ activate = true }: { activate?: boolean } = {}): Promise<void> => {
+  const enterWorkspace = async ({ activate = true, gate = false }: { activate?: boolean, gate?: boolean } = {}): Promise<void> => {
     if (quitting) return
+    authGateRequired = gate
     const window = mainWindow ?? createMainWindow()
     await navigateMain(applicationUrl)
     if (isQuitting() || recovery.active || window.isDestroyed()) return
@@ -1167,6 +1174,45 @@ async function main(): Promise<void> {
       window.webContents.openDevTools({ mode: 'detach' })
     }
   }
+  /**
+   * Whether this profile holds a site access token.
+   *
+   * The relay credential and the account surfaces are useless without it, so it
+   * is the product's sign-in state.
+   * @param profile - the desktop profile directory.
+   * @returns true when a token file carries a non-empty value.
+   */
+  const desktopHasSiteCredential = (profile: string): boolean => {
+    const file = join(profile, 'xpeach.admin')
+    try {
+      return existsSync(file) && readFileSync(file, 'utf8').trim().length > 0
+    } catch { return false }
+  }
+
+  let openingProductSignIn: Promise<void> | undefined
+  /**
+   * Open the product sign-in surface and keep the workspace closed until the
+   * user binds a site token there.
+   * @returns resolves once the sign-in window is visible.
+   */
+  const showProductSignIn = (): Promise<void> => {
+    if (quitting) return Promise.resolve()
+    if (signInWindow !== undefined && !signInWindow.isDestroyed()) {
+      signInWindow.show()
+      signInWindow.focus()
+      return Promise.resolve()
+    }
+    openingProductSignIn ??= (async () => {
+      const window = createWindow(appPreload, true, false)
+      signInWindow = window
+      window.on('closed', () => { signInWindow = undefined; openingProductSignIn = undefined })
+      // The workspace document hosts the product sign-in surface; it stays on the
+      // gate until the account plugin reports a bound token.
+      await window.loadURL(`${applicationUrl}#/signin`)
+    })()
+    return openingProductSignIn
+  }
+
   let openingWelcome: Promise<void> | undefined
   const showWelcome = (): Promise<void> => {
     if (quitting) return Promise.resolve()
@@ -1238,7 +1284,13 @@ async function main(): Promise<void> {
       console.error(error)
       return undefined
     })
-    if (state === undefined) { await enterWorkspace(); return }
+    if (state === undefined) {
+      // This product authenticates against the relay, not the native account
+      // service. The workspace still boots, but the product sign-in overlay owns
+      // the screen until a site token is bound.
+      await enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) })
+      return
+    }
     if (isQuitting() || backend.state.phase !== 'ready') return
     locale = resolveDesktopStartupLocale(state.localePreference, systemLanguages)
     windowsLanguage = locale.id

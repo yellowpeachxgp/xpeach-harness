@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-root",
-  "version": "0.0.3-alpha",
+  "version": "0.0.2-alpha",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -297,5 +297,13 @@
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-tool-worktree": "workspace:*",
     "@xpeach/xph-experimental-cua-macos": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yellowpeachxgp/xpeach-harness.git"
+  },
+  "homepage": "https://xpeach.codes",
+  "bugs": {
+    "url": "https://github.com/yellowpeachxgp/xpeach-harness/issues"
   }
 }

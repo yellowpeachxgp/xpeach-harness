@@ -83,6 +83,9 @@ pnpm xph web
 
 ## 许可
 
-[MIT](LICENSE)
+[MIT](LICENSE)。第三方依赖及其许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-第三方依赖及其许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+XPeach Harness 派生自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+（MIT 许可）。本仓库基于上游提交 `687f282e8625c6b8d11ff58211a90524be2e4317`
+（版本 `0.2.1-rc.2`），上游版权声明保留在 [LICENSE](LICENSE) 中。
+本项目做了哪些改动，见 [NOTICE.md](NOTICE.md)。
