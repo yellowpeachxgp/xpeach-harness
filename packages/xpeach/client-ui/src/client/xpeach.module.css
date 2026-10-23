@@ -990,6 +990,12 @@
   padding: 24px; background: color-mix(in srgb, var(--xph-scrim) 32%, transparent);
   backdrop-filter: blur(6px);
 }
+/* A gated launch owns the whole screen: no workspace chrome may show through. */
+.onbBackdrop[data-gate="true"] {
+  background: var(--dsw-alias-bg-base);
+  backdrop-filter: none;
+  z-index: 9000;
+}
 .onbShell {
   width: min(1040px, 94vw); height: min(720px, 90vh);
   display: grid; grid-template-columns: 250px 1fr;

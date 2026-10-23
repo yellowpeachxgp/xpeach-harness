@@ -154,7 +154,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
   )
 
   return (
-    <div className={css.onbBackdrop} role="dialog" aria-modal="true" aria-label={t('onb.welcomeTitle')}>
+    <div className={css.onbBackdrop} data-gate={authGateRequired() ? 'true' : 'false'} role="dialog" aria-modal="true" aria-label={t('onb.welcomeTitle')}>
       <div className={css.onbShell}>
         {rail}
         <main className={css.onbMain}>
