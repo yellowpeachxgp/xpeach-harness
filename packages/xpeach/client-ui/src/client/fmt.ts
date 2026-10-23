@@ -91,7 +91,9 @@ export const SITE = {
   token: 'https://xpeach.codes/console/token',
   accessToken: 'https://xpeach.codes/security',
   topup: 'https://xpeach.codes/console/topup',
-  apiBase: 'https://xpeach.codes/v1',
+  apiBase: 'https://fast.xpeach.codes/v1',
+  /** Referral entry point. */
+  register: 'https://fast.xpeach.codes/register',
 } as const
 
 /** Fields we surface from a log row's 'other' JSON blob (site's billing record). */

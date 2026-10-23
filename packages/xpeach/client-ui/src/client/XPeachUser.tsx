@@ -295,9 +295,9 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
             </dl>
             {typeof aff['aff_code'] === 'string' && aff['aff_code'] !== '' && (
               <div className={css.bindRow}>
-                <code className={css.keyMask}>{'https://fast.xpeach.codes/register'}?aff={aff['aff_code']}</code>
+                <code className={css.keyMask}>{SITE.register}?aff={aff['aff_code']}</code>
                 <button type="button" className={css.bindGhost} onClick={() => {
-                  void navigator.clipboard.writeText('https://fast.xpeach.codes/register' + '?aff=' + String(aff['aff_code']))
+                  void navigator.clipboard.writeText(SITE.register + '?aff=' + String(aff['aff_code']))
                   setEditMsg(t('bind.copied'))
                 }}>{t('bind.copyApi')}</button>
               </div>

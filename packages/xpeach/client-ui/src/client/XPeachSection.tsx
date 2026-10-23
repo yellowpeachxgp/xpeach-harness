@@ -187,7 +187,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
             <span className={css.bindOk}>● {t('bind.bound')}</span>
             {keyMask !== null && <code className={css.keyMask}>{keyMask}</code>}
             <button type="button" className={css.bindGhost} onClick={() => {
-              void navigator.clipboard.writeText('https://fast.xpeach.codes/v1')
+              void navigator.clipboard.writeText(SITE.apiBase)
               setCopied(true); setTimeout(() => { setCopied(false) }, 1500)
             }}>{copied ? t('bind.copied') : t('bind.copyApi')}</button>
             <Button variant="outline" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('bind.unbind')}</Button>
