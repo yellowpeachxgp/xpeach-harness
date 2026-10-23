@@ -8,6 +8,7 @@ import type { XPeachOps, XPeachUserSelfRow, XPeachUserTokenRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
 import css from './xpeach.module.css'
 import { EditDrawer, DrawerField } from './XPeachDrawer.tsx'
+import { SITE } from './fmt.ts'
 
 const fmtQuota = (q: number): string => (q / 500000).toFixed(2) + '\u{1F351}'
 

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-typert-loader",
   "description": "Loader integration for generated Typert package contributions",
-  "version": "0.0.3-alpha",
+  "version": "0.0.2-alpha",
   "publishConfig": {
     "access": "public"
   },
