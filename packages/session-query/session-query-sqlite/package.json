@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-query-sqlite",
   "description": "Concrete ctx.sessionQuery backend with SQLite FTS5 search",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3-alpha",
   "publishConfig": {
     "access": "public"
   },
