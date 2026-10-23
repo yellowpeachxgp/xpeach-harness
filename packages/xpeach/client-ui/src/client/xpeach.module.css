@@ -175,7 +175,7 @@
 .cardHeadText { display: flex; flex-direction: column; gap: 2px; }
 .cardTitle { margin: 0; font-size: 16px; font-weight: 500; line-height: 24px; }
 .cardDesc { margin: 0; font-size: 14px; line-height: 22px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
-.badge {
+.badge { display: inline-flex; align-items: center; gap: 4px;
   margin-left: auto;
   padding: 3px 10px;
   border-radius: 999px;
@@ -1222,3 +1222,5 @@
 .networkSpark { display: flex; align-items: flex-end; gap: 3px; height: 28px; }
 .networkSpark i { flex: 1; border-radius: var(--dsw-radius-sm); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 55%, transparent); min-height: 2px; }
 .networkSpark i[data-empty="true"] { background: var(--dsw-alias-bg-layer-2); }
+
+.badge img { vertical-align: -2px; }

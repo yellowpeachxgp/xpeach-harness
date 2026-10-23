@@ -2,6 +2,7 @@
  * page renders the site account itself — identity, quota, token activity
  * heatmap, top models, and the latest calls. */
 import { useEffect, useMemo, useState } from 'react'
+import { XPeachMark } from './brand.tsx'
 import type { XPeachOps, XPeachSelfLogRow, XPeachUserSelfRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
 import { quotaUsd, rel } from './fmt.ts'
@@ -107,7 +108,7 @@ export function XPeachProfile({ t, userSelf, userLogs, userLogStat, recentSessio
   return (
     <div className={css.profileRoot}>
       <section className={css.profileHero}>
-        <div className={css.profileAvatar} aria-hidden="true">🍑</div>
+        <div className={css.profileAvatar} aria-hidden="true"><XPeachMark size={32} /></div>
         <div className={css.profileIdentity}>
           <h2 className={css.profileName}>{meRow?.display_name ?? meRow?.username ?? t('profile.guest')}</h2>
           <p className={css.profileHandle}>

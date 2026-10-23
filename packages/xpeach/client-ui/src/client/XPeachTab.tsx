@@ -5,7 +5,7 @@ import type { XPeachHealthRow, XPeachOps, XPeachData, XPeachPricingRow, XPeachSi
 import { XPeachAdmin } from './XPeachAdmin.tsx'
 import { XPeachUser } from './XPeachUser.tsx'
 import { XPeachProfile } from './XPeachProfile.tsx'
-import { XPeachMark as XPeachMarkInline } from './brand.tsx'
+import { XPeachMark } from './brand.tsx'
 import type { XPeachModel } from '@xpeach/xph-account/types'
 import { rel, callUsd, isBrandSafe, SITE, parseOther, decodeExpr } from './fmt.ts'
 import css from './xpeach.module.css'
@@ -398,7 +398,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
       )}
       {state.status === 'error' && (
         <div className={css.loginCard}>
-          <XPeachMarkInline size={26} />
+          <XPeachMark size={26} />
           <h3 className={css.loginTitle}>{t('bind.title')}</h3>
           <p className={css.bindHint}>{t('bind.hint')} <a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a></p>
           <div className={css.bindRow}>
@@ -539,7 +539,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
                 </li>
               )
             })}
-            {filtered.length === 0 && <li className={css.emptyState}><span className={css.emptyMark} aria-hidden="true">🍑</span><span>{t('market.empty')}</span></li>}
+            {filtered.length === 0 && <li className={css.emptyState}><span className={css.emptyMark} aria-hidden="true"><XPeachMark size={24} /></span><span>{t('market.empty')}</span></li>}
           </ul>
         </>
       )}
@@ -697,5 +697,5 @@ function familyOf(id: string): string {
 }
 function glyphOf(id: string): string {
   const fam = familyOf(id)
-  return ({ claude: '◐', gemini: '✦', grok: '◮', gpt: '◈', glm: '◇', mimo: '◍', qwen: '▣', kimi: '◆', swe: '🍑', deepseek: '◈', doubao: '◉', minimax: '▦' } as Record<string, string>)[fam] ?? '○'
+  return ({ claude: '◐', gemini: '✦', grok: '◮', gpt: '◈', glm: '◇', mimo: '◍', qwen: '▣', kimi: '◆', swe: '◆', deepseek: '◈', doubao: '◉', minimax: '▦' } as Record<string, string>)[fam] ?? '○'
 }

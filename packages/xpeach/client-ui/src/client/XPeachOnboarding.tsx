@@ -28,7 +28,7 @@ function authGateRequired(): boolean {
 
 /** Per-source presentation. */
 const SOURCE_META: Record<string, { icon: string, key: string }> = {
-  deepseek: { icon: '🍑', key: 'onb.src.deepseek' },
+  deepseek: { icon: '◆', key: 'onb.src.deepseek' },
   claude: { icon: '✳️', key: 'onb.src.claude' },
   codex: { icon: '⬡', key: 'onb.src.codex' },
   zcode: { icon: '⚡', key: 'onb.src.zcode' },
@@ -161,7 +161,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
           {stage === 'welcome' && (
             <>
               <div className={css.onbHero}>
-                <span className={css.onbHeroMark} aria-hidden="true">🍑</span>
+                <XPeachMarkInline size={40} />
                 <div>
                   <h2>{t('onb.welcomeTitle')}</h2>
                   {t('onb.welcomeSub') !== '' && <p>{t('onb.welcomeSub')}</p>}
@@ -205,7 +205,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                 {t('onb.sourcesSub') !== '' && <p>{t('onb.sourcesSub')}</p>}
               </div>
               {sourceList.length === 0 ? (
-                <div className={css.onbEmpty}><span>🍑</span><b>{t('onb.noneTitle')}</b>{t('onb.noneSub') !== '' && <p>{t('onb.noneSub')}</p>}</div>
+                <div className={css.onbEmpty}><XPeachMarkInline size={28} /><b>{t('onb.noneTitle')}</b>{t('onb.noneSub') !== '' && <p>{t('onb.noneSub')}</p>}</div>
               ) : (
                 <div className={css.onbCards}>
                   {sourceList.map(source => {
