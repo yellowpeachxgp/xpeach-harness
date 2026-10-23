@@ -155,7 +155,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
           <h3 className={css.cardTitle}>{t('section.title')}</h3>
           <p className={css.cardDesc}>{t('section.description')}</p>
         </div>
-        <span className={css.badge}>🍑Code</span>
+        <span className={css.badge}><XPeachMark size={12} />Code</span>
       </header>
 
       {/* 凭据绑定卡 —— 半登录核心 */}
