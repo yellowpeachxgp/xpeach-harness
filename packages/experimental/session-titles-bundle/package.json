@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-session-titles-bundle",
   "description": "Refresh session titles as new human prompts arrive.",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3-least",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
