@@ -6,28 +6,30 @@ import markBlack from './assets/mark-black.webp'
 import markOutline from './assets/mark-outline.webp'
 
 /**
- * The XPeach mark: the identity logo from the brand pack, not a drawn glyph.
- * The white variant is for dark surfaces, the black one for monochrome contexts.
- * @param props - host-supplied geometry and which variant to paint.
+ * The XPeach mark.
+ *
+ * The brand pack ships the same logo in light and dark treatments. Both are
+ * rendered and the active theme decides which one paints, so the mark follows
+ * a runtime theme switch without any component re-rendering or hard-coded
+ * scheme list here.
+ * @param props - host-supplied geometry and an optional explicit variant.
  * @returns the mark image.
  */
-export function XPeachMark({ size, className, variant = 'primary' }: {
+export function XPeachMark({ size, className, variant = 'auto' }: {
   size: number
   className?: string | undefined
-  variant?: 'primary' | 'white' | 'black' | 'outline'
+  variant?: 'auto' | 'primary' | 'white' | 'black' | 'outline'
 }): JSX.Element {
-  const source = { primary: markPrimary, white: markWhite, black: markBlack, outline: markOutline }[variant]
+  if (variant !== 'auto') {
+    const single = { primary: markPrimary, white: markWhite, black: markBlack, outline: markOutline }[variant]
+    return <img src={single} width={size} height={size} alt="" aria-hidden="true" draggable={false}
+      className={className} style={{ display: 'block', objectFit: 'contain', flex: 'none' }} />
+  }
   return (
-    <img
-      src={source}
-      width={size}
-      height={size}
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      style={{ display: 'block', objectFit: 'contain', flex: 'none' }}
-      {...(className === undefined ? {} : { className })}
-    />
+    <span className={className === undefined ? css.mark : `${css.mark} ${className}`} style={{ width: size, height: size }}>
+      <img src={markPrimary} alt="" aria-hidden="true" draggable={false} className={css.markLight} />
+      <img src={markWhite} alt="" aria-hidden="true" draggable={false} className={css.markDark} />
+    </span>
   )
 }
 
