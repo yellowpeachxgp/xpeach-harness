@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachModel } from '@xpeach/xph-account/types'
 import type { XPeachOps } from './ops.ts'
+import { Button } from '@xpeach/xph-client-ui-primitives'
 import { XPeachMark } from './brand.tsx'
 import { footerBridge } from './FooterAction.tsx'
 import { quotaUsd, rel, useTime, SITE } from './fmt.ts'
@@ -174,9 +175,9 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
                 onChange={e => { setKey(e.target.value) }}
                 onKeyDown={e => { if (e.key === 'Enter' && !bindBusy) void doBind() }}
               />
-              <button type="button" className={css.bindButton} disabled={bindBusy || !key.trim().match(/^(?:xpk|sk)-/u) !== null} onClick={() => { void doBind() }}>
+              <Button variant="primary" className={css.bindButton} disabled={bindBusy || (key.trim().match(/^(?:xpk|sk)-/u) === null)} onClick={() => { void doBind() }}>
                 {bindBusy ? t('bind.working') : t('bind.submit')}
-              </button>
+              </Button>
             </div>
             {bindError !== null && <p className={css.bindError}>{bindError}</p>}
           </>
@@ -189,7 +190,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
               void navigator.clipboard.writeText('https://fast.xpeach.codes/v1')
               setCopied(true); setTimeout(() => { setCopied(false) }, 1500)
             }}>{copied ? t('bind.copied') : t('bind.copyApi')}</button>
-            <button type="button" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('bind.unbind')}</button>
+            <Button variant="outline" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('bind.unbind')}</Button>
           </div>
         )}
       </div>
@@ -214,9 +215,9 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
         <div className={css.bindRow}>
           <input className={css.bindInput} style={{ maxWidth: '140px' }} placeholder={t('slots.namePh')} value={slotName} onChange={e => { setSlotName(e.target.value) }} />
           <input className={css.bindInput} type="password" placeholder={t('slots.keyPh')} value={slotKey} onChange={e => { setSlotKey(e.target.value) }} />
-          <button type="button" className={css.bindGhost} disabled={slotBusy || !slotKey.trim().match(/^(?:xpk|sk)-/u) !== null} onClick={() => { void doSlotAdd() }}>
+          <Button variant="outline" className={css.bindGhost} disabled={slotBusy || (slotKey.trim().match(/^(?:xpk|sk)-/u) === null)} onClick={() => { void doSlotAdd() }}>
             {slotBusy ? t('bind.working') : t('slots.add')}
-          </button>
+          </Button>
         </div>
         {slotMsg !== null && <p className={css.bindHint}>{slotMsg}</p>}
       </div>
@@ -240,9 +241,9 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
                 onClick={() => { void doSessionBind() }}>
                 {sessBusy ? t('bind.working') : t('session.submit')}
               </button>
-              <button type="button" className={css.bindGhost} disabled={sessBusy} onClick={() => { void doSessionLogin() }}>
+              <Button variant="outline" className={css.bindGhost} disabled={sessBusy} onClick={() => { void doSessionLogin() }}>
                 {t('session.browserLogin')}
-              </button>
+              </Button>
             </div>
             {sessError !== null && <p className={css.bindError}>{sessError}</p>}
             {sessMsg !== null && <p className={css.bindHint}>{sessMsg}</p>}
@@ -251,7 +252,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
         {sessBound === 'bound' && (
           <div className={css.bindRow}>
             <span className={css.bindOk}>● {t('session.bound')}{sessAs !== null && <span className={css.adminDim}> @{sessAs}</span>}</span>
-            <button type="button" className={css.bindGhost} onClick={() => { void doSessionUnbind() }}>{t('session.unbind')}</button>
+            <Button variant="outline" className={css.bindGhost} onClick={() => { void doSessionUnbind() }}>{t('session.unbind')}</Button>
           </div>
         )}
       </div>

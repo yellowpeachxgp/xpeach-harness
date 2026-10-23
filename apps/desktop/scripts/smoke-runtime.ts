@@ -165,7 +165,11 @@ export function apply(ctx) {
     if (!installation.ok || !installed.ok || await installed.text() !== 'installed plugin ready') {
       throw new Error(`desktop runtime: bundled pnpm plugin installation failed: ${installationResult}`)
     }
+    // LibreOfficeKit publishes no linux-x64 build, so Office conversion is
+    // exercised only where the runtime package exists.
+    const officeSupported = process.platform !== 'linux'
     for (const { extension } of inputs) {
+      if (!officeSupported) break
       const converted = await fetch(new URL(`/desktop-smoke-office/${extension}`, ready.url), {
         headers: { cookie }, signal: AbortSignal.timeout(120_000),
       })
@@ -175,6 +179,10 @@ export function apply(ctx) {
         || !pdf.subarray(-1024).toString().trimEnd().endsWith('%%EOF')) {
         throw new Error(`desktop runtime: invalid ${extension} PDF output`)
       }
+    }
+    if (!officeSupported) {
+      console.log('desktop runtime: Office conversion skipped (no LibreOfficeKit build for linux)')
+      return
     }
     const cliResponse = await fetch(new URL('/desktop-smoke-office-cli', ready.url), {
       headers: { cookie }, signal: AbortSignal.timeout(120_000),

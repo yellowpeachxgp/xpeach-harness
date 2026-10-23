@@ -138,7 +138,7 @@ export function XPeachStatusPill({ t, loadUsage, load, bind, keyState, subscribe
               onChange={e => { setBindKey(e.target.value) }}
               onKeyDown={e => { if (e.key === 'Enter' && !bindBusy) { void doBind() } }}
             />
-            <button type="button" className={css.bindButton} disabled={bindBusy || !bindKey.trim().match(/^(?:xpk|sk)-/u) !== null}
+            <button type="button" className={css.bindButton} disabled={bindBusy || (bindKey.trim().match(/^(?:xpk|sk)-/u) === null)}
               onClick={() => { void doBind() }}>{bindBusy ? t('bind.working') : t('bind.submit')}</button>
           </div>
           {bindError !== null && <p className={css.bindError}>{bindError}</p>}

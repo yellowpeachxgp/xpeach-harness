@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-todo",
   "description": "Model-facing todo_write tool over the DeepSeek Harness event-sourced session log",
-  "version": "0.0.1-alpha",
+  "version": "0.0.2-alpha",
   "publishConfig": {
     "access": "public"
   },
