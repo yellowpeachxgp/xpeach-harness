@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-plugin-manager",
   "description": "Current-profile plugin and bundle management shared by dsh CLI, Web and agent tools",
-  "version": "0.0.1-alpha",
+  "version": "0.0.2-alpha",
   "publishConfig": {
     "access": "public"
   },
