@@ -6,7 +6,7 @@ import type { XPeachOps } from './ops.ts'
 import { Button } from '@xpeach/xph-client-ui-primitives'
 import { XPeachMark } from './brand.tsx'
 import { footerBridge } from './FooterAction.tsx'
-import { quotaUsd, rel, useTime, SITE } from './fmt.ts'
+import { rel, useTime, SITE } from './fmt.ts'
 import css from './xpeach.module.css'
 
 
@@ -261,12 +261,7 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
       {bound === 'bound' && state.status === 'error' && <p>{t('status.error')}: {state.message}</p>}
       {bound === 'bound' && state.status === 'ready' && (
         <>
-          <dl className={css.usageGrid}>
-            <div className={css.usageCell}><dt>{t('usage.name')}</dt><dd>{state.data.name}</dd></div>
-            <div className={css.usageCell}><dt>{t('usage.granted')}</dt><dd>{state.data.unlimited_quota ? t('usage.unlimited') : quotaUsd(state.data.total_granted)}</dd></div>
-            <div className={css.usageCell}><dt>{t('usage.used')}</dt><dd>{quotaUsd(state.data.total_used)}</dd></div>
-            <div className={css.usageCell}><dt>{t('usage.available')}</dt><dd>{state.data.unlimited_quota ? t('usage.unlimited') : quotaUsd(state.data.total_available)}</dd></div>
-          </dl>
+
 
           <div>
             <p className={css.groupTitle}>{t('models.title')}</p>
