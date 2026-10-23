@@ -1240,6 +1240,7 @@
   object-fit: contain;
   display: block;
 }
-.markDark { display: none; }
-body[data-ds-dark-theme] .markLight { display: none; }
-body[data-ds-dark-theme] .markDark { display: block; }
+/* Specificity must beat `.mark img`, which sets display on every child. */
+.mark img.markDark { display: none; }
+body[data-ds-dark-theme] .mark img.markLight { display: none; }
+body[data-ds-dark-theme] .mark img.markDark { display: block; }
