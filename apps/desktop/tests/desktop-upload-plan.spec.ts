@@ -181,8 +181,10 @@ describe('desktop upload plan', () => {
     expect(latest.artifacts.filter(file => file.channelMetadata).map(file => file.filename)).toEqual(['latest.yml'])
     expect(nightly.artifacts.filter(file => file.channelMetadata).map(file => file.filename)).toEqual(['nightly.yml'])
     expect(latest.artifacts.every(file => !nightly.artifacts.some(other => other.key === file.key))).toBe(true)
-    const prerelease = await fixture('win-x64', '1.2.3-alpha.1', environment, 'latest')
-    await expect(createDesktopUploadPlan('win-x64', prerelease)).rejects.toThrow(/latest requires a stable version/u)
+    // A prerelease is publishable on the latest channel: every XPeach release
+    // carries a channel suffix.
+    const prerelease = await createDesktopUploadPlan('win-x64', await fixture('win-x64', '1.2.3-alpha.1', environment, 'latest'))
+    expect(prerelease.artifacts.some(file => file.filename === 'latest.yml')).toBe(true)
   })
 
   it('publishes fixed feeds referencing versioned binaries without overriding CDN cache policy', async () => {
