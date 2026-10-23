@@ -88,6 +88,12 @@ Desktop packaging and the release pipeline are described in
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Third-party dependencies and their licenses are disclosed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Third-party dependencies and their licenses are disclosed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+XPeach Harness is a derivative work of
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), which is
+MIT-licensed. This repository is based on upstream commit
+`687f282e8625c6b8d11ff58211a90524be2e4317` (version `0.2.1-rc.2`); the upstream
+copyright notice is preserved in [LICENSE](LICENSE). What this project changed
+is listed in [NOTICE.md](NOTICE.md).

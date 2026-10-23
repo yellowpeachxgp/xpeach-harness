@@ -18,6 +18,14 @@ interface ProgressItem { readonly id: string, readonly label: string, status: St
 
 const STEPS: readonly StepId[] = ['welcome', 'login', 'sources', 'extras', 'done']
 
+/**
+ * Whether the desktop shell demands a bound token before the workspace opens.
+ * @returns true when the boot handshake published the gate flag.
+ */
+function authGateRequired(): boolean {
+  return (globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ === true
+}
+
 /** Per-source presentation. */
 const SOURCE_META: Record<string, { icon: string, key: string }> = {
   deepseek: { icon: '🍑', key: 'onb.src.deepseek' },
@@ -42,7 +50,9 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
     let live = true
     void onboardingDone().then(async done => {
       if (!live) return
-      if (done.done) { setStage('closed'); return }
+      // A gated launch owns the screen even when onboarding was completed before:
+      // the profile has no token, so there is nothing to enter.
+      if (done.done && !authGateRequired()) { setStage('closed'); return }
       const r = await onboardingScan()
       if (!live) return
       if (!('error' in r)) {
@@ -171,7 +181,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
               </div>
               <div className={css.onbFooter}>
                 <button type="button" className={css.onbPrimary} onClick={() => { void goLoginOrSources() }}>{t('onb.start')}</button>
-                <button type="button" className={css.onbGhost} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>
+                {!authGateRequired() && <button type="button" className={css.onbGhost} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>}
               </div>
             </>
           )}
@@ -195,7 +205,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                   {busy ? t('bind.working') : t('bind.submit')}
                 </button>
                 <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { void doBrowser() }}>{t('onb.loginBrowser')}</button>
-                <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { setStage('sources') }}>{t('onb.loginLater')}</button>
+                {!authGateRequired() && <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { setStage('sources') }}>{t('onb.loginLater')}</button>}
               </div>
             </>
           )}
