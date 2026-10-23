@@ -15,10 +15,10 @@ process.env.XPH_HOME ??= join(homedir(), '.xph')
 // The bundled runtime reads XPH_PRODUCT to pick the product name it announces.
 process.env.XPH_PRODUCT ??= '1'
 
-import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   app,
@@ -1187,30 +1187,6 @@ async function main(): Promise<void> {
     try {
       return existsSync(file) && readFileSync(file, 'utf8').trim().length > 0
     } catch { return false }
-  }
-
-  let openingProductSignIn: Promise<void> | undefined
-  /**
-   * Open the product sign-in surface and keep the workspace closed until the
-   * user binds a site token there.
-   * @returns resolves once the sign-in window is visible.
-   */
-  const showProductSignIn = (): Promise<void> => {
-    if (quitting) return Promise.resolve()
-    if (signInWindow !== undefined && !signInWindow.isDestroyed()) {
-      signInWindow.show()
-      signInWindow.focus()
-      return Promise.resolve()
-    }
-    openingProductSignIn ??= (async () => {
-      const window = createWindow(appPreload, true, false)
-      signInWindow = window
-      window.on('closed', () => { signInWindow = undefined; openingProductSignIn = undefined })
-      // The workspace document hosts the product sign-in surface; it stays on the
-      // gate until the account plugin reports a bound token.
-      await window.loadURL(`${applicationUrl}#/signin`)
-    })()
-    return openingProductSignIn
   }
 
   let openingWelcome: Promise<void> | undefined
