@@ -140,7 +140,7 @@ describe('PiAiAdapter provider routing', () => {
   it('omits the conversation headers when the profile turns tracking off', async () => {
     const server = await mockServer([{ events: textEvents }])
     const ctx = await harness(server.url, { conversationTracking: false })
-    await assemble(ctx, { model: 'deepseek-flash', messages: [] }, { sessionId: 'session-abc' })
+    await assemble(ctx, { model: 'deepseek-flash', messages: [], sessionId: 'session-abc' as never })
     expect(server.headers[0]?.['x-session-id']).toBeUndefined()
     expect(server.headers[0]?.['prompt_cache_key']).toBeUndefined()
   })
