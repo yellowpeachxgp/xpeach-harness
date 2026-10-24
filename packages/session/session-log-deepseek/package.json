@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-log-deepseek",
   "description": "Incremental lossless session-log request extension for the official DeepSeek LLM API",
-  "version": "0.0.4-alpha",
+  "version": "0.0.5-alpha",
   "publishConfig": {
     "access": "public"
   },

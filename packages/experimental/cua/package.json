@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cua",
   "description": "Shared Computer Use application objects, authorization, and logged tool execution",
-  "version": "0.0.4-alpha",
+  "version": "0.0.5-alpha",
   "publishConfig": {
     "access": "public"
   },
