@@ -1,6 +1,6 @@
 /** Shared model fields and actions for both adapter catalog editors. */
 
-import type { ReactNode } from 'react'
+import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import {
   IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconTrashOutlineRegular,
 } from '@xpeach/xph-client-ui-primitives'
@@ -29,6 +29,10 @@ interface ModelRowProps {
   reasoningLevels?: readonly string[] | undefined
   expanded: boolean
   disabled: boolean
+  /** Move this row to another position; omission hides the drag affordance. */
+  onReorder?: ((from: number, to: number) => void) | undefined
+  /** Total rows, so the last one cannot be dragged past the end. */
+  rowCount?: number | undefined
   t: (key: ModelsKey) => string
   contextWindow: CapacityInput
   maxTokens: CapacityInput
@@ -46,8 +50,43 @@ interface ModelRowProps {
  */
 export function ModelRow(props: ModelRowProps): ReactNode {
   const { model, position, t, disabled } = props
+  const onReorder = props.onReorder
+  const dragIndex = useRef<number | null>(null)
+  const [dropTarget, setDropTarget] = useState(false)
+  // A row is draggable only while the editor offers a reorder, so a read-only
+  // surface keeps its plain rows.
+  const drag = onReorder === undefined
+    ? {}
+    : {
+      draggable: !disabled,
+      onDragStart: (event: DragEvent<HTMLDivElement>) => {
+        dragIndex.current = position - 1
+        event.dataTransfer.effectAllowed = 'move'
+        // Firefox only starts a drag when some data is set.
+        event.dataTransfer.setData('text/plain', String(position - 1))
+      },
+      onDragOver: (event: DragEvent<HTMLDivElement>) => {
+        if (dragIndex.current === null) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+        setDropTarget(true)
+      },
+      onDragLeave: () => { setDropTarget(false) },
+      onDrop: (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        setDropTarget(false)
+        const from = dragIndex.current
+        dragIndex.current = null
+        if (from !== null) onReorder(from, position - 1)
+      },
+      onDragEnd: () => { dragIndex.current = null; setDropTarget(false) },
+    }
   return (
-    <div className={styles['modelEntry']}>
+    <div
+      className={dropTarget ? `${styles['modelEntry']} ${styles['modelEntryDrop']}` : styles['modelEntry']}
+      data-drag-handle={onReorder === undefined ? undefined : 'model-row'}
+      {...drag}
+    >
       <div className={styles['modelRow']}>
         {(['id', 'name'] as const).map(field => (
           <input
