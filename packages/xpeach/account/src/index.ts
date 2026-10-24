@@ -137,7 +137,7 @@ export class XPeachAccount extends TypertRemoteService {
   static Config: z<Config> = z.object({
     baseURL: z.string().default('https://fast.xpeach.codes'),
     apiKeyEnv: z.string().role('credential-ref').default('XPEACH_API_KEY'),
-    protocolPreference: z.union(['compatible', 'native']).default('compatible'),
+    protocolPreference: z.union(['compatible', 'native', 'auto']).default('compatible'),
     timeoutMs: z.natural().min(1000).default(15000),
     watchModels: z.array(z.string()).default([
       'swe-2-max',
@@ -1527,7 +1527,7 @@ export function readProviderKeys(described: unknown): string[] {
   return typeof providers === 'object' && providers !== null ? Object.keys(providers) : []
 }
 
-export type ModelProtocolPreference = 'compatible' | 'native'
+export type ModelProtocolPreference = 'compatible' | 'native' | 'auto'
 
 /**
  * The wire protocol a catalogue entry speaks.
@@ -1545,16 +1545,25 @@ export function modelProtocol(
   preference: ModelProtocolPreference = 'compatible',
 ): 'openai-responses' | 'anthropic-messages' | 'openai-completions' {
   const offered = new Set(model.supported_endpoint_types ?? [])
+  // `auto` takes the richest wire only where chat completions is not on offer:
+  // a route that advertises both is more likely to have channels for the wire
+  // this relay has served before, so it stays there.
   if (preference === 'native') {
     if (offered.has('openai-response')) return 'openai-responses'
     if (offered.has('anthropic')) return 'anthropic-messages'
     return 'openai-completions'
   }
-  // A route that cannot speak chat completions still needs a wire it accepts.
-  if (offered.has('openai')) return 'openai-completions'
+  if (preference === 'auto') {
+    if (offered.has('openai')) return 'openai-completions'
+    if (offered.has('openai-response')) return 'openai-responses'
+    if (offered.has('anthropic')) return 'anthropic-messages'
+    return 'openai-completions'
+  }
+  // Compatible prefers chat completions, but a route that does not offer it must
+  // still land on a wire it accepts rather than be stranded.
+  if (offered.has('openai') || offered.size === 0) return 'openai-completions'
   if (offered.has('openai-response')) return 'openai-responses'
-  if (offered.has('anthropic')) return 'anthropic-messages'
-  return 'openai-completions'
+  return 'anthropic-messages'
 }
 
 

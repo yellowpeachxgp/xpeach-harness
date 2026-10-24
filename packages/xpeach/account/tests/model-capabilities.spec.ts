@@ -27,6 +27,14 @@ describe('catalogue capabilities', () => {
     expect(modelProtocol({ supported_endpoint_types: ['openai'] }, 'native')).toBe('openai-completions')
   })
 
+  it('takes the declared wire under auto only when chat completions is absent', () => {
+    // Both offered: stay on the wire this relay has served before.
+    expect(modelProtocol({ supported_endpoint_types: ['anthropic', 'openai'] }, 'auto')).toBe('openai-completions')
+    // Only Anthropic offered: auto still finds a drivable wire.
+    expect(modelProtocol({ supported_endpoint_types: ['anthropic'] }, 'auto')).toBe('anthropic-messages')
+    expect(modelProtocol({ supported_endpoint_types: ['openai-response'] }, 'auto')).toBe('openai-responses')
+  })
+
   it('still routes a single-wire route to the only wire it accepts', () => {
     // Nothing to choose: a route with no chat completions must not be stranded.
     expect(modelProtocol({ supported_endpoint_types: ['anthropic'] })).toBe('anthropic-messages')
