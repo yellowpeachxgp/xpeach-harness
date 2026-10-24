@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui",
   "description": "XPeach 🍑Code face for the Web client: peach brand, quota pill, quota notice, and the settings account card",
-  "version": "0.0.8-alpha",
+  "version": "0.0.9-alpha",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
