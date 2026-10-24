@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { modelInputs, modelProtocol } from '../src/index.ts'
+import { modelInputs, modelProtocol, readProviderKeys } from '../src/index.ts'
 
 describe('catalogue capabilities', () => {
   it('declares image input only for a route that advertises vision', () => {
@@ -32,5 +32,18 @@ describe('catalogue capabilities', () => {
     expect(modelProtocol({ supported_endpoint_types: ['anthropic'] })).toBe('anthropic-messages')
     expect(modelProtocol({ supported_endpoint_types: ['openai-response'] })).toBe('openai-responses')
     expect(modelProtocol({})).toBe('openai-completions')
+  })
+
+  it('reads the live provider keys so a stale write can be retired', () => {
+    const described = {
+      namespaces: [
+        { ns: 'llm', value: {} },
+        { ns: 'llm-pi-ai', value: { providers: { xpeach: {}, 'xpeach-anthropic': {}, custom: {} } } },
+      ],
+    }
+    expect(readProviderKeys(described)).toEqual(['xpeach', 'xpeach-anthropic', 'custom'])
+    // Anything it cannot read retires nothing.
+    expect(readProviderKeys(undefined)).toEqual([])
+    expect(readProviderKeys({})).toEqual([])
   })
 })
