@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-node-addon-system-linux-arm64",
-  "version": "0.0.7-alpha",
+  "version": "0.0.8-alpha",
   "description": "Linux arm64 system binaries: static Landlock launcher and glibc/musl Node-API flock addons",
   "repository": {
     "type": "git",
