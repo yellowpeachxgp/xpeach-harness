@@ -124,6 +124,27 @@ describe('PiAiAdapter provider routing', () => {
     expect(server.headers[0]?.['user-agent']).toBe(userAgent())
   })
 
+  it('names the conversation on every request so a strict gateway accepts it', async () => {
+    const server = await mockServer([{ events: textEvents }])
+    const ctx = await harness(server.url)
+    await assemble(ctx, { model: 'deepseek-flash', messages: [], sessionId: 'session-abc' as never })
+    const sent = server.headers[0]
+    // Every spelling a relay is known to read carries the same identity.
+    expect(sent?.['x-session-id']).toBe('session-abc')
+    expect(sent?.['x-conversation-id']).toBe('session-abc')
+    expect(sent?.['thread-id']).toBe('session-abc')
+    expect(sent?.['x-client-request-id']).toBe('session-abc')
+    expect(sent?.['prompt_cache_key']).toBe('session-abc')
+  })
+
+  it('omits the conversation headers when the profile turns tracking off', async () => {
+    const server = await mockServer([{ events: textEvents }])
+    const ctx = await harness(server.url, { conversationTracking: false })
+    await assemble(ctx, { model: 'deepseek-flash', messages: [] }, { sessionId: 'session-abc' })
+    expect(server.headers[0]?.['x-session-id']).toBeUndefined()
+    expect(server.headers[0]?.['prompt_cache_key']).toBeUndefined()
+  })
+
   it('forwards common stream options and profile reasoning', async () => {
     const server = await mockServer([{ events: textEvents }])
     const ctx = await harness(server.url, {
