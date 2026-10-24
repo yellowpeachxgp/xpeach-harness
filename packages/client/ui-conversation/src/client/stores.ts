@@ -56,27 +56,6 @@ export function readConversationDraft(sessionId: SessionId): DraftSnapshot {
 }
 
 /**
- * Seed a Session's saved draft before its input mounts.
- *
- * The editor reads its initial document from storage, so writing the draft
- * before the child Conversation opens makes the text appear as the composer's
- * starting content rather than as a later programmatic replacement.
- * @param sessionId - Session whose draft to seed.
- * @param text - plain text to place in the composer.
- */
-export function seedConversationDraft(sessionId: SessionId, text: string): void {
-  if (typeof localStorage === 'undefined') return
-  try {
-    const key = `${CONVERSATION_STORE_KEY}.${sessionId}`
-    const raw = localStorage.getItem(key)
-    const stored: Record<string, unknown> = raw === null ? {} : JSON.parse(raw) as Record<string, unknown>
-    localStorage.setItem(key, JSON.stringify({ ...stored, draft: { text, references: [] } }))
-  } catch {
-    // An unavailable or full store simply leaves the composer empty.
-  }
-}
-
-/**
  * Read the persisted View preference before the Slot store is materialized.
  * @param sessionId - Session-scoped persistence suffix.
  * @returns the preferred View id, or null when storage has no usable value.
