@@ -403,7 +403,12 @@ export class XPeachAccount extends TypertRemoteService {
       if (settings?.update === undefined) return { ok: false, count: 0, groups: info.groups ?? [], error: 'settings service unavailable' }
       // The provider base is the OpenAI-compatible `/v1` root, not the site root.
       const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
-      const baseURL = siteRoot.endsWith('/v1') ? siteRoot : siteRoot + '/v1'
+      // Each SDK appends its own path: the OpenAI ones continue from /v1, while
+      // the Anthropic client adds /v1/messages itself and would double it.
+      const openAIBase = siteRoot.endsWith('/v1') ? siteRoot : siteRoot + '/v1'
+      const anthropicBase = siteRoot.replace(/\/v1$/u, '')
+      const baseURLFor = (protocol: string): string =>
+        protocol === 'anthropic-messages' ? anthropicBase : openAIBase
       // One provider per protocol the catalogue offers, so a route reaches the
       // wire that keeps its native semantics instead of everything falling back
       // to chat completions.
@@ -415,7 +420,7 @@ export class XPeachAccount extends TypertRemoteService {
           displayName: protocol === 'openai-completions' ? '🍑Code' : `🍑Code ${protocol}`,
           apiKeyEnv: this.keyVar,
           api: protocol,
-          baseURL,
+          baseURL: baseURLFor(protocol),
           models: [],
         }
         ;(providers[key] as { models: object[] }).models.push(model)
