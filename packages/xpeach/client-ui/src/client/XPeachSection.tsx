@@ -21,7 +21,9 @@ type LoadState =
   | { readonly status: 'error', message: string }
 
 /** The settings section bound component; all data arrives through props. */
-export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove }: XPeachSectionProps): JSX.Element {
+export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking }: XPeachSectionProps): JSX.Element {
+  const [tracking, setTrackingOn] = useState<boolean | null>(null)
+  useEffect(() => { void trackingState().then(setTrackingOn) }, [trackingState])
   const [bound, setBound] = useState<Bound>('unknown')
   const [keyMask, setKeyMask] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -264,6 +266,20 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
 
 
           <div>
+            <p className={css.groupTitle}>{t('tracking.title')}</p>
+            <label className={css.trackingRow}>
+              <input
+                type="checkbox"
+                checked={tracking !== false}
+                onChange={(event) => {
+                  const next = event.target.checked
+                  setTrackingOn(next)
+                  void setTracking(next)
+                }}
+              />
+              <span>{t('tracking.label')}</span>
+            </label>
+
             <p className={css.groupTitle}>{t('models.title')}</p>
             {match.length > 0 && (
               <div className={css.modelMatchRow}>

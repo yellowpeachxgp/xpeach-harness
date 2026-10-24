@@ -104,6 +104,32 @@ function registerUi(ctx: Context): Array<() => void> {
       const written = await ctx.remote.settings.mutate('llm-pi-ai', opsList, view?.revision)
       return written.ok ? null : written.error.message
     },
+    trackingState: async () => {
+      const described = await ctx.remote.settings.describe()
+      if (!described.ok) return true
+      const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
+      const providers = (view?.value as { providers?: Record<string, { conversationTracking?: boolean }> } | undefined)?.providers ?? {}
+      // The switch writes every product provider together, so the canonical one
+      // speaks for all of them. An absent field means on: the relay is more
+      // likely to reject a request that names no conversation than to mind the
+      // headers.
+      return providers.xpeach?.conversationTracking !== false
+    },
+    setTracking: async (enabled: boolean) => {
+      const described = await ctx.remote.settings.describe()
+      if (!described.ok) return described.error.message
+      const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
+      const providers = (view?.value as { providers?: Record<string, unknown> } | undefined)?.providers ?? {}
+      type JsonV = null | boolean | number | string | JsonV[] | { [k: string]: JsonV }
+      const opsList: { op: 'set', path: string[], value: JsonV }[] = []
+      for (const key of Object.keys(providers)) {
+        if (!key.startsWith('xpeach')) continue
+        opsList.push({ op: 'set', path: ['providers', key, 'conversationTracking'], value: enabled })
+      }
+      if (opsList.length === 0) return null
+      const written = await ctx.remote.settings.mutate('llm-pi-ai', opsList, view?.revision)
+      return written.ok ? null : written.error.message
+    },
     adminOverview: async () => {
       const r = await ctx.remote.xpeach.adminOverview({})
       return r.ok ? r.value : { error: r.error.message }
