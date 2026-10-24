@@ -432,6 +432,11 @@ export class XPeachAccount extends TypertRemoteService {
           apiKeyEnv: this.keyVar,
           api: protocol,
           baseURL: baseURLFor(protocol),
+          // A relay answers "no channel for this group" as a 500, which the
+          // default policy treats as transient and retries five times — around
+          // forty seconds for a failure no retry can fix. Two attempts cover a
+          // genuinely blipping channel without stalling the turn.
+          retryPolicy: { mode: 'normal', maxRetries: 2 },
           models: [],
         }
         ;(providers[key] as { models: object[] }).models.push(model)
