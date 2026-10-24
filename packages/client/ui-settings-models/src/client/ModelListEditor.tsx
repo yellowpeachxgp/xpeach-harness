@@ -220,6 +220,23 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     })
   }
 
+  /**
+   * Move one model to another position.
+   *
+   * Order is the profile's own array order, so a move is a splice rather than a
+   * stored index: every later edit keeps addressing the model, not the slot.
+   * @param from - index being dragged.
+   * @param to - index it should land on.
+   */
+  const reorder = (from: number, to: number): void => {
+    if (from === to || from < 0 || to < 0 || from >= models.length || to >= models.length) return
+    const next = [...models]
+    const [moved] = next.splice(from, 1)
+    if (moved === undefined) return
+    next.splice(to, 0, moved)
+    onChange(next)
+  }
+
   const patch = (index: number, next: Record<string, string | number | undefined>): void => {
     onChange(models.map((model, at) => {
       if (at !== index) return model
@@ -371,6 +388,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             reasoningLevels={props.reasoningLevels}
             expanded={expanded.has(index)}
             disabled={disabled}
+            onReorder={reorder}
+            rowCount={models.length}
             t={t}
             contextWindow={{
               value: capacityText(model, index, 'contextWindow'),
