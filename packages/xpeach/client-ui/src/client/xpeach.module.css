@@ -1249,3 +1249,6 @@ body[data-ds-dark-theme] .mark img.markLight { display: none; }
 body[data-ds-dark-theme] .mark img.markDark { display: block; }
 
 .trackingRow { display: flex; align-items: center; gap: 8px; font-size: var(--xph-type-body); color: var(--dsw-alias-label-primary); cursor: pointer; }
+
+.familyRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.familyChip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--xph-type-caption); color: var(--dsw-alias-label-primary); cursor: pointer; }

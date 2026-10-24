@@ -21,11 +21,13 @@ type LoadState =
   | { readonly status: 'error', message: string }
 
 /** The settings section bound component; all data arrives through props. */
-export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking, protocolPreference, setProtocolPreference }: XPeachSectionProps): JSX.Element {
+export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking, protocolPreference, setProtocolPreference, families, setFamilies }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
   const [protocol, setProtocol] = useState<'compatible' | 'native' | 'auto'>('compatible')
   useEffect(() => { void trackingState().then(setTrackingOn) }, [trackingState])
+  const [familyList, setFamilyList] = useState<{ all: readonly string[]; enabled: readonly string[] }>({ all: [], enabled: [] })
   useEffect(() => { void protocolPreference().then(setProtocol) }, [protocolPreference])
+  useEffect(() => { void families().then(setFamilyList) }, [families])
   const [bound, setBound] = useState<Bound>('unknown')
   const [keyMask, setKeyMask] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -297,6 +299,34 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
                 <option value="native">{t('protocol.native')}</option>
               </select>
             </label>
+
+            {familyList.all.length > 0 && (
+              <>
+                <p className={css.groupTitle}>{t('family.title')}</p>
+                <div className={css.familyRow}>
+                  {familyList.all.map(name => (
+                    <label key={name} className={css.familyChip}>
+                      <input
+                        type="checkbox"
+                        checked={familyList.enabled.length === 0 || familyList.enabled.includes(name)}
+                        onChange={(event) => {
+                          // An empty list means every family, so unticking one
+                          // starts from the full set rather than from nothing.
+                          const base = familyList.enabled.length === 0 ? familyList.all : familyList.enabled
+                          const next = event.target.checked
+                            ? [...base, name]
+                            : base.filter(item => item !== name)
+                          const settled = next.length === familyList.all.length ? [] : next
+                          setFamilyList({ ...familyList, enabled: settled })
+                          void setFamilies(settled)
+                        }}
+                      />
+                      <span>{name}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
 
             <p className={css.groupTitle}>{t('models.title')}</p>
             {match.length > 0 && (

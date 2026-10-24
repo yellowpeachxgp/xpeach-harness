@@ -221,6 +221,10 @@ export interface XPeachOps {
   readonly protocolPreference: () => Promise<'compatible' | 'native' | 'auto'>
   /** Choose the wire preference and re-sync the catalogue; null on success. */
   readonly setProtocolPreference: (value: 'compatible' | 'native' | 'auto') => Promise<string | null>
+  /** Model families the site offers, and the ones currently kept. */
+  readonly families: () => Promise<{ all: readonly string[]; enabled: readonly string[] }>
+  /** Keep only these families (empty keeps all); null on success. */
+  readonly setFamilies: (enabled: readonly string[]) => Promise<string | null>
   /**
    * Select a mounted model for THIS session (and persist it as the default):
    * the "加入并选中" end of the one-stop chain. Bound per pane instance.

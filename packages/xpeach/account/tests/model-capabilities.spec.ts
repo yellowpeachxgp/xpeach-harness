@@ -62,4 +62,25 @@ describe('catalogue capabilities', () => {
     expect(policy.maxRetries).toBeLessThan(5)
     expect(policy.maxRetries).toBeGreaterThan(0)
   })
+
+  it('keeps every family when none is chosen, and only the chosen ones otherwise', () => {
+    // The site groups its catalogue; the switch list narrows it.
+    const catalogue = [
+      { id: 'swe-2-max', groups: ['SWE'] },
+      { id: 'gpt-6-astra', groups: ['GPT｜Standard'] },
+      { id: 'claude-opus-5', groups: ['Claude｜Max'] },
+      { id: 'both', groups: ['SWE', 'Claude｜Max'] },
+    ]
+    const keep = (enabled: readonly string[] | undefined): string[] =>
+      enabled === undefined || enabled.length === 0
+        ? catalogue.map(m => m.id)
+        : catalogue.filter(m => (m.groups ?? []).some(g => enabled.includes(g))).map(m => m.id)
+
+    // Absent or empty must not silently narrow a fresh profile.
+    expect(keep(undefined)).toHaveLength(4)
+    expect(keep([])).toHaveLength(4)
+    expect(keep(['SWE'])).toEqual(['swe-2-max', 'both'])
+    // A model in two families survives either choice.
+    expect(keep(['Claude｜Max'])).toEqual(['claude-opus-5', 'both'])
+  })
 })
