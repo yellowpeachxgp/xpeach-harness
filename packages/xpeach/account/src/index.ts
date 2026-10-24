@@ -68,6 +68,13 @@ export interface Config {
   /** Credential reference resolved per call (default XPEACH_API_KEY). */
   readonly apiKeyEnv?: string
   /**
+   * Which wire a model uses when the site advertises several
+   * (default `compatible`, i.e. chat completions). `native` prefers Anthropic
+   * messages and the Responses API, which keep cache breakpoints and reasoning
+   * state but only work where the relay routes those endpoints.
+   */
+  readonly protocolPreference?: ModelProtocolPreference
+  /**
    * Site-management token store path (default $XPH_HOME/profiles/xpeach/xpeach.admin):
    * the New API system access token authenticating admin endpoints as the site
    * owner. Profile-local like keyFile — optional; admin surfaces stay honest
@@ -130,6 +137,7 @@ export class XPeachAccount extends TypertRemoteService {
   static Config: z<Config> = z.object({
     baseURL: z.string().default('https://fast.xpeach.codes'),
     apiKeyEnv: z.string().role('credential-ref').default('XPEACH_API_KEY'),
+    protocolPreference: z.union(['compatible', 'native']).default('compatible'),
     timeoutMs: z.natural().min(1000).default(15000),
     watchModels: z.array(z.string()).default([
       'swe-2-max',
@@ -414,7 +422,7 @@ export class XPeachAccount extends TypertRemoteService {
       // to chat completions.
       const providers: Record<string, object> = {}
       for (const model of models) {
-        const protocol = modelProtocol(list.find(m => m.id === model.id) ?? {})
+        const protocol = modelProtocol(list.find(m => m.id === model.id) ?? {}, this.config.protocolPreference ?? 'compatible')
         const key = protocol === 'openai-completions' ? 'xpeach' : `xpeach-${protocol.replace(/-messages$/u, '')}`
         providers[key] ??= {
           displayName: protocol === 'openai-completions' ? '🍑Code' : `🍑Code ${protocol}`,
@@ -1482,8 +1490,31 @@ export function modelInputs(model: { id: string }): ('text' | 'image')[] {
  * @param model - one catalogue entry.
  * @returns a protocol identifier the pi-ai adapter accepts.
  */
-export function modelProtocol(model: { supported_endpoint_types?: readonly string[] }): 'openai-responses' | 'anthropic-messages' | 'openai-completions' {
+export type ModelProtocolPreference = 'compatible' | 'native'
+
+/**
+ * The wire protocol a catalogue entry speaks.
+ *
+ * `compatible` keeps every route on chat completions, which is the one wire a
+ * relay is most likely to have channels for; `native` prefers the richest wire
+ * the route advertises, which keeps Anthropic cache breakpoints and Responses
+ * reasoning state but only works where the relay routes those endpoints.
+ * @param model - one catalogue entry.
+ * @param preference - which wire to favour when the route offers several.
+ * @returns a protocol identifier the pi-ai adapter accepts.
+ */
+export function modelProtocol(
+  model: { supported_endpoint_types?: readonly string[] },
+  preference: ModelProtocolPreference = 'compatible',
+): 'openai-responses' | 'anthropic-messages' | 'openai-completions' {
   const offered = new Set(model.supported_endpoint_types ?? [])
+  if (preference === 'native') {
+    if (offered.has('openai-response')) return 'openai-responses'
+    if (offered.has('anthropic')) return 'anthropic-messages'
+    return 'openai-completions'
+  }
+  // A route that cannot speak chat completions still needs a wire it accepts.
+  if (offered.has('openai')) return 'openai-completions'
   if (offered.has('openai-response')) return 'openai-responses'
   if (offered.has('anthropic')) return 'anthropic-messages'
   return 'openai-completions'
