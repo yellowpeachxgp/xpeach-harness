@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-model-selection",
   "description": "Model selection over the shared model catalog, Session projection, and session.selectModel",
-  "version": "0.0.8-alpha",
+  "version": "0.0.9-alpha",
   "publishConfig": {
     "access": "public"
   },
