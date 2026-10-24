@@ -130,6 +130,20 @@ function registerUi(ctx: Context): Array<() => void> {
       const written = await ctx.remote.settings.mutate('llm-pi-ai', opsList, view?.revision)
       return written.ok ? null : written.error.message
     },
+    protocolPreference: async () => {
+      const described = await ctx.remote.settings.describe()
+      if (!described.ok) return 'compatible'
+      const view = described.value.namespaces.find(ns => ns.ns === 'xpeach')
+      const value = (view?.value as { protocolPreference?: string } | undefined)?.protocolPreference
+      return value === 'native' || value === 'auto' ? value : 'compatible'
+    },
+    setProtocolPreference: async (value) => {
+      const described = await ctx.remote.settings.describe()
+      if (!described.ok) return described.error.message
+      const view = described.value.namespaces.find(ns => ns.ns === 'xpeach')
+      const written = await ctx.remote.settings.mutate('xpeach', [{ op: 'set', path: ['protocolPreference'], value }], view?.revision)
+      return written.ok ? null : written.error.message
+    },
     adminOverview: async () => {
       const r = await ctx.remote.xpeach.adminOverview({})
       return r.ok ? r.value : { error: r.error.message }

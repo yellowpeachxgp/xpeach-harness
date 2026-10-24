@@ -21,9 +21,11 @@ type LoadState =
   | { readonly status: 'error', message: string }
 
 /** The settings section bound component; all data arrives through props. */
-export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking }: XPeachSectionProps): JSX.Element {
+export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking, protocolPreference, setProtocolPreference }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
+  const [protocol, setProtocol] = useState<'compatible' | 'native' | 'auto'>('compatible')
   useEffect(() => { void trackingState().then(setTrackingOn) }, [trackingState])
+  useEffect(() => { void protocolPreference().then(setProtocol) }, [protocolPreference])
   const [bound, setBound] = useState<Bound>('unknown')
   const [keyMask, setKeyMask] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -278,6 +280,22 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
                 }}
               />
               <span>{t('tracking.label')}</span>
+            </label>
+
+            <label className={css.trackingRow}>
+              <span>{t('protocol.title')}</span>
+              <select
+                value={protocol}
+                onChange={(event) => {
+                  const next = event.target.value as 'compatible' | 'native' | 'auto'
+                  setProtocol(next)
+                  void setProtocolPreference(next)
+                }}
+              >
+                <option value="compatible">{t('protocol.compatible')}</option>
+                <option value="auto">{t('protocol.auto')}</option>
+                <option value="native">{t('protocol.native')}</option>
+              </select>
             </label>
 
             <p className={css.groupTitle}>{t('models.title')}</p>

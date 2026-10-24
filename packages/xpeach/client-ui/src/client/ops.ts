@@ -217,6 +217,10 @@ export interface XPeachOps {
   readonly trackingState: () => Promise<boolean>
   /** Turn the tracking headers on or off for every product provider; null on success. */
   readonly setTracking: (enabled: boolean) => Promise<string | null>
+  /** Which wire the catalogue routes prefer. */
+  readonly protocolPreference: () => Promise<'compatible' | 'native' | 'auto'>
+  /** Choose the wire preference and re-sync the catalogue; null on success. */
+  readonly setProtocolPreference: (value: 'compatible' | 'native' | 'auto') => Promise<string | null>
   /**
    * Select a mounted model for THIS session (and persist it as the default):
    * the "加入并选中" end of the one-stop chain. Bound per pane instance.
