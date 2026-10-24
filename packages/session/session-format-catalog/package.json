@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-format-catalog",
   "description": "Build-static first-party Session format codec and migration catalog",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },

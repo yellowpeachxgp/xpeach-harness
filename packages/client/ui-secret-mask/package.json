@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-secret-mask",
   "description": "Web display masking for recognized credentials in sent user text",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },
