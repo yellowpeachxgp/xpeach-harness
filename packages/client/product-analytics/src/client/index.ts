@@ -3,7 +3,10 @@ import { Service, type Context } from '@xpeach/xph-cordis'
 import type {} from '@xpeach/xph-api-gateway/client'
 export type {} from '@xpeach/xph-client-product-analytics/remote'
 import type { ProductEvent, ProductEventMap } from '../events.ts'
-export type { ProductEvent, ProductEventMap, TrackProductEvent } from '../events.ts'
+export type {
+  AnalyticsPreset, EntryAnalyticsRegion, ProductEvent, ProductEventMap,
+  SidebarAnalyticsEntry, SidebarAnalyticsPosition, TrackProductEvent,
+} from '../events.ts'
 
 declare module '@xpeach/xph-cordis' {
   interface Context {
