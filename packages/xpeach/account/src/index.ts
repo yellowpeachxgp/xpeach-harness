@@ -168,6 +168,7 @@ export class XPeachAccount extends TypertRemoteService {
   private readonly sessionKeyVar: string
   private readonly keyFile: string
   private readonly protocolPreference: ModelProtocolPreference
+
   private readonly keyVar: string
 
   constructor(ctx: Context, config: Config) {
@@ -434,6 +435,18 @@ export class XPeachAccount extends TypertRemoteService {
           models: [],
         }
         ;(providers[key] as { models: object[] }).models.push(model)
+      }
+      // A provider this sync produced under an older preference would keep
+      // serving its stale model list. The owned keys are exactly the ones this
+      // package names, so anything else is left to whoever wrote it.
+      const described = await (settings as { describe?: () => Promise<unknown> }).describe?.()
+      const live = readProviderKeys(described)
+      const stale = live.filter(key => key.startsWith('xpeach') && !(key in providers))
+      if (stale.length > 0) {
+        const mutate = (settings as { mutate?: (ns: string, ops: unknown[]) => Promise<unknown> }).mutate
+        if (mutate !== undefined) {
+          await mutate('llm-pi-ai', stale.map(key => ({ op: 'unset', path: ['providers', key] })))
+        }
       }
       await settings.update('llm-pi-ai', { providers })
       return { ok: true, count: models.length, groups: info.groups ?? [] }
@@ -1492,6 +1505,23 @@ export function modelInputs(model: { id: string }): ('text' | 'image')[] {
  * @param model - one catalogue entry.
  * @returns a protocol identifier the pi-ai adapter accepts.
  */
+/**
+ * Provider keys present in a settings describe payload.
+ *
+ * The catalogue sync owns only the `xpeach*` keys, so it needs the live set to
+ * tell which of its own older writes to retire; a payload it cannot read simply
+ * yields no keys and retires nothing.
+ * @param described - settings describe result, or undefined when unavailable.
+ * @returns provider keys, or an empty list.
+ */
+export function readProviderKeys(described: unknown): string[] {
+  const namespaces = (described as { namespaces?: unknown })?.namespaces
+  if (!Array.isArray(namespaces)) return []
+  const section = namespaces.find(ns => (ns as { ns?: string })?.ns === 'llm-pi-ai')
+  const providers = (section as { value?: { providers?: unknown } })?.value?.providers
+  return typeof providers === 'object' && providers !== null ? Object.keys(providers) : []
+}
+
 export type ModelProtocolPreference = 'compatible' | 'native'
 
 /**
