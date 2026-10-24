@@ -11,14 +11,26 @@ describe('catalogue capabilities', () => {
     expect(modelInputs({ id: 'revision-model' })).toEqual(['text'])
   })
 
-  it('picks the richest protocol the site says the route accepts', () => {
-    // The Responses API keeps reasoning state across turns.
-    expect(modelProtocol({ supported_endpoint_types: ['openai', 'openai-response'] })).toBe('openai-responses')
+  it('keeps a multi-wire route on chat completions by default', () => {
+    // A relay is most likely to have channels for chat completions, so the
+    // default must not move a working route onto a wire it may not serve.
+    const both = { supported_endpoint_types: ['anthropic', 'openai'] }
+    expect(modelProtocol(both)).toBe('openai-completions')
+    expect(modelProtocol(both, 'compatible')).toBe('openai-completions')
+  })
+
+  it('prefers the richest wire when the deployment opts into native', () => {
     // Anthropic keeps native cache breakpoints.
-    expect(modelProtocol({ supported_endpoint_types: ['anthropic', 'openai'] })).toBe('anthropic-messages')
-    // Chat completions is the universal floor.
-    expect(modelProtocol({ supported_endpoint_types: ['openai'] })).toBe('openai-completions')
-    // A listing with no endpoint types still gets a drivable protocol.
+    expect(modelProtocol({ supported_endpoint_types: ['anthropic', 'openai'] }, 'native')).toBe('anthropic-messages')
+    // The Responses API keeps reasoning state.
+    expect(modelProtocol({ supported_endpoint_types: ['openai', 'openai-response'] }, 'native')).toBe('openai-responses')
+    expect(modelProtocol({ supported_endpoint_types: ['openai'] }, 'native')).toBe('openai-completions')
+  })
+
+  it('still routes a single-wire route to the only wire it accepts', () => {
+    // Nothing to choose: a route with no chat completions must not be stranded.
+    expect(modelProtocol({ supported_endpoint_types: ['anthropic'] })).toBe('anthropic-messages')
+    expect(modelProtocol({ supported_endpoint_types: ['openai-response'] })).toBe('openai-responses')
     expect(modelProtocol({})).toBe('openai-completions')
   })
 })
