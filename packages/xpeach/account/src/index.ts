@@ -75,6 +75,11 @@ export interface Config {
    */
   readonly protocolPreference?: ModelProtocolPreference
   /**
+   * Model families (the site's `groups`) the catalogue keeps. Absent or empty
+   * keeps every family, so a fresh profile is not silently narrowed.
+   */
+  readonly enabledFamilies?: readonly string[]
+  /**
    * Site-management token store path (default $XPH_HOME/profiles/xpeach/xpeach.admin):
    * the New API system access token authenticating admin endpoints as the site
    * owner. Profile-local like keyFile — optional; admin surfaces stay honest
@@ -168,6 +173,8 @@ export class XPeachAccount extends TypertRemoteService {
   private readonly sessionKeyVar: string
   private readonly keyFile: string
   private readonly protocolPreference: ModelProtocolPreference
+  /** Model families the catalogue keeps; absent means every family. */
+  private readonly enabledFamilies: readonly string[] | undefined
 
   private readonly keyVar: string
 
@@ -179,6 +186,10 @@ export class XPeachAccount extends TypertRemoteService {
     this.timeoutMs = resolved.timeoutMs
     this.watchModels = resolved.watchModels
     this.protocolPreference = resolved.protocolPreference
+    // Not in the schema: a defaulted array makes the parsed shape disagree with
+    // the optional field under exactOptionalPropertyTypes, and an absent list is
+    // already the "keep every family" meaning.
+    this.enabledFamilies = config.enabledFamilies ?? []
     this.keyFile = resolved.keyFile
     this.keyVar = resolved.keyVar
     this.routeFile = join(dirname(this.keyFile), 'xpeach.route.json')
@@ -400,7 +411,14 @@ export class XPeachAccount extends TypertRemoteService {
   private async syncModelCatalog(signal: AbortSignal): Promise<XPeachModelSyncResult> {
     const info = await this.ensureTokenInfo(signal)
     try {
-      const list = await this.api.models(signal)
+      const catalogue = await this.api.models(signal)
+      // A family is the site's own grouping. The switch list keeps only the
+      // families a user enabled, so a marketplace of twenty-two routes can be
+      // trimmed to the ones they actually pick from; an absent list keeps all.
+      const enabled = this.enabledFamilies
+      const list = enabled === undefined || enabled.length === 0
+        ? catalogue
+        : catalogue.filter(model => (model.groups ?? []).some(group => enabled.includes(group)))
       const models = list.map(m => ({
         id: m.id,
         name: m.id,

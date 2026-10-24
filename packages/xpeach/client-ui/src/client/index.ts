@@ -144,6 +144,23 @@ function registerUi(ctx: Context): Array<() => void> {
       const written = await ctx.remote.settings.mutate('xpeach', [{ op: 'set', path: ['protocolPreference'], value }], view?.revision)
       return written.ok ? null : written.error.message
     },
+    families: async () => {
+      const described = await ctx.remote.settings.describe()
+      const catalogue = await ctx.remote.xpeach.models({})
+      const all = catalogue.ok
+        ? [...new Set(catalogue.value.flatMap(m => (m as { groups?: readonly string[] }).groups ?? []))].sort()
+        : []
+      const view = described.ok ? described.value.namespaces.find(ns => ns.ns === 'xpeach') : undefined
+      const enabled = (view?.value as { enabledFamilies?: readonly string[] } | undefined)?.enabledFamilies ?? []
+      return { all, enabled }
+    },
+    setFamilies: async (enabled) => {
+      const described = await ctx.remote.settings.describe()
+      if (!described.ok) return described.error.message
+      const view = described.value.namespaces.find(ns => ns.ns === 'xpeach')
+      const written = await ctx.remote.settings.mutate('xpeach', [{ op: 'set', path: ['enabledFamilies'], value: [...enabled] }], view?.revision)
+      return written.ok ? null : written.error.message
+    },
     adminOverview: async () => {
       const r = await ctx.remote.xpeach.adminOverview({})
       return r.ok ? r.value : { error: r.error.message }
