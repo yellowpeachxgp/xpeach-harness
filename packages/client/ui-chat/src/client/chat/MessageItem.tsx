@@ -299,6 +299,10 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
   node, renderFactorySlot, loadImage, editAt, t,
 }: ChatNodeViewProps<'user' | 'steering'>) {
   const data = node.data
+  // Attachments are browser-owned objects bound to this Session, so they cannot
+  // ride a fork into the child. Editing stays available for text-only messages;
+  // a message carrying attachments keeps copy and branch only.
+  const textOnly = !data.content.some(block => block.type === 'image' || block.type === 'file')
   return (
     <UserStyleBubble
       content={data.content}
@@ -313,7 +317,7 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
           time={data.time}
           clock="start"
           className={css.actions}
-          onEdit={() => { editAt(data.seq, text) }}
+          {...textOnly ? { onEdit: () => { editAt(data.seq, text) } } : {}}
           t={t}
         />
       )}

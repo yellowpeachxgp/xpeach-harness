@@ -3,6 +3,7 @@
 import type { ProcessGroupData } from '../src/client/contract/process-groups.ts'
 import type { InboxState } from '@xpeach/xph-agent/types'
 import { MessageId } from '@xpeach/xph-llm/brand'
+import { AttachmentId } from '@xpeach/xph-attachment'
 import type { GlobalStandardProps, PropsRenderFactories, PropsRenderSlots } from '@xpeach/xph-client-ui-slots'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -2403,6 +2404,42 @@ describe('ChatView', () => {
     render(<h.ChatView {...h.props} />)
     h.toolOwners[0]?.inspectCall?.('a')
     expect(h.openView).toHaveBeenCalledWith('trajectory', 'a')
+  })
+
+  it('offers edit-and-resend on a text user message and hides it when the message carries an attachment', () => {
+    const h = makeHarness({
+      nodes: [
+        user(1, 'revise me'),
+        assistant(2, 'answer', 1, 1),
+      ],
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    const editButtons = () => [...view.container.querySelectorAll('button')]
+      .filter(button => button.getAttribute('aria-label') === '编辑并重发')
+    // A text-only message offers the action.
+    expect(editButtons().length).toBeGreaterThan(0)
+    fireEvent.click(editButtons()[0]!)
+    expect(h.editAt).toHaveBeenCalledWith(1, 'revise me')
+  })
+
+  it('keeps edit off a message that carries an attachment', () => {
+    const h = makeHarness({
+      nodes: [
+        {
+          ...user(1, 'with a picture'),
+          content: [
+            { type: 'text', text: 'with a picture' },
+            { type: 'image', attachment: { attachmentId: AttachmentId('a1'), mediaType: 'image/png', bytes: 1, width: 1, height: 1, name: 'p.png' } },
+          ],
+        },
+        assistant(2, 'answer', 1, 1),
+      ],
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    const editButtons = [...view.container.querySelectorAll('button')]
+      .filter(button => button.getAttribute('aria-label') === '编辑并重发')
+    // Attachments cannot cross the fork boundary, so the action stays hidden.
+    expect(editButtons).toHaveLength(0)
   })
 
   it('shows assistant IconActions only on the last content message of each turn', () => {
