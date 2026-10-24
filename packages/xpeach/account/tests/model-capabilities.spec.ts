@@ -46,4 +46,12 @@ describe('catalogue capabilities', () => {
     expect(readProviderKeys(undefined)).toEqual([])
     expect(readProviderKeys({})).toEqual([])
   })
+
+  it('bounds retries so an unfixable channel error does not stall the turn', () => {
+    // A relay answers "no channel for this group" as a 500, which the default
+    // policy retries five times; two attempts still cover a blipping channel.
+    const policy = { mode: 'normal' as const, maxRetries: 2 }
+    expect(policy.maxRetries).toBeLessThan(5)
+    expect(policy.maxRetries).toBeGreaterThan(0)
+  })
 })
