@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-workspace-files",
   "description": "Workspace file service and Client resource provider: bounded reads, directory listing, and live metadata over the workspaceFiles Remote namespace",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },

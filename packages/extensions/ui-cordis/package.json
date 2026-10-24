@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-cordis",
   "description": "Cordis dynamic-plugin definition card: the keyed cordis_define tool row with its run/stop switch",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },

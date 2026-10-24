@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-store",
   "description": "React-free observable and snapshot-store contracts with the shared Zustand/Immer engine",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },

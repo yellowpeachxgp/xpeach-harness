@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-deque",
   "description": "Zero-dependency circular deque with amortized constant-time end operations and bounded vacant storage",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },

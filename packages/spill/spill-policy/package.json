@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-spill-policy",
   "description": "Token-budgeted tool-result retention with recoverable text and image paths",
-  "version": "0.0.5-alpha",
+  "version": "0.0.6-alpha",
   "publishConfig": {
     "access": "public"
   },
