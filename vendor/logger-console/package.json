@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cordis-plugin-logger-console",
   "description": "Console logger exporter for cordis",
-  "version": "0.0.10-alpha",
+  "version": "0.0.11-alpha",
   "publishConfig": {
     "access": "public"
   },

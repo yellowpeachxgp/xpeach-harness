@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-inspector-profile",
   "description": "Optional Web bundle for raw Session logs and Chat node inspection",
-  "version": "0.0.10-alpha",
+  "version": "0.0.11-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
