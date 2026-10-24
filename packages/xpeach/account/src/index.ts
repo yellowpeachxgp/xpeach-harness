@@ -395,7 +395,7 @@ export class XPeachAccount extends TypertRemoteService {
         name: m.id,
         contextWindow: 262144,
         maxTokens: 32768,
-        input: ['text'],
+        input: modelInputs(m),
       }))
       const settings = this.ctx.get('settings') as
         | { update?: (ns: string, patch: object) => Promise<void> }
@@ -404,17 +404,23 @@ export class XPeachAccount extends TypertRemoteService {
       // The provider base is the OpenAI-compatible `/v1` root, not the site root.
       const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
       const baseURL = siteRoot.endsWith('/v1') ? siteRoot : siteRoot + '/v1'
-      await settings.update('llm-pi-ai', {
-        providers: {
-          xpeach: {
-            displayName: '🍑Code',
-            apiKeyEnv: this.keyVar,
-            api: 'openai-completions',
-            baseURL,
-            models,
-          },
-        },
-      })
+      // One provider per protocol the catalogue offers, so a route reaches the
+      // wire that keeps its native semantics instead of everything falling back
+      // to chat completions.
+      const providers: Record<string, object> = {}
+      for (const model of models) {
+        const protocol = modelProtocol(list.find(m => m.id === model.id) ?? {})
+        const key = protocol === 'openai-completions' ? 'xpeach' : `xpeach-${protocol.replace(/-messages$/u, '')}`
+        providers[key] ??= {
+          displayName: protocol === 'openai-completions' ? '🍑Code' : `🍑Code ${protocol}`,
+          apiKeyEnv: this.keyVar,
+          api: protocol,
+          baseURL,
+          models: [],
+        }
+        ;(providers[key] as { models: object[] }).models.push(model)
+      }
+      await settings.update('llm-pi-ai', { providers })
       return { ok: true, count: models.length, groups: info.groups ?? [] }
     } catch (e) {
       return { ok: false, count: 0, groups: info.groups ?? [], error: e instanceof Error ? e.message.slice(0, 160) : String(e) }
@@ -1447,4 +1453,35 @@ export class XPeachAccount extends TypertRemoteService {
   }
 }
 
-export default XPeachAccount
+export default XPeachAccount/**
+ * Input modalities a catalogue entry accepts.
+ *
+ * The listing does not carry a modality field, so the identifier decides: a
+ * route that advertises vision in its own name is the only signal the site
+ * publishes. Declaring text for everything would make a vision route reject
+ * every image the composer can attach.
+ * @param model - one catalogue entry.
+ * @returns the modalities the model accepts.
+ */
+export function modelInputs(model: { id: string }): ('text' | 'image')[] {
+  return /(?:^|[-_.])(vision|vl|omni)(?:$|[-_.])/iu.test(model.id) ? ['text', 'image'] : ['text']
+}
+
+/**
+ * The wire protocol a catalogue entry speaks best.
+ *
+ * The site publishes the endpoint types it accepts; the first one this client
+ * can drive wins, in the order that keeps the richest semantics: the Responses
+ * API keeps reasoning state, Anthropic keeps native cache breakpoints, and
+ * chat completions is the universal floor.
+ * @param model - one catalogue entry.
+ * @returns a protocol identifier the pi-ai adapter accepts.
+ */
+export function modelProtocol(model: { supported_endpoint_types?: readonly string[] }): 'openai-responses' | 'anthropic-messages' | 'openai-completions' {
+  const offered = new Set(model.supported_endpoint_types ?? [])
+  if (offered.has('openai-response')) return 'openai-responses'
+  if (offered.has('anthropic')) return 'anthropic-messages'
+  return 'openai-completions'
+}
+
+
