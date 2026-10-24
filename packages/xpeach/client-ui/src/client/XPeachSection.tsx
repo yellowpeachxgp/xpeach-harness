@@ -263,6 +263,67 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
         )}
       </div>
 
+      {/* These three are deployment choices, not account state: the tracking
+          switch matters most before a successful fetch, when a 400 is what the
+          user is looking at. */}
+        <p className={css.groupTitle}>{t('tracking.title')}</p>
+        <label className={css.trackingRow}>
+          <input
+            type="checkbox"
+            checked={tracking !== false}
+            onChange={(event) => {
+              const next = event.target.checked
+              setTrackingOn(next)
+              void setTracking(next)
+            }}
+          />
+          <span>{t('tracking.label')}</span>
+        </label>
+
+        <label className={css.trackingRow}>
+          <span>{t('protocol.title')}</span>
+          <select
+            value={protocol}
+            onChange={(event) => {
+              const next = event.target.value as 'compatible' | 'native' | 'auto'
+              setProtocol(next)
+              void setProtocolPreference(next)
+            }}
+          >
+            <option value="compatible">{t('protocol.compatible')}</option>
+            <option value="auto">{t('protocol.auto')}</option>
+            <option value="native">{t('protocol.native')}</option>
+          </select>
+        </label>
+
+        {familyList.all.length > 0 && (
+          <>
+            <p className={css.groupTitle}>{t('family.title')}</p>
+            <div className={css.familyRow}>
+              {familyList.all.map(name => (
+                <label key={name} className={css.familyChip}>
+                  <input
+                    type="checkbox"
+                    checked={familyList.enabled.length === 0 || familyList.enabled.includes(name)}
+                    onChange={(event) => {
+                      // An empty list means every family, so unticking one
+                      // starts from the full set rather than from nothing.
+                      const base = familyList.enabled.length === 0 ? familyList.all : familyList.enabled
+                      const next = event.target.checked
+                        ? [...base, name]
+                        : base.filter(item => item !== name)
+                      const settled = next.length === familyList.all.length ? [] : next
+                      setFamilyList({ ...familyList, enabled: settled })
+                      void setFamilies(settled)
+                    }}
+                  />
+                  <span>{name}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+
       {bound === 'bound' && state.status === 'loading' && <p>{t('status.loading')}</p>}
       {bound === 'bound' && state.status === 'error' && <p>{t('status.error')}: {state.message}</p>}
       {bound === 'bound' && state.status === 'ready' && (
@@ -270,64 +331,6 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
 
 
           <div>
-            <p className={css.groupTitle}>{t('tracking.title')}</p>
-            <label className={css.trackingRow}>
-              <input
-                type="checkbox"
-                checked={tracking !== false}
-                onChange={(event) => {
-                  const next = event.target.checked
-                  setTrackingOn(next)
-                  void setTracking(next)
-                }}
-              />
-              <span>{t('tracking.label')}</span>
-            </label>
-
-            <label className={css.trackingRow}>
-              <span>{t('protocol.title')}</span>
-              <select
-                value={protocol}
-                onChange={(event) => {
-                  const next = event.target.value as 'compatible' | 'native' | 'auto'
-                  setProtocol(next)
-                  void setProtocolPreference(next)
-                }}
-              >
-                <option value="compatible">{t('protocol.compatible')}</option>
-                <option value="auto">{t('protocol.auto')}</option>
-                <option value="native">{t('protocol.native')}</option>
-              </select>
-            </label>
-
-            {familyList.all.length > 0 && (
-              <>
-                <p className={css.groupTitle}>{t('family.title')}</p>
-                <div className={css.familyRow}>
-                  {familyList.all.map(name => (
-                    <label key={name} className={css.familyChip}>
-                      <input
-                        type="checkbox"
-                        checked={familyList.enabled.length === 0 || familyList.enabled.includes(name)}
-                        onChange={(event) => {
-                          // An empty list means every family, so unticking one
-                          // starts from the full set rather than from nothing.
-                          const base = familyList.enabled.length === 0 ? familyList.all : familyList.enabled
-                          const next = event.target.checked
-                            ? [...base, name]
-                            : base.filter(item => item !== name)
-                          const settled = next.length === familyList.all.length ? [] : next
-                          setFamilyList({ ...familyList, enabled: settled })
-                          void setFamilies(settled)
-                        }}
-                      />
-                      <span>{name}</span>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-
             <p className={css.groupTitle}>{t('models.title')}</p>
             {match.length > 0 && (
               <div className={css.modelMatchRow}>
