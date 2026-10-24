@@ -1,7 +1,6 @@
 import { MessageId } from '@xpeach/xph-llm/brand'
 // @vitest-environment jsdom
 /** Chat inject factories exercised over independently mounted Conversation and Chat plugins. */
-import { readConversationDraft } from '@xpeach/xph-client-ui-conversation/src/client/stores.ts'
 import { createSnapshotStore } from '@xpeach/xph-client-store'
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId } from '@xpeach/xph-attachment'
@@ -256,7 +255,8 @@ describe('Chat inject API', () => {
       expect(b.openSession).toHaveBeenCalledWith(ROOT)
     })
     // The child composer starts from the message being edited, not from empty.
-    expect(readConversationDraft(ROOT)).toEqual({ text: 'revised text', references: [] })
+    const stored = JSON.parse(localStorage.getItem(`xph.conversation.${ROOT}`) ?? '{}') as { draft?: unknown }
+    expect(stored.draft).toEqual({ text: 'revised text', references: [] })
     fork.mockRestore()
     await b.runtime.dispose()
   })
