@@ -1,6 +1,6 @@
 {
   "name": "@fixture/input-extension",
-  "version": "0.0.7-alpha",
+  "version": "0.0.8-alpha",
   "private": true,
   "type": "module",
   "main": "index.js",

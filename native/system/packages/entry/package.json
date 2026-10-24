@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-node-addon-system",
-  "version": "0.0.7-alpha",
+  "version": "0.0.8-alpha",
   "type": "module",
   "description": "Prebuilt system primitives: a Linux Landlock launcher and asynchronous POSIX flock through stable Node-API",
   "repository": {
