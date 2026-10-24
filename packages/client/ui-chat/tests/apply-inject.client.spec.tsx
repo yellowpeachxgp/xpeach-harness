@@ -1,6 +1,7 @@
 import { MessageId } from '@xpeach/xph-llm/brand'
 // @vitest-environment jsdom
 /** Chat inject factories exercised over independently mounted Conversation and Chat plugins. */
+import { readConversationDraft } from '@xpeach/xph-client-ui-conversation/src/client/stores.ts'
 import { createSnapshotStore } from '@xpeach/xph-client-store'
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId } from '@xpeach/xph-attachment'
@@ -234,6 +235,45 @@ describe('Chat inject API', () => {
         sessionId: ROOT, atSeq: 18, increaseTitle: true, onCreated: expect.any(Function) as (childId: SessionId) => void,
       })
     })
+    await b.runtime.dispose()
+  })
+
+  it('edits a sent message by forking before it and seeding the child draft', async () => {
+    const b = await bench()
+    const { injected } = b.chatViewApi(b.rootReference)
+    const track = vi.fn()
+    b.runtime.ctx.provide('productAnalytics', { track } as never)
+    const fork = vi.spyOn(b.runtime.sessions, 'fork').mockImplementation(async (input) => {
+      // The cut is exclusive of the edited message: seq - 1 keeps the source
+      // conversation intact up to and including everything before it.
+      expect(input.atSeq).toBe(41)
+      input.onCreated?.(ROOT)
+      return ROOT
+    })
+    injected.editAt(42, 'revised text')
+    expect(track).toHaveBeenCalledWith('branch_session_click', { session_id: ROOT, parent_session_id: ROOT, click_position: 'edit' })
+    await vi.waitFor(() => {
+      expect(b.openSession).toHaveBeenCalledWith(ROOT)
+    })
+    // The child composer starts from the message being edited, not from empty.
+    expect(readConversationDraft(ROOT)).toEqual({ text: 'revised text', references: [] })
+    fork.mockRestore()
+    await b.runtime.dispose()
+  })
+
+  it('never forks before the start of the session', async () => {
+    const b = await bench()
+    const { injected } = b.chatViewApi(b.rootReference)
+    const fork = vi.spyOn(b.runtime.sessions, 'fork').mockImplementation(async (input) => {
+      expect(input.atSeq).toBe(0)
+      input.onCreated?.(ROOT)
+      return ROOT
+    })
+    injected.editAt(0, 'first message')
+    await vi.waitFor(() => {
+      expect(b.openSession).toHaveBeenCalledWith(ROOT)
+    })
+    fork.mockRestore()
     await b.runtime.dispose()
   })
 
