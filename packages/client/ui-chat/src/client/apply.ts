@@ -47,6 +47,7 @@ import { PerformanceUsagePolicy } from './performance-usage.ts'
 import { useTurnDataValue } from './chat/use-turn-data.ts'
 import { bindDisclosure } from './chat/use-disclosure.ts'
 import { useFlowHidden, useMotionHidden } from './chat/flow-motion.ts'
+import { seedConversationDraft } from '@xpeach/xph-client-ui-conversation/src/client/stores.ts'
 
 /** Bind group and header visibility to the viewport of one flow render. */
 export const CHAT_FLOW_INJECT: ChatFlowInjected = {
@@ -281,6 +282,21 @@ export function apply(ctx: Context): void {
               else chatScrollPositions.set(sessionId, position)
             },
             read: () => chatScrollPositions.get(sessionId) ?? null,
+          },
+          editAt: (seq, text) => {
+            // Edit-and-resend is a branch, not a rewrite: fork just before the
+            // message so the original conversation stays intact, then seed the
+            // child's draft with the text the user is about to change.
+            ctx.sessions.fork({ sessionId, atSeq: Math.max(0, seq - 1), increaseTitle: true, onCreated: (childId) => {
+              ctx.get('productAnalytics')?.track('branch_session_click', { session_id: childId, parent_session_id: sessionId, click_position: 'edit' })
+            } })
+              .then((childId) => {
+                seedConversationDraft(childId, text)
+                ctx.uiWorkspace.openSession(childId)
+              })
+              .catch(() => {
+                // A refused fork leaves the source view unchanged.
+              })
           },
           forkAt: (seq) => {
             const turn = [...chat.getSnapshot().timeline.turns.values()].find(turn => turn.end?.seq === seq)
