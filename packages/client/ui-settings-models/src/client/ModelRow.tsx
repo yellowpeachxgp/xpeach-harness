@@ -1,6 +1,6 @@
 /** Shared model fields and actions for both adapter catalog editors. */
 
-import { useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useState, type DragEvent, type ReactNode } from 'react'
 import {
   IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconTrashOutlineRegular,
 } from '@xpeach/xph-client-ui-primitives'
@@ -33,6 +33,10 @@ interface ModelRowProps {
   onReorder?: ((from: number, to: number) => void) | undefined
   /** Total rows, so the last one cannot be dragged past the end. */
   rowCount?: number | undefined
+  /** Index the editor is currently dragging, shared by every row. */
+  dragFrom?: number | null | undefined
+  onDragStart?: ((index: number) => void) | undefined
+  onDragEnd?: (() => void) | undefined
   t: (key: ModelsKey) => string
   contextWindow: CapacityInput
   maxTokens: CapacityInput
@@ -51,22 +55,23 @@ interface ModelRowProps {
 export function ModelRow(props: ModelRowProps): ReactNode {
   const { model, position, t, disabled } = props
   const onReorder = props.onReorder
-  const dragIndex = useRef<number | null>(null)
+  const dragFrom = props.dragFrom
   const [dropTarget, setDropTarget] = useState(false)
-  // A row is draggable only while the editor offers a reorder, so a read-only
-  // surface keeps its plain rows.
-  const drag = onReorder === undefined
+  // The index being dragged lives on the editor, not on this row: a row only
+  // knows its own position, so a per-row ref would be null in the row under the
+  // pointer and the drop would never be allowed.
+  const drag = onReorder === undefined || props.onDragStart === undefined
     ? {}
     : {
       draggable: !disabled,
       onDragStart: (event: DragEvent<HTMLDivElement>) => {
-        dragIndex.current = position - 1
+        props.onDragStart?.(position - 1)
         event.dataTransfer.effectAllowed = 'move'
         // Firefox only starts a drag when some data is set.
         event.dataTransfer.setData('text/plain', String(position - 1))
       },
       onDragOver: (event: DragEvent<HTMLDivElement>) => {
-        if (dragIndex.current === null) return
+        if (dragFrom === undefined || dragFrom === null) return
         event.preventDefault()
         event.dataTransfer.dropEffect = 'move'
         setDropTarget(true)
@@ -75,11 +80,9 @@ export function ModelRow(props: ModelRowProps): ReactNode {
       onDrop: (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault()
         setDropTarget(false)
-        const from = dragIndex.current
-        dragIndex.current = null
-        if (from !== null) onReorder(from, position - 1)
+        if (dragFrom !== undefined && dragFrom !== null) onReorder(dragFrom, position - 1)
       },
-      onDragEnd: () => { dragIndex.current = null; setDropTarget(false) },
+      onDragEnd: () => { setDropTarget(false); props.onDragEnd?.() },
     }
   return (
     <div
