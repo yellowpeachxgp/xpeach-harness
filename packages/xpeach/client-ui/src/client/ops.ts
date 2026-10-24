@@ -213,6 +213,10 @@ export interface XPeachOps {
    * @returns error message or null on success.
    */
   readonly addModel: (id: string) => Promise<string | null>
+  /** Whether the product providers send the conversation tracking headers. */
+  readonly trackingState: () => Promise<boolean>
+  /** Turn the tracking headers on or off for every product provider; null on success. */
+  readonly setTracking: (enabled: boolean) => Promise<string | null>
   /**
    * Select a mounted model for THIS session (and persist it as the default):
    * the "加入并选中" end of the one-stop chain. Bound per pane instance.
