@@ -177,6 +177,10 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [candidateQuery, setCandidateQuery] = useState('')
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
+  // Which row is being dragged. It has to live here: a row only knows its own
+  // index, so a per-row value is null in the row the pointer is over and the
+  // browser refuses the drop.
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
   // `1000` to `1K` mid-word. Unreadable text is kept past blur so the refusal
@@ -390,6 +394,9 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             disabled={disabled}
             onReorder={reorder}
             rowCount={models.length}
+            dragFrom={dragFrom}
+            onDragStart={setDragFrom}
+            onDragEnd={() => { setDragFrom(null) }}
             t={t}
             contextWindow={{
               value: capacityText(model, index, 'contextWindow'),
