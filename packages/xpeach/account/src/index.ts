@@ -167,6 +167,7 @@ export class XPeachAccount extends TypertRemoteService {
   private readonly sessionKeyFile: string
   private readonly sessionKeyVar: string
   private readonly keyFile: string
+  private readonly protocolPreference: ModelProtocolPreference
   private readonly keyVar: string
 
   constructor(ctx: Context, config: Config) {
@@ -176,6 +177,7 @@ export class XPeachAccount extends TypertRemoteService {
     this.apiKeyEnv = credentialRef(resolved.apiKeyEnv)
     this.timeoutMs = resolved.timeoutMs
     this.watchModels = resolved.watchModels
+    this.protocolPreference = resolved.protocolPreference
     this.keyFile = resolved.keyFile
     this.keyVar = resolved.keyVar
     this.routeFile = join(dirname(this.keyFile), 'xpeach.route.json')
@@ -422,7 +424,7 @@ export class XPeachAccount extends TypertRemoteService {
       // to chat completions.
       const providers: Record<string, object> = {}
       for (const model of models) {
-        const protocol = modelProtocol(list.find(m => m.id === model.id) ?? {}, this.config.protocolPreference ?? 'compatible')
+        const protocol = modelProtocol(list.find(m => m.id === model.id) ?? {}, this.protocolPreference)
         const key = protocol === 'openai-completions' ? 'xpeach' : `xpeach-${protocol.replace(/-messages$/u, '')}`
         providers[key] ??= {
           displayName: protocol === 'openai-completions' ? '🍑Code' : `🍑Code ${protocol}`,
