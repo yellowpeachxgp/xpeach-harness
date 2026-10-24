@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-fs",
   "description": "Model-facing filesystem tools (read, write, edit) over the DeepSeek Harness filesystem seam (ctx.fs)",
-  "version": "0.0.3-alpha",
+  "version": "0.0.4-alpha",
   "publishConfig": {
     "access": "public"
   },
