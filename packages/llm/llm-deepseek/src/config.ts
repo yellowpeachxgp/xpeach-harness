@@ -3,6 +3,7 @@ import type { Volatile } from '@xpeach/xph-cordis'
 
 import z from '@xpeach/xph-schemastery'
 import { isVolatile } from '@xpeach/xph-cosmokit'
+import { deepEqualJson } from '@xpeach/xph-util-values'
 import { resolveRetryPolicy, RetryPolicySchema } from '@xpeach/xph-llm'
 import type { ModelModality, RetryPolicyConfig } from '@xpeach/xph-llm'
 import type { LaunchEnvironmentSnapshot } from '@xpeach/xph-launch-environment'
@@ -119,6 +120,16 @@ const BASE_URL_ENV = 'DEEPSEEK_BASE_URL'
 
 /** Complete protocol settings captured for one request operation. */
 export type ResolvedDeepSeekOptions = DeepSeekConnectionOptions
+
+/**
+ * Whether a resolved catalog is the built-in one, which is what a `models`
+ * setting nobody customized resolves to.
+ * @param models - catalog resolved by {@link resolveAdapterOptions}.
+ * @returns whether `models` equals the resolved built-in catalog, entry by entry and in order.
+ */
+export function isBuiltInCatalog(models: readonly DeepSeekCatalogModel[]): boolean {
+  return deepEqualJson(models, resolveModels(DEFAULT_MODELS))
+}
 
 /** Resolve, validate, and detach the advisory model catalog. */
 function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): DeepSeekCatalogModel[] {
