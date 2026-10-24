@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cordis-plugin-include",
   "description": "Include files in cordis configurations",
-  "version": "0.0.6-alpha",
+  "version": "0.0.7-alpha",
   "publishConfig": {
     "access": "public"
   },
