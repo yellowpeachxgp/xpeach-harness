@@ -27,6 +27,7 @@ import { footerBridge } from './FooterAction.tsx'
 import { XPeachCostPill } from './XPeachCostPill.tsx'
 import { en, NS, zh } from './locales.ts'
 import { readRecents, rememberModel } from './recents.ts'
+import { PALETTES, paletteTokens } from './palettes.ts'
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
 export const inject = ['remote', 'slots', 'locale', 'theme', 'layout']
@@ -500,6 +501,21 @@ function registerUi(ctx: Context): Array<() => void> {
  * @returns async disposer completing reverse-order cleanup.
  */
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
+  // The palettes register through the public theme API, so ui-theme stays
+  // stock: a palette is an alias-token override, not a fork of the layer.
+  for (const definition of PALETTES) {
+    for (const mode of ['light', 'dark'] as const) {
+      try {
+        ctx.theme.register({
+          id: mode === 'light' ? definition.id : `${definition.id}-dark`,
+          colorScheme: mode,
+          tokens: paletteTokens(definition, mode),
+        })
+      } catch {
+        // An id already taken simply keeps the stock theme; nothing else changes.
+      }
+    }
+  }
   // 🍑Code identity: warm peach accent over both palettes, applied
   // unconditionally (brand, not a user preference).
   const undoTheme = ctx.theme.overrideTokens('xpeach', {
