@@ -26,6 +26,7 @@ import { XPeachTab, type XPeachTabProps } from './XPeachTab.tsx'
 import { footerBridge } from './FooterAction.tsx'
 import { XPeachCostPill } from './XPeachCostPill.tsx'
 import { en, NS, zh } from './locales.ts'
+import { readRecents, rememberModel } from './recents.ts'
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
 export const inject = ['remote', 'slots', 'locale', 'theme', 'layout']
@@ -161,6 +162,8 @@ function registerUi(ctx: Context): Array<() => void> {
       const written = await ctx.remote.settings.mutate('xpeach', [{ op: 'set', path: ['enabledFamilies'], value: [...enabled] }], view?.revision)
       return written.ok ? null : written.error.message
     },
+    recents: async () => readRecents(),
+    rememberModel: async (provider: string, model: string) => { rememberModel(provider, model) },
     adminOverview: async () => {
       const r = await ctx.remote.xpeach.adminOverview({})
       return r.ok ? r.value : { error: r.error.message }

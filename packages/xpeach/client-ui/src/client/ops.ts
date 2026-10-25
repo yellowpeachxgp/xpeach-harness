@@ -231,6 +231,10 @@ export interface XPeachOps {
    * @returns error message or null on success.
    */
   readonly selectModel?: (sessionId: string | undefined, model: string) => Promise<string | null>
+  /** Routes used recently, most recent first. */
+  readonly recents: () => Promise<readonly { provider: string, model: string }[]>
+  /** Remember one route as just used. */
+  readonly rememberModel: (provider: string, model: string) => Promise<void>
   /** Site-admin overview aggregate (requires the management token). */
   readonly adminOverview: () => Promise<
     { adminName: string, totalUsers: number, totalLogs: number, totalTokens: number,

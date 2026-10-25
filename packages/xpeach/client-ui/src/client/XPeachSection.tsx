@@ -21,13 +21,15 @@ type LoadState =
   | { readonly status: 'error', message: string }
 
 /** The settings section bound component; all data arrives through props. */
-export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking, protocolPreference, setProtocolPreference, families, setFamilies }: XPeachSectionProps): JSX.Element {
+export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange, sessionBound, sessionUser, sessionLogin, bindSession, unbindSession, keySlots, keySlotAdd, keySlotSwitch, keySlotRemove, trackingState, setTracking, protocolPreference, setProtocolPreference, families, setFamilies, recents }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
   const [protocol, setProtocol] = useState<'compatible' | 'native' | 'auto'>('compatible')
   useEffect(() => { void trackingState().then(setTrackingOn) }, [trackingState])
   const [familyList, setFamilyList] = useState<{ all: readonly string[]; enabled: readonly string[] }>({ all: [], enabled: [] })
+  const [recentModels, setRecentModels] = useState<readonly { provider: string, model: string }[]>([])
   useEffect(() => { void protocolPreference().then(setProtocol) }, [protocolPreference])
   useEffect(() => { void families().then(setFamilyList) }, [families])
+  useEffect(() => { void recents().then(setRecentModels) }, [recents])
   const [bound, setBound] = useState<Bound>('unknown')
   const [keyMask, setKeyMask] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -331,6 +333,17 @@ export function XPeachSection({ t, load, models, modelMatch, keyState, bind, unb
 
 
           <div>
+            {recentModels.length > 0 && (
+              <>
+                <p className={css.groupTitle}>{t('models.recent')}</p>
+                <div className={css.modelChips}>
+                  {recentModels.map(item => (
+                    <span key={`${item.provider}/${item.model}`} className={css.modelChip}>{item.model}</span>
+                  ))}
+                </div>
+              </>
+            )}
+
             <p className={css.groupTitle}>{t('models.title')}</p>
             {match.length > 0 && (
               <div className={css.modelMatchRow}>
