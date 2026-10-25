@@ -1,6 +1,6 @@
 {
   "name": "@fixture/layout-bottom",
-  "version": "0.0.13-alpha",
+  "version": "0.0.14-alpha",
   "private": true,
   "type": "module",
   "main": "index.js",
