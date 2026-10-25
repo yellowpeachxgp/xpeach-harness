@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-remotes",
   "description": "Remote BFF assembly for application-selected Host capabilities",
-  "version": "0.0.14-alpha",
+  "version": "0.0.15-alpha",
   "publishConfig": {
     "access": "public"
   },
