@@ -1252,3 +1252,23 @@ body[data-ds-dark-theme] .mark img.markDark { display: block; }
 
 .familyRow { display: flex; flex-wrap: wrap; gap: 8px; }
 .familyChip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--xph-type-caption); color: var(--dsw-alias-label-primary); cursor: pointer; }
+
+/* Palette picker: one swatch per palette, beside the stock mode cubes. */
+.paletteRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.paletteSwatch {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--xph-type-body);
+  cursor: pointer;
+}
+.paletteSwatchOn { border-color: var(--xph-brand-orange); }
+.paletteChip {
+  width: 18px; height: 18px; flex: none;
+  border-radius: var(--dsw-radius-sm);
+  border: 1.5px solid transparent;
+  corner-shape: round;
+}
