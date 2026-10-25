@@ -29,7 +29,7 @@ function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-release-pack-'))
   roots.push(root)
   write(join(root, 'package.json'), JSON.stringify({ name: '@xpeach/xph-pack-root', private: true, version: '1.2.3' }))
-  write(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - vendor/*\n  - native/*\n  - packages/*/*\n  - apps/*\n')
+  write(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - vendor/*\n  - native/*\n  - packages/*/*\n  - apps/*\nverifyDepsBeforeRun: false\n')
   return root
 }
 
@@ -143,9 +143,9 @@ describe('release pack CLI', () => {
 
   it('overlaps two independent packs and keeps later packages within the concurrency limit', async () => {
     const root = fixture()
-    const names = ['alpha', 'bravo', 'charlie'].map(name => `@deepseek-ai/${name}`)
+    const names = ['alpha', 'bravo', 'charlie'].map(name => `@xpeach/xph-${name}`)
     for (const name of names) {
-      const directory = `vendor/${name.slice('@deepseek-ai/'.length)}`
+      const directory = `vendor/${name.slice('@xpeach/xph-'.length)}`
       packageFixture(root, directory, name, {
         scripts: { prepack: 'node hook.cjs start', postpack: 'node hook.cjs finish' },
       })
@@ -300,7 +300,7 @@ describe('release pack CLI', () => {
 
     expect(result.status).not.toBe(0)
     expect(result.stderr).toContain('@xpeach/xph-expected produced no tarball')
-    expect(existsSync(join(root, 'packed', 'deepseek-ai-renamed-1.2.3.tgz'))).toBe(true)
+    expect(existsSync(join(root, 'packed', 'xpeach-xph-renamed-1.2.3.tgz'))).toBe(true)
     expect(existsSync(join(root, 'packed', PUBLISH_ORDER_FILE))).toBe(false)
   })
 

@@ -486,6 +486,29 @@ Local grant removal has completed.
 ```
 
 Source: [`packages/credentials/deepseek-account/src/index.ts`](../../packages/credentials/deepseek-account/src/index.ts)
+
+<a id="xpeach-events"></a>
+
+### `xpeach/*` events
+
+<a id="xpeachplayground-chunk--emit"></a>
+
+#### `xpeach/playground-chunk` — emit
+
+Streamed delta from an XPeach playground chat call, emitted while the SSE body is still arriving so the console can render tokens live. Best-effort fan-out; the call's resolved reply remains the authoritative content.
+
+```ts cordis-catalog
+/**
+ * Streamed delta from an XPeach playground chat call, emitted while the SSE
+ * body is still arriving so the console can render tokens live. Best-effort
+ * fan-out; the call's resolved reply remains the authoritative content.
+ * @param chunk - call correlation id and the incremental text delta.
+ * @mode emit
+ */
+'xpeach/playground-chunk'(chunk: { callId: string; delta: string }): void
+```
+
+Source: [`packages/api/remotes/src/types.ts`](../../packages/api/remotes/src/types.ts)
 <!-- END GENERATED cordis-surface -->
 
 账号服务定义提供 getState、getProfile、getBalance、getUnnotifiedBonuses、ackBonusNotified、startSignIn、cancelSignIn、signOut、watch 及仅限 Host 的 resolveToken 和 getPlatformSession。平台提供者使用 AuthorizationFlow 和私有 GrantRecord 实现这些操作。AccountView 区分本地存在与服务器验证；尝试 ID 将取消绑定到单次本地流程。参见[账号包](../../packages/credentials/deepseek-account/README.zh.md)。

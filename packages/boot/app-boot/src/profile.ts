@@ -278,12 +278,13 @@ export function initProfile(
     const recorded = current.dsh?.profile?.bundles ?? []
     const legacy = recorded.filter(name => name.startsWith('@deepseek-ai/'))
     if (legacy.length > 0) {
+      const migratedBundles = recorded.map(name => name.replace(/^@deepseek-ai\/dsh-/, '@xpeach/xph-'))
       const migrated: ProfileManifest & { private: boolean } = {
         ...current,
         private: true,
         dsh: {
           ...current.dsh,
-          profile: { bundles: [...new Set([...bundles, ...recorded.filter(name => !legacy.includes(name))])] },
+          profile: { bundles: [...new Set([...bundles, ...migratedBundles])] },
         },
       }
       writeFileSync(manifestPath, JSON.stringify(migrated, undefined, 2) + '\n')

@@ -486,6 +486,29 @@ Local grant removal has completed.
 ```
 
 Source: [`packages/credentials/deepseek-account/src/index.ts`](../../packages/credentials/deepseek-account/src/index.ts)
+
+<a id="xpeach-events"></a>
+
+### `xpeach/*` events
+
+<a id="xpeachplayground-chunk--emit"></a>
+
+#### `xpeach/playground-chunk` — emit
+
+Streamed delta from an XPeach playground chat call, emitted while the SSE body is still arriving so the console can render tokens live. Best-effort fan-out; the call's resolved reply remains the authoritative content.
+
+```ts cordis-catalog
+/**
+ * Streamed delta from an XPeach playground chat call, emitted while the SSE
+ * body is still arriving so the console can render tokens live. Best-effort
+ * fan-out; the call's resolved reply remains the authoritative content.
+ * @param chunk - call correlation id and the incremental text delta.
+ * @mode emit
+ */
+'xpeach/playground-chunk'(chunk: { callId: string; delta: string }): void
+```
+
+Source: [`packages/api/remotes/src/types.ts`](../../packages/api/remotes/src/types.ts)
 <!-- END GENERATED cordis-surface -->
 
 The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. The platform provider implements it with an AuthorizationFlow and a private GrantRecord. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow. See [the account package](../../packages/credentials/deepseek-account/README.md).

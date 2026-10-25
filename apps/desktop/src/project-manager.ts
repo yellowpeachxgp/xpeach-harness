@@ -17,6 +17,7 @@ import {
   writeSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { homedir } from 'node:os'
 import { copyFileSync, cpSync } from 'node:fs'
 import {
   DESKTOP_HOST_PACKAGE,
@@ -88,7 +89,11 @@ export class DesktopProjectManager {
    * @returns Backup path after the locked profile write, or undefined if the patch was absent.
    */
   async disableAllPlugins(): Promise<string | undefined> {
-    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, WEB_PROFILE.bundles))
+    return this.withLock(() => {
+      const backupPath = sanitizeProfile('dsh', this.paths.profile, WEB_PROFILE.bundles)
+      seedProductProfilePatch(this.paths.profile, this.productPatch)
+      return backupPath
+    })
   }
 
   /**
@@ -188,26 +193,11 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 }
 
 /**
- * Install the shipped XPeach product patch the first time a profile boots.
- *
- * The product identity — XPeach brand slots, the site sign-in surface and the
- * relay model provider — lives in the patch layer, not in the bundle list. A
- * profile that boots with an empty patch is stock DeepSeek Harness, so the
- * packaged patch is copied in whenever the profile still has none.
- *
- * @param profileDir - Desktop profile directory.
- * @param source - Packaged product patch, when this build shipped one.
- */
-/**
- * Carry the site credentials a user already bound in another profile.
- *
- * A machine that used the CLI or an earlier desktop profile already holds the
- * site access token; the desktop profile must not start unbound just because it
- * is a different directory.
+ * Copy site credentials bound in the CLI profile when the desktop profile has none yet.
  * @param profileDir - the desktop profile directory.
  */
 export function adoptSharedSiteCredentials(profileDir: string): void {
-  const home = process.env.XPH_HOME ?? join(process.env.HOME ?? '', '.xph')
+  const home = process.env.XPH_HOME ?? join(homedir(), '.xph')
   for (const file of ['xpeach.admin', 'xpeach.key', 'xpeach.session']) {
     const target = join(profileDir, file)
     if (existsSync(target)) continue
@@ -216,10 +206,15 @@ export function adoptSharedSiteCredentials(profileDir: string): void {
     try {
       copyFileSync(candidate, target)
       chmodSync(target, 0o600)
-    } catch { /* a read-only source simply leaves this profile unbound */ }
+    } catch (_error) { /* Read-only source leaves this profile unbound. */ }
   }
 }
 
+/**
+ * Seed the shipped XPeach product patch when the profile has no patch entries yet.
+ * @param profileDir - Desktop profile directory.
+ * @param source - Packaged product patch, when this build shipped one.
+ */
 export function seedProductProfilePatch(profileDir: string, source: string | undefined): void {
   if (source === undefined || !existsSync(source)) return
   const target = join(profileDir, PROFILE_PATCH_FILENAME)
@@ -259,7 +254,7 @@ export function installProductPlugins(profileDir: string, runtimeDir: string): v
   // A profile with no stamp either predates this bookkeeping or is brand new. A
   // missing copy means new, so install it; an existing copy predates the stamp,
   // so leave it alone and only record the fingerprint.
-  if (previous === undefined && XPEACH_PROFILE_BUNDLES.every((name) => existsSync(join(profileDir, 'node_modules', name)))) {
+  if (previous === undefined && XPEACH_PROFILE_BUNDLES.every(name => existsSync(join(profileDir, 'node_modules', name)))) {
     mkdirSync(dirname(stampPath), { recursive: true, mode: 0o700 })
     writeFileSync(stampPath, stamp, { mode: 0o600 })
     return

@@ -3,21 +3,42 @@
  * Stripe/NowPayments pay shortcut — all gated on the site session cookie
  * (Settings → XPeach). When unbound it renders a guide card instead of errors.
  */
-import { useCallback, useEffect, useState } from 'react'
-import type { XPeachOps, XPeachUserSelfRow, XPeachUserTokenRow } from './ops.ts'
+import { type JSX, useCallback, useEffect, useState } from 'react'
+import type { XPeachOnboardingScan, XPeachOps, XPeachUserSelfRow, XPeachUserTokenRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
+import { MacosInstallerCard } from './XPeachProfile.tsx'
+import { SOURCE_META } from './XPeachOnboarding.tsx'
 import css from './xpeach.module.css'
 import { EditDrawer, DrawerField } from './XPeachDrawer.tsx'
 import { SITE } from './fmt.ts'
 
 const fmtQuota = (q: number): string => (q / 500000).toFixed(2) + '\u{1F351}'
 
-/** DeepSeek Harness → XPeach conversation import card (read-only on source,
+/** DeepSeek Harness & local agent conversation import card (read-only on source,
  * always reachable — also when the site session is unbound). */
-function ImportDeepseekCard({ t, run }: { t: XPeachTabProps['t'], run: XPeachOps['importDeepseek'] }): JSX.Element {
+function ImportDeepseekCard({ t, run, onboardingScan, importConversations }: {
+  t: XPeachTabProps['t']
+  run: XPeachOps['importDeepseek']
+  onboardingScan?: XPeachOps['onboardingScan'] | undefined
+  importConversations?: XPeachOps['importConversations'] | undefined
+}): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [scan, setScan] = useState<XPeachOnboardingScan | undefined>(undefined)
+  const [picked, setPicked] = useState<readonly string[]>([])
+
+  useEffect(() => {
+    if (onboardingScan === undefined) return
+    let live = true
+    void onboardingScan().then((res) => {
+      if (!live || 'error' in res) return
+      setScan(res)
+      setPicked(res.sources.filter(s => s.found).map(s => s.id))
+    })
+    return () => { live = false }
+  }, [onboardingScan])
+
   const go = async (): Promise<void> => {
     setBusy(true); setMsg(null); setErr(null)
     const r = await run()
@@ -25,22 +46,70 @@ function ImportDeepseekCard({ t, run }: { t: XPeachTabProps['t'], run: XPeachOps
     if ('error' in r) { setErr(r.error); return }
     setMsg(t('data.imported', { sessions: String(r.imported), files: String(r.files), skipped: String(r.skipped) }))
   }
+
+  const goSources = async (): Promise<void> => {
+    if (importConversations === undefined || picked.length === 0) return
+    setBusy(true); setMsg(null); setErr(null)
+    const r = await importConversations([...picked])
+    setBusy(false)
+    if ('error' in r) { setErr(r.error); return }
+    const imported = r.reduce((sum, item) => sum + item.imported, 0)
+    const skipped = r.reduce((sum, item) => sum + item.skipped, 0)
+    setMsg(t('data.importedSources', { n: String(imported), skipped: String(skipped) }))
+  }
+
+  const foundSources = scan?.sources.filter(s => s.found) ?? []
+
   return (
     <section className={css.dailyBox}>
-      <p className={css.sparkTitle}>{t('data.title')}</p>
-      <p className={css.bindHint}>{t('data.hint')}</p>
+      <p className={css.sparkTitle}>{t('data.localSourcesTitle')}</p>
+      <p className={css.bindHint}>{t('data.localSourcesHint')}</p>
+      {foundSources.length > 0 && (
+        <div className={css.onbCards}>
+          {foundSources.map((source) => {
+            const meta = SOURCE_META[source.id] ?? { icon: '💬', key: 'onb.src.chatgpt' }
+            const on = picked.includes(source.id)
+            return (
+              <button key={source.id} type="button" className={css.onbCard} data-on={on}
+                onClick={() => { setPicked(prev => on ? prev.filter(id => id !== source.id) : [...prev, source.id]) }}>
+                <span className={css.onbCardIcon}>{meta.icon}</span>
+                <span className={css.onbCardBody}>
+                  <span className={css.onbCardTitle}>{source.label}</span>
+                  <span className={css.onbCardDesc}>{t(meta.key as never)}</span>
+                  <span className={css.onbCardCount}>{t('onboard.threads', { n: String(source.threads) })}</span>
+                </span>
+                <span className={css.onbCheck} data-on={on}>{on ? '✓' : ''}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div className={css.bindRow}>
-        <button type="button" className={css.bindButton} disabled={busy} onClick={() => { void go() }}>
+        {foundSources.length > 0 && importConversations !== undefined && (
+          <button type="button" className={css.bindButton} disabled={busy || picked.length === 0} onClick={() => { void goSources() }}>
+            {busy ? t('data.working') : t('data.importSelected')}
+          </button>
+        )}
+        <button type="button" className={foundSources.length > 0 ? css.bindGhost : css.bindButton} disabled={busy} onClick={() => { void go() }}>
           {busy ? t('data.working') : t('data.import')}
         </button>
       </div>
-      {msg !== null && <p className={css.mintHint}>{msg}</p>}
+      {msg !== null && <p className={css.bindHint}>{msg}</p>}
       {err !== null && <p className={css.bindError}>{err}</p>}
     </section>
   )
 }
 
-export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, stripeAmount, stripePay, userTokenCreate, userTokenUpdate, userTokenDelete, userSelfEdit, userAff, userTokenKey, importDeepseek }: {
+/**
+ * Render the user account segment inside the XPeach console.
+ * @param props - locale translator and user account operations.
+ * @returns the user segment element.
+ */
+export function XPeachUser({
+  t, sessionBound, userSelf, userTokens, userTopup, stripeAmount, stripePay,
+  userTokenCreate, userTokenUpdate, userTokenDelete, userSelfEdit, userAff, userTokenKey, importDeepseek,
+  onboardingScan, importConversations, macosInstallerStatus, macosInstallerAction,
+}: {
   readonly t: XPeachTabProps['t']
   readonly sessionBound: XPeachOps['sessionBound']
   readonly userSelf: XPeachOps['userSelf']
@@ -55,9 +124,13 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
   readonly userAff: XPeachOps['userAff']
   readonly userTokenKey: XPeachOps['userTokenKey']
   readonly importDeepseek: XPeachOps['importDeepseek']
+  readonly onboardingScan?: XPeachOps['onboardingScan'] | undefined
+  readonly importConversations?: XPeachOps['importConversations'] | undefined
+  readonly macosInstallerStatus?: XPeachOps['macosInstallerStatus'] | undefined
+  readonly macosInstallerAction?: XPeachOps['macosInstallerAction'] | undefined
 }): JSX.Element {
   const [me, setMe] = useState<XPeachUserSelfRow | { error: string } | undefined>(undefined)
-  const [tokens, setTokens] = useState<{ items: readonly XPeachUserTokenRow[], total: number } | { error: string } | undefined>(undefined)
+  const [tokens, setTokens] = useState<{ items: readonly XPeachUserTokenRow[]; total: number } | { error: string } | undefined>(undefined)
   const [code, setCode] = useState('')
   const [codeBusy, setCodeBusy] = useState(false)
   const [codeMsg, setCodeMsg] = useState<string | null>(null)
@@ -83,7 +156,7 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
 
   useEffect(() => {
     let live = true
-    void sessionBound().then(v => {
+    void sessionBound().then((v) => {
       if (!live) return
       // The Access Token is the login state; reads work without a session.
       void v
@@ -100,7 +173,8 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
           <p className={css.sparkTitle}>{t('user.needSession')}</p>
           <p className={css.bindHint}>{t('user.needSessionHint')}</p>
         </div>
-        <ImportDeepseekCard t={t} run={importDeepseek} />
+        <MacosInstallerCard t={t} macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />
+        <ImportDeepseekCard t={t} run={importDeepseek} onboardingScan={onboardingScan} importConversations={importConversations} />
       </>
     )
   }
@@ -198,7 +272,7 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
               <DrawerField key={f} label={t(('user.ef.' + f) as 'user.ef.username')}>
                 <input className={css.bindInput} type={f === 'password' ? 'password' : 'text'} value={editDraft[f] ?? ''}
                   placeholder={f === 'password' ? t('user.ef.passwordPh') : undefined}
-                  onChange={e => { setEditDraft({ ...editDraft, [f]: e.target.value }) }} />
+                  onChange={(e) => { setEditDraft({ ...editDraft, [f]: e.target.value }) }} />
               </DrawerField>
             ))}
           </EditDrawer>
@@ -208,44 +282,90 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
 
       {/* my tokens */}
       <section className={css.dailyBox}>
-        <p className={css.sparkTitle}>{t('user.tokens')}{tokens !== undefined && !('error' in tokens) ? ' · ' + tokens.total : ''}</p>
+        <p className={css.sparkTitle}>{t('user.tokens')}{tokens !== undefined && !('error' in tokens) ? ` · ${tokens.total}` : ''}</p>
         {tokens !== undefined && 'error' in tokens && <p className={css.bindError}>{tokens.error}</p>}
         {tokens !== undefined && !('error' in tokens) && (
           <>
-          <div className={css.bindRow}>
-            <button type="button" className={css.bindGhost} onClick={() => { setTokOpen(v => !v) }}>{tokOpen ? t('market.tryClose') : t('user.newToken')}</button>
-            {tokMsg !== null && <span className={css.bindHint}>{tokMsg}</span>}
-          </div>
-          {tokOpen && (
-            <div className={css.chEdit}>
-              <label className={css.chField}><span>{t('user.tname')}</span><input className={css.bindInput} value={tokDraft.name} onChange={e => { setTokDraft({ ...tokDraft, name: e.target.value }) }} /></label>
-              <label className={css.chField}><span>{t('user.tgroup')}</span><input className={css.bindInput} placeholder={t('user.tgroupPh')} value={tokDraft.group} onChange={e => { setTokDraft({ ...tokDraft, group: e.target.value }) }} /></label>
-              <label className={css.chField}><span>{t('user.tquotaPeach')}</span><input className={css.bindInput} type="number" disabled={tokDraft.unlimited} value={tokDraft.quota} onChange={e => { setTokDraft({ ...tokDraft, quota: e.target.value }) }} /></label>
-              <label className={css.chField}><span>{t('user.tUnlimited')}</span>
-                <input type="checkbox" checked={tokDraft.unlimited} onChange={e => { setTokDraft({ ...tokDraft, unlimited: e.target.checked }) }} /></label>
-              <div className={css.bindRow}><button type="button" className={css.bindButton} onClick={() => { void doTokCreate() }}>{t('admin.codeMake')}</button></div>
+            <div className={css.bindRow}>
+              <button type="button" className={css.bindGhost} onClick={() => { setTokOpen(v => !v) }}>
+                {tokOpen ? t('market.tryClose') : t('user.newToken')}
+              </button>
+              {tokMsg !== null && <span className={css.bindHint}>{tokMsg}</span>}
             </div>
-          )}
-          <table className={css.logTable}>
-            <thead><tr><th>{t('user.tname')}</th><th>{t('user.tkey')}</th><th>{t('user.tgroup')}</th><th>{t('user.tquota')}</th><th>{t('user.tstatus')}</th><th /></tr></thead>
-            <tbody>
-              {tokens.items.map(tk => (
-                <tr key={tk.id}>
-                  <td>{tk.name}</td>
-                                    <td><code className={css.keyMask}>{reveal[tk.id] ?? tk.key ?? tk.key_prefix ?? '—'}</code>
-                    {reveal[tk.id] === undefined && <button type="button" className={css.rowAct} onClick={() => { void doReveal(tk.id) }}>👁</button>}
-                  </td>
-                  <td>{tk.group ?? '—'}</td>
-                  <td>{tk.unlimited_quota === true ? t('usage.unlimited') : fmtQuota(tk.remain_quota ?? 0)}</td>
-                  <td>{tk.status === 1 ? t('user.statusOn') : t('user.statusOff')}</td>
-                  <td>
-                    <button type="button" className={css.rowAct} onClick={() => { void doTokToggle(tk.id, tk.status ?? 1) }}>{tk.status === 1 ? t('admin.chOff') : t('admin.chEnable')}</button>
-                    <button type="button" className={css.rowAct} onClick={() => { void doTokDelete(tk.id) }}>{t('admin.del')}</button>
-                  </td>
+            {tokOpen && (
+              <div className={css.chEdit}>
+                <label className={css.chField}>
+                  <span>{t('user.tname')}</span>
+                  <input
+                    className={css.bindInput}
+                    value={tokDraft.name}
+                    onChange={(e) => { setTokDraft({ ...tokDraft, name: e.target.value }) }}
+                  />
+                </label>
+                <label className={css.chField}>
+                  <span>{t('user.tgroup')}</span>
+                  <input
+                    className={css.bindInput}
+                    placeholder={t('user.tgroupPh')}
+                    value={tokDraft.group}
+                    onChange={(e) => { setTokDraft({ ...tokDraft, group: e.target.value }) }}
+                  />
+                </label>
+                <label className={css.chField}>
+                  <span>{t('user.tquotaPeach')}</span>
+                  <input
+                    className={css.bindInput}
+                    type="number"
+                    disabled={tokDraft.unlimited}
+                    value={tokDraft.quota}
+                    onChange={(e) => { setTokDraft({ ...tokDraft, quota: e.target.value }) }}
+                  />
+                </label>
+                <label className={css.chField}><span>{t('user.tUnlimited')}</span>
+                  <input
+                    type="checkbox"
+                    checked={tokDraft.unlimited}
+                    onChange={(e) => { setTokDraft({ ...tokDraft, unlimited: e.target.checked }) }}
+                  />
+                </label>
+                <div className={css.bindRow}>
+                  <button type="button" className={css.bindButton} onClick={() => { void doTokCreate() }}>{t('admin.codeMake')}</button>
+                </div>
+              </div>
+            )}
+            <table className={css.logTable}>
+              <thead>
+                <tr>
+                  <th>{t('user.tname')}</th>
+                  <th>{t('user.tkey')}</th>
+                  <th>{t('user.tgroup')}</th>
+                  <th>{t('user.tquota')}</th>
+                  <th>{t('user.tstatus')}</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tokens.items.map(tk => (
+                  <tr key={tk.id}>
+                    <td>{tk.name}</td>
+                    <td><code className={css.keyMask}>{reveal[tk.id] ?? tk.key ?? tk.key_prefix ?? '—'}</code>
+                      {reveal[tk.id] === undefined && (
+                        <button type="button" className={css.rowAct} onClick={() => { void doReveal(tk.id) }}>👁</button>
+                      )}
+                    </td>
+                    <td>{tk.group ?? '—'}</td>
+                    <td>{tk.unlimited_quota === true ? t('usage.unlimited') : fmtQuota(tk.remain_quota ?? 0)}</td>
+                    <td>{tk.status === 1 ? t('user.statusOn') : t('user.statusOff')}</td>
+                    <td>
+                      <button type="button" className={css.rowAct} onClick={() => { void doTokToggle(tk.id, tk.status) }}>
+                        {tk.status === 1 ? t('admin.chOff') : t('admin.chEnable')}
+                      </button>
+                      <button type="button" className={css.rowAct} onClick={() => { void doTokDelete(tk.id) }}>{t('admin.del')}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </>
         )}
       </section>
@@ -255,8 +375,8 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
         <p className={css.sparkTitle}>{t('user.topup')}</p>
         <div className={css.bindRow}>
           <input className={css.bindInput} type="text" placeholder={t('user.codePh')}
-            value={code} onChange={e => { setCode(e.target.value) }}
-            onKeyDown={e => { if (e.key === 'Enter' && !codeBusy) void doTopup() }} />
+            value={code} onChange={(e) => { setCode(e.target.value) }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !codeBusy) void doTopup() }} />
           <button type="button" className={css.bindButton} disabled={codeBusy || code.trim().length < 8}
             onClick={() => { void doTopup() }}>{codeBusy ? t('bind.working') : t('user.redeem')}</button>
         </div>
@@ -267,13 +387,17 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
       <section className={css.dailyBox}>
         <p className={css.sparkTitle}>{t('user.pay')}</p>
         <div className={css.bindRow}>
-          <select className={css.bindInput} value={method} onChange={e => { setMethod(e.target.value); setPayPreview(null); setPayUrl(null) }}>
+          <select
+            className={css.bindInput}
+            value={method}
+            onChange={(e) => { setMethod(e.target.value); setPayPreview(null); setPayUrl(null) }}
+          >
             <option value="stripe">{t('user.payStripeUsd')}</option>
             <option value="stripe-cny">{t('user.payStripeCny')}</option>
             <option value="nowpayments">{t('user.payNow')}</option>
           </select>
           <input className={css.bindInput} type="number" min={1} value={amount}
-            onChange={e => { setAmount(e.target.value); setPayPreview(null); setPayUrl(null) }} />
+            onChange={(e) => { setAmount(e.target.value); setPayPreview(null); setPayUrl(null) }} />
           <button type="button" className={css.bindGhost} disabled={payBusy} onClick={() => { void doPreview() }}>{t('user.preview')}</button>
           <button type="button" className={css.bindButton} disabled={payBusy || Number(amount) <= 0} onClick={() => { void doPay() }}>
             {payBusy ? t('bind.working') : t('user.goPay')}
@@ -287,18 +411,22 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
       {/* 邀请推广 */}
       <section className={css.dailyBox}>
         <p className={css.sparkTitle}>{t('user.aff')}</p>
-        {aff !== undefined && 'error' in aff && <p className={css.bindError}>{aff.error as string}</p>}
+        {aff !== undefined && 'error' in aff && typeof aff.error === 'string' && <p className={css.bindError}>{aff.error}</p>}
         {aff !== undefined && !('error' in aff) && (
           <>
             <dl className={css.usageGrid}>
-              <div className={css.usageCell}><dt>{t('user.affCode')}</dt><dd><code>{String(aff['aff_code'] ?? '—')}</code></dd></div>
-              <div className={css.usageCell}><dt>{t('user.affQuota')}</dt><dd>{typeof aff['quota'] === 'number' ? fmtQuota(aff['quota'] as number) : '—'}</dd></div>
+              <div className={css.usageCell}>
+                <dt>{t('user.affCode')}</dt>
+                <dd><code>{typeof aff['aff_code'] === 'string' ? aff['aff_code'] : '—'}</code></dd>
+              </div>
+              <div className={css.usageCell}><dt>{t('user.affQuota')}</dt><dd>{typeof aff['quota'] === 'number' ? fmtQuota(aff['quota']) : '—'}</dd></div>
             </dl>
             {typeof aff['aff_code'] === 'string' && aff['aff_code'] !== '' && (
               <div className={css.bindRow}>
-                <code className={css.keyMask}>{SITE.register}?aff={aff['aff_code']}</code>
+                <code className={css.keyMask}>{`${SITE.register}?${new URLSearchParams({ aff: aff['aff_code'] }).toString()}`}</code>
                 <button type="button" className={css.bindGhost} onClick={() => {
-                  void navigator.clipboard.writeText(SITE.register + '?aff=' + String(aff['aff_code']))
+                  const affCode = typeof aff['aff_code'] === 'string' ? aff['aff_code'] : ''
+                  void navigator.clipboard.writeText(`${SITE.register}?${new URLSearchParams({ aff: affCode }).toString()}`)
                   setEditMsg(t('bind.copied'))
                 }}>{t('bind.copyApi')}</button>
               </div>
@@ -306,7 +434,8 @@ export function XPeachUser({ t, sessionBound, userSelf, userTokens, userTopup, s
           </>
         )}
       </section>
-      <ImportDeepseekCard t={t} run={importDeepseek} />
+      <MacosInstallerCard t={t} macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />
+      <ImportDeepseekCard t={t} run={importDeepseek} onboardingScan={onboardingScan} importConversations={importConversations} />
     </>
   )
 }

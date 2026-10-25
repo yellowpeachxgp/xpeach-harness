@@ -18,13 +18,15 @@ const { autoUpdater } = electronUpdater
  * @param info - the feed's update descriptor.
  * @returns release-name and release-notes fields, omitting empty values.
  */
-function changelog(info: { releaseName?: string | null, releaseNotes?: string | Array<{ note?: string | null }> | null }): { releaseName?: string, releaseNotes?: string } {
+function changelog(
+  info: { releaseName?: string | null; releaseNotes?: string | Array<{ note?: string | null }> | null },
+): { releaseName?: string; releaseNotes?: string } {
   const name = typeof info.releaseName === 'string' && info.releaseName.trim() !== '' ? info.releaseName.trim() : undefined
   const raw = info.releaseNotes
   const notes = typeof raw === 'string'
     ? raw
     : Array.isArray(raw)
-      ? raw.map(entry => entry?.note ?? '').filter(note => note !== '').join('\n')
+      ? raw.map(entry => entry.note ?? '').filter(note => note !== '').join('\n')
       : undefined
   const cleaned = notes === undefined ? undefined : notes.replace(/<[^>]+>/gu, '').trim()
   return {
@@ -80,7 +82,7 @@ export class DesktopUpdateCoordinator {
   ) {
     if (updater === autoUpdater) {
       if (process.env.XPEACH_SILENT_UPDATE !== '0') {
-        setTimeout(() => { void this.check().catch(() => {}) }, 20_000).unref?.()
+        setTimeout(() => { void this.check().catch(() => {}) }, 20_000).unref()
       }
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
@@ -92,7 +94,7 @@ export class DesktopUpdateCoordinator {
     }
     // XPeach ships with silent updates: download in the background and install on
     // quit; a user-initiated check can still surface progress in the UI.
-    this.updater.autoDownload = process.env.XPEACH_SILENT_UPDATE !== '0'
+    this.updater.autoDownload = false
     this.updater.autoInstallOnAppQuit = process.env.XPEACH_SILENT_UPDATE !== '0'
     this.updater.channel = channel
     this.updater.allowPrerelease = channel === 'nightly'
@@ -123,7 +125,7 @@ export class DesktopUpdateCoordinator {
     const result = await this.checkOperation
     if (manual && result.phase === 'error') this.setState(result)
     // Silent mode: fetch the installer in the background so the next quit applies it.
-    if (silent && result.phase === 'available' && result.version !== undefined && this.downloadOperation === undefined) {
+    if (silent && result.phase === 'available' && result.version !== undefined) {
       void this.download(result.version).catch(() => {})
     }
     return result

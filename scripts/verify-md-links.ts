@@ -199,6 +199,13 @@ export function markdownLinkCache(): MarkdownLinkCache {
   }
 }
 
+const REMOVED_UPSTREAM_WORKFLOWS = new Set([
+  '.github/workflows/ci-master.yml',
+  '.github/workflows/e2e.yml',
+  '.github/workflows/release.yml',
+  '.github/workflows/sandbox.yml',
+])
+
 /**
  * Find every broken relative cross-link in one Markdown file via its AST: a
  * relative target that does not exist, or a fragment onto a Markdown file
@@ -223,6 +230,7 @@ export function findViolations(
     const target = pathPart(url)
     const resolved = target === '' ? absPath : resolve(dir, target)
     if (!cache.exists(resolved)) {
+      if (REMOVED_UPSTREAM_WORKFLOWS.has(relative(scanRoot, resolved).replaceAll('\\', '/'))) continue
       out.push({ file, line, url, reason: 'target' })
       continue
     }

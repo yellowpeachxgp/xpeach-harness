@@ -108,7 +108,7 @@ function capabilitiesOf(entry: Fields): ListedCapabilities {
   if (contextWindow === false || maxOutputTokens === false) {
     return { usable: false, reason: 'declares an invalid context_window or max_output_tokens' }
   }
-  // `null` declares nothing, like an absent field, so a serializer that writes empty values as null keeps this build's knowledge.
+  // Treat `null` as absent so serialized null fields inherit catalog defaults.
   const promptUpdate = messages.system_prompt_update ?? undefined
   const toolUpdate = messages.tool_update ?? undefined
   return {

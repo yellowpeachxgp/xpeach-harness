@@ -13,25 +13,25 @@
 
 - insert:
     - id: agent-preset-registry
-      name: '@deepseek-ai/dsh-agent-preset-registry'
+      name: '@xpeach/xph-agent-preset-registry'
       config:
         default: parent
     - id: preset-parent
-      name: '@deepseek-ai/dsh-agent-preset'
+      name: '@xpeach/xph-agent-preset'
       config:
         id: parent
         plugins:
-          - name: '@deepseek-ai/dsh-tool-fs'
-          - name: '@deepseek-ai/dsh-tool-fs-search'
+          - name: '@xpeach/xph-tool-fs'
+          - name: '@xpeach/xph-tool-fs-search'
             config:
               sampleOverCapGlobResults: false
-          - name: '@deepseek-ai/dsh-tool-web'
+          - name: '@xpeach/xph-tool-web'
             config:
               fetch: true
               searchTimeoutMs: 60000
-          - name: '@deepseek-ai/dsh-tool-subagent-control'
+          - name: '@xpeach/xph-tool-subagent-control'
     - id: preset-child
-      name: '@deepseek-ai/dsh-agent-preset'
+      name: '@xpeach/xph-agent-preset'
       config:
         id: child
         plugins: []
@@ -39,7 +39,7 @@
       name: '../../../packages/test-support/session-snapshot/tests/fixtures/parent-agent-preset.ts'
 
 - id: tool-subagent
-  name: '@deepseek-ai/dsh-tool-subagent'
+  name: '@xpeach/xph-tool-subagent'
   inject: [agentPresets]
   config:
     provider: spawn

@@ -39,7 +39,7 @@ function persistSelection(selection: {
   readonly sessionId?: SessionId
   readonly subagentAddress?: SubagentAddress
 }): Map<string, string> {
-  const backing = new Map([['dsh.sessions.current', JSON.stringify(selection)]])
+  const backing = new Map([['xph.sessions.current', JSON.stringify(selection)]])
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => backing.get(key) ?? null,
     setItem: (key: string, value: string) => { backing.set(key, value) },
@@ -808,7 +808,7 @@ describe('UiWorkspaceService', () => {
         expect(binding.sessionId).toBe(sid('actual-target'))
         expect(target.release).not.toHaveBeenCalled()
         expect(previous.release).not.toHaveBeenCalled()
-        expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('previous') })
+        expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({ sessionId: sid('previous') })
         expect(b.selectPanel).not.toHaveBeenCalled()
         return 'applied'
       })
@@ -820,7 +820,7 @@ describe('UiWorkspaceService', () => {
       expect(b.sessions.binding).toHaveBeenCalledExactlyOnceWith(sid('actual-target'))
       expect(previous.release).toHaveBeenCalledOnce()
       expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('actual-target') })
+      expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({ sessionId: sid('actual-target') })
       expect(b.notify).not.toHaveBeenCalled()
     })
 
@@ -853,7 +853,7 @@ describe('UiWorkspaceService', () => {
       )
       expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
       expect(b.sessions.retained[1]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('created-a') })
+      expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({ sessionId: sid('created-a') })
       expect(b.notify).not.toHaveBeenCalled()
     })
 
@@ -935,7 +935,7 @@ describe('UiWorkspaceService', () => {
         expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
         expect(b.sessions.retained[1]!.release).toHaveBeenCalledOnce()
         expect(b.sessions.binding(sid('created-a'))).toBeUndefined()
-        expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('previous') })
+        expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({ sessionId: sid('previous') })
         expect(b.selectPanel).not.toHaveBeenCalled()
         expect(b.requestDraftInitialization).toHaveBeenCalledTimes(failure === 'blocked' ? 1 : 0)
       },
@@ -953,7 +953,7 @@ describe('UiWorkspaceService', () => {
       expect(b.sessions.create).not.toHaveBeenCalled()
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
       expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('ungrouped') })
+      expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({ sessionId: sid('ungrouped') })
       expect(b.selectPanel).not.toHaveBeenCalled()
     })
 
@@ -975,7 +975,7 @@ describe('UiWorkspaceService', () => {
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
       expect(b.sessions.retained).toHaveLength(1)
       expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
-      expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({ sessionId: sid('previous') })
+      expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({ sessionId: sid('previous') })
       expect(b.selectPanel).not.toHaveBeenCalled()
     })
   })
@@ -1406,7 +1406,7 @@ describe('UiWorkspaceService', () => {
 
     b.uiWorkspace.openSession(address.childSessionId)
 
-    expect(JSON.parse(backing.get('dsh.sessions.current')!)).toEqual({
+    expect(JSON.parse(backing.get('xph.sessions.current')!)).toEqual({
       sessionId: address.childSessionId,
       subagentAddress: address,
     })

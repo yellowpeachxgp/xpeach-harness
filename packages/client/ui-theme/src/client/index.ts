@@ -259,9 +259,12 @@ export class ThemeRuntime {
     if (id !== 'system' && !this.themes.some(t => t.id === id)) {
       throw new Error(`theme "${id}" is not registered`)
     }
-    if (this.preference === id) return
-    this.preference = id as ThemePreference
-    if (isThemePreference(id)) this.write(() => this.host.set(THEME_PREFERENCE_FIELD, id))
+    const target = this.snapshot.active.colorScheme === 'dark' && this.themes.some(t => t.id === `${id}-dark`)
+      ? `${id}-dark`
+      : id
+    if (this.preference === target) return
+    this.preference = target as ThemePreference
+    if (isThemePreference(target)) this.write(() => this.host.set(THEME_PREFERENCE_FIELD, target))
     this.publish()
   }
 
@@ -403,6 +406,7 @@ export class ThemeRuntime {
     // Both built-ins always exist; a registered preference id resolves or has
     // been reset by its disposer, so the lookup cannot miss.
     const active = this.themes.find(t => t.id === resolvedId)
+      ?? this.themes.find(t => t.id === (resolvedId.endsWith('-dark') ? 'dark' : 'light'))
     /* v8 ignore next 2 -- needs a registry without light/dark, which register()/dispose() cannot produce */
     if (active === undefined) throw new Error(`theme registry lost "${resolvedId}"`)
     return Object.freeze({

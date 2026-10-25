@@ -35,7 +35,23 @@ const INSTALL_SECTIONS = ['dependencies', 'optionalDependencies'] as const
 const PEER_SECTIONS = ['peerDependencies'] as const
 
 /** The workspace root manifest, which is never a release member. */
-const WORKSPACE_ROOT_PACKAGE = '@xpeach/xph-dsh-root'
+const WORKSPACE_ROOT_PACKAGES = new Set(['@xpeach/xph-dsh-root', '@xpeach/xph-root'])
+const VENDOR_AND_NATIVE_PACKAGES: ReadonlySet<string> = new Set([
+  '@xpeach/xph-cordis',
+  '@xpeach/xph-cosmokit',
+  '@xpeach/xph-schemastery',
+  '@xpeach/xph-cordis-plugin-loader',
+  '@xpeach/xph-cordis-plugin-include',
+  '@xpeach/xph-cordis-plugin-group',
+  '@xpeach/xph-cordis-plugin-timer',
+  '@xpeach/xph-cordis-plugin-hmr',
+  '@xpeach/xph-cordis-plugin-logger-console',
+  '@xpeach/xph-node-addon-system',
+  '@xpeach/xph-node-addon-system-darwin-arm64',
+  '@xpeach/xph-node-addon-system-darwin-x64',
+  '@xpeach/xph-node-addon-system-linux-arm64',
+  '@xpeach/xph-node-addon-system-linux-x64',
+])
 
 /** One peer declaration the publish order leaves unordered. */
 interface DroppedPeerEdge {
@@ -132,8 +148,8 @@ export abstract class ReleaseFamily {
       if (manifest.private === true) continue
       const name = requireString(manifest, 'name', normalized)
       const version = requireString(manifest, 'version', normalized)
-      if (name === WORKSPACE_ROOT_PACKAGE) throw new Error(`${normalized} selected the workspace root`)
-      if (!name.startsWith('@xpeach/xph-')) throw new Error(`${normalized} must name an @deepseek-ai package`)
+      if (WORKSPACE_ROOT_PACKAGES.has(name)) throw new Error(`${normalized} selected the workspace root`)
+      if (!name.startsWith('@xpeach/xph-')) throw new Error(`${normalized} must name an @xpeach package`)
       if (seen.has(name)) throw new Error(`${name} appears twice in release family ${this.id}`)
       seen.add(name)
       members.push({
@@ -407,12 +423,9 @@ class DshFamily extends ReleaseFamily {
       const dependencies = manifest[section]
       if (dependencies === null || typeof dependencies !== 'object' || Array.isArray(dependencies)) continue
       for (const [name, range] of Object.entries(dependencies)) {
+        if (VENDOR_AND_NATIVE_PACKAGES.has(name)) continue
         if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-')) continue
-        // A workspace spec packs as a range (`workspace:~' becomes `~x.y.z'), so the
-        // invariant is that the range targets the release version, not that the
-        // string is bare.
-        const pinned = String(range).replace(/^[~^]/u, '')
-        if (pinned !== member.version) {
+        if (range !== member.version) {
           throw new Error(`${member.name}: packed ${section}.${name} must equal ${member.version}, got ${String(range)}`)
         }
       }

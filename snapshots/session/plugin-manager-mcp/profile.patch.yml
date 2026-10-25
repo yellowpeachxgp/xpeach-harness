@@ -1,6 +1,6 @@
 - insert:
     - id: demo
-      name: '@deepseek-ai/dsh-mcp-client'
+      name: '@xpeach/xph-mcp-client'
       disabled: true
       config:
         serverName: demo

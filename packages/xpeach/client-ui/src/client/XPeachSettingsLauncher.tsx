@@ -35,11 +35,16 @@ function dailyBars(logs: readonly XPeachSelfLogRow[], days: number): number[] {
   }
   for (const row of logs) {
     const slot = index.get(new Date(row.created_at * 1000).toDateString())
-    if (slot !== undefined) buckets[slot] = (buckets[slot] ?? 0) + (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0)
+    if (slot !== undefined) buckets[slot] = (buckets[slot] ?? 0) + row.prompt_tokens + row.completion_tokens
   }
   return buckets
 }
 
+/**
+ * Render the sidebar settings launcher and site-balance hover card.
+ * @param props - launcher runtime props, locale translator, and injected account ops.
+ * @returns the launcher row element.
+ */
 export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, userSelf, userLogs, t }: Props): JSX.Element {
   const [me, setMe] = useState<XPeachUserSelfRow | undefined>(undefined)
   const [logs, setLogs] = useState<readonly XPeachSelfLogRow[]>([])
@@ -47,14 +52,14 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
 
   useEffect(() => {
     let alive = true
-    void userSelf().then(r => { if (alive && !('error' in r)) setMe(r) })
+    void userSelf().then((r) => { if (alive && !('error' in r)) setMe(r) })
     return () => { alive = false }
   }, [userSelf])
 
   const ensureLogs = (): void => {
     if (loaded.current) return
     loaded.current = true
-    void userLogs(0, 100).then(r => { if (!('error' in r)) setLogs(r.items) })
+    void userLogs(0, 100).then((r) => { if (!('error' in r)) setLogs(r.items) })
   }
   useEffect(() => { ensureLogs() }, [])
 
@@ -67,20 +72,21 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
     const today = new Date().toDateString()
     return logs
       .filter(row => new Date(row.created_at * 1000).toDateString() === today)
-      .reduce((sum, row) => sum + (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0), 0)
+      .reduce((sum, row) => sum + row.prompt_tokens + row.completion_tokens, 0)
   }, [logs])
   const dayLabels = useMemo(() => {
-    const names = '日一二三四五六'
+    const keys = ['weekday.0', 'weekday.1', 'weekday.2', 'weekday.3', 'weekday.4', 'weekday.5', 'weekday.6'] as const
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date()
       date.setHours(0, 0, 0, 0)
       date.setDate(date.getDate() - (6 - index))
-      return { label: names[date.getDay()] ?? '', today: index === 6 }
+      const wk = keys[date.getDay()] ?? 'weekday.0'
+      return { label: t(wk), today: index === 6 }
     })
-  }, [])
+  }, [t])
   const fmtTokens = (value: number): string => value >= 1e8
-    ? (value / 1e8).toFixed(2) + '亿'
-    : value >= 1e4 ? (value / 1e4).toFixed(1) + '万' : String(value)
+    ? t('unit.yi', { n: (value / 1e8).toFixed(2) })
+    : value >= 1e4 ? t('unit.wan', { n: (value / 1e4).toFixed(1) }) : String(value)
 
   return (
     <div className={css.launchRow}>
@@ -120,7 +126,12 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
             </div>
             <div className={css.launchPopBars}>
               {bars.map((v, i) => (
-                <span key={i} data-empty={v === 0} style={{ height: Math.max(3, (v / maxBar) * 30) + 'px' }} title={v.toLocaleString() + ' tok'} />
+                <span
+                  key={i}
+                  data-empty={v === 0}
+                  style={{ height: `${Math.max(3, (v / maxBar) * 30)}px` }}
+                  title={t('unit.tok', { n: v.toLocaleString() })}
+                />
               ))}
             </div>
             <div className={css.launchPopDays} aria-hidden="true">

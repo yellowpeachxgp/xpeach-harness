@@ -419,7 +419,15 @@ function isReleaseMemberDirectory(dir: string): boolean {
  */
 export function checkDshFamilyVersion(manifest: PackageManifest, expected: string | undefined): string | undefined {
   const name = manifest.name
-  if (name !== '@xpeach/xph-dsh' && name?.startsWith('@xpeach/xph-') !== true) return undefined
+  if (
+    name === undefined
+    || vendoredPackages.has(name)
+    || publicNativePackages.has(name)
+    || name === '@xpeach/xph-node-addon-system-workspace'
+  ) {
+    return undefined
+  }
+  if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-')) return undefined
   if (manifest.version !== expected) {
     return `${name}: package.json version must match root version ${expected ?? '(missing)'}`
   }
@@ -634,9 +642,11 @@ export function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]):
     for (const section of dependencySections) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         if (!members.has(name)) continue
-        const expected = name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-')
-          ? 'workspace:*'
-          : vendors.has(name) ? 'workspace:~' : undefined
+        const expected = vendors.has(name)
+          ? 'workspace:~'
+          : name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-')
+            ? 'workspace:*'
+            : undefined
         if (expected !== undefined ? range === expected : range.startsWith('workspace:')) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must use ${expected ?? 'the workspace: protocol'}, got ${range}`)
       }

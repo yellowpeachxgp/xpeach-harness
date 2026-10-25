@@ -268,7 +268,7 @@ export const zh: { [Key in keyof typeof en]: string } = {
   create: '创建提供商',
   creating: '创建中\u2026',
   welcomeTitle: '预览版说明',
-  welcomeBody: '🍑Code 是 XPeach 中转站工作台：绑定一次令牌，全站模型随选随调，额度用量实时可见。你的每一次调用都走自己的 key 计费。',
+  welcomeBody: '🍑Code 是 XPeach 中转站工作台：绑定一次令牌，全站模型随选随调，额度用量实时可见，每次调用均按所绑定的令牌计费。',
   welcomeContinue: '继续',
   welcomeError: '暂时无法保存确认状态，请重试。',
   onboardingTitle: '添加一个 API Key 开始使用',

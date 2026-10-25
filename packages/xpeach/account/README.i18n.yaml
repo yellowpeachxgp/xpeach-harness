@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/xpeach/account/README.md
+/:
+  en: 9d14f576b7d70b34
+  zh: 29bf0f1e13f4c2a8
+/xpeach-xph-account:
+  en: 0f93c14196cd6000
+  zh: 01869fb27a4ac167
+/xpeach-xph-account/summary:
+  en: 80e86f790159bc0a
+  zh: 9a068cc0b10f766c
+/xpeach-xph-account/table-of-contents:
+  en: d791f6e82867c1e5
+  zh: cf02813f7c68be3a
+/xpeach-xph-account/credential-topology:
+  en: 165371055a4703c8
+  zh: 97c0a8b52d4e9eb0
+/xpeach-xph-account/key-file-credentials-record-and-unbind-semantics:
+  en: 40436cec50dfc4aa
+  zh: f273c32679f4db3d
+/xpeach-xph-account/price-sync-table:
+  en: 2f1adde4598c9994
+  zh: a335067ba0d30b3f
+/xpeach-xph-account/billing-math:
+  en: b23b2832186daa62
+  zh: f897f8d581e7aff3
+/xpeach-xph-account/configuration:
+  en: 801de478c8b439fe
+  zh: 7e783b19276572ff
+/xpeach-xph-account/known-limitations-and-deferred-work:
+  en: 7b5a7ddb5ce5b342
+  zh: 8fe557478adc55d7
+/xpeach-xph-account/known-limitations-and-deferred-work/dev-note:
+  en: 6b058e4f3c5254f2
+  zh: 8f3209f2ad1df71b

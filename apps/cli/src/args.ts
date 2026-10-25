@@ -80,8 +80,13 @@ function selectProfile(value: string, previous?: string): string {
   return value
 }
 
+function isDesktopProfile(profile: string): boolean {
+  const lower = profile.toLowerCase()
+  return lower === 'desktop' || lower === 'xpeach-desktop'
+}
+
 function rejectElectronProfile(program: Command, profile: string): void {
-  if (profile.toLowerCase() === 'desktop') {
+  if (isDesktopProfile(profile)) {
     program.error('error: profile "desktop" is managed exclusively by the Electron application')
   }
 }
@@ -203,7 +208,8 @@ export function parseDshArgs(argv: readonly string[], version: string, manageDes
         if (options.profile === '') program.error('error: --profile needs a name')
         if (!manageDesktopProfile) rejectElectronProfile(plugin, options.profile)
         if (args.length === 0) program.error('error: plugin needs pnpm arguments to forward (e.g. add <package>)')
-        resolved = { mode: 'plugin', profile: options.profile.toLowerCase() === 'desktop' ? 'desktop' : options.profile, args }
+        const lower = options.profile.toLowerCase()
+        resolved = { mode: 'plugin', profile: lower === 'desktop' ? 'desktop' : lower === 'xpeach-desktop' ? 'xpeach-desktop' : options.profile, args }
       })
   }
 

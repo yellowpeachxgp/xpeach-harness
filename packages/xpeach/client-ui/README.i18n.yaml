@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/xpeach/client-ui/README.md
+/:
+  en: 62b51907e8d0da58
+  zh: 00b0eaf512d18a28
+/xpeach-xph-client-ui:
+  en: d0ececdfb1cc9e57
+  zh: 83db374463e7ff3a
+/xpeach-xph-client-ui/summary:
+  en: a266f5186daa7cd6
+  zh: 96d57c73875db3ea
+/xpeach-xph-client-ui/table-of-contents:
+  en: d2f09029bb49c4b4
+  zh: 9856543a60ee4dfa
+/xpeach-xph-client-ui/use-this-package:
+  en: 323dc52f8390f2dc
+  zh: d2adede7490f0ff9
+/xpeach-xph-client-ui/known-limitations-and-deferred-work:
+  en: e1bf44537fb5cd09
+  zh: 4bfcb7f0b5979a38
+/xpeach-xph-client-ui/known-limitations-and-deferred-work/dev-note:
+  en: 3ca899821856a3df
+  zh: bba05b777d400831

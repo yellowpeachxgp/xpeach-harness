@@ -23,8 +23,7 @@ describe('generated tsconfig package aliases', () => {
     })
     // Sorted, so a package added anywhere lands in a stable spot in the diff.
     expect([...aliases].sort((a, b) => a.specifier.localeCompare(b.specifier))).toEqual(aliases)
-    // Only packages named after their directory: the rest carry hand-written
-    // aliases, because the removed wildcards could never have resolved them.
+    // Only packages named after their directory: the rest carry hand-written aliases.
     expect(aliases.some(alias => alias.specifier === '@xpeach/xph-typert-protocol')).toBe(false)
   })
 
@@ -65,10 +64,9 @@ describe('generated tsconfig package aliases', () => {
   })
 
   it('names a package that no alias covers', () => {
-    // Deleting the group wildcards removed the fallback that used to resolve a
-    // package nobody had aliased. A package whose name does not match its
-    // directory is skipped by the generator, so without this check it would
-    // resolve through the workspace symlink to built lib/types instead.
+    // A package whose name does not match its directory is skipped by the
+    // generator; without this check it would resolve through the workspace
+    // symlink to built lib/types instead.
     expect(uncoveredPackages(
       ['@xpeach/xph-a', '@xpeach/xph-b'],
       new Set(['@xpeach/xph-a']),

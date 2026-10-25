@@ -255,10 +255,10 @@ class WorkspacePackageSet {
       const isVendored = manifestPath.startsWith('vendor/')
       // Vendored packages are rescoped too (vendor/README.md), so publication
       // never carries an upstream name that would squat it on the registry.
-      if (!name.startsWith('@deepseek-ai/')) {
-        throw new Error(`${manifestPath} must name an @deepseek-ai package`)
+      if (!name.startsWith('@xpeach/')) {
+        throw new Error(`${manifestPath} must name an @xpeach package`)
       }
-      if (name === '@xpeach/xph-dsh-root') {
+      if (name === '@xpeach/xph-dsh-root' || name === '@xpeach/xph-root') {
         throw new Error(`${manifestPath} unexpectedly selected the workspace root`)
       }
       if (names.has(name)) throw new Error(`duplicate package name: ${name}`)
@@ -799,7 +799,7 @@ function parsePackedPackage(value: unknown, index: number): PackedPackage {
   if (origin !== 'harness' && origin !== 'vendor') {
     throw new Error(`invalid package origin in release manifest: ${JSON.stringify(origin)}`)
   }
-  if (origin === 'harness' && (!name.startsWith('@deepseek-ai/') || name === '@xpeach/xph-dsh-root')) {
+  if (origin === 'harness' && (!name.startsWith('@xpeach/') || name === '@xpeach/xph-dsh-root' || name === '@xpeach/xph-root')) {
     throw new Error(`invalid package name in release manifest: ${name}`)
   }
   return {

@@ -29,7 +29,24 @@ const CORDIS = '@xpeach/xph-cordis'
  * location that TypeScript scans when it computes module specifiers for every JSX file.
  */
 const ROOT_TYPE_PACKAGES: ReadonlySet<string> = new Set(['@types/react', '@types/react-dom'])
+const VENDOR_AND_NATIVE_PACKAGES: ReadonlySet<string> = new Set([
+  '@xpeach/xph-cordis',
+  '@xpeach/xph-cosmokit',
+  '@xpeach/xph-schemastery',
+  '@xpeach/xph-cordis-plugin-loader',
+  '@xpeach/xph-cordis-plugin-include',
+  '@xpeach/xph-cordis-plugin-group',
+  '@xpeach/xph-cordis-plugin-timer',
+  '@xpeach/xph-cordis-plugin-hmr',
+  '@xpeach/xph-cordis-plugin-logger-console',
+  '@xpeach/xph-node-addon-system',
+  '@xpeach/xph-node-addon-system-darwin-arm64',
+  '@xpeach/xph-node-addon-system-darwin-x64',
+  '@xpeach/xph-node-addon-system-linux-arm64',
+  '@xpeach/xph-node-addon-system-linux-x64',
+])
 function workspaceRange(name: string): 'workspace:*' | 'workspace:~' {
+  if (VENDOR_AND_NATIVE_PACKAGES.has(name)) return 'workspace:~'
   return name === '@xpeach/xph-dsh' || name.startsWith('@xpeach/xph-') ? 'workspace:*' : 'workspace:~'
 }
 const RELEASE_MANIFEST_GLOB = 'packages/!(experimental)/*/package.json'

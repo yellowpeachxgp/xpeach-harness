@@ -2,7 +2,14 @@
   "name": "@xpeach/xph-client-ui",
   "description": "XPeach 🍑Code face for the Web client: peach brand, quota pill, quota notice, and the settings account card",
   "version": "0.0.14-alpha",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/xpeach/client-ui"
+  },
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -32,9 +39,9 @@
     "@xpeach/xph-client-locale": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-client-ui-primitives": "workspace:*",
+    "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-account": "workspace:*",
-    "@types/react": "~18.3.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@xpeach/xph-client-ui-theme": "workspace:*",
@@ -43,7 +50,6 @@
     "@xpeach/xph-client-ui-chat": "workspace:*",
     "@xpeach/xph-client-ui-sidebar-right": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
-    "@types/react-dom": "~18.3.0",
     "@xpeach/xph-client-ui-settings": "workspace:*"
   },
   "files": [
@@ -58,6 +64,7 @@
         "@xpeach/xph-client-locale",
         "@xpeach/xph-client-ui-slots",
         "@xpeach/xph-client-ui-theme",
+        "@xpeach/xph-client-ui-layout",
         "@xpeach/xph-client-ui-sidebar-right"
       ],
       "platform": "web"

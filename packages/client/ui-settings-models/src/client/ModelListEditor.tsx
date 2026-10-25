@@ -177,9 +177,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [candidateQuery, setCandidateQuery] = useState('')
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
-  // Which row is being dragged. It has to live here: a row only knows its own
-  // index, so a per-row value is null in the row the pointer is over and the
-  // browser refuses the drop.
+  // Active drag source index shared across rows so drop targets can accept the move.
   const [dragFrom, setDragFrom] = useState<number | null>(null)
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
@@ -224,6 +222,13 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     })
   }
 
+  const reindexOnMove = (at: number, from: number, to: number): number => {
+    if (at === from) return to
+    if (from < to && at > from && at <= to) return at - 1
+    if (from > to && at >= to && at < from) return at + 1
+    return at
+  }
+
   /**
    * Move one model to another position.
    *
@@ -239,13 +244,25 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     if (moved === undefined) return
     next.splice(to, 0, moved)
     onChange(next)
+    setExpanded((current) => {
+      const movedSet = new Set<number>()
+      for (const at of current) movedSet.add(reindexOnMove(at, from, to))
+      return movedSet
+    })
+    setEditing((current) => {
+      const movedMap = new Map<string, string>()
+      for (const [key, value] of current) {
+        const colon = key.indexOf(':')
+        const at = reindexOnMove(Number(key.slice(0, colon)), from, to)
+        movedMap.set(`${String(at)}${key.slice(colon)}`, value)
+      }
+      return movedMap
+    })
   }
 
   const patch = (index: number, next: Record<string, string | number | undefined>): void => {
     onChange(models.map((model, at) => {
       if (at !== index) return model
-      // Rebuilt rather than spread over: an emptied optional field has to leave
-      // the profile, not be stored as a value its schema would reject.
       // Spread first so a field this card does not edit survives; an emptied
       // optional field is then dropped rather than stored as a value its
       // schema would reject.

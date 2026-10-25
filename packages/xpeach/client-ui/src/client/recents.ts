@@ -47,7 +47,7 @@ export function readRecents(): RecentModel[] {
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     return parsed.map(asRecent).filter((item): item is RecentModel => item !== undefined).slice(0, RECENTS_LIMIT)
-  } catch {
+  } catch (_storageError) {
     // Unavailable storage or malformed JSON has no usable list.
     return []
   }
@@ -75,7 +75,7 @@ export function rememberModel(provider: string, model: string): RecentModel[] {
   if (typeof localStorage === 'undefined') return next
   try {
     localStorage.setItem(KEY, JSON.stringify(next))
-  } catch {
+  } catch (_storageError) {
     // A full or unavailable store simply forgets this pick.
   }
   return next

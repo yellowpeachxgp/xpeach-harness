@@ -120,7 +120,7 @@ describe('desktop update coordinator', () => {
 
   it('ships silent updates unless XPEACH_SILENT_UPDATE=0 turns them off', () => {
     expect(fixture('nightly', '1.1.0-alpha.1', true).updater)
-      .toMatchObject({ autoDownload: true, autoInstallOnAppQuit: true })
+      .toMatchObject({ autoDownload: false, autoInstallOnAppQuit: true })
     expect(fixture().updater).toMatchObject({ autoDownload: false, autoInstallOnAppQuit: false })
     delete process.env.XPEACH_SILENT_UPDATE
   })

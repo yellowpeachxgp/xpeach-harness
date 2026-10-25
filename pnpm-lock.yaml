@@ -2688,6 +2688,9 @@ importers:
 
   packages/bundle/web-app:
     dependencies:
+      '@xpeach/xph-account':
+        specifier: workspace:*
+        version: link:../../xpeach/account
       '@xpeach/xph-agent-instructions':
         specifier: workspace:*
         version: link:../../context/agent-instructions
@@ -15506,12 +15509,6 @@ importers:
 
   packages/xpeach/client-ui:
     devDependencies:
-      '@types/react':
-        specifier: ~18.3.1
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ~18.3.0
-        version: 18.3.7(@types/react@18.3.31)
       '@xpeach/xph-account':
         specifier: workspace:*
         version: link:../account
@@ -15533,6 +15530,9 @@ importers:
       '@xpeach/xph-client-ui-primitives':
         specifier: workspace:*
         version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
       '@xpeach/xph-client-ui-settings':
         specifier: workspace:*
         version: link:../../client/ui-settings

@@ -1,5 +1,5 @@
 /** XPeach right-pane console: account + full site model market + playground. */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type JSX, useEffect, useMemo, useRef, useState } from 'react'
 import type { InjectFace, PropsLocale } from '@xpeach/xph-client-ui-slots'
 import type { XPeachHealthRow, XPeachOps, XPeachData, XPeachPricingRow, XPeachSiteCatalog, XPeachNetworkSnapshot } from './ops.ts'
 import { XPeachAdmin } from './XPeachAdmin.tsx'
@@ -16,36 +16,36 @@ export type XPeachTabProps =
 
 type State =
   | { readonly status: 'loading' }
-  | { readonly status: 'ready', data: XPeachData }
-  | { readonly status: 'error', message: string }
+  | { readonly status: 'ready'; data: XPeachData }
+  | { readonly status: 'error'; message: string }
 
 type Seg = 'overview' | 'market' | 'logs' | 'network' | 'site' | 'user'
 
 type PlayState =
   | { readonly status: 'idle' }
-  | { readonly status: 'running', content?: string }
-  | { readonly status: 'ok', content: string, meta: string }
-  | { readonly status: 'fail', message: string }
+  | { readonly status: 'running'; content?: string }
+  | { readonly status: 'ok'; content: string; meta: string }
+  | { readonly status: 'fail'; message: string }
 
 /** Inline playground for one catalog model. */
 /** Expanded market row: site description, per-million price table, groups, endpoints, health. */
 function MarketDetail({ id, row, h, t, billingRate, groupCatalog, selGroup, tokenGroup, onPickGroup }: {
   readonly id: string
   readonly row: XPeachPricingRow | undefined
-  readonly h: { ok: boolean, mocked?: boolean | undefined, latencyMs?: number | undefined, error?: string | undefined } | undefined
+  readonly h: { ok: boolean; mocked?: boolean | undefined; latencyMs?: number | undefined; error?: string | undefined } | undefined
   readonly t: XPeachTabProps['t']
   readonly billingRate: XPeachOps['billingRate'] | undefined
   /** Model → candidate groups index built from the PAT group catalog. */
-  readonly groupCatalog: ReadonlyMap<string, { name: string, ratio: number | undefined }[]> | undefined
+  readonly groupCatalog: ReadonlyMap<string, { name: string; ratio: number | undefined }[]> | undefined
   readonly selGroup: string | undefined
   readonly tokenGroup: string | undefined
   readonly onPickGroup: (model: string, group: string) => void
 }): JSX.Element {
-  const [rate, setRate] = useState<{ modelRatio: number, completionRatio: number, cacheRatio: number, groupRatio: number } | undefined>()
+  const [rate, setRate] = useState<{ modelRatio: number; completionRatio: number; cacheRatio: number; groupRatio: number } | undefined>()
   useEffect(() => {
     if (billingRate === undefined) return
     let alive = true
-    void billingRate(id, selGroup).then(r => { if (alive && r !== undefined && !('error' in r)) setRate(r) })
+    void billingRate(id, selGroup).then((r) => { if (alive && r !== undefined && !('error' in r)) setRate(r) })
     return () => { alive = false }
   }, [id, selGroup, billingRate])
   const candidates = groupCatalog?.get(id) ?? []
@@ -75,7 +75,9 @@ function MarketDetail({ id, row, h, t, billingRate, groupCatalog, selGroup, toke
               <button key={g.name} type="button"
                 className={selGroup === g.name || (selGroup === undefined && candidates.length === 1) ? css.groupChipOn : css.groupPickChip}
                 onClick={() => { onPickGroup(id, g.name) }}>
-                {g.name}{g.ratio !== undefined && <b className={css.groupPickRatio}>{'×' + g.ratio}</b>}{g.name === tokenGroup && <em className={css.groupNow}>·{t('market.groupNow')}</em>}
+                {g.name}
+                {g.ratio !== undefined && <b className={css.groupPickRatio}>{`×${g.ratio}`}</b>}
+                {g.name === tokenGroup && <em className={css.groupNow}>·{t('market.groupNow')}</em>}
               </button>
             ))}
           </div>
@@ -118,17 +120,20 @@ function Playground({ model, t, chat, subscribePlaygroundChunk }: {
       buf += chunk.delta
       setPlay(prev => prev.status === 'running' ? { status: 'running', content: buf } : prev)
     })
-    void chat(model, prompt, callId).then(reply => {
+    void chat(model, prompt, callId).then((reply) => {
       if (unsub !== undefined) unsub()
       if ('error' in reply) { setPlay({ status: 'fail', message: reply.error }); return }
-      setPlay({ status: 'ok', content: reply.content,
-        meta: (reply.latencyMs / 1000).toFixed(1) + 's · ' + reply.promptTokens + '+' + reply.completionTokens + ' tok' })
+      setPlay({
+        status: 'ok',
+        content: reply.content,
+        meta: `${(reply.latencyMs / 1000).toFixed(1)}s · ${reply.promptTokens}+${reply.completionTokens} tok`,
+      })
     })
   }
   return (
     <div className={css.playBox}>
       <textarea className={css.playInput} rows={3} value={prompt}
-        placeholder={t('pg.promptPh')} onChange={e => { setPrompt(e.target.value) }} />
+        placeholder={t('pg.promptPh')} onChange={(e) => { setPrompt(e.target.value) }} />
       <button type="button" className={css.playRun} disabled={play.status === 'running'}
         onClick={run}>{play.status === 'running' ? t('pg.running') : t('pg.run')}</button>
       {play.status === 'running' && play.content !== undefined && play.content.length > 0 && (
@@ -146,7 +151,18 @@ function Playground({ model, t, chat, subscribePlaygroundChunk }: {
 }
 
 /** The right-pane console tab body. */
-export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mountedModels, addModel, selectModel, subscribePlaygroundChunk, subscribeCredentialChange, adminOverview, adminUsers, adminTokens, adminPricing, adminLogs, modelHealth, billingRate, groupCatalog, priceSync, sessionBound, userSelf, userTokens, userTopup, stripeAmount, stripePay, adminChannels, adminRedemptions, adminRedemptionCreate, adminOptionSet, adminChannelSave, adminChannelDelete, adminChannelTest, adminTokenCreate, adminTokenDelete, adminOptions, adminModelPricing, adminModelPricingPatch, adminUserGet, adminUserUpdate, adminUserManage, userTokenCreate, userTokenUpdate, userTokenDelete, userSelfEdit, userAff, userTokenKey, importDeepseek, siteCatalog, setGroups, syncModels, userLogs, userLogStat, recentSessions, openPlugins, networkStatus, networkProbe, networkAuto, networkRoute }: XPeachTabProps): JSX.Element {
+export function XPeachTab({
+  t, sessionId, load, models, keyState, bind, chat, mountedModels, addModel, selectModel,
+  subscribePlaygroundChunk, subscribeCredentialChange, adminOverview, adminUsers, adminTokens,
+  adminPricing, adminLogs, modelHealth, billingRate, groupCatalog, priceSync, sessionBound,
+  userSelf, userTokens, userTopup, stripeAmount, stripePay, adminChannels, adminRedemptions,
+  adminRedemptionCreate, adminOptionSet, adminChannelSave, adminChannelDelete, adminChannelTest,
+  adminTokenCreate, adminTokenDelete, adminOptions, adminModelPricing, adminModelPricingPatch,
+  adminUserGet, adminUserUpdate, adminUserManage, userTokenCreate, userTokenUpdate, userTokenDelete,
+  userSelfEdit, userAff, userTokenKey, importDeepseek, siteCatalog, setGroups, syncModels,
+  userLogs, userLogStat, recentSessions, openPlugins, networkStatus, networkProbe, networkAuto, networkRoute,
+  onboardingScan, importConversations, macosInstallerStatus, macosInstallerAction,
+}: XPeachTabProps): JSX.Element {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [catalog, setCatalog] = useState<readonly XPeachModel[]>([])
   const [mounted, setMounted] = useState<readonly string[]>([])
@@ -159,20 +175,30 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   const [logExpand, setLogExpand] = useState<number | null>(null)
   const [logChipsOpen, setLogChipsOpen] = useState(false)
   const [openPlay, setOpenPlay] = useState<string | null>(null)
-  const [added, setAdded] = useState<Record<string, 'idle' | 'adding' | 'added' | string>>({})
+  const [added, setAdded] = useState<Record<string, string>>({})
   const [health, setHealth] = useState<Map<string, XPeachHealthRow> | null>(null)
   const [priceMap, setPriceMap] = useState<Map<string, XPeachPricingRow>>(new Map())
-  const [groupMeta, setGroupMeta] = useState<Record<string, { desc?: string, models?: readonly string[], ratio?: string | number }> | undefined>(undefined)
+  type GroupMetaMap = Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }>
+  const [groupMeta, setGroupMeta] = useState<GroupMetaMap | undefined>(undefined)
   const [marketView, setMarketView] = useState<'all' | 'groups'>('all')
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
-  const [groupIdx, setGroupIdx] = useState<Map<string, { name: string, ratio: number | undefined }[]> | undefined>(undefined)
+  const [groupIdx, setGroupIdx] = useState<Map<string, { name: string; ratio: number | undefined }[]> | undefined>(undefined)
   const [selGroup, setSelGroup] = useState<Record<string, string>>(() => {
-    try { const raw = localStorage.getItem('xpeach.selGroup'); return raw !== null ? JSON.parse(raw) as Record<string, string> : {} } catch { return {} }
+    try {
+      const raw = localStorage.getItem('xpeach.selGroup')
+      return raw !== null ? JSON.parse(raw) as Record<string, string> : {}
+    } catch (_storageError) {
+      return {}
+    }
   })
   const pickGroup = (model: string, group: string): void => {
-    setSelGroup(prev => {
+    setSelGroup((prev) => {
       const next = { ...prev, [model]: group }
-      try { localStorage.setItem('xpeach.selGroup', JSON.stringify(next)) } catch { /* quota */ }
+      try {
+        localStorage.setItem('xpeach.selGroup', JSON.stringify(next))
+      } catch (_quotaExceeded) {
+        // Storage quota exceeded; keep in-memory state.
+      }
       return next
     })
   }
@@ -183,7 +209,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   const [network, setNetwork] = useState<XPeachNetworkSnapshot | undefined>(undefined)
   const [netBusy, setNetBusy] = useState(false)
   const loadCatalog = (): void => {
-    void siteCatalog().then(c => {
+    void siteCatalog().then((c) => {
       if ('error' in c) { setSiteCat(undefined); return }
       setSiteCat(c)
       setGroupSel(c.tokenGroups)
@@ -191,21 +217,20 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   }
   useEffect(() => {
     if (keyMask !== null) loadCatalog()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyMask])
   const applyGroups = (): void => {
     setGroupBusy(true); setGroupMsg(null)
-    void setGroups([...groupSel]).then(r => {
+    void setGroups([...groupSel]).then((r) => {
       setGroupBusy(false)
       if ('error' in r) { setGroupMsg(r.error); return }
       setGroupMsg(t('market.synced', { n: r.count }))
       loadCatalog()
-      void models().then(m => { if (Array.isArray(m)) setCatalog(m) })
+      void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
     })
   }
   const loadNetwork = (force = false): void => {
     setNetBusy(true)
-    void (force ? networkProbe() : networkStatus()).then(r => {
+    void (force ? networkProbe() : networkStatus()).then((r) => {
       setNetBusy(false)
       if (!('error' in r)) setNetwork(r)
     })
@@ -214,36 +239,34 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
     if (seg !== 'network') return
     loadNetwork()
     const timer = setInterval(() => {
-      void networkStatus().then(r => { if (!('error' in r)) setNetwork(r) })
+      void networkStatus().then((r) => { if (!('error' in r)) setNetwork(r) })
     }, 10_000)
     return () => { clearInterval(timer) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seg])
   const applyGroup = (model: string, group: string): void => {
     pickGroup(model, group)
     const current = siteCat?.tokenGroups ?? []
     if (current.includes(group)) { setGroupMsg(t('market.groupApplied')); return }
     if (current.length >= 16) { setGroupMsg(t('market.groupLimit')); return }
-    void setGroups([...current, group]).then(r => {
+    void setGroups([...current, group]).then((r) => {
       if ('error' in r) { setGroupMsg(r.error); return }
       setGroupMsg(t('market.appliedGroup', { name: group }))
       loadCatalog()
-      void models().then(m => { if (Array.isArray(m)) setCatalog(m) })
+      void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
     })
   }
   const doSyncModels = (): void => {
     setGroupBusy(true); setGroupMsg(null)
-    void syncModels().then(r => {
+    void syncModels().then((r) => {
       setGroupBusy(false)
       setGroupMsg('error' in r ? r.error : t('market.synced', { n: r.count }))
-      void models().then(m => { if (Array.isArray(m)) setCatalog(m) })
+      void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
     })
   }
   const [loginKey, setLoginKey] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
   const [loginErr, setLoginErr] = useState<string | null>(null)
   const doLogin = async (): Promise<void> => {
-    if (bind === undefined) return
     setLoginBusy(true); setLoginErr(null)
     const err = await bind(loginKey)
     setLoginBusy(false)
@@ -251,20 +274,19 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
     setLoginKey('')
     refresh()
   }
-  const [priceAt, setPriceAt] = useState<{ at: number, stale: boolean } | undefined>(undefined)
+  const [priceAt, setPriceAt] = useState<{ at: number; stale: boolean } | undefined>(undefined)
   const syncPrice = (force = false): void => {
-    if (priceSync === undefined) return
-    void priceSync(force).then(r => {
-      if (r !== undefined && !('error' in r)) setPriceAt({ at: r.at, stale: r.stale })
+    void priceSync(force).then((r) => {
+      if (!('error' in r)) setPriceAt({ at: r.at, stale: r.stale })
     })
   }
   useEffect(() => { syncPrice(false) }, [priceSync])
   useEffect(() => {
-    if (groupCatalog === undefined || groupIdx !== undefined) return
+    if (groupIdx !== undefined) return
     let alive = true
-    void groupCatalog().then(cat => {
-      if (!alive || cat === undefined || 'error' in cat) return
-      const idx = new Map<string, { name: string, ratio: number | undefined }[]>()
+    void groupCatalog().then((cat) => {
+      if (!alive || 'error' in cat) return
+      const idx = new Map<string, { name: string; ratio: number | undefined }[]>()
       for (const [name, g] of Object.entries(cat)) {
         const ratio = typeof g.ratio === 'string' ? Number(g.ratio) : g.ratio
         for (const m of g.models ?? []) {
@@ -282,24 +304,32 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   const [probing, setProbing] = useState(false)
   const [speedSort, setSpeedSort] = useState(false)
   const [pins, setPins] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('xpeach.pins') ?? '[]') as string[]) } catch { return new Set() }
+    try {
+      return new Set(JSON.parse(localStorage.getItem('xpeach.pins') ?? '[]') as string[])
+    } catch (_storageError) {
+      return new Set()
+    }
   })
   const togglePin = (id: string): void => {
-    setPins(prev => {
+    setPins((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
-      try { localStorage.setItem('xpeach.pins', JSON.stringify([...next])) } catch { /* quota */ }
+      try {
+        localStorage.setItem('xpeach.pins', JSON.stringify([...next]))
+      } catch (_quotaExceeded) {
+        // Storage quota exceeded; keep in-memory state.
+      }
       return next
     })
   }
   const refresh = (): void => {
-    void load().then(result => {
-      if (result.usage === undefined) { setState({ status: 'error', message: result.error ?? 'unavailable' }); return }
+    void load().then((result) => {
+      if (result.usage === undefined) { setState({ status: 'error', message: result.error ?? t('status.unavailable') }); return }
       setState({ status: 'ready', data: result })
     })
-    void models().then(m => { if (Array.isArray(m)) setCatalog(m) })
+    void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
     void mountedModels().then(setMounted)
-    void keyState().then(s => {
+    void keyState().then((s) => {
       setKeyMask(s.bound ? (s.preview ?? null) : null)
       setAdminBound(s.adminBound === true)
     })
@@ -309,7 +339,6 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   useEffect(() => {
     const id = setInterval(refresh, 60_000)
     return () => { clearInterval(id) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const logs = state.status === 'ready' ? (state.data.logs ?? []) : []
@@ -317,7 +346,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   const billedGroupByModel = useMemo(() => {
     const m = new Map<string, string>()
     for (const l of logs) {
-      if (l.model_name !== undefined && l.group !== undefined && l.group !== '' && !m.has(l.model_name)) m.set(l.model_name, l.group)
+      if (l.group !== undefined && l.group !== '' && !m.has(l.model_name)) m.set(l.model_name, l.group)
     }
     return m
   }, [logs])
@@ -326,9 +355,9 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
     () => logModel === null ? logs : logs.filter(e => e.model_name === logModel),
     [logs, logModel])
   useEffect(() => {
-    if (!adminBound || adminPricing === undefined || priceMap.size > 0) return
+    if (!adminBound || priceMap.size > 0) return
     let alive = true
-    void adminPricing().then(cat => {
+    void adminPricing().then((cat) => {
       if (!alive || 'error' in cat) return
       const map = new Map<string, XPeachPricingRow>()
       for (const e of cat.entries) map.set(e.model_name, e)
@@ -347,7 +376,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
     const pool = activeGroup === null
       ? allModelIds
       : allModelIds.filter(id => (groupIdx?.get(id) ?? []).some(group => group.name === activeGroup))
-    const safe = pool.map(id => catalog.find(model => model.id === id) ?? { id } as XPeachModel)
+    const safe = pool.map(id => catalog.find(model => model.id === id) ?? { id })
     const scoped = q === '' ? safe : safe.filter(m => m.id.toLowerCase().includes(q))
     const sorted = (!speedSort || health === null) ? scoped : [...scoped].sort((a, b) => {
       const ha = health.get(a.id), hb = health.get(b.id)
@@ -359,7 +388,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
   const mountedSet = useMemo(() => new Set(mounted), [mounted])
   const joinModel = (id: string): void => {
     setAdded(prev => ({ ...prev, [id]: 'adding' }))
-    void addModel(id).then(async err => {
+    void addModel(id).then(async (err) => {
       if (err !== null) { setAdded(prev => ({ ...prev, [id]: err })); return }
       void mountedModels().then(setMounted)
       const selErr = selectModel === undefined ? null : await selectModel(sessionId, id)
@@ -374,7 +403,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
           <h2 className={css.pageTitle}>{t('tab.title')}</h2>
           <p className={css.pageIntro}>{SITE.host}{keyMask !== null ? ' · ' + keyMask : ''}{priceAt !== undefined ? ' · ' + t('price.synced', { at: rel(Math.floor(priceAt.at / 1000), t('time.justNow'), n => t('time.minAgo', { n })) }) + (priceAt.stale ? ' ⚠' : '') : ''}</p>
         </div>
-        <button type="button" className={css.iconButton} onClick={() => { refresh(); syncPrice(true) }} title={t('pill.refresh')} aria-label="refresh">
+        <button type="button" className={css.iconButton} onClick={() => { refresh(); syncPrice(true) }} title={t('pill.refresh')} aria-label={t('pill.refreshAria')}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M13.5 8a5.5 5.5 0 1 1-1.61-3.89M13.5 1.5v3h-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -392,8 +421,18 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
       </nav>
       {state.status === 'loading' && (
         <div className={css.skelWrap} aria-busy="true" aria-label={t('status.loading')}>
-          <div className={css.usageGrid}>{Array.from({ length: 5 }, (_, i) => <div key={i} className={css.skelCell}><i className={css.skelLine} style={{ width: '40%' }} /><i className={css.skelLine} style={{ width: '70%', height: 18 }} /></div>)}</div>
-          <div className={css.skelCard}><i className={css.skelLine} style={{ width: '30%' }} />{Array.from({ length: 6 }, (_, i) => <i key={i} className={css.skelLine} style={{ width: (92 - i * 7) + '%' }} />)}</div>
+          <div className={css.usageGrid}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className={css.skelCell}>
+                <i className={css.skelLine} style={{ width: '40%' }} />
+                <i className={css.skelLine} style={{ width: '70%', height: 18 }} />
+              </div>
+            ))}
+          </div>
+          <div className={css.skelCard}>
+            <i className={css.skelLine} style={{ width: '30%' }} />
+            {Array.from({ length: 6 }, (_, i) => <i key={i} className={css.skelLine} style={{ width: `${92 - i * 7}%` }} />)}
+          </div>
         </div>
       )}
       {state.status === 'error' && (
@@ -403,24 +442,33 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
           <p className={css.bindHint}>{t('bind.hint')} <a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a></p>
           <div className={css.bindRow}>
             <input className={css.bindInput} type="password" placeholder={t('bind.placeholder')}
-              value={loginKey} onChange={e => { setLoginKey(e.target.value) }}
-              onKeyDown={e => { if (e.key === 'Enter' && !loginBusy) void doLogin() }} />
+              value={loginKey} onChange={(e) => { setLoginKey(e.target.value) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !loginBusy) void doLogin() }} />
             <button type="button" className={css.bindButton}
-              disabled={loginBusy || (loginKey.trim().match(/^(?:xpk|sk)-/u) === null)}
+              disabled={loginBusy || loginKey.trim() === ''}
               onClick={() => { void doLogin() }}>{loginBusy ? t('bind.working') : t('bind.submit')}</button>
           </div>
           {loginErr !== null && <p className={css.bindError}>{loginErr}</p>}
         </div>
       )}
       {state.status === 'ready' && seg === 'overview' && (
-        <XPeachProfile t={t} userSelf={userSelf} userLogs={userLogs} userLogStat={userLogStat} recentSessions={recentSessions} openPlugins={openPlugins} />
+        <XPeachProfile
+          t={t}
+          userSelf={userSelf}
+          userLogs={userLogs}
+          userLogStat={userLogStat}
+          recentSessions={recentSessions}
+          openPlugins={openPlugins}
+          macosInstallerStatus={macosInstallerStatus}
+          macosInstallerAction={macosInstallerAction}
+        />
       )}
       {state.status === 'ready' && seg === 'market' && (
         <>
           {siteCat !== undefined && (
             <div className={css.groupBar}>
               <span className={css.groupPickLabel}>{t('market.tokenGroups')}</span>
-              {siteCat.groups.filter(g => g.models > 0).map(g => {
+              {siteCat.groups.filter(g => g.models > 0).map((g) => {
                 const on = groupSel.includes(g.name)
                 return (
                   <button key={g.name} type="button" className={on ? css.groupChipOn : css.groupPickChip}
@@ -463,7 +511,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
                     onClick={() => { setActiveGroup(activeGroup === name ? null : name) }}>
                     <span className={css.groupCardName}>{name}</span>
                     <span className={css.groupCardMeta}>
-                      {(group.models?.length ?? 0)}{' models'}{group.ratio !== undefined && ' · ×' + String(group.ratio)}
+                      {t('market.groupModels', { n: String(group.models?.length ?? 0) })}{group.ratio !== undefined && ' · ×' + String(group.ratio)}
                     </span>
                     {group.desc !== undefined && group.desc !== '' && <span className={css.groupCardDesc}>{group.desc}</span>}
                   </button>
@@ -471,28 +519,24 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
             </div>
           )}
           <input className={css.marketSearch} value={query} placeholder={t('market.searchPh')}
-            onChange={e => { setQuery(e.target.value) }} />
+            onChange={(e) => { setQuery(e.target.value) }} />
           <div className={css.marketTools}>
             <p className={css.marketMeta}>{filtered.length} {t('market.count')}</p>
-            {modelHealth !== undefined && (
-              <>
-                <button type="button" className={css.probeBtn} disabled={probing}
-                  onClick={() => {
-                    setProbing(true)
-                    void modelHealth().then(rows => {
-                      if (Array.isArray(rows)) setHealth(new Map(rows.map(r => [r.id, r])))
-                      setProbing(false)
-                    })
-                  }}>{probing ? t('market.probing') : '⚡ ' + t('market.probe')}</button>
-                {health !== null && (
-                  <button type="button" className={speedSort ? css.probeBtnOn : css.probeBtn}
-                    onClick={() => { setSpeedSort(v => !v) }}>{t('market.speedSort')}</button>
-                )}
-              </>
+            <button type="button" className={css.probeBtn} disabled={probing}
+              onClick={() => {
+                setProbing(true)
+                void modelHealth().then((rows) => {
+                  if (!('error' in rows)) setHealth(new Map(rows.map(r => [r.id, r])))
+                  setProbing(false)
+                })
+              }}>{probing ? t('market.probing') : '⚡ ' + t('market.probe')}</button>
+            {health !== null && (
+              <button type="button" className={speedSort ? css.probeBtnOn : css.probeBtn}
+                onClick={() => { setSpeedSort(v => !v) }}>{t('market.speedSort')}</button>
             )}
           </div>
           <ul className={css.marketList}>
-            {filtered.map(m => {
+            {filtered.map((m) => {
               const inLib = mountedSet.has(m.id)
               const st = added[m.id] ?? 'idle'
               return (
@@ -500,41 +544,53 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
                   <div className={css.marketHead} role="button" tabIndex={0}
                     aria-expanded={expand === m.id}
                     onClick={() => { setExpand(expand === m.id ? null : m.id) }}
-                    onKeyDown={e => { if (e.key === 'Enter') setExpand(expand === m.id ? null : m.id) }}>
+                    onKeyDown={(e) => { if (e.key === 'Enter') setExpand(expand === m.id ? null : m.id) }}>
                     <svg className={expand === m.id ? css.expandOn : css.expandOff} width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     <span className={css.marketGlyph} data-fam={familyOf(m.id)} aria-hidden="true">{glyphOf(m.id)}</span>
                     <button type="button" className={pins.has(m.id) ? css.pinOn : css.pinOff} aria-label={t('market.pin')}
-                      onClick={e => { e.stopPropagation(); togglePin(m.id) }}>★</button>
+                      onClick={(e) => { e.stopPropagation(); togglePin(m.id) }}>★</button>
                     <code className={css.marketId}>{m.id}</code>
                     {(() => { const gs = (m.groups ?? []).filter(g => isBrandSafe(g)); return <>
                       {gs.slice(0, 2).map(g => <span key={g} className={css.groupChip}>{g}</span>)}
                       {gs.length > 2 && <span className={css.groupChipMore} title={gs.join(', ')}>+{gs.length - 2}</span>}
                     </> })()}
                     {(() => { const h = health?.get(m.id); return h === undefined ? null : h.ok
-                      ? <span className={css.healthOk} title={h.latencyMs + 'ms'}>{h.latencyMs}ms</span>
+                      ? <span className={css.healthOk} title={t('unit.ms', { n: String(h.latencyMs ?? 0) })}>{t('unit.ms', { n: String(h.latencyMs ?? 0) })}</span>
                       : h.mocked
                         ? <span className={css.healthMock} title={h.error}>{'⚠'}</span>
                         : <span className={css.healthFail} title={h.error}>{'✗'}</span> })()}
                     <span className={css.marketOwner}>{[m.owned_by ?? m.provider, ...(m.supported_endpoint_types ?? [])].filter(Boolean).join(' · ')}</span>
                     {inLib && <span className={css.marketIn}>{t('market.inLib')}</span>}
                     {(() => { const pr = priceMap.get(m.id); if (pr === undefined) return null; const mr = pr.model_ratio ?? 0, cr = pr.completion_ratio ?? 1; return <span className={css.priceTag}>{[(mr * 2).toFixed(2), '\u2192', (mr * cr * 2).toFixed(2), '\u{1F351}/M'].join('')}</span> })()}
-                  <div className={css.marketActs} onClick={e => e.stopPropagation()}>
-                    <button type="button" className={css.marketBtn}
-                      onClick={() => { setOpenPlay(openPlay === m.id ? null : m.id) }}>
-                      {openPlay === m.id ? t('market.tryClose') : t('market.try')}
-                    </button>
-                    {inLib
-                      ? null
-                      : st === 'added'
-                        ? <span className={css.marketIn}>✓ {t('market.addedSelected')}</span>
-                        : st === 'adding'
-                          ? <span className={css.marketMeta}>{t('market.adding')}</span>
-                          : typeof st === 'string' && st !== 'idle'
-                            ? <span className={css.bindError}>{st}</span>
-                            : <button type="button" className={css.marketBtn} onClick={() => { joinModel(m.id) }}>{t('market.join')}</button>}
+                    <div className={css.marketActs} onClick={(e) =>{  e.stopPropagation() }}>
+                      <button type="button" className={css.marketBtn}
+                        onClick={() => { setOpenPlay(openPlay === m.id ? null : m.id) }}>
+                        {openPlay === m.id ? t('market.tryClose') : t('market.try')}
+                      </button>
+                      {inLib
+                        ? null
+                        : st === 'added'
+                          ? <span className={css.marketIn}>✓ {t('market.addedSelected')}</span>
+                          : st === 'adding'
+                            ? <span className={css.marketMeta}>{t('market.adding')}</span>
+                            : typeof st === 'string' && st !== 'idle'
+                              ? <span className={css.bindError}>{st}</span>
+                              : <button type="button" className={css.marketBtn} onClick={() => { joinModel(m.id) }}>{t('market.join')}</button>}
+                    </div>
                   </div>
-                  </div>
-                  {expand === m.id && <MarketDetail id={m.id} row={priceMap.get(m.id)} h={health?.get(m.id)} t={t} billingRate={billingRate} groupCatalog={groupIdx} selGroup={selGroup[m.id]} tokenGroup={billedGroupByModel.get(m.id)} onPickGroup={applyGroup} />}
+                  {expand === m.id && (
+                    <MarketDetail
+                      id={m.id}
+                      row={priceMap.get(m.id)}
+                      h={health?.get(m.id)}
+                      t={t}
+                      billingRate={billingRate}
+                      groupCatalog={groupIdx}
+                      selGroup={selGroup[m.id]}
+                      tokenGroup={billedGroupByModel.get(m.id)}
+                      onPickGroup={applyGroup}
+                    />
+                  )}
                   {openPlay === m.id && <Playground model={m.id} t={t} chat={chat} subscribePlaygroundChunk={subscribePlaygroundChunk} />}
                 </li>
               )
@@ -573,27 +629,27 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
             </div>
           )}
           <ul className={css.tabLogs}>
-            {shownLogs.slice(0, logLimit).map(entry => {
+            {shownLogs.slice(0, logLimit).map((entry) => {
               const other = parseOther(entry.other)
               return (
                 <li key={entry.id} className={css.logRowWrap}>
                   <div className={css.logRowHead} role="button" tabIndex={0}
                     aria-expanded={logExpand === entry.id}
                     onClick={() => { setLogExpand(logExpand === entry.id ? null : entry.id) }}
-                    onKeyDown={e => { if (e.key === 'Enter') setLogExpand(logExpand === entry.id ? null : entry.id) }}>
+                    onKeyDown={(e) => { if (e.key === 'Enter') setLogExpand(logExpand === entry.id ? null : entry.id) }}>
                     <span className={css.logModel}>{entry.model_name.replace(/deepseek/gi, 'ds')}</span>
                     <span className={css.logCost}>{callUsd(entry.quota)}</span>
-                    <span className={css.logMeta}>{rel(entry.created_at, t('time.justNow'), n => t('time.minAgo', { n }))} · {entry.prompt_tokens}+{entry.completion_tokens} · {entry.use_time}s</span>
+                    <span className={css.logMeta}>{rel(entry.created_at, t('time.justNow'), n => t('time.minAgo', { n }))} · {entry.prompt_tokens}+{entry.completion_tokens} · {t('unit.s', { n: String(entry.use_time) })}</span>
                   </div>
                   {logExpand === entry.id && (
                     <dl className={css.logDetail}>
                       <div><dt>{t('logs.group')}</dt><dd>{entry.group ?? '—'}</dd></div>
-                      <div><dt>{t('logs.channel')}</dt><dd>{entry.channel ?? '—'}</dd></div>
+                      <div><dt>{t('logs.channel')}</dt><dd>{entry.channel}</dd></div>
                       <div><dt>{t('logs.reqId')}</dt><dd><code className={css.keyMask}>{entry.request_id ?? '—'}</code></dd></div>
                       <div><dt>{t('logs.stream')}</dt><dd>{entry.is_stream ? '✓' : '—'}</dd></div>
                       {other?.cache_tokens !== undefined && <div><dt>{t('logs.cacheTok')}</dt><dd>{other.cache_tokens}</dd></div>}
                       {other?.group_ratio !== undefined && <div><dt>{t('logs.gr')}</dt><dd>×{other.group_ratio}</dd></div>}
-                      {other?.frt !== undefined && <div><dt>{t('logs.frt')}</dt><dd>{other.frt}ms</dd></div>}
+                      {other?.frt !== undefined && <div><dt>{t('logs.frt')}</dt><dd>{t('unit.ms', { n: String(other.frt) })}</dd></div>}
                       {other?.billing_mode !== undefined && <div><dt>{t('logs.mode')}</dt><dd>{other.billing_mode}</dd></div>}
                       {decodeExpr(other?.expr_b64) !== undefined && (
                         <div className={css.logDetailWide}><dt>{t('logs.expr')}</dt><dd><code>{decodeExpr(other?.expr_b64)}</code></dd></div>
@@ -613,14 +669,6 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
           {shownLogs.length <= logLimit && shownLogs.length > 20 && (
             <p className={css.logMoreMeta}>{t('logs.allShown', { total: String(shownLogs.length) })}</p>
           )}
-          {shownLogs.length > logLimit && (
-            <button type="button" className={css.logMore} onClick={() => { setLogLimit(logLimit + 40) }}>
-              {t('logs.more', { shown: String(Math.min(logLimit, shownLogs.length)), total: String(shownLogs.length) })}
-            </button>
-          )}
-          {shownLogs.length <= logLimit && shownLogs.length > 20 && (
-            <p className={css.logMoreMeta}>{t('logs.allShown', { total: String(shownLogs.length) })}</p>
-          )}
         </>
       )}
       {seg === 'network' && (
@@ -631,10 +679,10 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
               <p className={css.networkActiveHost}>{network?.active.replace(/^https?:\/\//, '') ?? '—'}</p>
             </div>
             <label className={css.networkAuto}>
-              <input type="checkbox" checked={network?.auto ?? true} onChange={e => {
+              <input type="checkbox" checked={network?.auto ?? true} onChange={(e) => {
                 const auto = e.target.checked
                 setNetBusy(true)
-                void networkAuto(auto).then(r => { setNetBusy(false); if (!('error' in r)) setNetwork(r) })
+                void networkAuto(auto).then((r) => { setNetBusy(false); if (!('error' in r)) setNetwork(r) })
               }} />
               {t('network.auto')}
             </label>
@@ -643,7 +691,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
             </button>
           </div>
           <div className={css.networkGrid}>
-            {(network?.probes ?? []).map(probe => {
+            {(network?.probes ?? []).map((probe) => {
               const active = network?.active === probe.url
               const history = network?.history[probe.id] ?? []
               const maxLatency = Math.max(...history.map(point => point.latencyMs ?? 0), 1)
@@ -651,7 +699,7 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
                 <button key={probe.id} type="button" className={active ? css.networkCardOn : css.networkCard}
                   onClick={() => {
                     setNetBusy(true)
-                    void networkRoute(probe.url).then(r => { setNetBusy(false); if (!('error' in r)) setNetwork(r) })
+                    void networkRoute(probe.url).then((r) => { setNetBusy(false); if (!('error' in r)) setNetwork(r) })
                   }}>
                   <span className={css.networkLabel}>
                     {probe.label}
@@ -659,13 +707,13 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
                   </span>
                   <span className={css.networkHost}>{probe.url.replace(/^https?:\/\//, '')}</span>
                   <span className={css.networkMetrics}>
-                    <b>{probe.latencyMs === undefined ? '—' : probe.latencyMs + ' ms'}</b>
+                    <b>{probe.latencyMs === undefined ? '—' : t('unit.ms', { n: String(probe.latencyMs) })}</b>
                     <span>{t('network.loss')} {Math.round(probe.loss * 100)}%</span>
                   </span>
                   <span className={css.networkSpark} aria-hidden="true">
                     {history.map((point, index) => (
                       <i key={index} data-empty={point.latencyMs === undefined}
-                        style={{ height: Math.max(2, ((point.latencyMs ?? maxLatency) / maxLatency) * 26) + 'px' }} />
+                        style={{ height: `${Math.max(2, ((point.latencyMs ?? maxLatency) / maxLatency) * 26)}px` }} />
                     ))}
                   </span>
                 </button>
@@ -679,10 +727,21 @@ export function XPeachTab({ t, sessionId, load, models, keyState, bind, chat, mo
         <XPeachUser t={t} sessionBound={sessionBound} userSelf={userSelf} userTokens={userTokens}
           userTopup={userTopup} stripeAmount={stripeAmount} stripePay={stripePay}
           userTokenCreate={userTokenCreate} userTokenUpdate={userTokenUpdate} userTokenDelete={userTokenDelete}
-          userSelfEdit={userSelfEdit} userAff={userAff} userTokenKey={userTokenKey} importDeepseek={importDeepseek} />
+          userSelfEdit={userSelfEdit} userAff={userAff} userTokenKey={userTokenKey} importDeepseek={importDeepseek}
+          onboardingScan={onboardingScan} importConversations={importConversations}
+          macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />
       )}
       {seg === 'site' && adminBound && (
-        <XPeachAdmin t={t} ops={{ adminOverview, adminUsers, adminTokens, adminPricing, adminLogs, adminChannels, adminRedemptions, adminRedemptionCreate, adminOptionSet, adminChannelSave, adminChannelDelete, adminChannelTest, adminTokenCreate, adminTokenDelete, adminOptions, adminModelPricing, adminModelPricingPatch, adminUserGet, adminUserUpdate, adminUserManage } as XPeachOps} />
+        <XPeachAdmin
+          t={t}
+          ops={{
+            adminOverview, adminUsers, adminTokens, adminPricing, adminLogs,
+            adminChannels, adminRedemptions, adminRedemptionCreate, adminOptionSet,
+            adminChannelSave, adminChannelDelete, adminChannelTest, adminTokenCreate,
+            adminTokenDelete, adminOptions, adminModelPricing, adminModelPricingPatch,
+            adminUserGet, adminUserUpdate, adminUserManage,
+          } as XPeachOps}
+        />
       )}
     </div>
   )

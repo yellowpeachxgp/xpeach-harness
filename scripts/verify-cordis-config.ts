@@ -104,7 +104,7 @@ if (import.meta.main) {
  * `dsh.client` declaration disagree.
  */
 function validateClientHalvesDeclared(): string[] {
-  return globSync('packages/client/*/package.json', { cwd: root }).flatMap((manifestPath) => {
+  return globSync(['packages/client/*/package.json', 'packages/xpeach/client-ui/package.json'], { cwd: root }).flatMap((manifestPath) => {
     const manifest = readManifest(manifestPath) as PackageManifest & {
       exports?: Record<string, unknown>
       dsh?: { client?: unknown }

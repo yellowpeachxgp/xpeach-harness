@@ -67,8 +67,26 @@ export interface DshInstallLayoutSummary {
   readonly checkedDshEdges: number
 }
 
+const VENDOR_AND_NATIVE_PACKAGES: ReadonlySet<string> = new Set([
+  '@xpeach/xph-cordis',
+  '@xpeach/xph-cosmokit',
+  '@xpeach/xph-schemastery',
+  '@xpeach/xph-cordis-plugin-loader',
+  '@xpeach/xph-cordis-plugin-include',
+  '@xpeach/xph-cordis-plugin-group',
+  '@xpeach/xph-cordis-plugin-timer',
+  '@xpeach/xph-cordis-plugin-hmr',
+  '@xpeach/xph-cordis-plugin-logger-console',
+  '@xpeach/xph-node-addon-system',
+  '@xpeach/xph-node-addon-system-darwin-arm64',
+  '@xpeach/xph-node-addon-system-darwin-x64',
+  '@xpeach/xph-node-addon-system-linux-arm64',
+  '@xpeach/xph-node-addon-system-linux-x64',
+])
+
 function isDshPackage(name: string): boolean {
-  return name === DSH_PACKAGE || name.startsWith(`${DSH_PACKAGE}-`)
+  if (VENDOR_AND_NATIVE_PACKAGES.has(name)) return false
+  return name === DSH_PACKAGE || name.startsWith('@xpeach/xph-')
 }
 
 function cloneForVersion(manifest: object, version: string): MutableRegistryManifest {

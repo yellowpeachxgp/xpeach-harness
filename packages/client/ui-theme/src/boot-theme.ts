@@ -19,8 +19,8 @@ const DARK_BACKGROUND = '#151517'
 function bootThemeStyle(preference: ThemePreference): string {
   const light = `:root{color-scheme:light}body{background-color:${LIGHT_BACKGROUND};--dsh-boot-bg:${LIGHT_BACKGROUND}}`
   const dark = `:root{color-scheme:dark}body{background-color:${DARK_BACKGROUND};--dsh-boot-bg:${DARK_BACKGROUND}}`
-  if (preference === 'light') return light
-  if (preference === 'dark') return dark
+  if (preference === 'dark' || preference.endsWith('-dark')) return dark
+  if (preference !== 'system') return light
   return `${light}@media(prefers-color-scheme:dark){${dark}}`
 }
 
@@ -37,7 +37,7 @@ function bootThemeBodyScript(preference: ThemePreference, fontSizes: FontSizes, 
   const systemDark = preference === 'system'
     && typeof matchMedia !== 'undefined'
     && matchMedia('(prefers-color-scheme: dark)').matches
-  const dark = preference === 'dark' || systemDark
+  const dark = preference === 'dark' || preference.endsWith('-dark') || systemDark
   document.documentElement.dataset.dsThemeSource = preference
   document.body.toggleAttribute('data-ds-dark-theme', dark)${sizes}${families}
 })()`

@@ -123,7 +123,7 @@ export interface XPeachModel {
 /** Request for `xpeach.bindKey`: the relay API key the user pasted. */
 export interface XPeachBindKeyRequest {
   /**
-   * The site Access Token (系统访问令牌) — the user's management credential,
+   * The site Access Token (system access token) — the user's management credential,
    * sent as a raw Authorization header. Not an sk- API key: the account layer
    * mints/reuses the sk- relay token itself.
    */
@@ -408,6 +408,7 @@ export interface XPeachModelPricingEntry {
   readonly cache_write_mode?: string
   readonly billing_details?: Record<string, JsonValue>
 }
+/** Full pricing snapshot returned by GET /api/option/model_pricing. */
 export interface XPeachModelPricingSnapshot {
   readonly entries: readonly XPeachModelPricingEntry[]
   readonly options: Record<string, string>
@@ -423,7 +424,101 @@ export interface XPeachModelPricingChange {
 
 
 /** Local conversation store ids the first-run onboarding can detect. */
-export type XPeachSourceId = 'deepseek' | 'claude' | 'codex' | 'zcode' | 'chatgpt'
+export type XPeachSourceId = 'deepseek' | 'claude' | 'codex' | 'zcode' | 'chatgpt' | 'gemini' | 'antigravity'
+
+/** One skill entry discovered in the user/agents/project skill roots. */
+export interface XPeachSkillItem {
+  readonly id: string
+  readonly name: string
+  readonly dirName: string
+  readonly description: string
+  readonly whenToUse?: string
+  readonly path: string
+  readonly source: 'user' | 'agents' | 'project' | 'builtin'
+  readonly enabled: boolean
+  readonly valid: boolean
+  readonly reason?: string
+  readonly content: string
+}
+
+/** Snapshot of local skills and global AGENTS.md rules. */
+export interface XPeachSkillsSnapshot {
+  readonly skills: readonly XPeachSkillItem[]
+  readonly rulesPath: string
+  readonly rulesContent: string
+}
+
+/** Request payload for `xpeach.skillToggle`. */
+export interface XPeachSkillToggleRequest {
+  readonly dirName: string
+  readonly name: string
+  readonly enabled: boolean
+}
+
+/** Request payload for `xpeach.skillSave`. */
+export interface XPeachSkillSaveRequest {
+  readonly dirName?: string
+  readonly name: string
+  readonly description: string
+  readonly whenToUse?: string
+  readonly content: string
+}
+
+/** Request payload for `xpeach.skillDelete`. */
+export interface XPeachSkillDeleteRequest {
+  readonly dirName: string
+}
+
+/** Request payload for `xpeach.rulesSave`. */
+export interface XPeachRulesSaveRequest {
+  readonly content: string
+}
+
+/** One configured MCP server in the profile patch and its live tool state. */
+export interface XPeachMcpItem {
+  readonly id: string
+  readonly serverName: string
+  readonly disabled: boolean
+  readonly transportType: 'stdio' | 'streamable-http'
+  readonly command?: string
+  readonly args?: readonly string[]
+  readonly env?: Readonly<Record<string, string>>
+  readonly url?: string
+  readonly headers?: Readonly<Record<string, string>>
+  readonly status: 'active' | 'disabled' | 'configured'
+  readonly toolCount: number
+  readonly tools: readonly { readonly name: string; readonly description: string }[]
+}
+
+/** Snapshot of configured MCP servers and active profile patch path. */
+export interface XPeachMcpSnapshot {
+  readonly servers: readonly XPeachMcpItem[]
+  readonly patchPath: string
+}
+
+/** Request payload for `xpeach.mcpToggle`. */
+export interface XPeachMcpToggleRequest {
+  readonly id: string
+  readonly enabled: boolean
+}
+
+/** Request payload for `xpeach.mcpSave`. */
+export interface XPeachMcpSaveRequest {
+  readonly id?: string
+  readonly serverName: string
+  readonly transportType: 'stdio' | 'streamable-http'
+  readonly command?: string
+  readonly args?: readonly string[]
+  readonly env?: Readonly<Record<string, string>>
+  readonly url?: string
+  readonly headers?: Readonly<Record<string, string>>
+  readonly disabled?: boolean
+}
+
+/** Request payload for `xpeach.mcpDelete`. */
+export interface XPeachMcpDeleteRequest {
+  readonly id: string
+}
 
 /** One detected local conversation store. */
 export interface XPeachDetectedSource {
@@ -506,4 +601,37 @@ export interface XPeachNetworkSnapshot {
   readonly auto: boolean
   readonly probes: readonly XPeachNetworkRoute[]
   readonly history: Readonly<Record<string, readonly XPeachNetworkPoint[]>>
+}
+
+/** Status of the macOS native `.pkg` guided installer and installed bundle/CLI. */
+export interface XPeachMacosInstallerStatus {
+  readonly supported: boolean
+  readonly platform: string
+  readonly arch: string
+  readonly version: string
+  readonly pkgPath: string
+  readonly pkgExists: boolean
+  readonly pkgSizeBytes: number
+  readonly appInstalled: boolean
+  readonly appPath: string
+  readonly xphCliInstalled: boolean
+  readonly xphCliPath: string
+  readonly dshCliInstalled: boolean
+  readonly dshCliPath: string
+  readonly receiptPath: string
+  readonly installedAt?: string | undefined
+}
+
+/** Request options for building, opening, or installing the macOS `.pkg` guided installer. */
+export interface XPeachMacosInstallerActionRequest {
+  readonly action: 'build' | 'open' | 'reveal' | 'install-direct'
+}
+
+/** Result of a macOS `.pkg` guided installer action. */
+export interface XPeachMacosInstallerActionResult {
+  readonly ok: boolean
+  readonly action: 'build' | 'open' | 'reveal' | 'install-direct'
+  readonly message: string
+  readonly status: XPeachMacosInstallerStatus
+  readonly verifyOutput?: string | undefined
 }

@@ -50,6 +50,9 @@ describe('catalogue capabilities', () => {
       ],
     }
     expect(readProviderKeys(described)).toEqual(['xpeach', 'xpeach-anthropic', 'custom'])
+    expect(readProviderKeys([
+      { ns: 'llm-pi-ai', value: { providers: { xpeach: {}, 'xpeach-openai-responses': {} } } },
+    ])).toEqual(['xpeach', 'xpeach-openai-responses'])
     // Anything it cannot read retires nothing.
     expect(readProviderKeys(undefined)).toEqual([])
     expect(readProviderKeys({})).toEqual([])

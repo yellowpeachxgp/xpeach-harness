@@ -16,8 +16,14 @@
   disabled: true
 - id: session-log-deepseek
   disabled: true
+- id: session-telemetry-otel
+  disabled: true
+- id: llm-deepseek-account
+  disabled: true
+- id: ui-deepseek-model-label-1017
+  disabled: true
 - id: llm-deepseek
-  disabled: true # 站点目录无 deepseek-* 模型(实测 /v1/models 仅 swe-2-max);启用即报 AUTH
+  disabled: true # Disabled: models are served through the xpeach provider in llm-pi-ai.
   name: "@xpeach/xph-llm-deepseek-api-key"
   config:
     apiKeyEnv: XPEACH_RELAY_KEY
