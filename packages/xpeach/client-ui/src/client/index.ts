@@ -28,6 +28,7 @@ import { XPeachCostPill } from './XPeachCostPill.tsx'
 import { en, NS, zh } from './locales.ts'
 import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
+import { PaletteRow } from './PaletteRow.tsx'
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
 export const inject = ['remote', 'slots', 'locale', 'theme', 'layout']
@@ -518,6 +519,19 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   }
   // 🍑Code identity: warm peach accent over both palettes, applied
   // unconditionally (brand, not a user preference).
+  // Registered through the stock item slot, so the appearance page keeps its
+  // own row and gains ours beside it rather than being forked.
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'xpeach-palette',
+    order: 11,
+    locale: 'xpeach.account',
+    inject: () => ({
+      active: () => ctx.theme.getTheme().active.id,
+      setTheme: (id: string) => { ctx.theme.setTheme(id) },
+    }),
+  }, PaletteRow))
+
   const undoTheme = ctx.theme.overrideTokens('xpeach', {
     '--dsw-alias-brand-primary': { light: '#E0653F', dark: '#FF9D7E' },
     '--dsw-alias-brand-primary-invert': { light: '#FFF6F1', dark: '#2B1409' },
