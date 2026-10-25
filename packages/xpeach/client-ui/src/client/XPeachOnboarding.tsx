@@ -204,7 +204,9 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                 <h2>{t('onb.sourcesTitle')}</h2>
                 {t('onb.sourcesSub') !== '' && <p>{t('onb.sourcesSub')}</p>}
               </div>
-              {sourceList.length === 0 ? (
+              {scan === undefined ? (
+                <div className={css.onbEmpty}><XPeachMarkInline size={28} /><b>{t('onb.scanning')}</b></div>
+              ) : sourceList.length === 0 ? (
                 <div className={css.onbEmpty}><XPeachMarkInline size={28} /><b>{t('onb.noneTitle')}</b>{t('onb.noneSub') !== '' && <p>{t('onb.noneSub')}</p>}</div>
               ) : (
                 <div className={css.onbCards}>
@@ -232,7 +234,9 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                 <span className={css.onbSpacer} />
                 {sourceList.length > 0 && <span className={css.onbHint}>{picked.length} / {sourceList.length}</span>}
                 {hasAssets && <button type="button" className={css.onbPrimary} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>}
-                {!hasAssets && <button type="button" className={css.onbPrimary} disabled={picked.length === 0} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>}
+                {!hasAssets && (sourceList.length === 0 || scan === undefined
+                  ? <button type="button" className={css.onbPrimary} disabled={scan === undefined} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>
+                  : <button type="button" className={css.onbPrimary} disabled={picked.length === 0} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>)}
               </div>
             </>
           )}
