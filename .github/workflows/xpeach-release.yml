@@ -201,18 +201,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A shallow checkout may carry no tags at all, and the tag a full clone
+          # would offer may point at a commit this clone never fetched.
           PREVIOUS=$(git tag --list 'v*' --sort=-v:refname | grep -v "^v${{ needs.version.outputs.version }}$" | head -n 1 || true)
+          if [ -n "$PREVIOUS" ] && ! git rev-parse --verify --quiet "${PREVIOUS}^{commit}" > /dev/null; then
+            echo "previous tag $PREVIOUS is not in this checkout; listing recent commits instead"
+            PREVIOUS=""
+          fi
           {
             echo "## XPeach Harness ${{ needs.version.outputs.version }}"
             echo
             if [ -n "$PREVIOUS" ]; then
               echo "Changes since $PREVIOUS"
               echo
-              git log --no-merges --pretty='- %s' "${PREVIOUS}..HEAD" | head -n 60
+              # --max-count rather than head: under pipefail a SIGPIPE'd git log
+              # exits 141 and fails the whole step.
+              git log --no-merges --pretty='- %s' --max-count=60 "${PREVIOUS}..HEAD"
             else
               echo "First public release."
               echo
-              git log --no-merges --pretty='- %s' -n 60 HEAD
+              git log --no-merges --pretty='- %s' --max-count=60 HEAD
             fi
           } > CHANGELOG.md
           head -n 12 CHANGELOG.md
