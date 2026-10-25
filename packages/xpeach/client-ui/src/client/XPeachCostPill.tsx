@@ -21,14 +21,14 @@ interface TokenUsageBuckets {
 }
 
 interface ModelSelectionValue {
-  readonly lastUsed?: { readonly provider?: string, readonly model?: string } | null
-  readonly next?: { readonly provider?: string, readonly model?: string } | null
-  readonly pending?: { readonly provider?: string, readonly model?: string } | null
+  readonly lastUsed?: { readonly provider?: string; readonly model?: string } | null
+  readonly next?: { readonly provider?: string; readonly model?: string } | null
+  readonly pending?: { readonly provider?: string; readonly model?: string } | null
 }
 
 /** Props the dock slot hands every pill plus our injected billing-rate op. */
 export type XPeachCostPillProps = InjectFace<{
-  readonly useProjection: <K extends string>(key: K) => unknown
+  readonly useProjection: (key: string) => unknown
   readonly billingRate: (model: string) => Promise<XPeachBillingRate | { error: string } | undefined>
 }> & PropsLocale<'xpeach.account'>
 
@@ -43,6 +43,7 @@ function quotaOf(usage: TokenUsageBuckets, rate: XPeachBillingRate): number {
 
 const MEASURE_STYLE = { visibility: 'hidden' } as const
 
+/** Live session cost pill mounted in the composer dock. */
 export const XPeachCostPill = memo(function XPeachCostPill({ t, useProjection, billingRate }: XPeachCostPillProps) {
   const usage = useProjection('tokenUsage') as TokenUsageBuckets | undefined
   const selection = useProjection('modelSelection') as ModelSelectionValue | undefined
@@ -62,7 +63,7 @@ export const XPeachCostPill = memo(function XPeachCostPill({ t, useProjection, b
   useEffect(() => {
     if (model === undefined) return
     let alive = true
-    void billingRate(model).then(next => {
+    void billingRate(model).then((next) => {
       if (alive && next !== undefined && !('error' in next)) setRate(next)
     })
     return () => { alive = false }
@@ -104,7 +105,7 @@ export const XPeachCostPill = memo(function XPeachCostPill({ t, useProjection, b
             {rows.filter(r => r.n > 0).map(r => (
               <span key={r.k} style={{ display: 'contents' }}>
                 <dt>{t(r.k as 'cost.in')}</dt>
-                <dd>{fmtN(r.n)} tok · {fmtP(r.usd)}{'\u{1F351}'}</dd>
+                <dd>{t('unit.tok', { n: fmtN(r.n) })} · {fmtP(r.usd)}{'\u{1F351}'}</dd>
               </span>
             ))}
             <span style={{ display: 'contents' }}>

@@ -11,10 +11,13 @@
  * decisions.
  */
 
+/** Locale key for a palette display name. */
+export type PaletteLabelKey = 'palette.peach' | 'palette.forest' | 'palette.sea' | 'palette.dusk'
+
 /** One palette's paired values, keyed by alias token. */
 export interface Palette {
   readonly id: string
-  readonly label: string
+  readonly label: PaletteLabelKey
   /** Which stock base the palette is tuned against when the user follows system. */
   readonly scheme: 'light' | 'dark'
   readonly light: Readonly<Record<string, string>>
@@ -33,13 +36,13 @@ const TINTED = [
 /**
  * Build one palette from its five tinted values per mode.
  * @param id - theme id.
- * @param label - display name.
+ * @param label - locale key for the display name.
  * @param scheme - base mode this palette reads best against.
  * @param light - the five values for light mode, in {@link TINTED} order.
  * @param dark - the five values for dark mode, in {@link TINTED} order.
  * @returns the palette.
  */
-function palette(id: string, label: string, scheme: 'light' | 'dark', light: readonly string[], dark: readonly string[]): Palette {
+function palette(id: string, label: PaletteLabelKey, scheme: 'light' | 'dark', light: readonly string[], dark: readonly string[]): Palette {
   const pair = (values: readonly string[]): Record<string, string> =>
     Object.fromEntries(TINTED.map((token, index) => [token, values[index] ?? values[0] ?? '']))
   return { id, label, scheme, light: pair(light), dark: pair(dark) }
@@ -48,19 +51,19 @@ function palette(id: string, label: string, scheme: 'light' | 'dark', light: rea
 /** The palettes this product ships. */
 export const PALETTES: readonly Palette[] = Object.freeze([
   // The brand peach: warm paper by day, charcoal with a peach cast at night.
-  palette('peach', '暖桃', 'light',
+  palette('peach', 'palette.peach', 'light',
     ['#fffaf7', '#fff4ee', '#ffe8dc', '#f7d8c9', '#f17c52'],
     ['#1b1512', '#241b17', '#2e231d', '#4a3428', '#f17c52']),
   // Forest: a quiet green that reads as paper rather than as a terminal.
-  palette('forest', '森林', 'light',
+  palette('forest', 'palette.forest', 'light',
     ['#f8fbf8', '#f0f6f0', '#e3efe3', '#cfe3cf', '#3f8f5f'],
     ['#111814', '#161f19', '#1d2821', '#2e4034', '#5cb382']),
   // Sea salt: cool without going blue-on-blue.
-  palette('sea', '海盐', 'light',
+  palette('sea', 'palette.sea', 'light',
     ['#f8fbfc', '#eff6f8', '#e2eef2', '#cde2e9', '#3f8fa8'],
     ['#0f171a', '#141e22', '#1a262b', '#294047', '#5aa8c0']),
   // Dusk: violet that stays readable, not neon.
-  palette('dusk', '暮紫', 'light',
+  palette('dusk', 'palette.dusk', 'light',
     ['#fbf9fd', '#f5f0fa', '#ebe3f5', '#dbcdec', '#7c5fb0'],
     ['#171320', '#1d1828', '#252032', '#3a3050', '#a184d8']),
 ])

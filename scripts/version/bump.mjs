@@ -20,7 +20,7 @@ const ROOT = resolve(import.meta.dirname, '..', '..')
 const COUNTER = join(ROOT, 'version.json')
 
 /** Directories whose manifests carry the product version. */
-const MANIFEST_ROOTS = ['packages', 'apps', 'vendor', 'native']
+const MANIFEST_ROOTS = ['packages', 'apps']
 
 /** Never descended into. */
 const SKIP = new Set(['node_modules', 'lib', 'dist', '.git', '.desktop-build', 'coverage'])
@@ -119,7 +119,13 @@ if (labelIndex !== -1) {
 }
 const dryRun = argv.includes('--dry-run')
 const syncOnly = argv.includes('--sync')
-const request = argv.find((value) => !value.startsWith('--'))
+const bumpFlagIndex = argv.indexOf('--bump')
+const bumpEqArg = argv.find((value) => value.startsWith('--bump='))
+const request = bumpFlagIndex !== -1
+  ? argv[bumpFlagIndex + 1]
+  : bumpEqArg !== undefined
+    ? bumpEqArg.slice('--bump='.length)
+    : argv.find((value) => !value.startsWith('--'))
 const counter = readCounter()
 
 if (syncOnly) {

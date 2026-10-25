@@ -110,7 +110,7 @@ it.each(['png', 'jpg', 'jpeg', 'webp'].flatMap(extension => ['manifest', 'export
   },
 )
 
-it.each(['@local/demo', '@xpeach/xph-other'])('keeps nonofficial %s SVGs outside official artwork conventions', (name) => {
+it.each(['@local/demo', '@xpeach/other'])('keeps nonofficial %s SVGs outside official artwork conventions', (name) => {
   manifest({ name, icon: './icon.svg', files: ['icon.svg'] })
   file('icon.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"/>')
   expect(packageMetaProblems(root)).toEqual([])

@@ -1,4 +1,8 @@
 /** XPeach brand occupants: the identity mark and the xpeach wordmark. */
+import type { JSX } from 'react'
+import type {} from '@xpeach/xph-client-locale/client'
+import type { PropsLocale } from '@xpeach/xph-client-ui-slots'
+import type {} from './locales.ts'
 import css from './xpeach.module.css'
 import markPrimary from './assets/mark-primary.webp'
 import markWhite from './assets/mark-white.webp'
@@ -36,13 +40,14 @@ export function XPeachMark({ size, className, variant = 'auto' }: {
 /**
  * The XPeach wordmark rendered in the brand row: the site's own "🍑Code"
  * display name in the harness brand face.
+ * @param props - locale translator for the `xpeach.account` namespace.
  * @returns the wordmark.
  */
-export function XPeachName(): JSX.Element {
+export function XPeachName({ t }: PropsLocale<'xpeach.account'>): JSX.Element {
   return (
     <span className={css.wordmark}>
-      <span className={css.wordmarkPrimary}>XPEACH</span>
-      <span className={css.wordmarkSub}>Harness</span>
+      <span className={css.wordmarkPrimary}>{t('brand.name')}</span>
+      <span className={css.wordmarkSub}>{t('brand.sub')}</span>
     </span>
   )
 }

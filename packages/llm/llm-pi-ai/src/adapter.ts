@@ -225,19 +225,12 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
 
 /**
  * Conversation tracking headers for one request.
- *
- * Gateways upstream of the relay bill and cache per conversation, and some
- * routes reject a request that names no conversation at all. The names are the
- * ones those gateways document; a deployment can disable the whole set when its
- * route ignores them.
  * @param sessionId - Session the request belongs to.
  * @param enabled - Whether the profile wants tracking headers.
  * @returns Headers to merge into the request.
  */
 export function conversationHeaders(sessionId: string | undefined, enabled: boolean): Record<string, string> {
   if (!enabled || sessionId === undefined) return {}
-  // One value under every documented spelling: relay implementations differ on
-  // which one they read, and repeating a header with the same value is harmless.
   return {
     'X-Session-ID': sessionId,
     'session-id': sessionId,
@@ -307,9 +300,6 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
-    // The configured name, not the route key: `displayName` exists so a
-    // deployment can label a route, and a label only the configuration surface
-    // reads would leave every selector showing the raw key.
     return { id: provider, name: this.current().profiles.get(provider)?.displayName ?? provider }
   }
 
@@ -448,7 +438,10 @@ export class PiAiAdapter extends LlmAdapter {
         // Harness-owned and therefore win collisions.
         headers: {
           ...requestHeaders(profile.headers),
-          ...conversationHeaders(options.sessionId === undefined ? undefined : String(options.sessionId), profile.conversationTracking !== false),
+          ...conversationHeaders(
+            options.sessionId === undefined ? undefined : String(options.sessionId),
+            profile.conversationTracking !== false,
+          ),
         },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()

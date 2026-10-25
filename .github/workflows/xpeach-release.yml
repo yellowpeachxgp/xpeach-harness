@@ -58,7 +58,14 @@ jobs:
             # The branch decides the prerelease label; the counter only moves the
             # numeric core. See docs/product/RELEASE-CONTRACT.md.
             BRANCH="${{ github.ref_name }}"
-            CORE=$(node -e "const v=require('./version.json').version.replace(/-.*\$/,'');const p=v.split('.').map(Number);p[2]+=1;console.log(p.join('.'))")
+            CORE=$(node -e "
+              const v=require('./version.json').version.replace(/-.*\$/,'');
+              const p=v.split('.').map(Number);
+              if('$BUMP'==='major'){p[0]+=1;p[1]=0;p[2]=0}
+              else if('$BUMP'==='minor'){p[1]+=1;p[2]=0}
+              else{p[2]+=1}
+              console.log(p.join('.'))
+            ")
             VERSION=$(node -e "
               const label={alpha:'-alpha',beta:'-beta',main:'-least'}['$BRANCH']
               if(label===undefined){console.error('not a release branch: $BRANCH');process.exit(1)}
@@ -113,12 +120,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build host libraries
         run: pnpm run build:lib:host
-      - name: Build workspace (client artifacts)
-        if: matrix.target == 'linux-x64'
-        env:
-          DSH_CLIENT_BUILD_PROFILE: official
-          DSH_CLIENT_TITLE: XPeach Harness
-        run: pnpm run build
       - name: Provide the packaging dotenv
         shell: bash
         run: |
@@ -138,7 +139,9 @@ jobs:
         run: pnpm run build:desktop
       - name: Package (macOS)
         if: matrix.target == 'mac-arm64'
-        run: pnpm --filter @xpeach/xph-desktop run package:mac:arm64:unsigned
+        run: |
+          pnpm --filter @xpeach/xph-desktop run package:mac:arm64:unsigned
+          pnpm --filter @xpeach/xph-desktop run package:mac:pkg -- --output "apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/xpeach-harness-${{ needs.version.outputs.version }}-arm64-unsigned.pkg"
       - name: Package (Windows)
         if: matrix.target == 'win-x64'
         run: pnpm --filter @xpeach/xph-desktop run package:win:x64:unsigned
@@ -157,7 +160,7 @@ jobs:
                            apps/desktop/.desktop-build/targets/*/unsigned-artifacts/mac-arm64; do
             [ -d "$directory" ] || continue
             find "$directory" -maxdepth 1 -type f \
-              \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name 'latest*.yml' -o -name '*.blockmap' \) \
+              \( -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
               -exec cp {} out/ \;
           done
           ls -la out
@@ -230,16 +233,26 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${{ needs.version.outputs.version }}"
+          PRERELEASE_ARGS=()
+          IS_PRERELEASE=0
+          case "$TAG" in
+            *-alpha*|*-beta*)
+              PRERELEASE_ARGS=(--prerelease)
+              IS_PRERELEASE=1
+              ;;
+          esac
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --notes-file CHANGELOG.md
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
           else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "XPeach Harness $TAG" --notes-file CHANGELOG.md
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
           fi
           gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
           ASSETS=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          if echo "$ASSETS" | grep -qx 'latest-mac.yml' && echo "$ASSETS" | grep -qx 'latest.yml'; then
+          if [ "$IS_PRERELEASE" -eq 0 ] && echo "$ASSETS" | grep -qx 'latest-mac.yml' && echo "$ASSETS" | grep -qx 'latest.yml'; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest
             echo "promoted $TAG to latest (update metadata present)"
+          elif [ "$IS_PRERELEASE" -eq 1 ]; then
+            echo "prerelease $TAG published; leaving the latest stable release in place"
           else
             echo "::warning::$TAG has no latest-*.yml; leaving the previous latest release in place"
           fi

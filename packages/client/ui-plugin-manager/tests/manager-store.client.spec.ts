@@ -1403,7 +1403,7 @@ describe('PluginManagerController', () => {
 
   it('lists pnpm\'s own configuration once when it names the registry the Host also offers', async () => {
     const shared = { registry: null, fallbackRegistries: [MIRROR], resolved: MIRROR }
-    const storage = new Map([['dsh.plugin-manager.install-registry', JSON.stringify({ kind: 'offered', registry: MIRROR })]])
+    const storage = new Map([['xph.plugin-manager.install-registry', JSON.stringify({ kind: 'offered', registry: MIRROR })]])
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => { storage.set(key, value) },
@@ -1423,7 +1423,7 @@ describe('PluginManagerController', () => {
   })
 
   it('keeps a remembered pnpm configuration that names its own registry', async () => {
-    const storage = new Map([['dsh.plugin-manager.install-registry', JSON.stringify({ kind: 'offered', registry: null })]])
+    const storage = new Map([['xph.plugin-manager.install-registry', JSON.stringify({ kind: 'offered', registry: null })]])
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => { storage.set(key, value) },
@@ -1490,7 +1490,7 @@ describe('PluginManagerController', () => {
       later.face.openInstall()
       expect(later.state().install.registry).toEqual({ kind: 'custom', url: 'https://npm.corp.example' })
       // A remembered registry the Host no longer offers is kept as a typed one.
-      storage.set('dsh.plugin-manager.install-registry', JSON.stringify({ kind: 'offered', registry: 'https://old.example/' }))
+      storage.set('xph.plugin-manager.install-registry', JSON.stringify({ kind: 'offered', registry: 'https://old.example/' }))
       const stale = bench()
       stale.face.openInstall()
       expect(stale.state().install.registry).toEqual({ kind: 'offered', registry: 'https://old.example/' })
@@ -1604,7 +1604,7 @@ describe('PluginManagerController', () => {
 
 describe('Host registry response recommendation', () => {
   it('inspects the remembered registry when the offered choice becomes custom during the initial read', async () => {
-    const key = 'dsh.plugin-manager.install-registry'
+    const key = 'xph.plugin-manager.install-registry'
     const registry = 'https://old.example/'
     const storage = new Map([[key, JSON.stringify({ kind: 'offered', registry })]])
     const registries = deferred<ReturnType<typeof ok<typeof REGISTRIES>>>()

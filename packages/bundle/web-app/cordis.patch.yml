@@ -295,7 +295,7 @@
     # Web profiles opt in; Desktop retains sandboxed HTTP(S) Browser tabs.
     - id: ui-sidebar-browser
       name: '@xpeach/xph-client-ui-sidebar-browser'
-      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"
+      disabled: !!js "!['desktop', 'xpeach-desktop'].includes(ctx.get('profileContext')?.name ?? '')"
 
     - id: ui-sidebar-terminal
       name: '@xpeach/xph-client-ui-sidebar-terminal'

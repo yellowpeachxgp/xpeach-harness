@@ -7,15 +7,17 @@
  * (Core Data Z-prefixed columns, JSON content parts, boolean is_user).
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { type Dirent, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
+/** Decoded message row from a local ChatGPT SQLite database. */
 export interface DbMessage {
   readonly role: 'user' | 'assistant'
   readonly text: string
   readonly time: number
 }
 
+/** Reconstructed conversation thread from a local ChatGPT SQLite database. */
 export interface DbThread {
   readonly key: string
   readonly title: string
@@ -23,28 +25,37 @@ export interface DbThread {
   readonly messages: readonly DbMessage[]
 }
 
-const DB_EXTENSIONS = /.(db|sqlite|sqlite3)$/i
+const DB_EXTENSIONS = /\.(db|sqlite|sqlite3)$/i
+const UNPARSED = Symbol('unparsed')
+
+/** Quote a SQLite table or column identifier with doubled embedded quotes. */
+function quoteIdent(id: string): string {
+  return `"${id.replaceAll('"', '""')}"`
+}
 
 /** Run one read-only SQLite query and parse JSON output. */
 function query(db: string, sql: string): unknown[] {
+  let raw = ''
   try {
-    const out = execFileSync('sqlite3', ['-readonly', '-json', db, sql], {
+    raw = execFileSync('sqlite3', ['-readonly', '-json', db, sql], {
       encoding: 'utf8', timeout: 15_000, maxBuffer: 32 * 1024 * 1024,
-    }).trim()
-    if (out.length === 0) return []
-    const parsed = JSON.parse(out) as unknown
-    return Array.isArray(parsed) ? parsed : []
-  } catch { return [] }
+    })
+  } catch (_err) { return [] }
+  const out = raw.trim()
+  if (out.length === 0) return []
+  let parsed: unknown = null
+  try { parsed = JSON.parse(out) } catch (_err) { return [] }
+  return Array.isArray(parsed) ? parsed : []
 }
 
 /** Tables and their column names (lowercased, Z prefix stripped). */
-function schema(db: string): { table: string, columns: Map<string, string> }[] {
+function schema(db: string): { table: string; columns: Map<string, string> }[] {
   const tables = query(db, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
     .map(row => (row as { name?: unknown }).name)
     .filter((name): name is string => typeof name === 'string')
-  const out: { table: string, columns: Map<string, string> }[] = []
+  const out: { table: string; columns: Map<string, string> }[] = []
   for (const table of tables) {
-    const info = query(db, 'PRAGMA table_info(' + JSON.stringify(table) + ')')
+    const info = query(db, 'PRAGMA table_info(' + quoteIdent(table) + ')')
     const columns = new Map<string, string>()
     for (const row of info) {
       const name = (row as { name?: unknown }).name
@@ -72,9 +83,9 @@ function contentText(value: unknown): string {
   if (typeof value === 'string') {
     const trimmed = value.trim()
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        return contentText(JSON.parse(trimmed) as unknown)
-      } catch { /* plain text that looks like JSON */ }
+      let parsed: unknown = UNPARSED
+      try { parsed = JSON.parse(trimmed) } catch (_err) { /* plain text that looks like JSON */ }
+      if (parsed !== UNPARSED) return contentText(parsed)
     }
     return trimmed
   }
@@ -113,7 +124,12 @@ function timeOf(value: unknown): number {
   return Math.floor((n + 978_307_200) * 1000)
 }
 
-/** Decode one SQLite database into threads. */
+/**
+ * Decode one SQLite database into threads.
+ *
+ * @param path - filesystem path to the SQLite database file.
+ * @returns reconstructed conversation threads found in the database.
+ */
 export function decodeChatgptDatabase(path: string): DbThread[] {
   if (!existsSync(path)) return []
   const tables = schema(path)
@@ -125,11 +141,13 @@ export function decodeChatgptDatabase(path: string): DbThread[] {
   if (titleTable !== undefined && titleIdColumn !== undefined) {
     const titleColumn = titleTable.columns.get('title') ?? titleTable.columns.get('name')
     if (titleColumn !== undefined) {
-      for (const row of query(path, 'SELECT ' + JSON.stringify(titleIdColumn) + ' AS id, ' + JSON.stringify(titleColumn) + ' AS title FROM ' + JSON.stringify(titleTable.table))) {
+      for (const row of query(path, 'SELECT ' + quoteIdent(titleIdColumn) + ' AS id, ' + quoteIdent(titleColumn) + ' AS title FROM ' + quoteIdent(titleTable.table))) {
         const record = row as Record<string, unknown>
         const id = record['id']
         const title = record['title']
-        if (id !== undefined && typeof title === 'string' && title.trim().length > 0) titles.set(String(id), title.trim())
+        if ((typeof id === 'string' || typeof id === 'number') && typeof title === 'string' && title.trim().length > 0) {
+          titles.set(String(id), title.trim())
+        }
       }
     }
   }
@@ -144,17 +162,19 @@ export function decodeChatgptDatabase(path: string): DbThread[] {
     const select = ['rowid AS __rowid']
     const aliases = new Map<string, string>()
     for (const [alias, column] of [['role', roleColumn], ['content', contentColumn], ['id', idColumn], ['group', groupColumn], ['time', timeColumn]] as const) {
-      if (column !== undefined) { select.push(JSON.stringify(column) + ' AS "' + alias + '"'); aliases.set(alias, column) }
+      if (column !== undefined) { select.push(quoteIdent(column) + ' AS ' + quoteIdent(alias)); aliases.set(alias, column) }
     }
     if (!aliases.has('role') || !aliases.has('content')) continue
-    const rows = query(path, 'SELECT ' + select.join(', ') + ' FROM ' + JSON.stringify(table.table) + ' ORDER BY ' + (aliases.has('time') ? '5' : '__rowid'))
+    const orderBy = aliases.has('time') ? '"time"' : '__rowid'
+    const rows = query(path, 'SELECT ' + select.join(', ') + ' FROM ' + quoteIdent(table.table) + ' ORDER BY ' + orderBy)
     const grouped = new Map<string, DbMessage[]>()
     for (const row of rows) {
       const record = row as Record<string, unknown>
       const role = roleOf(record['role'])
       const text = contentText(record['content'])
       if (role === undefined || text.length === 0) continue
-      const group = record['group'] !== undefined && record['group'] !== null ? String(record['group']) : 'default'
+      const rawGroup = record['group']
+      const group = typeof rawGroup === 'string' || typeof rawGroup === 'number' ? String(rawGroup) : 'default'
       const time = timeOf(record['time'])
       const list = grouped.get(group) ?? []
       list.push({ role, text, time })
@@ -172,19 +192,36 @@ export function decodeChatgptDatabase(path: string): DbThread[] {
   return threads
 }
 
-/** SQLite files under the ChatGPT desktop data roots. */
+/**
+ * Discover SQLite files under ChatGPT desktop data directories across macOS, Windows, and Linux.
+ *
+ * @param home - user home directory path.
+ * @returns discovered SQLite database file paths.
+ */
 export function chatgptDatabaseFiles(home: string): string[] {
   const roots = [
     join(home, 'Library', 'Application Support', 'com.openai.chat'),
     join(home, 'Library', 'Application Support', 'ChatGPT'),
     join(home, 'Library', 'Application Support', 'OpenAI', 'ChatGPT'),
     join(home, 'Library', 'Containers', 'com.openai.chat', 'Data', 'Library', 'Application Support'),
+    join(home, 'AppData', 'Roaming', 'ChatGPT'),
+    join(home, 'AppData', 'Local', 'ChatGPT'),
+    join(home, '.config', 'ChatGPT'),
+    join(home, '.local', 'share', 'ChatGPT'),
   ]
+  const packagesDir = join(home, 'AppData', 'Local', 'Packages')
+  let packageEntries: Dirent[] = []
+  try { packageEntries = readdirSync(packagesDir, { withFileTypes: true }) } catch (_err) { /* no Windows Packages directory */ }
+  for (const entry of packageEntries) {
+    if (entry.isDirectory() && entry.name.startsWith('OpenAI.ChatGPT-Desktop_')) {
+      roots.push(join(packagesDir, entry.name, 'LocalCache', 'Roaming', 'ChatGPT'))
+    }
+  }
   const out: string[] = []
   const walk = (dir: string, depth: number): void => {
     if (depth > 4) return
-    let entries: import('node:fs').Dirent[]
-    try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
+    let entries: Dirent[]
+    try { entries = readdirSync(dir, { withFileTypes: true }) } catch (_err) { return }
     for (const entry of entries) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) { walk(path, depth + 1); continue }

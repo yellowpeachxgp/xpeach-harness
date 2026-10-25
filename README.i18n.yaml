@@ -3,32 +3,32 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
 /xpeach-harness:
-  en: 422dde996cbf472f
-  zh: 3863110fd554267c
+  en: 82f81b070ae6d37e
+  zh: a7922238b62f35c8
 /xpeach-harness/what-you-get:
-  en: d2f00f5ece2f73ef
-  zh: 903b707b9b0df05b
+  en: 02a81400d1a38019
+  zh: 7ccd15cf587bc6d2
 /xpeach-harness/run:
   en: 4e0248e4c6474fc6
   zh: eb2fb8d78c7d6bc0
 /xpeach-harness/run/desktop-app:
-  en: e49c6b09c35fdb9f
-  zh: 884e8d28aae756ce
+  en: 6387787f26bd273f
+  zh: 1b6ea8978d9dc282
 /xpeach-harness/run/command-line:
-  en: 91016b7fd170a21f
+  en: e54cb086a51ed571
   zh: ec08f1fd14982c02
 /xpeach-harness/first-run:
-  en: 0d3511dcb1040be2
-  zh: a6c34079a26a12fb
+  en: 4ec3819a4651db25
+  zh: cb0c34b92072c52e
 /xpeach-harness/data-and-privacy:
-  en: 99429615e6efe741
-  zh: 45f6284548c84662
+  en: 2f714685cb9d6830
+  zh: daa790c43dfc4544
 /xpeach-harness/building-from-source:
-  en: f425b800e2d80c5c
+  en: b981dbb938087997
   zh: a2d3b6903551651d
 /xpeach-harness/community:
   en: ca297df95b6f42ab
   zh: 2b94d6a710ba7c23
 /xpeach-harness/license:
-  en: 8d9f4278cf77d533
-  zh: 0c6acd1d220dcf08
+  en: dda364b3d288fb9c
+  zh: 0ecb1e99137d8d6b

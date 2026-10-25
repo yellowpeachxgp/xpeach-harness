@@ -835,7 +835,7 @@ ${bundledPython.map(dep => `| [\`${dep.name}\`](${dep.repo}) | ${dep.version} | 
 
 ## First-party native packages
 
-\`@xpeach/xph-node-addon-system\` (and its platform packages) is built and released from this repository under BSD 3-Clause. It is listed here for completeness; it is first-party, not third-party.
+\`@deepseek-ai/node-addon-system\` (and its platform packages) is built and released from this repository under BSD 3-Clause. It is listed here for completeness; it is first-party, not third-party.
 `
 }
 

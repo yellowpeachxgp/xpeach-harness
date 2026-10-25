@@ -45,7 +45,7 @@ it('loads both tarballs through plain Node and mounts their base image and overl
   await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
   for (const name of packages) {
     const source = join(experimentalDirectory, name)
-    const directory = join(root, 'node_modules/@deepseek-ai', `dsh-experimental-${name}`)
+    const directory = join(root, 'node_modules/@xpeach', `xph-experimental-${name}`)
     const packRoot = join(root, name)
     await mkdir(packRoot, { recursive: true })
     await mkdir(directory, { recursive: true })

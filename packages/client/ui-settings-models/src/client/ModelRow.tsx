@@ -57,14 +57,20 @@ export function ModelRow(props: ModelRowProps): ReactNode {
   const onReorder = props.onReorder
   const dragFrom = props.dragFrom
   const [dropTarget, setDropTarget] = useState(false)
-  // The index being dragged lives on the editor, not on this row: a row only
-  // knows its own position, so a per-row ref would be null in the row under the
-  // pointer and the drop would never be allowed.
+  const blockInputDrag = (event: DragEvent<HTMLInputElement>): void => {
+    event.stopPropagation()
+    event.preventDefault()
+  }
   const drag = onReorder === undefined || props.onDragStart === undefined
     ? {}
     : {
       draggable: !disabled,
       onDragStart: (event: DragEvent<HTMLDivElement>) => {
+        if (event.target instanceof HTMLInputElement
+          || (document.activeElement instanceof HTMLInputElement && event.currentTarget.contains(document.activeElement))) {
+          event.preventDefault()
+          return
+        }
         props.onDragStart?.(position - 1)
         event.dataTransfer.effectAllowed = 'move'
         // Firefox only starts a drag when some data is set.
@@ -76,7 +82,9 @@ export function ModelRow(props: ModelRowProps): ReactNode {
         event.dataTransfer.dropEffect = 'move'
         setDropTarget(true)
       },
-      onDragLeave: () => { setDropTarget(false) },
+      onDragLeave: (event: DragEvent<HTMLDivElement>) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(false)
+      },
       onDrop: (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault()
         setDropTarget(false)
@@ -96,6 +104,8 @@ export function ModelRow(props: ModelRowProps): ReactNode {
             key={field}
             className={styles['input']}
             type="text"
+            draggable={!disabled && onReorder !== undefined}
+            onDragStart={blockInputDrag}
             value={typeof model[field] === 'string' ? model[field] : ''}
             placeholder={t(field === 'id' ? 'modelId' : 'modelName')}
             aria-label={`${t(field === 'id' ? 'modelId' : 'modelName')} ${String(position)}`}
@@ -138,6 +148,8 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                   className={styles['input']}
                   type="text"
                   inputMode="numeric"
+                  draggable={!disabled && onReorder !== undefined}
+                  onDragStart={blockInputDrag}
                   value={props[field].value}
                   placeholder={props[field].placeholder}
                   aria-label={`${t(field)} ${String(position)}`}

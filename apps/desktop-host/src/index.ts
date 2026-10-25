@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   if (process.env.XPH_DESKTOP_DIAGNOSTICS === '1') {
     console.error('[xph] profile:', projectDir)
     console.error('[xph] bundles:', JSON.stringify(profile.layers.map(layer => layer.packageName)))
-    console.error('[xph] patch rows:', (profile.patches || []).length)
+    console.error('[xph] patch rows:', profile.patches.length)
   }
   const application = runProfile({
     environment: loadLayeredEnv('dsh'),

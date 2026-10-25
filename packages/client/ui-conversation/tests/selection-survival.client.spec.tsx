@@ -84,13 +84,13 @@ describe('Conversation state survives on its store seat', () => {
     const doomed = storeFor(b, 'conversation.session', reference)
     doomed.actions.setDraft('to be buried')
     doomed.actions.setView('chat')
-    expect(localStorage.getItem('dsh.conversation.s1')).not.toBeNull()
+    expect(localStorage.getItem('xph.conversation.s1')).not.toBeNull()
 
     reference.release()
     await b.runtime.flush()
     await b.runtime.sessions.remove('s1')
 
-    expect(localStorage.getItem('dsh.conversation.s1')).not.toBeNull()
+    expect(localStorage.getItem('xph.conversation.s1')).not.toBeNull()
     await b.runtime.sessions.add({ id: 's1' })
     using replacement = b.runtime.sessions.retain(sid('s1'))
     await replacement.ready

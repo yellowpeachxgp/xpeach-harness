@@ -2,7 +2,7 @@
 import type {} from '@xpeach/xph-client-ui-chat/client'
 import type {} from '@xpeach/xph-client-locale/client'
 import type {} from '@xpeach/xph-client-ui-renderer/client'
-import { useEffect } from 'react'
+import { type JSX, useEffect } from 'react'
 import type { PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { QuotaNoticeOwnerProps } from '@xpeach/xph-client-ui-chat/client'
 import { XPeachMark } from './brand.tsx'

@@ -27,6 +27,6 @@ declare module '@xpeach/xph-cordis' {
      * @param chunk - call correlation id and the incremental text delta.
      * @mode emit
      */
-    'xpeach/playground-chunk'(chunk: { callId: string, delta: string }): void
+    'xpeach/playground-chunk'(chunk: { callId: string; delta: string }): void
   }
 }

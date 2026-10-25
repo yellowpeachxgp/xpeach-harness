@@ -308,7 +308,7 @@ describe('Conversation inject API', () => {
     let removeCustom: (() => void) | undefined
     try {
       await b.runtime.flush()
-      localStorage.setItem(`dsh.conversation.${ROOT}`, JSON.stringify({
+      localStorage.setItem(`xph.conversation.${ROOT}`, JSON.stringify({
         draft: '', view: 'custom', viewRequest: null,
       }))
 

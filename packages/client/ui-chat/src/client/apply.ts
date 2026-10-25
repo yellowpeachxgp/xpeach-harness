@@ -48,13 +48,8 @@ import { useTurnDataValue } from './chat/use-turn-data.ts'
 import { bindDisclosure } from './chat/use-disclosure.ts'
 import { useFlowHidden, useMotionHidden } from './chat/flow-motion.ts'
 
-/** Bind group and header visibility to the viewport of one flow render. */
 /**
  * Seed a child Session's saved draft before its composer mounts.
- *
- * The Conversation store keys per Session and the editor reads its first
- * document from that entry, so writing it first makes the edited text the
- * composer's starting content instead of a later programmatic replacement.
  * @param sessionId - child Session whose draft to seed.
  * @param text - plain text to place in the composer.
  */
@@ -70,6 +65,7 @@ function seedDraft(sessionId: string, text: string): void {
   }
 }
 
+/** Bind group and header visibility to the viewport of one flow render. */
 export const CHAT_FLOW_INJECT: ChatFlowInjected = {
   hooks: {
     groupAction: (_standard, { motion }) => function useGroupAction(hidden, reveal) {
@@ -304,11 +300,14 @@ export function apply(ctx: Context): void {
             read: () => chatScrollPositions.get(sessionId) ?? null,
           },
           editAt: (seq, text) => {
-
-            // Edit-and-resend is a branch, not a rewrite: fork just before the
-            // message so the original conversation stays intact, then seed the
-            // child's draft with the text the user is about to change.
-            ctx.sessions.fork({ sessionId, atSeq: Math.max(0, seq - 1), increaseTitle: true, onCreated: (childId) => {
+            // Fork before the enclosing turn when one is known so the child
+            // does not inherit an open turn prefix before the edited message.
+            const turn = [...chat.getSnapshot().timeline.turns.values()].find(
+              candidate =>
+                candidate.start !== undefined && candidate.start.seq <= seq && (candidate.end === undefined || seq <= candidate.end.seq),
+            )
+            const boundary = turn?.start !== undefined ? turn.start.seq : seq
+            ctx.sessions.fork({ sessionId, atSeq: Math.max(0, boundary - 1), increaseTitle: true, onCreated: (childId) => {
               ctx.get('productAnalytics')?.track('branch_session_click', { session_id: childId, parent_session_id: sessionId, click_position: 'edit' })
             } })
               .then((childId) => {

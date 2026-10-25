@@ -1,11 +1,11 @@
 # Minimal keyless composition: real app, pwsh executor, and pwsh tool; replayed model.
 - id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+  name: '@xpeach/xph-llm-deepseek-api-key'
   disabled: true
 
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@xpeach/xph-llm-replay'
       config:
         providers:
           - id: deepseek-official
@@ -14,72 +14,72 @@
               - id: deepseek-v4-pro
 
 - id: subprocess
-  name: '@deepseek-ai/dsh-subprocess-local'
+  name: '@xpeach/xph-subprocess-local'
 
 - id: bash-sandbox
-  name: '@deepseek-ai/dsh-bash-sandbox'
+  name: '@xpeach/xph-bash-sandbox'
   disabled: true
 
 - id: pwsh-sandbox
-  name: '@deepseek-ai/dsh-pwsh-sandbox'
+  name: '@xpeach/xph-pwsh-sandbox'
   disabled: false
 
 - id: shell-env
-  name: '@deepseek-ai/dsh-shell-env'
+  name: '@xpeach/xph-shell-env'
 
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@xpeach/xph-agent-default-model'
   config:
     provider: deepseek-official
     model: deepseek-v4-pro
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@xpeach/xph-session-persistence-jsonl'
   config:
     root: !!js dshHomePath('sessions')
     compression: none
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@xpeach/xph-agent-instructions'
   disabled: true
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@xpeach/xph-system-prompt'
   config:
     personaPrefix: You are a concise snapshot agent.
 
 - id: goal
-  name: '@deepseek-ai/dsh-goal'
+  name: '@xpeach/xph-goal'
   disabled: true
 
 - id: goal-round-driver
-  name: '@deepseek-ai/dsh-goal-round-driver'
+  name: '@xpeach/xph-goal-round-driver'
   disabled: true
 
 - id: command-goal
-  name: '@deepseek-ai/dsh-command-goal'
+  name: '@xpeach/xph-command-goal'
   disabled: true
 
 - id: tool-goal
-  name: '@deepseek-ai/dsh-tool-goal'
+  name: '@xpeach/xph-tool-goal'
   disabled: true
 
 - id: skill
-  name: '@deepseek-ai/dsh-skill'
+  name: '@xpeach/xph-skill'
   disabled: true
 
 - id: skill-filesystem
-  name: '@deepseek-ai/dsh-skill-filesystem'
+  name: '@xpeach/xph-skill-filesystem'
   disabled: true
 
 - id: tool-skill
-  name: '@deepseek-ai/dsh-tool-skill'
+  name: '@xpeach/xph-tool-skill'
   disabled: true
 
 - id: tool-bash
-  name: '@deepseek-ai/dsh-tool-bash'
+  name: '@xpeach/xph-tool-bash'
   disabled: true
 
 - id: tool-pwsh
-  name: '@deepseek-ai/dsh-tool-pwsh'
+  name: '@xpeach/xph-tool-pwsh'
   disabled: false

@@ -2,6 +2,7 @@
 
 export const en = {
   cliCommandMenu: 'Manage dsh Command…',
+  macosPkgInstallerMenu: 'Run macOS Guided Installer (.pkg)…',
   cliCommandTitle: 'Manage dsh Command',
   cliCommandLocation: 'Desktop command: {path}',
   cliCommandSelected: 'Current dsh command: {path}',
@@ -173,6 +174,7 @@ export type DesktopMessages = { readonly [Key in keyof typeof en]: string }
 
 export const zh = {
   cliCommandMenu: '管理 dsh 命令…',
+  macosPkgInstallerMenu: '运行 macOS 安装向导 (.pkg)…',
   cliCommandTitle: '管理 dsh 命令',
   cliCommandLocation: 'Desktop 命令：{path}',
   cliCommandSelected: '当前 dsh 命令：{path}',

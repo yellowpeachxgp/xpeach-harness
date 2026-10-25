@@ -20,11 +20,7 @@
     },
     "./src/*": "./src/*",
     "./package.json": "./package.json",
-    "./locale/*.json": "./locale/*.json",
-    "./render": {
-      "types": "./lib/types/render.d.ts",
-      "default": "./lib/render.js"
-    }
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "locale/*.json",

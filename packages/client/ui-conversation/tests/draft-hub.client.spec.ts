@@ -27,7 +27,7 @@ const saved: DraftSnapshot = {
 
 async function storedSession(draft: unknown) {
   const id = SessionId(`draft-hub-${randomUUID()}`)
-  const key = `dsh.conversation.${id}`
+  const key = `xph.conversation.${id}`
   const previous = localStorage.getItem(key)
   onTestFinished(() => {
     if (previous === null) localStorage.removeItem(key)

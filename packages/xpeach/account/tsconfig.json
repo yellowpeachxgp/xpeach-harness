@@ -9,6 +9,7 @@
     "src/api.ts",
     "src/chatgpt-db.ts",
     "src/index.ts",
+    "src/macos-installer.ts",
     "src/network.ts",
     "src/onboarding.ts",
     "src/types.ts"

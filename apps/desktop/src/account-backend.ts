@@ -117,9 +117,13 @@ export function desktopAccountBackend(origin: string, invoke: AccountInvoke, coo
                 else onAnalyticsEnabledChanged?.(false)
                 return
               }
-              if (frame.streamId === expiryStreamId && frame.type === 'item' && frame.value === 'session-expired') { expired(); return }
+              if (frame.streamId === expiryStreamId) {
+                if (frame.type === 'item' && frame.value === 'session-expired') expired()
+                return
+              }
               if (frame.streamId !== streamId) throw new Error('desktop account: unexpected stream')
               if (frame.type === 'item') listener(accountView(frame.value))
+              else if (frame.type === 'error') { closed = true; onAnalyticsEnabledChanged?.(false); failed(); socket?.close() }
               else socket?.close()
             } catch { socket?.close() }
           })

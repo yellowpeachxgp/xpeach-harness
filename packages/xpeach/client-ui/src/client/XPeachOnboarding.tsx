@@ -14,7 +14,7 @@ type Stage = 'check' | 'welcome' | 'login' | 'sources' | 'extras' | 'importing' 
 type StepId = 'welcome' | 'login' | 'sources' | 'extras' | 'done'
 type Status = 'pending' | 'running' | 'done' | 'error'
 
-interface ProgressItem { readonly id: string, readonly label: string, status: Status }
+interface ProgressItem { readonly id: string; readonly label: string; status: Status }
 
 const STEPS: readonly StepId[] = ['welcome', 'login', 'sources', 'extras', 'done']
 
@@ -26,16 +26,26 @@ function authGateRequired(): boolean {
   return (globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ === true
 }
 
-/** Per-source presentation. */
-const SOURCE_META: Record<string, { icon: string, key: string }> = {
+/** Per-source presentation metadata for local conversation stores. */
+export const SOURCE_META: Record<string, { icon: string; key: string }> = {
   deepseek: { icon: '◆', key: 'onb.src.deepseek' },
   claude: { icon: '✳️', key: 'onb.src.claude' },
   codex: { icon: '⬡', key: 'onb.src.codex' },
   zcode: { icon: '⚡', key: 'onb.src.zcode' },
   chatgpt: { icon: '💬', key: 'onb.src.chatgpt' },
+  gemini: { icon: '✦', key: 'onb.src.gemini' },
+  antigravity: { icon: '🚀', key: 'onb.src.antigravity' },
 }
 
-export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound, onboardingScan, importConversations, importAssets, onboardingDone, onboardingComplete }: Props): JSX.Element | null {
+/**
+ * Render the first-run onboarding wizard overlay.
+ * @param props - locale translator and injected XPeach operations.
+ * @returns the modal element, or null when closed.
+ */
+export function XPeachOnboarding({
+  t, bind, sessionLogin, keyState, sessionBound, onboardingScan,
+  importConversations, importAssets, onboardingDone, onboardingComplete,
+}: Props): JSX.Element | null {
   const [stage, setStage] = useState<Stage>('check')
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,18 +58,19 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
 
   useEffect(() => {
     let live = true
-    void onboardingDone().then(async done => {
+    void onboardingDone().then((done) => {
       if (!live) return
       // A gated launch owns the screen even when onboarding was completed before:
       // the profile has no token, so there is nothing to enter.
       if (done.done && !authGateRequired()) { setStage('closed'); return }
-      const r = await onboardingScan()
-      if (!live) return
-      if (!('error' in r)) {
-        setScan(r)
-        setPicked(r.sources.filter(source => source.found).map(source => source.id))
-      }
-      setStage('welcome')
+      void onboardingScan().then((r) => {
+        if (!live) return
+        if (!('error' in r)) {
+          setScan(r)
+          setPicked(r.sources.filter(source => source.found).map(source => source.id))
+        }
+        setStage('welcome')
+      })
     })
     return () => { live = false }
   }, [onboardingDone, onboardingScan])
@@ -83,7 +94,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
   const doImport = async (): Promise<void> => {
     setStage('importing')
     setError(null)
-    const items: { id: string, label: string, run: () => Promise<void> }[] = []
+    const items: { id: string; label: string; run: () => Promise<void> }[] = []
     for (const id of picked) {
       const meta = SOURCE_META[id]
       items.push({
@@ -137,10 +148,10 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
 
   if (stage === 'check' || stage === 'closed') return null
 
-  const stepIndex = stage === 'importing' ? STEPS.indexOf('extras') : STEPS.indexOf(stage as StepId)
+  const stepIndex = stage === 'importing' ? STEPS.indexOf('extras') : STEPS.indexOf(stage)
   const rail = (
     <aside className={css.onbRail}>
-      <div className={css.onbBrand}><XPeachMarkInline size={30} /><span>XPeach</span></div>
+      <div className={css.onbBrand}><XPeachMarkInline size={30} /><span>{t('brand.title')}</span></div>
       <ol className={css.onbSteps}>
         {STEPS.map((step, index) => (
           <li key={step} className={css.onbStep} data-on={index <= stepIndex}>
@@ -183,9 +194,9 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
               <div className={css.onbLoginCard}>
                 <label className={css.onbLabel}>{t('onb.loginToken')}</label>
                 <input className={css.bindInput} type="password" placeholder={t('bind.placeholder')}
-                  value={key} onChange={e => { setKey(e.target.value) }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !busy) { void doBind() } }} />
-                <p className={css.onbHint}><a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a> · {t('onb.loginPrivacy')}</p>
+                  value={key} onChange={(e) => { setKey(e.target.value) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !busy) { void doBind() } }} />
+                <p className={css.onbHint}><a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a>{t('onb.loginPrivacy') !== '' && ` · ${t('onb.loginPrivacy')}`}</p>
                 {error !== null && <p className={css.bindError}>{error}</p>}
               </div>
               <div className={css.onbFooter}>
@@ -210,7 +221,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                 <div className={css.onbEmpty}><XPeachMarkInline size={28} /><b>{t('onb.noneTitle')}</b>{t('onb.noneSub') !== '' && <p>{t('onb.noneSub')}</p>}</div>
               ) : (
                 <div className={css.onbCards}>
-                  {sourceList.map(source => {
+                  {sourceList.map((source) => {
                     const meta = SOURCE_META[source.id] ?? { icon: '💬', key: 'onb.src.chatgpt' }
                     const on = picked.includes(source.id)
                     return (
@@ -236,7 +247,9 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
                 {hasAssets && <button type="button" className={css.onbPrimary} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>}
                 {!hasAssets && (sourceList.length === 0 || scan === undefined
                   ? <button type="button" className={css.onbPrimary} disabled={scan === undefined} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>
-                  : <button type="button" className={css.onbPrimary} disabled={picked.length === 0} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>)}
+                  : picked.length === 0
+                    ? <button type="button" className={css.onbPrimary} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>
+                    : <button type="button" className={css.onbPrimary} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>)}
               </div>
             </>
           )}
@@ -334,7 +347,7 @@ export function XPeachOnboarding({ t, bind, sessionLogin, keyState, sessionBound
     setBusy(true); setError(null)
     const r = await sessionLogin()
     setBusy(false)
-    if (!r.bound) { setError(r.error ?? 'login failed'); return }
+    if (!r.bound) { setError(r.error ?? t('status.error')); return }
     setStage('sources')
   }
 }

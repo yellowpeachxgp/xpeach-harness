@@ -373,2946 +373,6 @@
       ]
     },
     {
-      "name": "@xpeach/xph-cordis",
-      "version": "4.0.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-plugin-group",
-      "version": "1.0.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-plugin-group",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-plugin-hmr",
-      "version": "1.0.17",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-plugin-hmr",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-plugin-include",
-      "version": "1.0.7",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-plugin-include",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-plugin-loader",
-      "version": "1.0.3",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-plugin-loader",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-plugin-timer",
-      "version": "1.1.4",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-plugin-timer",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cosmokit",
-      "version": "1.8.3",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cosmokit",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-acp",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-acp",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-acp-app",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-acp-app",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-agent",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-agent",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-agent-default-model",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-agent-default-model",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-agent-instructions",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-agent-instructions",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-agent-loop",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-agent-loop",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-agent-preset-registry",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-agent-preset-registry",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-agent-tool-presentation",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-agent-tool-presentation",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-anonymous-user-id",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-anonymous-user-id",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-api-gateway",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-api-gateway",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-api-remotes",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-api-remotes",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-api-session-controller",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-api-session-controller",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-api-settings-controller",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-api-settings-controller",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-api-workspace-controller",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-api-workspace-controller",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-api-workspace-files",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-api-workspace-files",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-app-boot",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-app-boot",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-atomic-write",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-atomic-write",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-attachment",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-attachment",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-attachment-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-attachment-local",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-authorization",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-authorization",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-base",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-base",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-bash-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-bash-local",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-bash-sandbox",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-bash-sandbox",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-brand",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-brand",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-chunked-list",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-chunked-list",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-connection",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-connection",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-file-upload",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-file-upload",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-hmr",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-hmr",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-locale",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-locale",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-modules",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-modules",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-resources",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-resources",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-agent-preset",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-agent-preset",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-approval",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-approval",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-attachment",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-attachment",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-brand-official",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-brand-official",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-chat",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-chat",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-commands",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-commands",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-conversation",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-conversation",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-cordis",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-cordis",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-deliverables",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-deliverables",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-directory-picker-browse",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-directory-picker-browse",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-directory-picker-native",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-directory-picker-native",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-goal",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-goal",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-input-trigger",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-input-trigger",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-jobs",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-jobs",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-layout",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-layout",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-message-feedback",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-message-feedback",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-model-selection",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-model-selection",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-open-in-app",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-open-in-app",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-permission-presets",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-permission-presets",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-plan",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-plan",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-reference",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-reference",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-renderer",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-renderer",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-schedule",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-schedule",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-session",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-session",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-settings",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-settings",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-settings-general",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-settings-general",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-settings-models",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-settings-models",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-settings-plugin-inventory",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-settings-plugin-inventory",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-settings-plugins",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-settings-plugins",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-sidebar",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-sidebar",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-sidebar-documentpreview",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-sidebar-documentpreview",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-sidebar-files",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-sidebar-files",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-sidebar-right",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-sidebar-right",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-skill",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-skill",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-subagent",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-subagent",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-theme",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-theme",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-tool",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-tool",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-trajectory",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-trajectory",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-user-questions",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-user-questions",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-workflow-run",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-workflow-run",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-client-ui-workspace",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-client-ui-workspace",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cmdline",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cmdline",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@deepseek-ai/dsh-code-runtime",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@deepseek-ai/dsh-code-runtime",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@deepseek-ai/dsh-code-runtime-worker-thread",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@deepseek-ai/dsh-code-runtime-worker-thread",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-command-compact",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-command-compact",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-command-feedback",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-command-feedback",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-command-goal",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-command-goal",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-commands",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-commands",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-compaction",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-compaction",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-compaction-basic",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-compaction-basic",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-compaction-tool-result-pruner",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-compaction-tool-result-pruner",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-client-runner",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-client-runner",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-cordis-host-runner",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-cordis-host-runner",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-credentials",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-credentials",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-credentials-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-credentials-local",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-deepseek-llm-api-extensions",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-deepseek-llm-api-extensions",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-deque",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-deque",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-file-reference",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-file-reference",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-file-reference-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-file-reference-local",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-fs",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-fs",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-fs-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-fs-local",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-fs-observation-policy",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-fs-observation-policy",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-fs-sandbox",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-fs-sandbox",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-goal",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-goal",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-goal-round-driver",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-goal-round-driver",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-headless",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-headless",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-home-paths",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-home-paths",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-hook-protocol",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-hook-protocol",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-hooks-claude-code",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-hooks-claude-code",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-hooks-codex",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-hooks-codex",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-directory-picker",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-directory-picker",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-directory-picker-auto",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-directory-picker-auto",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-directory-picker-browse",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-directory-picker-browse",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-directory-picker-native",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-directory-picker-native",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-frontend-static",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-frontend-static",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-open-in-app",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-open-in-app",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-plugin-inventory",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-plugin-inventory",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-host-webserver",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-host-webserver",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-http-proxy",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-http-proxy",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@deepseek-ai/dsh-invariants",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@deepseek-ai/dsh-invariants",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-jobs",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-jobs",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-jobs-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-jobs-local",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-launch-environment",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-launch-environment",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-llm",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-llm",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-llm-deepseek",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-llm-deepseek",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-llm-pi-ai",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-llm-pi-ai",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-llm-retry",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-llm-retry",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-mcp-client",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-mcp-client",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-message-feedback",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-message-feedback",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-native-command",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-native-command",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-output-retention",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-output-retention",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-package-manifest",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-package-manifest",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-permission-presets",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-permission-presets",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-persona",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-persona",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-plan-mode",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-plan-mode",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-plugin-package-inventory-deepseek",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-plugin-package-inventory-deepseek",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-pwsh-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-pwsh-local",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-pwsh-sandbox",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-pwsh-sandbox",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-repeat-tool-reminder",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-repeat-tool-reminder",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sandbox",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sandbox",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sandbox-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sandbox-local",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sandbox-policy",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sandbox-policy",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sandbox-windows-acl",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sandbox-windows-acl",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-schedule",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-schedule",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-scope",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-scope",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sdk-app",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sdk-app",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sdk-jsonrpc-server",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sdk-jsonrpc-server",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sdk-minimal",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sdk-minimal",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-sdk-protocol",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-sdk-protocol",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-checkpoint-policy",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-checkpoint-policy",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-format",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-format",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-format-catalog",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-format-catalog",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-format-v0-to-v1",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-format-v0-to-v1",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-format-v1-to-v2",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-format-v1-to-v2",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-format-v2-to-v3",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-format-v2-to-v3",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-log-deepseek",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-log-deepseek",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-log-export",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-log-export",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-persistence",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-persistence",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-persistence-jsonl",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-persistence-jsonl",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-projection",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-projection",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-projection-cache",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-projection-cache",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-query",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-query",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-query-sqlite",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-query-sqlite",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-reference",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-reference",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-stats",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-stats",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-telemetry",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-telemetry",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-telemetry-otel",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-telemetry-otel",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-title",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-title",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-title-first-prompt-llm",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-title-first-prompt-llm",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-title-llm",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-title-llm",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-session-turn-outline",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-session-turn-outline",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-settings",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-settings",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@deepseek-ai/dsh-settings-file",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@deepseek-ai/dsh-settings-file",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-shell",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-shell",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-shell-env",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-shell-env",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-skill",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-skill",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-skill-badge",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-skill-badge",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-skill-filesystem",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-skill-filesystem",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-spill",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-spill",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-spill-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-spill-local",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-spill-policy",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-spill-policy",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-storage",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-storage",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-storage-domain",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-storage-domain",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-storage-json",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-storage-json",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-subagent",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-subagent",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-subagent-fork-in-process",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-subagent-fork-in-process",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@deepseek-ai/dsh-subagent-in-process-driver",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@deepseek-ai/dsh-subagent-in-process-driver",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-subagent-spawn-in-process",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-subagent-spawn-in-process",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-subprocess",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-subprocess",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-subprocess-local",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-subprocess-local",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-system-prompt",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-system-prompt",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-terminal",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-terminal",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-terminal-bash",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-terminal-bash",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-time-context",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-time-context",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-timeout",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-timeout",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tmux-context",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tmux-context",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-token-meter",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-token-meter",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-ask-user",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-ask-user",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-bash",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-bash",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-bash-persistent",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-bash-persistent",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-call-timeout-policy",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-call-timeout-policy",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-cordis",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-cordis",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-fs",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-fs",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-fs-search",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-fs-search",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-goal",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-goal",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-jobs",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-jobs",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-present",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-present",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-pwsh",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-pwsh",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-pwsh-persistent",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-pwsh-persistent",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-ralph",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-ralph",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-skill",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-skill",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-str-replace-editor",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-str-replace-editor",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-subagent",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-subagent",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-subagent-control",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-subagent-control",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-todo",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-todo",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-web",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-web",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tool-workflow",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tool-workflow",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-tools",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-tools",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-typert-loader",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-typert-loader",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-typert-protocol",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-typert-protocol",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-typert-registry",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-typert-registry",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-user-approval",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-user-approval",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-user-questions",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-user-questions",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-util-crypto",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-util-crypto",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-util-time",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-util-time",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-util-values",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-util-values",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-util-workspace-path",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-util-workspace-path",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-web",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-web",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-web-app",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-web-app",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-web-fetch-http",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-web-fetch-http",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-web-frontend",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-web-frontend",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-web-search-deepseek",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-web-search-deepseek",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-webhook",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-webhook",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-webhook-github",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-webhook-github",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-win32-process",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-win32-process",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-workflow",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-workflow",
-          "direct": false,
-          "optional": false,
-          "peer": true
-        }
-      ]
-    },
-    {
-      "name": "@deepseek-ai/dsh-workflow-worker-thread",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@deepseek-ai/dsh-workflow-worker-thread",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-workspace",
-      "version": "0.1.5-rc.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-workspace",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-node-addon-system",
-      "version": "0.1.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-node-addon-system",
-          "direct": false,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-node-addon-system-darwin-arm64",
-      "version": "0.1.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-node-addon-system-darwin-arm64",
-          "direct": false,
-          "optional": true,
-          "peer": false,
-          "os": [
-            "darwin"
-          ],
-          "cpu": [
-            "arm64"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-node-addon-system-darwin-x64",
-      "version": "0.1.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-node-addon-system-darwin-x64",
-          "direct": false,
-          "optional": true,
-          "peer": false,
-          "os": [
-            "darwin"
-          ],
-          "cpu": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-node-addon-system-linux-arm64",
-      "version": "0.1.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-node-addon-system-linux-arm64",
-          "direct": false,
-          "optional": true,
-          "peer": false,
-          "os": [
-            "linux"
-          ],
-          "cpu": [
-            "arm64"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-node-addon-system-linux-x64",
-      "version": "0.1.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-node-addon-system-linux-x64",
-          "direct": false,
-          "optional": true,
-          "peer": false,
-          "os": [
-            "linux"
-          ],
-          "cpu": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "@xpeach/xph-schemastery",
-      "version": "3.18.2",
-      "installations": [
-        {
-          "location": "node_modules/@xpeach/xph-schemastery",
-          "direct": true,
-          "optional": false,
-          "peer": false
-        }
-      ]
-    },
-    {
       "name": "@earendil-works/pi-ai",
       "version": "0.85.1",
       "installations": [
@@ -5001,6 +2061,2946 @@
           "cpu": [
             "x64"
           ]
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-acp",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-acp",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-acp-app",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-acp-app",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-agent",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-agent",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-agent-default-model",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-agent-default-model",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-agent-instructions",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-agent-instructions",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-agent-loop",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-agent-loop",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-agent-preset-registry",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-agent-preset-registry",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-agent-tool-presentation",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-agent-tool-presentation",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-anonymous-user-id",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-anonymous-user-id",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-api-gateway",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-api-gateway",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-api-remotes",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-api-remotes",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-api-session-controller",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-api-session-controller",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-api-settings-controller",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-api-settings-controller",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-api-workspace-controller",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-api-workspace-controller",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-api-workspace-files",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-api-workspace-files",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-app-boot",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-app-boot",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-atomic-write",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-atomic-write",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-attachment",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-attachment",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-attachment-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-attachment-local",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-authorization",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-authorization",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-base",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-base",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-bash-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-bash-local",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-bash-sandbox",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-bash-sandbox",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-brand",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-brand",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-chunked-list",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-chunked-list",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-connection",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-connection",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-file-upload",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-file-upload",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-hmr",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-hmr",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-locale",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-locale",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-modules",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-modules",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-resources",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-resources",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-agent-preset",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-agent-preset",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-approval",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-approval",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-attachment",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-attachment",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-brand-official",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-brand-official",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-chat",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-chat",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-commands",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-commands",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-conversation",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-conversation",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-cordis",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-cordis",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-deliverables",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-deliverables",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-directory-picker-browse",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-directory-picker-browse",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-directory-picker-native",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-directory-picker-native",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-goal",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-goal",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-input-trigger",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-input-trigger",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-jobs",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-jobs",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-layout",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-layout",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-message-feedback",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-message-feedback",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-model-selection",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-model-selection",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-open-in-app",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-open-in-app",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-permission-presets",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-permission-presets",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-plan",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-plan",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-reference",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-reference",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-renderer",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-renderer",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-schedule",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-schedule",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-session",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-session",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-settings",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-settings",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-settings-general",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-settings-general",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-settings-models",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-settings-models",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-settings-plugin-inventory",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-settings-plugin-inventory",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-settings-plugins",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-settings-plugins",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-sidebar",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-sidebar",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-sidebar-documentpreview",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-sidebar-documentpreview",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-sidebar-files",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-sidebar-files",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-sidebar-right",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-sidebar-right",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-skill",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-skill",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-subagent",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-subagent",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-theme",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-theme",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-tool",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-tool",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-trajectory",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-trajectory",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-user-questions",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-user-questions",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-workflow-run",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-workflow-run",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-client-ui-workspace",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-client-ui-workspace",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cmdline",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cmdline",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-code-runtime",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-code-runtime",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-code-runtime-worker-thread",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-code-runtime-worker-thread",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-command-compact",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-command-compact",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-command-feedback",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-command-feedback",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-command-goal",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-command-goal",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-commands",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-commands",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-compaction",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-compaction",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-compaction-basic",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-compaction-basic",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-compaction-tool-result-pruner",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-compaction-tool-result-pruner",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis",
+      "version": "4.0.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-client-runner",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-client-runner",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-host-runner",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-host-runner",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-plugin-group",
+      "version": "1.0.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-plugin-group",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-plugin-hmr",
+      "version": "1.0.17",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-plugin-hmr",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-plugin-include",
+      "version": "1.0.7",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-plugin-include",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-plugin-loader",
+      "version": "1.0.3",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-plugin-loader",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cordis-plugin-timer",
+      "version": "1.1.4",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cordis-plugin-timer",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-cosmokit",
+      "version": "1.8.3",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-cosmokit",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-credentials",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-credentials",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-credentials-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-credentials-local",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-deepseek-llm-api-extensions",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-deepseek-llm-api-extensions",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-deque",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-deque",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-file-reference",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-file-reference",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-file-reference-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-file-reference-local",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-fs",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-fs",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-fs-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-fs-local",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-fs-observation-policy",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-fs-observation-policy",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-fs-sandbox",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-fs-sandbox",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-goal",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-goal",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-goal-round-driver",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-goal-round-driver",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-headless",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-headless",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-home-paths",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-home-paths",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-hook-protocol",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-hook-protocol",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-hooks-claude-code",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-hooks-claude-code",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-hooks-codex",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-hooks-codex",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-directory-picker",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-directory-picker",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-directory-picker-auto",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-directory-picker-auto",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-directory-picker-browse",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-directory-picker-browse",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-directory-picker-native",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-directory-picker-native",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-frontend-static",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-frontend-static",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-open-in-app",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-open-in-app",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-plugin-inventory",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-plugin-inventory",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-host-webserver",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-host-webserver",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-http-proxy",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-http-proxy",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-invariants",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-invariants",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-jobs",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-jobs",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-jobs-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-jobs-local",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-launch-environment",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-launch-environment",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-llm",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-llm",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-llm-deepseek",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-llm-deepseek",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-llm-pi-ai",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-llm-pi-ai",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-llm-retry",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-llm-retry",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-mcp-client",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-mcp-client",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-message-feedback",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-message-feedback",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-native-command",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-native-command",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-node-addon-system",
+      "version": "0.1.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-node-addon-system",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-node-addon-system-darwin-arm64",
+      "version": "0.1.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-node-addon-system-darwin-arm64",
+          "direct": false,
+          "optional": true,
+          "peer": false,
+          "os": [
+            "darwin"
+          ],
+          "cpu": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-node-addon-system-darwin-x64",
+      "version": "0.1.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-node-addon-system-darwin-x64",
+          "direct": false,
+          "optional": true,
+          "peer": false,
+          "os": [
+            "darwin"
+          ],
+          "cpu": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-node-addon-system-linux-arm64",
+      "version": "0.1.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-node-addon-system-linux-arm64",
+          "direct": false,
+          "optional": true,
+          "peer": false,
+          "os": [
+            "linux"
+          ],
+          "cpu": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-node-addon-system-linux-x64",
+      "version": "0.1.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-node-addon-system-linux-x64",
+          "direct": false,
+          "optional": true,
+          "peer": false,
+          "os": [
+            "linux"
+          ],
+          "cpu": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-output-retention",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-output-retention",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-package-manifest",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-package-manifest",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-permission-presets",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-permission-presets",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-persona",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-persona",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-plan-mode",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-plan-mode",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-plugin-package-inventory-deepseek",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-plugin-package-inventory-deepseek",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-pwsh-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-pwsh-local",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-pwsh-sandbox",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-pwsh-sandbox",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-repeat-tool-reminder",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-repeat-tool-reminder",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sandbox",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sandbox",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sandbox-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sandbox-local",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sandbox-policy",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sandbox-policy",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sandbox-windows-acl",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sandbox-windows-acl",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-schedule",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-schedule",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-schemastery",
+      "version": "3.18.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-schemastery",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-scope",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-scope",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sdk-app",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sdk-app",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sdk-jsonrpc-server",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sdk-jsonrpc-server",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sdk-minimal",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sdk-minimal",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-sdk-protocol",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-sdk-protocol",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-checkpoint-policy",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-checkpoint-policy",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-format",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-format",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-format-catalog",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-format-catalog",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-format-v0-to-v1",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-format-v0-to-v1",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-format-v1-to-v2",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-format-v1-to-v2",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-format-v2-to-v3",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-format-v2-to-v3",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-log-deepseek",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-log-deepseek",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-log-export",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-log-export",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-persistence",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-persistence",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-persistence-jsonl",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-persistence-jsonl",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-projection",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-projection",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-projection-cache",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-projection-cache",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-query",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-query",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-query-sqlite",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-query-sqlite",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-reference",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-reference",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-stats",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-stats",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-telemetry",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-telemetry",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-telemetry-otel",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-telemetry-otel",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-title",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-title",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-title-first-prompt-llm",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-title-first-prompt-llm",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-title-llm",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-title-llm",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-session-turn-outline",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-session-turn-outline",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-settings",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-settings",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-settings-file",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-settings-file",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-shell",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-shell",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-shell-env",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-shell-env",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-skill",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-skill",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-skill-badge",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-skill-badge",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-skill-filesystem",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-skill-filesystem",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-spill",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-spill",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-spill-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-spill-local",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-spill-policy",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-spill-policy",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-storage",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-storage",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-storage-domain",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-storage-domain",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-storage-json",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-storage-json",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-subagent",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-subagent",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-subagent-fork-in-process",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-subagent-fork-in-process",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-subagent-in-process-driver",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-subagent-in-process-driver",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-subagent-spawn-in-process",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-subagent-spawn-in-process",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-subprocess",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-subprocess",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-subprocess-local",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-subprocess-local",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-system-prompt",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-system-prompt",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-terminal",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-terminal",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-terminal-bash",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-terminal-bash",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-time-context",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-time-context",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-timeout",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-timeout",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tmux-context",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tmux-context",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-token-meter",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-token-meter",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-ask-user",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-ask-user",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-bash",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-bash",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-bash-persistent",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-bash-persistent",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-call-timeout-policy",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-call-timeout-policy",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-cordis",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-cordis",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-fs",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-fs",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-fs-search",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-fs-search",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-goal",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-goal",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-jobs",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-jobs",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-present",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-present",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-pwsh",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-pwsh",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-pwsh-persistent",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-pwsh-persistent",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-ralph",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-ralph",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-skill",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-skill",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-str-replace-editor",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-str-replace-editor",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-subagent",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-subagent",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-subagent-control",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-subagent-control",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-todo",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-todo",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-web",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-web",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tool-workflow",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tool-workflow",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-tools",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-tools",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-typert-loader",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-typert-loader",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-typert-protocol",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-typert-protocol",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-typert-registry",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-typert-registry",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-user-approval",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-user-approval",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-user-questions",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-user-questions",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-util-crypto",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-util-crypto",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-util-time",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-util-time",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-util-values",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-util-values",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-util-workspace-path",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-util-workspace-path",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-web",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-web",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-web-app",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-web-app",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-web-fetch-http",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-web-fetch-http",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-web-frontend",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-web-frontend",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-web-search-deepseek",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-web-search-deepseek",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-webhook",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-webhook",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-webhook-github",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-webhook-github",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-win32-process",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-win32-process",
+          "direct": false,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-workflow",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-workflow",
+          "direct": false,
+          "optional": false,
+          "peer": true
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-workflow-worker-thread",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-workflow-worker-thread",
+          "direct": true,
+          "optional": false,
+          "peer": false
+        }
+      ]
+    },
+    {
+      "name": "@xpeach/xph-workspace",
+      "version": "0.1.5-rc.2",
+      "installations": [
+        {
+          "location": "node_modules/@xpeach/xph-workspace",
+          "direct": false,
+          "optional": false,
+          "peer": false
         }
       ]
     },

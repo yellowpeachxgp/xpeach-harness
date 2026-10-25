@@ -33,6 +33,7 @@
     "prepare:desktop": "pnpm --filter @xpeach/xph-desktop run prepare:package",
     "package:desktop": "pnpm --filter @xpeach/xph-desktop run package",
     "package:desktop:dir": "pnpm --filter @xpeach/xph-desktop run package:dir",
+    "package:mac:pkg": "pnpm --filter @xpeach/xph-desktop run package:mac:pkg",
     "package:desktop:mac:arm64": "pnpm --filter @xpeach/xph-desktop run package:mac:arm64",
     "package:desktop:mac:arm64:unsigned": "pnpm --filter @xpeach/xph-desktop run package:mac:arm64:unsigned",
     "package:desktop:mac:arm64:dir": "pnpm --filter @xpeach/xph-desktop run package:mac:arm64:dir",

@@ -140,7 +140,7 @@ describe('WebSearchCard', () => {
     expect(guide.getAttribute('target')).toBe('_blank')
     expect(guide.getAttribute('rel')).toBe('noopener noreferrer')
     expect(guide.parentElement?.textContent).toBe(`${en.useSearchApiHint}${en.searchGuide}`)
-    expect(`${zh.useSearchApiHint}${zh.searchGuide}`).toBe('默认关闭，搜索通过 DeepSeek Messages 完成。新版 Web 搜索 API 功能与计费详见网页搜索与抓取指南')
+    expect(`${zh.useSearchApiHint}${zh.searchGuide}`).toBe('默认关闭，搜索通过 Messages 接口完成。新版 Web 搜索 API 功能与计费详见网页搜索与抓取指南')
     expect(zh.searchGuideUrl).toBe('https://api-docs.deepseek.com/zh-cn/guides/search')
   })
 

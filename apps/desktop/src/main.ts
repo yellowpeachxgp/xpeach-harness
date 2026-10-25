@@ -1,21 +1,9 @@
-import type { ProductEventMap, ProductEvent } from '@xpeach/xph-client-product-analytics/types'
-import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
-// Electron derives userData from app.name. Keeping the packaged package name would
-// point XPeach at DeepSeek Harness's own userData directory, which both breaks the
-// single-instance lock against a running DeepSeek app and mixes caches. Name the
-// product before anything reads a path.
-app.setName('XPeach Harness')
-
-// XPeach owns its data root. Pinning XPH_HOME before any path resolution keeps
-// every Electron-side root — profile, lock, settings, caches, logs — under
-// ~/.xph, so the desktop shell never shares DeepSeek Harness's ~/.dsh.
-process.env.XPH_HOME ??= join(homedir(), '.xph')
-// The bundled runtime reads XPH_PRODUCT to pick the product name it announces.
-process.env.XPH_PRODUCT ??= '1'
-
+import type { ProductEventMap, ProductEvent } from '@xpeach/xph-client-product-analytics/types'
+import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 import { readFile, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
@@ -37,7 +25,15 @@ import {
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
 } from 'electron'
-import { resolveDesktopPaths, XPEACH_PROFILE_NAME } from './paths.ts'
+import { resolveDesktopPaths } from './paths.ts'
+
+const XPEACH_PROFILE_NAME = 'xpeach-desktop'
+
+app.setName('XPeach Harness')
+if (!process.env.XPH_HOME && !process.env.DSH_HOME) {
+  process.env.XPH_HOME = join(homedir(), '.xph')
+}
+process.env.XPH_PRODUCT ??= '1'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -112,7 +108,7 @@ const recovery = new DesktopFatalRecovery({
   show: options => dialog.showMessageBox(options),
   stop: () => { shuttingDown = true; return stopForRecovery() },
   disablePlugins: async () => {
-    const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources())
+    const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources(), productProfilePatch())
     const backupPath = await manager.disableAllPlugins()
     console.info('Desktop profile recovery completed:', { profilePatchBackup: backupPath ?? null, homePatch: 'unchanged' })
   },
@@ -165,9 +161,13 @@ interface RuntimeResources {
   readonly dsh: string
 }
 
-/** Packaged XPeach product profile patch; absent in a development checkout. */
+/** Shipped XPeach product profile patch path, when available. */
 function productProfilePatch(): string | undefined {
-  if (!app.isPackaged) return process.env.DSH_DESKTOP_PRODUCT_PATCH
+  if (!app.isPackaged) {
+    if (process.env.DSH_DESKTOP_PRODUCT_PATCH !== undefined) return process.env.DSH_DESKTOP_PRODUCT_PATCH
+    const development = join(app.getAppPath(), 'resources', 'xpeach.profile.yml')
+    return existsSync(development) ? development : undefined
+  }
   const packaged = join(process.resourcesPath, 'xpeach.profile.yml')
   return existsSync(packaged) ? packaged : undefined
 }
@@ -472,10 +472,6 @@ async function main(): Promise<void> {
       hostInspectPort, {
         ...hostEnvironment,
         DSH_CLIENT_VERSION: desktopClientVersion(),
-        // The account plugin derives its credential paths from XPH_PROFILE and
-        // defaults to the CLI profile; without this the desktop writes its
-        // tokens into `profiles/xpeach` and the installer's own profile never
-        // sees them, so the onboarding bind looks like it did nothing.
         XPH_PROFILE: XPEACH_PROFILE_NAME,
       }, onFailure,
       primaryRuntime,
@@ -488,9 +484,6 @@ async function main(): Promise<void> {
         if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
         injections = ready.injections
         welcomeBackend = await connectDesktopWelcome(ready.url, (input, init) => net.fetch(input, init), async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; ')).catch((error: unknown) => {
-          // The XPeach product patch replaces DeepSeek's sign-in surface, so the
-          // native welcome has no DeepSeek credential namespace to read. That is
-          // expected: the product onboarding in the workspace owns binding.
           console.error(error)
           return undefined
         })
@@ -819,7 +812,7 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
-    return (await readWelcomeState()).hasApiKey
+    return (await readWelcomeState().catch(() => undefined))?.hasApiKey ?? false
   })
   ipcMain.on(DESKTOP_IPC.onboardingActive, (event, active: unknown) => {
     const window = mainWindow
@@ -969,8 +962,12 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
+  const applicationIconPath = development
+    ? join(app.getAppPath(), 'resources', process.platform === 'darwin' ? 'icon-macos.png' : 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')
+  if (process.platform === 'darwin' && existsSync(applicationIconPath)) {
+    try { app.dock?.setIcon(nativeImage.createFromPath(applicationIconPath)) } catch (_error) { /* Headless Darwin omits Dock. */ }
+  }
   app.setAboutPanelOptions({
     applicationName: 'XPeach Harness',
     applicationVersion: app.getVersion(),
@@ -991,6 +988,33 @@ async function main(): Promise<void> {
       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
       { role: 'unhide', label: currentDesktopLocale().messages.showAllApplications }, { type: 'separator' }]
     : []
+  const openMacosPkgInstaller = async (): Promise<void> => {
+    const pkgFileName = `XPeach-Harness-${app.getVersion()}-mac-${process.arch}.pkg`
+    const candidates = [
+      join(app.getAppPath(), '.desktop-build', 'installer', pkgFileName),
+      join(process.resourcesPath, 'installer', pkgFileName),
+      join(process.env.XPH_HOME ?? join(homedir(), '.xph'), 'installer', pkgFileName),
+    ]
+    const existingPkg = candidates.find(candidate => existsSync(candidate))
+    if (existingPkg !== undefined) {
+      await new Promise<void>((resolve) => {
+        execFile('/usr/bin/open', ['-a', '/System/Library/CoreServices/Installer.app', existingPkg], (err) => {
+          if (err !== null) void shell.openPath(existingPkg)
+          resolve()
+        })
+      })
+      return
+    }
+    const scriptPath = join(app.getAppPath(), 'scripts', 'package-macos-pkg.ts')
+    if (existsSync(scriptPath)) {
+      await new Promise<void>((resolve) => {
+        execFile(resources.node, ['--import', 'tsx/esm', scriptPath, '--open'], {
+          cwd: join(app.getAppPath(), '..', '..'),
+          env: { ...hostEnvironment, PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${hostEnvironment.PATH ?? ''}` },
+        }, () => { resolve() })
+      })
+    }
+  }
   const applicationItems = (): MenuItemConstructorOptions[] => [
     // Windows has no system About panel; Electron's fallback is a plain
     // message box, so the shell shows its own dimmed dialog instead.
@@ -1002,6 +1026,8 @@ async function main(): Promise<void> {
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
     ...process.platform === 'darwin' || process.platform === 'win32'
       ? [{ label: currentDesktopLocale().messages.cliCommandMenu, click: () => { void commandManager.show() } }] : [],
+    ...process.platform === 'darwin' && existsSync(app.getAppPath())
+      ? [{ label: currentDesktopLocale().messages.macosPkgInstallerMenu, click: () => { void openMacosPkgInstaller() } }] : [],
     ...development ? [
       { type: 'separator' as const },
       { label: currentDesktopLocale().messages.reloadPageMenu, role: 'reload' as const },
@@ -1157,7 +1183,7 @@ async function main(): Promise<void> {
     })
     return window
   }
-  const enterWorkspace = async ({ activate = true, gate = false }: { activate?: boolean, gate?: boolean } = {}): Promise<void> => {
+  const enterWorkspace = async ({ activate = true, gate = false }: { activate?: boolean; gate?: boolean } = {}): Promise<void> => {
     if (quitting) return
     authGateRequired = gate
     const window = mainWindow ?? createMainWindow()
@@ -1259,17 +1285,16 @@ async function main(): Promise<void> {
   }
   const openInitialWindow = async (): Promise<void> => {
     if (quitting || recovery.active) return
-    // A product that replaces the sign-in surface has no native welcome to show:
-    // when the welcome projection is unavailable, boot straight into the workspace
-    // and let the product's own onboarding own binding.
     const state = await readWelcomeState().catch((error: unknown) => {
       console.error(error)
       return undefined
     })
     if (state === undefined) {
-      // This product authenticates against the relay, not the native account
-      // service. The workspace still boots, but the product sign-in overlay owns
-      // the screen until a site token is bound.
+      const preference = await welcomeBackend?.readLocalePreference().catch(() => null) ?? null
+      if (isQuitting() || backend.state.phase !== 'ready') return
+      locale = resolveDesktopStartupLocale(preference, systemLanguages)
+      windowsLanguage = locale.id
+      refreshApplicationMenu()
       await enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) })
       return
     }
