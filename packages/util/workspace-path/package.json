@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-util-workspace-path",
   "description": "Browser-safe Workspace path and display helpers",
-  "version": "0.0.14-alpha",
+  "version": "0.0.15-alpha",
   "publishConfig": {
     "access": "public"
   },

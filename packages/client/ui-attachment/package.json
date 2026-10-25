@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-attachment",
   "description": "Dynamic attachment presentation plugin for conversation input, message-image, and trajectory image slots",
-  "version": "0.0.14-alpha",
+  "version": "0.0.15-alpha",
   "publishConfig": {
     "access": "public"
   },

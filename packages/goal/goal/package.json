@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-goal",
   "description": "Event-sourced same-session goal state and lifecycle service for the DeepSeek Harness",
-  "version": "0.0.14-alpha",
+  "version": "0.0.15-alpha",
   "publishConfig": {
     "access": "public"
   },
