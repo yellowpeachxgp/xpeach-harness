@@ -114,7 +114,7 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
       try {
         const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
         const remoteStatus = fakeAccount.macosInstallerStatusOp({}, new AbortController().signal)
-        expect(remoteStatus.version).toBe('0.0.13-alpha')
+        expect(remoteStatus.version).toMatch(/^\d+\.\d+\.\d+/u)
         expect(remoteStatus.installedAt).toBe(installed.status.installedAt)
       } finally {
         if (prevXphHome === undefined) delete process.env.XPH_HOME

@@ -23,6 +23,7 @@ function parseFlags(argv: readonly string[]): CliFlags {
   let install = false
   let verify = false
   let outputPkgPath: string | undefined
+  const baseDir = process.env.INIT_CWD ?? process.cwd()
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -33,10 +34,10 @@ function parseFlags(argv: readonly string[]): CliFlags {
     } else if (arg === '--verify') {
       verify = true
     } else if (arg === '--output' && argv[i + 1] !== undefined) {
-      outputPkgPath = resolve(argv[i + 1]!)
+      outputPkgPath = resolve(baseDir, argv[i + 1]!)
       i++
     } else if (arg !== undefined && arg.startsWith('--output=')) {
-      outputPkgPath = resolve(arg.slice('--output='.length))
+      outputPkgPath = resolve(baseDir, arg.slice('--output='.length))
     }
   }
 

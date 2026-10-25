@@ -141,7 +141,7 @@ jobs:
         if: matrix.target == 'mac-arm64'
         run: |
           pnpm --filter @xpeach/xph-desktop run package:mac:arm64:unsigned
-          pnpm --filter @xpeach/xph-desktop run package:mac:pkg -- --output "apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/xpeach-harness-${{ needs.version.outputs.version }}-arm64-unsigned.pkg"
+          pnpm --filter @xpeach/xph-desktop run package:mac:pkg -- --output "${{ github.workspace }}/apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/xpeach-harness-${{ needs.version.outputs.version }}-arm64-unsigned.pkg"
       - name: Package (Windows)
         if: matrix.target == 'win-x64'
         run: pnpm --filter @xpeach/xph-desktop run package:win:x64:unsigned
