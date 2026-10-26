@@ -167,7 +167,8 @@ jobs:
           if [ -n "$PRERELEASE_CHANNEL" ]; then
             for yml in out/latest*.yml; do
               [ -f "$yml" ] || continue
-              cp "$yml" "${yml/out\/latest/out\/$PRERELEASE_CHANNEL}"
+              base=$(basename "$yml")
+              cp "$yml" "out/${PRERELEASE_CHANNEL}${base#latest}"
             done
           fi
           ls -la out
