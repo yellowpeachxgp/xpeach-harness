@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-ptc-runtime",
   "description": "Abstract PTC execution seam (ctx.ptcRuntime) for the DeepSeek Harness",
-  "version": "0.0.16-alpha",
+  "version": "0.0.17-alpha",
   "publishConfig": {
     "access": "public"
   },

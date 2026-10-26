@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm",
   "description": "Provider-neutral LLM service interface for the DeepSeek Harness",
-  "version": "0.0.16-alpha",
+  "version": "0.0.17-alpha",
   "publishConfig": {
     "access": "public"
   },

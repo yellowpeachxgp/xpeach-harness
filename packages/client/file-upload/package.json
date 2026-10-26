@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-file-upload",
   "description": "Agent-scoped browser file upload, streaming intake, and staged receipt service",
-  "version": "0.0.16-alpha",
+  "version": "0.0.17-alpha",
   "publishConfig": {
     "access": "public"
   },

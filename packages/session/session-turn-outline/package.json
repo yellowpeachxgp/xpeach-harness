@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-turn-outline",
   "description": "Whole-log turn outline projection (turnOutline) for the DeepSeek Harness",
-  "version": "0.0.16-alpha",
+  "version": "0.0.17-alpha",
   "publishConfig": {
     "access": "public"
   },
