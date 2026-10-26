@@ -2,5 +2,5 @@
   "name": "@fixture/workspace",
   "private": true,
   "type": "module",
-  "version": "0.0.15-alpha"
+  "version": "0.0.16-alpha"
 }

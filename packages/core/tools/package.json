@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tools",
   "description": "Tool registry and execution pipeline for the DeepSeek Harness",
-  "version": "0.0.15-alpha",
+  "version": "0.0.16-alpha",
   "publishConfig": {
     "access": "public"
   },

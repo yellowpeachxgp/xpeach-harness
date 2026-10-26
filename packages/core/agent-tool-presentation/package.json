@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-tool-presentation",
   "description": "Agent-plane presentation selector: composes one agent's tools as PTC mode or native tool calls",
-  "version": "0.0.15-alpha",
+  "version": "0.0.16-alpha",
   "publishConfig": {
     "access": "public"
   },
