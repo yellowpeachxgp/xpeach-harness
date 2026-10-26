@@ -974,7 +974,7 @@ describe('desktop main startup', () => {
     expect(() => handler(event, 'application', NaN, 34)).toThrow('invalid popup request')
     const application = handler(event, 'application', 48, 34)
     expect(harness.menu.buildFromTemplate.mock.lastCall![0].map(item => item.label ?? item.type)).toEqual([
-      '关于 XPeach Harness', 'separator', '检查更新…', '管理 dsh 命令…', 'separator', '退出',
+      '关于 XPeach Harness', 'separator', '检查更新…', '管理 xph 命令…', 'separator', '退出',
     ])
     expect(harness.popup.mock.lastCall![0]).toMatchObject({ window, x: 48, y: 34 })
     expect(harness.popup.mock.lastCall![0].callback).toBeTypeOf('function')
@@ -2147,7 +2147,7 @@ describe('desktop main startup', () => {
       level: 'error', message: 'client-modules: bundle script plugins/??a/client.js&rev=1 failed to load',
       sourceId: 'dsh-app://app/assets/entry.js', lineNumber: 12,
     })
-    host.onFailure!(new Error('dsh desktop host exited with 1: fatal uncaught exception: ENOENT'))
+    host.onFailure!(new Error('xph desktop host exited with 1: fatal uncaught exception: ENOENT'))
     await host.stopping.promise
     expect(writeCrashReport).toHaveBeenCalledOnce()
     const [directory, report] = vi.mocked(writeCrashReport).mock.calls[0]!
@@ -2264,11 +2264,12 @@ describe('desktop main startup', () => {
 
   it('fails an unpackaged launch that receives no primary runtime directory', async () => {
     harness.app.isPackaged = false
+    vi.stubEnv('XPH_DESKTOP_PRIMARY_RUNTIME_DIR', undefined)
     vi.stubEnv('DSH_DESKTOP_PRIMARY_RUNTIME_DIR', undefined)
     await import('../src/main.ts')
     await harness.dialogShown.promise
     const options = harness.dialog.showMessageBox.mock.calls[0]![0] as MessageBoxOptions
-    expect(options.detail).toContain('DSH_DESKTOP_PRIMARY_RUNTIME_DIR is required for an unpackaged launch')
+    expect(options.detail).toContain('XPH_DESKTOP_PRIMARY_RUNTIME_DIR is required for an unpackaged launch')
     expect(harness.hosts).toHaveLength(0)
   })
 

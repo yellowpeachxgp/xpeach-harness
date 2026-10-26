@@ -115,7 +115,7 @@ export function createElectronBuilderConfig(
   return {
     appId,
     executableName: 'xpeach-harness',
-    protocols: [{ name: 'XPeach Harness', schemes: ['dsh'] }],
+    protocols: [{ name: 'XPeach Harness', schemes: ['xph'] }],
     extraMetadata: {
       dshDesktopAppId: appId,
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',

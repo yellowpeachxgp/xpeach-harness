@@ -22,7 +22,7 @@ import {
   scanOnboarding,
   writeMcpPatchEntries,
 } from '../src/onboarding.ts'
-import { XPeachAccount } from '../src/index.ts'
+import { XPeachAccount, validateSsoBaseUrl, validateVerificationUrl } from '../src/index.ts'
 
 const roots: string[] = []
 
@@ -203,6 +203,8 @@ describe('account state writes on a fresh install', () => {
     fakeAccount['keyFile'] = keyFile
     fakeAccount['adminKeyFile'] = adminKeyFile
     fakeAccount['sessionKeyFile'] = sessionKeyFile
+    fakeAccount['ssoStateFile'] = join(profile, 'xpeach.sso.json')
+    fakeAccount['timeoutMs'] = 15_000
     fakeAccount['keyVar'] = 'XPEACH_TEST_RELAY_KEY'
     fakeAccount['adminKeyVar'] = 'XPEACH_TEST_ADMIN_KEY'
     fakeAccount['sessionKeyVar'] = 'XPEACH_TEST_SESSION_KEY'
@@ -214,6 +216,7 @@ describe('account state writes on a fresh install', () => {
     fakeAccount['api'] = {
       setAdminKey: vi.fn(),
       setSessionKey: vi.fn(),
+      ssoRevokeToken: vi.fn().mockResolvedValue(true),
       adminSelf: vi.fn(async () => { throw new Error('unauthorized') }),
     }
 
@@ -553,5 +556,282 @@ describe('account state writes on a fresh install', () => {
       if (prevXphHome === undefined) delete process.env.XPH_HOME
       else process.env.XPH_HOME = prevXphHome
     }
+  })
+
+  it('starts an SSO Device Authorization flow, polls pending -> approved, and binds bridged PeachCode credentials', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+
+    const authorizeMock = vi.fn().mockResolvedValue({
+      deviceCode: 'dvc_test_123456',
+      userCode: 'XPH8-9K2M',
+      verificationUri: 'https://sso.xpeach.codes/device',
+      verificationUriComplete: 'https://sso.xpeach.codes/device?code=XPH8-9K2M',
+      expiresIn: 600,
+      interval: 2,
+    })
+    const tokenMock = vi.fn()
+      .mockResolvedValueOnce({ status: 'pending' as const })
+      .mockResolvedValueOnce({
+        status: 'approved' as const,
+        payload: {
+          sso: {
+            accessToken: 'xph_at_sso_token_abc',
+            expiresIn: 2592000,
+            user: {
+              id: 'eb21-ac28-c74a-6e28',
+              username: 'yellowpeach',
+              email: 'admin@xpeach.codes',
+              name: 'YellowPeach',
+            },
+          },
+          peachcode: {
+            baseUrl: 'https://fast.xpeach.codes',
+            userId: 1,
+            username: 'yellowpeach',
+            group: 'svip',
+            quota: 500000000,
+            usedQuota: 1000,
+            accessToken: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
+            apiKey: 'sk-xph9A8b7C6d5E4f3G2h1I0j9K8l7M6n5O4p3Q2r1S0t9U8v7',
+            tokenId: 42,
+            tokenName: 'xph-sso-default',
+          },
+        },
+      })
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {
+        ssoBaseURL: 'https://sso.xpeach.codes',
+        ssoClientId: 'xpeach-harness',
+      },
+      keyFile,
+      keyVar: 'XPEACH_TEST_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_SESSION_KEY',
+      ssoStateFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      api: {
+        ssoDeviceAuthorize: authorizeMock,
+        ssoDeviceToken: tokenMock,
+        ssoRevokeToken: vi.fn().mockResolvedValue(true),
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+        models: vi.fn().mockResolvedValue([]),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: () => undefined,
+      },
+    })
+
+    const signal = new AbortController().signal
+    const started = await fakeAccount.ssoDeviceStartOp({ openBrowser: false, clientName: 'UnitTest' }, signal)
+    expect(started.deviceCode).toBe('dvc_test_123456')
+    expect(started.userCode).toBe('XPH8-9K2M')
+    expect(started.browserOpened).toBe(false)
+
+    const firstPoll = await fakeAccount.ssoDevicePollOp({ deviceCode: started.deviceCode }, signal)
+    expect(firstPoll.status).toBe('pending')
+
+    const secondPoll = await fakeAccount.ssoDevicePollOp({ deviceCode: started.deviceCode }, signal)
+    expect(secondPoll.status).toBe('approved')
+    expect(secondPoll.bound).toBe(true)
+    expect(secondPoll.username).toBe('yellowpeach')
+    expect(secondPoll.preview).toBe('sk-xp…U8v7')
+    expect(secondPoll.adminPreview).toBe('a1b2…c5d6')
+
+    expect(readFileSync(keyFile, 'utf8').trim()).toBe('sk-xph9A8b7C6d5E4f3G2h1I0j9K8l7M6n5O4p3Q2r1S0t9U8v7')
+    expect(readFileSync(adminKeyFile, 'utf8').trim()).toBe('a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6')
+    expect(existsSync(ssoStateFile)).toBe(true)
+
+    await fakeAccount.unbindKey({}, signal)
+    expect(existsSync(keyFile)).toBe(false)
+    expect(existsSync(adminKeyFile)).toBe(false)
+    expect(existsSync(ssoStateFile)).toBe(false)
+  })
+
+  it('enforces strict SSO origin and verification URL security invariants', () => {
+    expect(validateSsoBaseUrl('https://sso.xpeach.codes/')).toBe('https://sso.xpeach.codes')
+    expect(validateSsoBaseUrl('http://localhost:3000/device')).toBe('http://localhost:3000')
+    expect(validateSsoBaseUrl('http://127.0.0.1:3000')).toBe('http://127.0.0.1:3000')
+
+    expect(() => validateSsoBaseUrl('http://sso.xpeach.codes')).toThrow()
+    expect(() => validateSsoBaseUrl('http://evil.example.com:3000')).toThrow()
+    expect(() => validateSsoBaseUrl('https://user:pass@sso.xpeach.codes')).toThrow()
+    expect(() => validateSsoBaseUrl('javascript:alert(1)')).toThrow()
+    expect(() => validateSsoBaseUrl('file:///etc/passwd')).toThrow()
+
+    expect(
+      validateVerificationUrl('/device?code=ABCD-EFGH', 'https://sso.xpeach.codes'),
+    ).toBe('https://sso.xpeach.codes/device?code=ABCD-EFGH')
+    expect(
+      validateVerificationUrl('http://localhost:3000/device?code=ABCD-EFGH', 'http://localhost:3000'),
+    ).toBe('http://localhost:3000/device?code=ABCD-EFGH')
+    expect(() => validateVerificationUrl('javascript:alert(1)', 'https://sso.xpeach.codes')).toThrow()
+    expect(() => validateVerificationUrl('http://attacker.com/device', 'https://sso.xpeach.codes')).toThrow()
+    expect(() => validateVerificationUrl('https://admin:secret@sso.xpeach.codes/device', 'https://sso.xpeach.codes')).toThrow()
+  })
+
+  it('dynamically revokes all local credentials, cancels tasks, and blocks LLM streams when SSO reports a ban (403) or revocation (401)', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+
+    const ssoBridgeSyncMock = vi.fn()
+    const ssoRevokeMock = vi.fn().mockResolvedValue(true)
+    const cancelTaskMock = vi.fn()
+    const emitMock = vi.fn()
+    const settingsUpdateMock = vi.fn().mockResolvedValue(undefined)
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {
+        ssoBaseURL: 'https://sso.xpeach.codes',
+        ssoClientId: 'xpeach-harness',
+      },
+      keyFile,
+      keyVar: 'XPEACH_TEST_BAN_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_BAN_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_BAN_SESSION_KEY',
+      ssoStateFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      lastSsoVerifyAt: 0,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        ssoPeachcodeCredentials: ssoBridgeSyncMock,
+        ssoRevokeToken: ssoRevokeMock,
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+        models: vi.fn().mockResolvedValue([]),
+      },
+      ctx: {
+        emit: emitMock,
+        get: (name: string) => {
+          if (name === 'agents') {
+            return {
+              list: () => [{
+                status: 'running',
+                session: { requestContext: () => ({ provider: 'xpeach' }) },
+                cancel: cancelTaskMock,
+              }],
+            }
+          }
+          if (name === 'settings') {
+            return {
+              describe: () => Promise.resolve({
+                namespaces: [{
+                  ns: 'llm-pi-ai',
+                  value: {
+                    providers: {
+                      xpeach: { models: [{ id: 'swe-2-max' }] },
+                    },
+                  },
+                }],
+              }),
+              update: settingsUpdateMock,
+            }
+          }
+          return undefined
+        },
+      },
+    })
+
+    // Seed bound state via applySsoBridgePayload
+    const applyBridge = Reflect.get(XPeachAccount.prototype, 'applySsoBridgePayload') as (
+      payload: unknown,
+      signal: AbortSignal,
+    ) => Promise<unknown>
+    await applyBridge.call(
+      fakeAccount,
+      {
+        sso: {
+          accessToken: 'xph_at_active_session_token',
+          expiresIn: 2592000,
+          user: { id: 'usr_ban_test', username: 'banneduser', email: 'ban@xpeach.codes' },
+        },
+        peachcode: {
+          userId: 99,
+          username: 'banneduser',
+          group: 'SWE',
+          accessToken: 'admin_token_9999888877776666',
+          apiKey: 'sk-xphBanTestKey1234567890abcdef1234567890abcdef',
+          tokenId: 12,
+          tokenName: 'xph-sso-default',
+        },
+      },
+      new AbortController().signal,
+    )
+
+    expect(fakeAccount.isBound()).toBe(true)
+    expect(existsSync(keyFile)).toBe(true)
+    expect(existsSync(adminKeyFile)).toBe(true)
+    expect(existsSync(ssoStateFile)).toBe(true)
+
+    // Verify 0600 file permissions on POSIX
+    if (process.platform !== 'win32') {
+      expect(statSync(keyFile).mode & 0o777).toBe(0o600)
+      expect(statSync(adminKeyFile).mode & 0o777).toBe(0o600)
+      expect(statSync(ssoStateFile).mode & 0o777).toBe(0o600)
+    }
+
+    // Simulate real-time user ban on SSO / PeachCode (HTTP 403 access_denied)
+    ssoBridgeSyncMock.mockResolvedValueOnce({
+      status: 'revoked',
+      code: 403,
+      message: 'PeachCode account is disabled',
+    })
+
+    const verifyResult = await fakeAccount.verifyAndSyncSsoSession(true)
+    expect(verifyResult.valid).toBe(false)
+    expect(verifyResult.status).toBe('revoked')
+
+    // All local credential files and env vars must be wiped immediately
+    expect(fakeAccount.isBound()).toBe(false)
+    expect(existsSync(keyFile)).toBe(false)
+    expect(existsSync(adminKeyFile)).toBe(false)
+    expect(existsSync(ssoStateFile)).toBe(false)
+    expect(process.env.XPEACH_TEST_BAN_RELAY_KEY).toBeUndefined()
+    expect(process.env.XPEACH_TEST_BAN_ADMIN_KEY).toBeUndefined()
+
+    // Running agent task must be cancelled and session-expired + signed-out events emitted
+    expect(cancelTaskMock).toHaveBeenCalledWith(
+      { kind: 'hook', reason: 'deepseek-account/signed-out' },
+      { keepInbox: true },
+    )
+    expect(settingsUpdateMock).toHaveBeenCalledWith('llm-pi-ai', {
+      providers: {
+        xpeach: { models: [] },
+      },
+    })
+    expect(emitMock).toHaveBeenCalledWith('deepseek-account/session-expired')
+    expect(emitMock).toHaveBeenCalledWith('deepseek-account/signed-out')
+
+    // Pre-inference llm/stream waterfall guard must block xpeach* calls when unbound/revoked
+    const guardLlmStream = Reflect.get(XPeachAccount.prototype, 'guardLlmStream') as (
+      options: { readonly provider?: string },
+      next: () => AsyncGenerator<Record<string, unknown>, void, unknown>,
+    ) => AsyncGenerator<Record<string, unknown>, void, unknown>
+    const nextSpy = vi.fn()
+    const chunks: Record<string, unknown>[] = []
+    for await (const chunk of guardLlmStream.call(fakeAccount, { provider: 'xpeach' }, nextSpy)) {
+      chunks.push(chunk)
+    }
+    expect(nextSpy).not.toHaveBeenCalled()
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0]?.['type']).toBe('finish')
+    expect((chunks[0]?.['error'] as { code?: string } | undefined)?.code).toBe('ACCOUNT_SIGN_IN_REQUIRED')
   })
 })

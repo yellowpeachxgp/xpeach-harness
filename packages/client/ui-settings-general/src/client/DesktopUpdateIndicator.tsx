@@ -11,6 +11,33 @@ const BUSY_PHASES: ReadonlySet<DesktopUpdatePresentation['phase']> = new Set([
   'checking', 'downloading', 'verifying', 'installing',
 ])
 
+/**
+ * Resolve the localized error message for a Desktop update failure kind.
+ *
+ * @param failure - failure kind reported by the Desktop updater.
+ * @param t - settings locale translator.
+ * @param fallback - fallback failure kind when `failure` is undefined.
+ * @returns localized failure description.
+ */
+export function desktopUpdateFailureCopy(
+  failure: DesktopUpdateFailureKind | undefined,
+  t: SettingsTranslate,
+  fallback: DesktopUpdateFailureKind = 'install',
+): string {
+  const failures: Readonly<Record<DesktopUpdateFailureKind, string>> = {
+    check: t('desktop.update.checkFailed'),
+    'check-network': t('desktop.update.checkNetworkFailed'),
+    download: t('desktop.update.downloadFailed'),
+    'download-network': t('desktop.update.downloadNetworkFailed'),
+    install: t('desktop.update.installFailed'),
+    'install-network': t('desktop.update.installNetworkFailed'),
+    'stop-failed': t('desktop.update.stopFailed'),
+    'tasks-changed': t('desktop.update.tasksChanged'),
+    'tasks-unavailable': t('desktop.update.tasksUnavailable'),
+  }
+  return failures[failure ?? fallback]
+}
+
 function updateCopy(state: DesktopUpdatePresentation, t: SettingsTranslate): { label: string; detail: string } {
   const labels: Readonly<Record<DesktopUpdatePresentation['phase'], string>> = {
     idle: '',
@@ -27,18 +54,7 @@ function updateCopy(state: DesktopUpdatePresentation, t: SettingsTranslate): { l
     return { label, detail: state.version ?? label }
   }
   if (state.phase === 'error') {
-    const failures: Readonly<Record<DesktopUpdateFailureKind, string>> = {
-      check: t('desktop.update.checkFailed'),
-      'check-network': t('desktop.update.checkNetworkFailed'),
-      download: t('desktop.update.downloadFailed'),
-      'download-network': t('desktop.update.downloadNetworkFailed'),
-      install: t('desktop.update.installFailed'),
-      'install-network': t('desktop.update.installNetworkFailed'),
-      'stop-failed': t('desktop.update.stopFailed'),
-      'tasks-changed': t('desktop.update.tasksChanged'),
-      'tasks-unavailable': t('desktop.update.tasksUnavailable'),
-    }
-    return { label, detail: failures[state.failure ?? 'install'] }
+    return { label, detail: desktopUpdateFailureCopy(state.failure, t, 'install') }
   }
   if (state.phase === 'downloading' && state.version !== undefined) {
     return { label, detail: t('desktop.update.downloadDetail', { percent: state.percent ?? 0, version: state.version }) }

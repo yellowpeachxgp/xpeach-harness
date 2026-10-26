@@ -46,7 +46,7 @@ export const en = {
   keyFallbackDetected: 'Env var detected. ({hint})',
   keyFallbackDetectedHidden: 'Env var detected.',
   keyFallbackUnchecked: 'Environment credential status has not been confirmed.',
-  keyHelp: 'Saved credentials are used first. Environment fallbacks shown here, in order: {env}. Sources are launch environment, $cwd/.env, then $DSH_HOME/.env.',
+  keyHelp: 'Saved credentials are used first. Environment fallbacks shown here, in order: {env}. Sources are launch environment, $cwd/.env, then $XPH_HOME/.env.',
   authHelp: 'Authentication details',
   customized: 'Customized settings',
   baseUrl: 'Base URL',
@@ -136,6 +136,8 @@ export const en = {
   onboardingSave: 'Save and continue',
   onboardingSaving: 'Saving…',
   keyRequired: 'Enter an API key to continue.',
+  conversationTracking: 'Send X-Session conversation headers',
+  conversationTrackingHint: 'Attach X-Session-ID, X-Conversation-ID, and prompt_cache_key headers for session caching and tracking.',
 }
 
 /** The settings.models namespace key union. */
@@ -187,7 +189,7 @@ export const zh: { [Key in keyof typeof en]: string } = {
   keyFallbackDetected: '已检测到环境变量（{hint}）',
   keyFallbackDetectedHidden: '已检测到环境变量',
   keyFallbackUnchecked: '环境凭据状态尚未确认',
-  keyHelp: '优先使用已保存的凭据。此处显示的环境后备按以下顺序排列：{env}。来源依次为启动环境、$cwd/.env、$DSH_HOME/.env。',
+  keyHelp: '优先使用已保存的凭据。此处显示的环境后备按以下顺序排列：{env}。来源依次为启动环境、$cwd/.env、$XPH_HOME/.env。',
   authHelp: '认证说明',
   customized: '自定义设置',
   baseUrl: 'API 地址',
@@ -277,4 +279,6 @@ export const zh: { [Key in keyof typeof en]: string } = {
   onboardingSave: '保存并继续',
   onboardingSaving: '保存中…',
   keyRequired: '请输入 API 密钥后继续。',
+  conversationTracking: '补全 X-Session 会话请求头',
+  conversationTrackingHint: '自动附加 X-Session-ID、X-Conversation-ID 与 prompt_cache_key 请求头，用于会话级缓存与追踪。',
 }

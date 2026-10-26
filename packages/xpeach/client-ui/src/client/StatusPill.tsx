@@ -8,6 +8,7 @@ import type { XPeachTokenLogEntry, XPeachTokenUsage } from '@xpeach/xph-account/
 import type { XPeachOps } from './ops.ts'
 import { XPeachMark } from './brand.tsx'
 import { footerBridge } from './FooterAction.tsx'
+import { openXPeachLoginModal } from './XPeachOnboarding.tsx'
 import { quotaUsd, rel, sparkBars, todaySpend, useTime, SITE } from './fmt.ts'
 import css from './xpeach.module.css'
 
@@ -130,6 +131,17 @@ export function XPeachStatusPill(
             <XPeachMark size={18} />
             <strong>{t('pill.title')}</strong>
           </header>
+          <button
+            type="button"
+            className={css.bindButton}
+            style={{ width: '100%', marginBottom: '8px' }}
+            onClick={() => {
+              setOpen(false)
+              openXPeachLoginModal(true)
+            }}
+          >
+            {t('sso.loginBtn')}
+          </button>
           <p className={css.bindHint}>{t('bind.hint')} <a href={SITE.token} target="_blank" rel="noreferrer">{t('bind.getKey')}</a></p>
           <div className={css.bindRow}>
             <input
@@ -202,6 +214,17 @@ export function XPeachStatusPill(
           </nav>
           <button type="button" className={css.consoleLink} onClick={() => { setOpen(false); footerBridge.openConsole() }}>
             {t('pill.openConsole')}
+          </button>
+          <button
+            type="button"
+            className={css.consoleLink}
+            style={{ marginTop: '4px' }}
+            onClick={() => {
+              setOpen(false)
+              openXPeachLoginModal(false)
+            }}
+          >
+            {t('sso.loginBtn')}
           </button>
         </div>
       )}

@@ -85,6 +85,7 @@ describe('plugin compatibility', () => {
   it('ignores unrelated names and dependency fields', () => {
     expect(check({
       '@xpeach/xph-cordis': 'broken', '@xpeach/xph-cordis-plugin-loader': '^99',
+      '@xpeach/xph-schemastery': '~3.18.5', '@xpeach/xph-cosmokit': '~1.8.6', '@xpeach/xph-node-addon-system': '~0.1.2',
       '@other/dsh': '^99', '@xpeach/xph-dshx': '^99', dsh: '^99',
       constructor: '^99', hasOwnProperty: '^99', ['__proto__']: '^99',
     })).toBeUndefined()

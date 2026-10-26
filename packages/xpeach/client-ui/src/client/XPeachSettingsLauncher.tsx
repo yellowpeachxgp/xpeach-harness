@@ -7,12 +7,16 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-u
 import { HoverCard } from '@xpeach/xph-client-ui-primitives'
 import type {} from '@xpeach/xph-client-ui-settings/client'
 import type { XPeachOps, XPeachSelfLogRow, XPeachUserSelfRow } from './ops.ts'
+import { openXPeachLoginModal } from './XPeachOnboarding.tsx'
 import { quotaUsd, SITE } from './fmt.ts'
 import css from './xpeach.module.css'
 
 type Props = PropsRuntime<'settings.launcher'> & PropsLocale<'xpeach.account'> & InjectFace<{
   userSelf: XPeachOps['userSelf']
   userLogs: XPeachOps['userLogs']
+  unbind?: XPeachOps['unbind']
+  ssoLogout?: XPeachOps['ssoLogout']
+  subscribeCredentialChange?: XPeachOps['subscribeCredentialChange']
 }>
 
 const GearIcon = (): JSX.Element => (
@@ -45,16 +49,36 @@ function dailyBars(logs: readonly XPeachSelfLogRow[], days: number): number[] {
  * @param props - launcher runtime props, locale translator, and injected account ops.
  * @returns the launcher row element.
  */
-export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, userSelf, userLogs, t }: Props): JSX.Element {
+export function XPeachSettingsLauncher({
+  wide, settingsShortcut, openSettings, userSelf, userLogs, unbind, ssoLogout, subscribeCredentialChange, t,
+}: Props): JSX.Element {
   const [me, setMe] = useState<XPeachUserSelfRow | undefined>(undefined)
   const [logs, setLogs] = useState<readonly XPeachSelfLogRow[]>([])
   const loaded = useRef(false)
 
   useEffect(() => {
     let alive = true
-    void userSelf().then((r) => { if (alive && !('error' in r)) setMe(r) })
-    return () => { alive = false }
-  }, [userSelf])
+    const reload = (): void => {
+      void userSelf().then((r) => {
+        if (!alive) return
+        if ('error' in r) {
+          setMe(undefined)
+          setLogs([])
+        } else {
+          setMe(r)
+        }
+      })
+    }
+    reload()
+    const off = subscribeCredentialChange?.(() => {
+      loaded.current = false
+      reload()
+    })
+    return () => {
+      alive = false
+      off?.()
+    }
+  }, [userSelf, subscribeCredentialChange])
 
   const ensureLogs = (): void => {
     if (loaded.current) return
@@ -139,8 +163,39 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
                 <span key={index} data-today={day.today}>{day.label}</span>
               ))}
             </div>
-            <button type="button" className={css.launchTopup}
-              onClick={() => { window.open(SITE.topup, '_blank', 'noopener') }}>{t('launch.topup')}</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" className={css.launchTopup} style={{ flex: 1 }}
+                onClick={() => { window.open(SITE.topup, '_blank', 'noopener') }}>{t('launch.topup')}</button>
+              {me !== undefined ? (
+                <button
+                  type="button"
+                  className={css.launchTopup}
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    const task = ssoLogout !== undefined
+                      ? ssoLogout(false)
+                      : unbind !== undefined
+                        ? unbind()
+                        : Promise.resolve()
+                    void task.finally(() => {
+                      setMe(undefined)
+                      setLogs([])
+                    })
+                  }}
+                >
+                  {t('launch.signOut')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={css.launchTopup}
+                  style={{ flex: 1 }}
+                  onClick={() => { openXPeachLoginModal(true) }}
+                >
+                  {t('launch.signIn')}
+                </button>
+              )}
+            </div>
           </div>
         )}
       />

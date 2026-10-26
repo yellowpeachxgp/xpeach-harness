@@ -52,13 +52,13 @@ async function fixture(options: {
   await writeFile(join(worker, 'package.json'), '{"type":"module"}\n')
   const state = {
     fingerprint: 'a'.repeat(64), managed: options.managed ?? false, available: true, kind: options.managed ? 'symlink' : 'file',
-    destination: join(root, process.platform === 'win32' ? 'dsh.cmd' : 'dsh'),
-    directory: root, launcher: join(root, 'desktop-dsh'),
-    activeCommand: options.managed && !options.shadowed ? join(root, process.platform === 'win32' ? 'dsh.cmd' : 'dsh') : join(root, 'other-dsh'),
+    destination: join(root, process.platform === 'win32' ? 'xph.cmd' : 'xph'),
+    directory: root, launcher: join(root, 'desktop-xph'),
+    activeCommand: options.managed && !options.shadowed ? join(root, process.platform === 'win32' ? 'xph.cmd' : 'xph') : join(root, 'other-xph'),
   }
   if (process.platform === 'darwin') {
     const shell = join(root, 'lookup-shell')
-    await writeFile(shell, '#!/bin/sh\nprintf "\\0DSH_COMMAND\\0"\ncat "$(dirname "$0")/selected-command"\nprintf "\\0"\n', { mode: 0o755 })
+    await writeFile(shell, '#!/bin/sh\nprintf "\\0XPH_COMMAND\\0"\ncat "$(dirname "$0")/selected-command"\nprintf "\\0"\n', { mode: 0o755 })
     await writeFile(join(root, 'selected-command'), state.activeCommand + '\n')
     external.shell = shell
   }

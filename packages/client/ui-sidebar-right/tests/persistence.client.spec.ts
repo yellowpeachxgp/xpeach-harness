@@ -87,7 +87,7 @@ it('pins restored records during adoption before the first render or store mutat
 
 it('starts from an empty layout when stored JSON is corrupt and keeps working when storage rejects writes', () => {
   const values = storage()
-  values.set(`dsh.sidebar-right.v1.${sessionId}`, '{broken')
+  values.set(`xph.sidebar-right.v1.${sessionId}`, '{broken')
   vi.spyOn(console, 'error').mockImplementation(() => {})
   const instance = createSidebarRightStore(seed).create(sessionId)
   expect(instance.getSnapshot()).toEqual({ bySession: {} })

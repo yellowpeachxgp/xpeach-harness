@@ -28,6 +28,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { JsonValue } from '@xpeach/xph-util-values'
+import { Switch } from '@xpeach/xph-client-ui-primitives'
 import { apiKeyFailure } from './apiKey.ts'
 import { ApiKeyInput } from './ApiKeyInput.tsx'
 import { EditorFooter } from './EditorFooter.tsx'
@@ -106,6 +107,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const [baseURL, setBaseURL] = useState('')
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
   const [keyDraft, setKeyDraft] = useState('')
+  const [conversationTracking, setConversationTracking] = useState(true)
   const [models, setModels] = useState<readonly ModelDraft[]>([])
   const [busy, setBusy] = useState(false)
   const [listBusy, setListBusy] = useState(false)
@@ -170,6 +172,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         ...storesKey ? { apiKeyEnv: keyRef } : {},
         api: protocol,
         baseURL: normalizedBaseURL,
+        ...conversationTracking ? {} : { conversationTracking: false },
         models: models.map(model => ({ ...model })),
       }
       // `taken` is a snapshot too, so the id check alone cannot see a route
@@ -288,6 +291,18 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         {keyFailure === undefined
           ? null
           : <p className={styles['error']}>{t(keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure)}</p>}
+      </div>
+      <div className={styles['field']}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <span className={styles['fieldLabel']}>{t('conversationTracking')}</span>
+          <Switch
+            checked={conversationTracking}
+            disabled={profileDisabled}
+            label={t('conversationTracking')}
+            onChange={(next) => { setConversationTracking(next) }}
+          />
+        </div>
+        <span className={styles['advancedHint']}>{t('conversationTrackingHint')}</span>
       </div>
       <ModelListEditor
         models={models}

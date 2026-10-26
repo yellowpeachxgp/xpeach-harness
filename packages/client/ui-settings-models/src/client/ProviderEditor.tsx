@@ -25,7 +25,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { CredentialInfo, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView } from '@xpeach/xph-api-remotes/client'
 import type { JsonValue } from '@xpeach/xph-util-values'
-import { Tooltip } from '@xpeach/xph-client-ui-primitives'
+import { Switch, Tooltip } from '@xpeach/xph-client-ui-primitives'
 import {
   DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
 } from './DeepSeekModelsEditor.tsx'
@@ -486,6 +486,24 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
               />
               {endpointHint === undefined ? null : <span id={`${props.provider}-endpoint-hint`} className={styles['advancedHint']}>{endpointHint}</span>}
             </div>
+            {family === 'pi-ai'
+              ? (
+                <div className={styles['field']}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <span className={styles['fieldLabel']}>{t('conversationTracking')}</span>
+                    <Switch
+                      checked={(schema.getPath(draft, ['conversationTracking']) ?? schema.getPath(fallback, ['conversationTracking'])) !== false}
+                      disabled={disabled}
+                      label={t('conversationTracking')}
+                      onChange={(next) => {
+                        setDraft(current => schema.setPath(current, ['conversationTracking'], next))
+                      }}
+                    />
+                  </div>
+                  <span className={styles['advancedHint']}>{t('conversationTrackingHint')}</span>
+                </div>
+              )
+              : null}
             {/* The protocol sits beside the endpoint it describes, as it does
                 on the create card. */}
             {ownsIdentity

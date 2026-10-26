@@ -1,6 +1,6 @@
 /**
  * macOS native `.pkg` guided installer builder, inspector, and direct installer
- * for XPeach Harness (`XPeach Harness.app`, `xph` & `dsh` CLI tools, and `~/.xph`
+ * for XPeach Harness (`XPeach Harness.app`, `xph` CLI tool, and `~/.xph`
  * profile initialization).
  * @module @xpeach/xph-account/macos-installer
  */
@@ -168,10 +168,10 @@ function resolveInstallerPaths(options: MacosInstallerOptions = {}): ResolvedIns
 
 /**
  * Inspect the current macOS `.pkg` installer artifact, installed `XPeach Harness.app`
- * bundle, and `xph` / `dsh` CLI binaries.
+ * bundle, and `xph` CLI binary.
  *
  * @param options - Optional directory and version overrides.
- * @returns Current status of the `.pkg` artifact, application bundle, and CLI executables.
+ * @returns Current status of the `.pkg` artifact, application bundle, and CLI executable.
  */
 export function inspectMacosInstallerStatus(options: MacosInstallerOptions = {}): XPeachMacosInstallerStatus {
   const paths = resolveInstallerPaths(options)
@@ -197,13 +197,6 @@ export function inspectMacosInstallerStatus(options: MacosInstallerOptions = {})
   const xphCliInstalled = localXphOk || sysXphOk
   const xphCliPath = localXphOk ? localXph : (sysXph !== undefined && isExecutableFile(sysXph) ? sysXph : localXph)
 
-  const localDsh = join(paths.localBinDir, 'dsh')
-  const sysDsh = paths.systemBinDir !== undefined ? join(paths.systemBinDir, 'dsh') : undefined
-  const localDshOk = isExecutableFile(localDsh)
-  const sysDshOk = sysDsh !== undefined && isExecutableFile(sysDsh)
-  const dshCliInstalled = localDshOk || sysDshOk
-  const dshCliPath = localDshOk ? localDsh : (sysDsh !== undefined && isExecutableFile(sysDsh) ? sysDsh : localDsh)
-
   let installedAt: string | undefined
   if (existsSync(paths.receiptPath)) {
     try {
@@ -226,8 +219,6 @@ export function inspectMacosInstallerStatus(options: MacosInstallerOptions = {})
     appPath,
     xphCliInstalled,
     xphCliPath,
-    dshCliInstalled,
-    dshCliPath,
     receiptPath: paths.receiptPath,
     ...(installedAt !== undefined ? { installedAt } : {}),
   }
@@ -308,8 +299,8 @@ function buildAppLauncherScript(version: string, repositoryRoot: string | undefi
     'if [ -n "$REPO_ROOT" ] && [ -x "$REPO_ROOT/apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/mac-arm64/xpeach-harness.app/Contents/MacOS/xpeach-harness" ]; then',
     '  exec "$REPO_ROOT/apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/mac-arm64/xpeach-harness.app/Contents/MacOS/xpeach-harness" "$@"',
     'fi',
-    'if [ -n "$REPO_ROOT" ] && [ -x "$REPO_ROOT/apps/desktop/.desktop-build/development/Harness Dev.app/Contents/MacOS/HarnessDev" ]; then',
-    '  exec "$REPO_ROOT/apps/desktop/.desktop-build/development/Harness Dev.app/Contents/MacOS/HarnessDev" "$REPO_ROOT/apps/desktop" "$@"',
+    'if [ -n "$REPO_ROOT" ] && [ -x "$REPO_ROOT/apps/desktop/.desktop-build/development/XPeach Harness.app/Contents/MacOS/XPeachHarness" ]; then',
+    '  exec "$REPO_ROOT/apps/desktop/.desktop-build/development/XPeach Harness.app/Contents/MacOS/XPeachHarness" "$REPO_ROOT/apps/desktop" "$@"',
     'fi',
     'if [ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT/apps/desktop" ] && command -v pnpm >/dev/null 2>&1; then',
     '  exec pnpm --dir "$REPO_ROOT" start:desktop "$@"',
@@ -321,17 +312,16 @@ function buildAppLauncherScript(version: string, repositoryRoot: string | undefi
 }
 
 function buildCliWrapperScript(
-  cliName: 'xph' | 'dsh',
   version: string,
   repositoryRoot: string | undefined,
 ): string {
   const defaultRepoRoot = repositoryRoot ?? ''
-  const entryTs = cliName === 'xph' ? 'apps/cli/src/xph.ts' : 'apps/cli/src/bin.ts'
-  const entryJs = cliName === 'xph' ? 'apps/cli/lib/xph.js' : 'apps/cli/lib/bin.js'
+  const entryTs = 'apps/cli/src/xph.ts'
+  const entryJs = 'apps/cli/lib/xph.js'
   return [
     '#!/bin/sh',
     'set -e',
-    `CLI_NAME="${cliName}"`,
+    'CLI_NAME="xph"',
     `CLI_VERSION="${version}"`,
     `PLATFORM_ARCH="${process.platform}-${process.arch}"`,
     `DEFAULT_REPO_ROOT="${defaultRepoRoot}"`,
@@ -455,8 +445,8 @@ function buildDistributionXml(version: string): string {
     '  <choice id="choice_cli"',
     '          visible="true"',
     '          selected="true"',
-    '          title="XPeach 终端命令行工具 (xph &amp; dsh CLI)"',
-    '          description="安装 xph 与 dsh 命令行启动器到 ~/.local/bin（及 /usr/local/bin），自动配置 zsh PATH。">',
+    '          title="XPeach 终端命令行工具 (xph CLI)"',
+    '          description="安装 xph 命令行启动器到 ~/.local/bin（及 /usr/local/bin），自动配置 zsh PATH。">',
     '    <pkg-ref id="com.xpeach.harness.cli" />',
     '  </choice>',
     '  <choice id="choice_profile"',
@@ -508,7 +498,7 @@ function buildGuidedHtmlPage(
         '<h2>组件概览</h2>',
         '<ul>',
         '<li><strong>XPeach Harness.app 桌面端</strong>：原生 macOS 应用包，配备专属蜜桃图标与 LaunchServices 系统注册。</li>',
-        '<li><strong>xph &amp; dsh 命令行工具</strong>：自动安装至 <code>~/.local/bin</code>（及可写的 <code>/usr/local/bin</code>），终端随处可调起。</li>',
+        '<li><strong>xph 命令行工具</strong>：自动安装至 <code>~/.local/bin/xph</code>（及可写的 <code>/usr/local/bin/xph</code>），终端随处可调起。</li>',
         '<li><strong>多工具资产一键迁移</strong>：支持检测并导入 Claude Code、Codex、Gemini CLI、Google Antigravity、ChatGPT、ZCode 的历史对话、Skills 与 MCP 服务。</li>',
         '</ul>',
         '</div>',
@@ -525,7 +515,7 @@ function buildGuidedHtmlPage(
       '<h2>Included Components</h2>',
       '<ul>',
       '<li><strong>XPeach Harness.app Desktop</strong>: Native macOS bundle with XPeach icon and LaunchServices registration.</li>',
-      '<li><strong>xph &amp; dsh CLI</strong>: Installed into <code>~/.local/bin</code> and <code>/usr/local/bin</code> when writable.</li>',
+      '<li><strong>xph CLI</strong>: Installed into <code>~/.local/bin/xph</code> and <code>/usr/local/bin/xph</code> when writable.</li>',
       '<li><strong>Multi-Agent Migration &amp; Control Center</strong>: Import conversations, Skills, and MCP servers from Claude Code, Codex, Gemini CLI, Antigravity, ChatGPT, and ZCode.</li>',
       '</ul>',
       '</div>',
@@ -544,7 +534,7 @@ function buildGuidedHtmlPage(
         '<h2>安装路径说明</h2>',
         '<ul>',
         '<li>桌面应用：<code>~/Applications/XPeach Harness.app</code>（若 <code>/Applications</code> 可写亦同步更新）</li>',
-        '<li>命令行启动器：<code>~/.local/bin/xph</code> 与 <code>~/.local/bin/dsh</code></li>',
+        '<li>命令行启动器：<code>~/.local/bin/xph</code>（及 <code>/usr/local/bin/xph</code>）</li>',
         '<li>运行环境与配置：<code>~/.xph/profiles/xpeach/cordis.yml</code>、<code>~/.xph/skills</code>、<code>~/.xph/sessions</code></li>',
         '</ul>',
         '</div>',
@@ -560,7 +550,7 @@ function buildGuidedHtmlPage(
       '<div class="card">',
       '<ul>',
       '<li>Desktop Application: <code>~/Applications/XPeach Harness.app</code> (and <code>/Applications/XPeach Harness.app</code> when writable)</li>',
-      '<li>CLI Launchers: <code>~/.local/bin/xph</code> and <code>~/.local/bin/dsh</code></li>',
+      '<li>CLI Launcher: <code>~/.local/bin/xph</code> (and <code>/usr/local/bin/xph</code> when writable)</li>',
       '<li>Profile &amp; Data Root: <code>~/.xph/profiles/xpeach/cordis.yml</code>, <code>~/.xph/skills</code>, <code>~/.xph/sessions</code></li>',
       '</ul>',
       '</div>',
@@ -575,7 +565,7 @@ function buildGuidedHtmlPage(
       '</head><body>',
       `<h1>🎉 XPeach Harness (${version}) 安装完成</h1>`,
       '<p>桌面端应用与命令行工具已完成部署。您可以在终端运行以下命令快速验证：</p>',
-      '<pre>xph --version\ndsh --version\nopen -a "XPeach Harness"</pre>',
+      '<pre>xph --version\nxph web\nopen -a "XPeach Harness"</pre>',
       '<div class="card">',
       '<p>首次启动后，可在<strong>设置 → 引导安装 / 账户 / 技能 / MCP 服务</strong>中完成 API Key 绑定、历史对话导入与本地插件管理。</p>',
       '</div>',
@@ -588,7 +578,7 @@ function buildGuidedHtmlPage(
     '</head><body>',
     `<h1>🎉 XPeach Harness (${version}) Installed Successfully</h1>`,
     '<p>Verify the installation from your terminal:</p>',
-    '<pre>xph --version\ndsh --version\nopen -a "XPeach Harness"</pre>',
+    '<pre>xph --version\nxph web\nopen -a "XPeach Harness"</pre>',
     '</body></html>',
   ].join('\n')
 }
@@ -641,8 +631,7 @@ export async function buildMacosPkgInstaller(
     // Also stage shared CLI and profile copies under rootApp so flat `pkgutil --payload-files <product.pkg>`
     // (which inspects the first xar subpackage payload) reports all 3 component assets directly.
     const appShareBin = join(rootApp, 'usr', 'local', 'share', 'xpeach-harness', 'bin')
-    writeExecutableScript(join(appShareBin, 'xph'), buildCliWrapperScript('xph', paths.version, paths.repositoryRoot))
-    writeExecutableScript(join(appShareBin, 'dsh'), buildCliWrapperScript('dsh', paths.version, paths.repositoryRoot))
+    writeExecutableScript(join(appShareBin, 'xph'), buildCliWrapperScript(paths.version, paths.repositoryRoot))
     const appShareProfile = join(rootApp, 'usr', 'local', 'share', 'xpeach-harness', 'profile')
     mkdirSync(appShareProfile, { recursive: true })
     const repoProfileFile = paths.repositoryRoot !== undefined
@@ -723,12 +712,11 @@ export async function buildMacosPkgInstaller(
       { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
     )
 
-    // Component 2: CLI (xph & dsh)
+    // Component 2: CLI (xph)
     const rootCli = join(stageDir, 'root-cli')
     const scriptsCli = join(stageDir, 'scripts-cli')
     const cliShareBin = join(rootCli, 'usr', 'local', 'share', 'xpeach-harness', 'bin')
-    writeExecutableScript(join(cliShareBin, 'xph'), buildCliWrapperScript('xph', paths.version, paths.repositoryRoot))
-    writeExecutableScript(join(cliShareBin, 'dsh'), buildCliWrapperScript('dsh', paths.version, paths.repositoryRoot))
+    writeExecutableScript(join(cliShareBin, 'xph'), buildCliWrapperScript(paths.version, paths.repositoryRoot))
 
     writeExecutableScript(
       join(scriptsCli, 'preinstall'),
@@ -743,16 +731,20 @@ export async function buildMacosPkgInstaller(
         'if [ ! -d "$SHARE_BIN" ] && [ -d "$HOME/usr/local/share/xpeach-harness/bin" ]; then',
         '  SHARE_BIN="$HOME/usr/local/share/xpeach-harness/bin"',
         'fi',
-        'for BIN_NAME in xph dsh; do',
-        '  if [ -f "$SHARE_BIN/$BIN_NAME" ]; then',
-        '    cp -f "$SHARE_BIN/$BIN_NAME" "$HOME/.local/bin/$BIN_NAME" 2>/dev/null || true',
-        '    chmod 755 "$HOME/.local/bin/$BIN_NAME" 2>/dev/null || true',
-        '    if [ -w "/usr/local/bin" ]; then',
-        '      cp -f "$SHARE_BIN/$BIN_NAME" "/usr/local/bin/$BIN_NAME" 2>/dev/null || true',
-        '      chmod 755 "/usr/local/bin/$BIN_NAME" 2>/dev/null || true',
-        '    fi',
+        'if [ -f "$SHARE_BIN/xph" ]; then',
+        '  cp -f "$SHARE_BIN/xph" "$HOME/.local/bin/xph" 2>/dev/null || true',
+        '  chmod 755 "$HOME/.local/bin/xph" 2>/dev/null || true',
+        '  if [ -w "/usr/local/bin" ]; then',
+        '    cp -f "$SHARE_BIN/xph" "/usr/local/bin/xph" 2>/dev/null || true',
+        '    chmod 755 "/usr/local/bin/xph" 2>/dev/null || true',
         '  fi',
-        'done',
+        'fi',
+        'if [ -f "$HOME/.local/bin/dsh" ] && grep -qi "xpeach" "$HOME/.local/bin/dsh" 2>/dev/null; then',
+        '  rm -f "$HOME/.local/bin/dsh" 2>/dev/null || true',
+        'fi',
+        'if [ -w "/usr/local/bin" ] && [ -f "/usr/local/bin/dsh" ] && grep -qi "xpeach" "/usr/local/bin/dsh" 2>/dev/null; then',
+        '  rm -f "/usr/local/bin/dsh" 2>/dev/null || true',
+        'fi',
         'for RC_FILE in "$HOME/.zprofile" "$HOME/.zshrc"; do',
         '  if [ -f "$RC_FILE" ]; then',
         '    if ! grep -q "# XPeach Harness CLI" "$RC_FILE" 2>/dev/null; then',
@@ -812,7 +804,7 @@ export async function buildMacosPkgInstaller(
         'if [ -f "$PROFILE_SRC" ] && [ ! -f "$HOME/.xph/profiles/xpeach/cordis.yml" ]; then',
         '  cp "$PROFILE_SRC" "$HOME/.xph/profiles/xpeach/cordis.yml" 2>/dev/null || true',
         'fi',
-        `printf '{"version":"${paths.version}","installedAt":"%s","appPath":"%s/Applications/XPeach Harness.app","xphCliPath":"%s/.local/bin/xph","dshCliPath":"%s/.local/bin/dsh"}\\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$HOME" "$HOME" "$HOME" > "$HOME/.xph/xpeach.install-receipt.json" 2>/dev/null || true`,
+        `printf '{"version":"${paths.version}","installedAt":"%s","appPath":"%s/Applications/XPeach Harness.app","xphCliPath":"%s/.local/bin/xph"}\\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$HOME" "$HOME" > "$HOME/.xph/xpeach.install-receipt.json" 2>/dev/null || true`,
         'exit 0',
         '',
       ].join('\n'),
@@ -913,7 +905,7 @@ function appendShellPathIfMissing(rcFilePath: string): void {
  * - `'build'`: build and verify the 5-step guided `.pkg` archive.
  * - `'open'`: build if missing and launch macOS `Installer.app` GUI.
  * - `'reveal'`: build if missing and reveal the `.pkg` in Finder.
- * - `'install-direct'`: build if missing, install `XPeach Harness.app`, `xph`, `dsh`,
+ * - `'install-direct'`: build if missing, install `XPeach Harness.app`, `xph`,
  *   and `~/.xph` profile, then verify `--version` on all installed binaries.
  *
  * @param action - Installer action to run (`'build'`, `'open'`, `'reveal'`, or `'install-direct'`).
@@ -994,18 +986,27 @@ export async function runMacosInstallerAction(
     } catch (_err) { /* keep user Applications bundle */ }
   }
 
-  const xphScript = buildCliWrapperScript('xph', paths.version, paths.repositoryRoot)
-  const dshScript = buildCliWrapperScript('dsh', paths.version, paths.repositoryRoot)
+  const xphScript = buildCliWrapperScript(paths.version, paths.repositoryRoot)
   const localXphPath = join(paths.localBinDir, 'xph')
-  const localDshPath = join(paths.localBinDir, 'dsh')
   writeExecutableScript(localXphPath, xphScript)
-  writeExecutableScript(localDshPath, dshScript)
 
   if (paths.systemBinDir !== undefined && isWritableDirectory(paths.systemBinDir)) {
     try {
       writeExecutableScript(join(paths.systemBinDir, 'xph'), xphScript)
-      writeExecutableScript(join(paths.systemBinDir, 'dsh'), dshScript)
     } catch (_err) { /* keep ~/.local/bin */ }
+  }
+
+  for (const legacyDshPath of [
+    join(paths.localBinDir, 'dsh'),
+    ...(paths.systemBinDir !== undefined ? [join(paths.systemBinDir, 'dsh')] : []),
+  ]) {
+    if (existsSync(legacyDshPath)) {
+      try {
+        if (/xpeach/iu.test(readFileSync(legacyDshPath, 'utf8'))) {
+          rmSync(legacyDshPath, { force: true })
+        }
+      } catch (_err) { /* ignore unreadable or non-removable legacy wrapper */ }
+    }
   }
 
   appendShellPathIfMissing(join(paths.homeDir, '.zprofile'))
@@ -1037,7 +1038,6 @@ export async function runMacosInstallerAction(
         pkgPath: paths.pkgPath,
         appPath: installedAppPath,
         xphCliPath: localXphPath,
-        dshCliPath: localDshPath,
       },
       null,
       2,
@@ -1051,13 +1051,11 @@ export async function runMacosInstallerAction(
     { encoding: 'utf8' },
   ).trim()
   const xphVersionOut = execFileSync(localXphPath, ['--version'], { encoding: 'utf8' }).trim()
-  const dshVersionOut = execFileSync(localDshPath, ['--version'], { encoding: 'utf8' }).trim()
 
   const combinedVerify = [
     verifyOutput ?? '',
     `app --version: ${appVersionOut}`,
     `xph --version: ${xphVersionOut}`,
-    `dsh --version: ${dshVersionOut}`,
   ]
     .filter(line => line.length > 0)
     .join('\n')
@@ -1066,7 +1064,7 @@ export async function runMacosInstallerAction(
   return {
     ok: true,
     action,
-    message: `Installed XPeach Harness.app (${appVersionOut}), ${xphVersionOut}, and ${dshVersionOut}`,
+    message: `Installed XPeach Harness.app (${appVersionOut}) and ${xphVersionOut}`,
     status,
     verifyOutput: combinedVerify,
   }

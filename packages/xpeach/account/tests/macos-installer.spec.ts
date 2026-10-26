@@ -4,7 +4,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -46,7 +46,8 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
     expect(status.pkgSizeBytes).toBe(0)
     expect(status.appInstalled).toBe(false)
     expect(status.xphCliInstalled).toBe(false)
-    expect(status.dshCliInstalled).toBe(false)
+    expect('dshCliInstalled' in status).toBe(false)
+    expect('dshCliPath' in status).toBe(false)
     expect(status.installedAt).toBeUndefined()
   })
 
@@ -55,11 +56,12 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
     async () => {
       const sandbox = makeTempSandbox()
       const pkgPath = join(sandbox, 'installer', 'XPeach-Harness-0.0.13-alpha-mac.pkg')
+      const localBinDir = join(sandbox, '.local', 'bin')
       const options = {
         homeDir: sandbox,
         ownHome: join(sandbox, '.xph'),
         applicationsDir: join(sandbox, 'Applications'),
-        localBinDir: join(sandbox, '.local', 'bin'),
+        localBinDir,
         outputPkgPath: pkgPath,
         version: '0.0.13-alpha',
       }
@@ -70,19 +72,25 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
       expect(built.status.pkgExists).toBe(true)
       expect(built.status.pkgSizeBytes).toBeGreaterThan(1024)
 
-      // Verify the 3 component payloads inside the product archive
+      // Verify the 3 component payloads inside the product archive (xph only, no dsh)
       expect(built.verifyOutput).toContain('Applications/XPeach Harness.app/Contents/Info.plist')
       expect(built.verifyOutput).toContain('Applications/XPeach Harness.app/Contents/MacOS/XPeachHarness')
       expect(built.verifyOutput).toContain('usr/local/share/xpeach-harness/bin/xph')
-      expect(built.verifyOutput).toContain('usr/local/share/xpeach-harness/bin/dsh')
+      expect(built.verifyOutput).not.toContain('usr/local/share/xpeach-harness/bin/dsh')
       expect(built.verifyOutput).toContain('usr/local/share/xpeach-harness/profile/xpeach.profile.yml')
 
-      // Run direct installation into the sandbox and verify every binary is executable and runnable
+      // Seed a legacy xpeach dsh wrapper to verify install-direct removes it cleanly
+      mkdirSync(localBinDir, { recursive: true })
+      const legacyDshPath = join(localBinDir, 'dsh')
+      writeFileSync(legacyDshPath, '#!/bin/sh\n# xpeach-harness legacy wrapper\nexit 0\n', { mode: 0o755 })
+      expect(existsSync(legacyDshPath)).toBe(true)
+
+      // Run direct installation into the sandbox and verify xph and app binaries are executable and runnable
       const installed = await runMacosInstallerAction('install-direct', options)
       expect(installed.ok).toBe(true)
       expect(installed.status.appInstalled).toBe(true)
       expect(installed.status.xphCliInstalled).toBe(true)
-      expect(installed.status.dshCliInstalled).toBe(true)
+      expect(existsSync(legacyDshPath)).toBe(false)
       expect(installed.status.installedAt).toBeDefined()
 
       const appExec = join(installed.status.appPath, 'Contents', 'MacOS', 'XPeachHarness')
@@ -92,9 +100,6 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
       expect(execFileSync(installed.status.xphCliPath, ['--version'], { encoding: 'utf8' }).trim()).toContain(
         'xph/0.0.13-alpha',
       )
-      expect(execFileSync(installed.status.dshCliPath, ['--version'], { encoding: 'utf8' }).trim()).toContain(
-        'dsh/0.0.13-alpha',
-      )
       expect(execFileSync(installed.status.xphCliPath, ['--help'], { encoding: 'utf8' })).toContain(
         'XPeach Harness CLI',
       )
@@ -102,9 +107,11 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
       const receipt = JSON.parse(readFileSync(installed.status.receiptPath, 'utf8')) as {
         version?: string
         appPath?: string
+        dshCliPath?: string
       }
       expect(receipt.version).toBe('0.0.13-alpha')
       expect(receipt.appPath).toBe(installed.status.appPath)
+      expect(receipt.dshCliPath).toBeUndefined()
       expect(readFileSync(join(sandbox, '.zshrc'), 'utf8')).toContain('# XPeach Harness CLI')
       expect(existsSync(join(sandbox, '.xph', 'profiles', 'xpeach', 'cordis.yml'))).toBe(true)
 
