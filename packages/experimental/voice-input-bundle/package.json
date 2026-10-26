@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-voice-input-bundle",
   "description": "Experimental voice input with local SenseVoice; downloads its runtime on first use",
-  "version": "0.0.15-alpha",
+  "version": "0.0.16-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
