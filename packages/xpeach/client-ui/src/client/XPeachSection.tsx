@@ -2,8 +2,8 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachModel } from '@xpeach/xph-account/types'
-import type { XPeachOps } from './ops.ts'
-import { Button } from '@xpeach/xph-client-ui-primitives'
+import type { XPeachOps, XPeachSsoDeviceStartResult } from './ops.ts'
+import { Button, Switch } from '@xpeach/xph-client-ui-primitives'
 import { XPeachMark } from './brand.tsx'
 import { footerBridge } from './FooterAction.tsx'
 import { rel, useTime, SITE } from './fmt.ts'
@@ -24,13 +24,21 @@ type LoadState =
 export function XPeachSection({
   t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange,
   sessionBound, sessionUser, sessionLogin, bindSession, unbindSession,
+  ssoDeviceStart, ssoDevicePoll,
   keySlots, keySlotAdd, keySlotSwitch, keySlotRemove,
-  trackingState, setTracking, protocolPreference, setProtocolPreference,
+  trackingState, setTracking, autoSyncModels, setAutoSyncModels, syncModels,
+  protocolPreference, setProtocolPreference,
   families, setFamilies, recents,
 }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
+  const [autoSync, setAutoSync] = useState(true)
+  const [syncBusy, setSyncBusy] = useState(false)
+  const [syncCount, setSyncCount] = useState<number | null>(null)
   const [protocol, setProtocol] = useState<'compatible' | 'native' | 'auto'>('compatible')
   useEffect(() => { void trackingState().then(setTrackingOn) }, [trackingState])
+  useEffect(() => {
+    if (autoSyncModels !== undefined) void autoSyncModels().then(setAutoSync)
+  }, [autoSyncModels])
   const [familyList, setFamilyList] = useState<{ all: readonly string[]; enabled: readonly string[] }>({ all: [], enabled: [] })
   const [recentModels, setRecentModels] = useState<readonly { provider: string; model: string }[]>([])
   useEffect(() => { void protocolPreference().then(setProtocol) }, [protocolPreference])
@@ -53,6 +61,8 @@ export function XPeachSection({
   const [key, setKey] = useState('')
   const [bindBusy, setBindBusy] = useState(false)
   const [bindError, setBindError] = useState<string | null>(null)
+  const [ssoSession, setSsoSession] = useState<XPeachSsoDeviceStartResult | null>(null)
+  const [ssoCodeCopied, setSsoCodeCopied] = useState(false)
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [modelList, setModelList] = useState<readonly XPeachModel[] | { error: string }>([])
   const [match, setMatch] = useState<readonly { id: string; available: boolean }[]>([])
@@ -104,6 +114,52 @@ export function XPeachSection({
     setBound('bound')
     refresh()
   }
+  const doSsoDevice = async (): Promise<void> => {
+    if (ssoDeviceStart === undefined) return
+    setBindBusy(true); setBindError(null)
+    const r = await ssoDeviceStart(true)
+    setBindBusy(false)
+    if ('error' in r) {
+      setBindError(r.error)
+      return
+    }
+    setSsoSession(r)
+    if (!r.browserOpened && typeof window !== 'undefined') {
+      window.open(r.verificationUriComplete, '_blank', 'noopener,noreferrer')
+    }
+  }
+  useEffect(() => {
+    if (ssoSession === null || ssoDevicePoll === undefined) return
+    let active = true
+    const intervalMs = Math.max(1500, (ssoSession.interval || 2) * 1000)
+    const timer = setInterval(() => {
+      void ssoDevicePoll(ssoSession.deviceCode).then((res) => {
+        if (!active) return
+        if ('error' in res) {
+          setBindError(res.error)
+          setSsoSession(null)
+          return
+        }
+        if (res.status === 'approved') {
+          setSsoSession(null)
+          setBindError(null)
+          setBound('bound')
+          if (res.preview !== undefined) setKeyMask(res.preview)
+          refresh()
+        } else if (res.status === 'expired') {
+          setBindError(res.message ?? t('sso.expired'))
+          setSsoSession(null)
+        } else if (res.status === 'denied') {
+          setBindError(res.message ?? t('sso.denied'))
+          setSsoSession(null)
+        }
+      })
+    }, intervalMs)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [ssoSession, ssoDevicePoll, t])
   const reloadSlots = (): void => { void keySlots().then(setSlots) }
   const doSlotAdd = async (): Promise<void> => {
     setSlotBusy(true); setSlotMsg(null)
@@ -194,7 +250,40 @@ export function XPeachSection({
               <Button variant="primary" className={css.bindButton} disabled={bindBusy || key.trim() === ''} onClick={() => { void doBind() }}>
                 {bindBusy ? t('bind.working') : t('bind.submit')}
               </Button>
+              {ssoDeviceStart !== undefined && ssoSession === null && (
+                <Button variant="outline" className={css.bindGhost} disabled={bindBusy} onClick={() => { void doSsoDevice() }}>
+                  {t('sso.loginBtn')}
+                </Button>
+              )}
             </div>
+            {ssoSession !== null && (
+              <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))' }}>
+                <p className={css.bindHint} style={{ margin: '0 0 6px' }}>{t('sso.waitingTitle')} · {t('sso.userCodeLabel')}</p>
+                <div className={css.bindRow}>
+                  <code className={css.keyMask} style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.1em' }}>
+                    {ssoSession.userCode}
+                  </code>
+                  <Button
+                    variant="outline"
+                    className={css.bindGhost}
+                    onClick={() => {
+                      void navigator.clipboard.writeText(ssoSession.userCode)
+                      setSsoCodeCopied(true)
+                      setTimeout(() => { setSsoCodeCopied(false) }, 1500)
+                    }}
+                  >
+                    {ssoCodeCopied ? t('bind.copied') : t('sso.copyCode')}
+                  </Button>
+                  <a href={ssoSession.verificationUriComplete} target="_blank" rel="noreferrer" className={css.bindGhost} style={{ textDecoration: 'none' }}>
+                    {t('sso.openBrowserAgain')}
+                  </a>
+                  <Button variant="outline" className={css.bindGhost} onClick={() => { setSsoSession(null) }}>
+                    {t('sso.cancel')}
+                  </Button>
+                </div>
+                <p className={css.bindHint} style={{ margin: '6px 0 0' }}>{t('sso.pollingHint')}</p>
+              </div>
+            )}
             {bindError !== null && <p className={css.bindError}>{bindError}</p>}
           </>
         )}
@@ -278,43 +367,95 @@ export function XPeachSection({
         )}
       </div>
 
-      {/* These three are deployment choices, not account state: the tracking
-          switch matters most before a successful fetch, when a 400 is what the
-          user is looking at. */}
-      <p className={css.groupTitle}>{t('tracking.title')}</p>
-      <label className={css.trackingRow}>
-        <input
-          type="checkbox"
-          checked={tracking !== false}
-          onChange={(event) => {
-            const next = event.target.checked
-            setTrackingOn(next)
-            void setTracking(next).then((err) => {
-              if (err !== null) setBindError(err)
-            })
-          }}
-        />
-        <span>{t('tracking.label')}</span>
-      </label>
+      <div className={css.bindCard}>
+        <p className={css.groupTitle}>{t('prefs.cardTitle')}</p>
+        <div className={css.prefStack}>
+          <div className={css.prefRow}>
+            <div className={css.prefRowText}>
+              <div className={css.prefTitle}>{t('prefs.xsession.title')}</div>
+              <div className={css.prefDesc}>{t('prefs.xsession.desc')}</div>
+            </div>
+            <Switch
+              checked={tracking !== false}
+              label={t('prefs.xsession.title')}
+              onChange={(next) => {
+                setTrackingOn(next)
+                void setTracking(next).then((err) => {
+                  if (err !== null) setBindError(err)
+                })
+              }}
+            />
+          </div>
 
-      <label className={css.trackingRow}>
-        <span>{t('protocol.title')}</span>
-        <select
-          value={protocol}
-          onChange={(event) => {
-            const next = event.target.value as 'compatible' | 'native' | 'auto'
-            setProtocol(next)
-            void setProtocolPreference(next).then((err) => {
-              if (err !== null) setBindError(err)
-              else if (bound === 'bound') refresh()
-            })
-          }}
-        >
-          <option value="compatible">{t('protocol.compatible')}</option>
-          <option value="auto">{t('protocol.auto')}</option>
-          <option value="native">{t('protocol.native')}</option>
-        </select>
-      </label>
+          <div className={css.prefRow}>
+            <div className={css.prefRowText}>
+              <div className={css.prefTitle}>{t('prefs.protocol.title')}</div>
+              <div className={css.prefDesc}>{t('prefs.protocol.desc')}</div>
+            </div>
+            <div className={css.prefSegGroup} role="group" aria-label={t('prefs.protocol.title')}>
+              {(['compatible', 'auto', 'native'] as const).map(choice => (
+                <button
+                  key={choice}
+                  type="button"
+                  aria-pressed={protocol === choice}
+                  className={protocol === choice ? css.prefSegBtnOn : css.prefSegBtn}
+                  onClick={() => {
+                    if (protocol === choice) return
+                    setProtocol(choice)
+                    void setProtocolPreference(choice).then((err) => {
+                      if (err !== null) setBindError(err)
+                      else if (bound === 'bound') refresh()
+                    })
+                  }}
+                >
+                  {t(`protocol.${choice}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={css.prefRow}>
+            <div className={css.prefRowText}>
+              <div className={css.prefTitle}>{t('prefs.autosync.title')}</div>
+              <div className={css.prefDesc}>{t('prefs.autosync.desc')}</div>
+            </div>
+            <div className={css.prefControlGroup}>
+              <Button
+                variant="outline"
+                disabled={syncBusy}
+                onClick={() => {
+                  setSyncBusy(true)
+                  setSyncCount(null)
+                  void syncModels().then((res) => {
+                    if (!('error' in res) && res.ok) {
+                      setSyncCount(res.count)
+                      if (bound === 'bound') refresh()
+                    }
+                  }).finally(() => { setSyncBusy(false) })
+                }}
+              >
+                {syncBusy
+                  ? t('prefs.autosync.syncing')
+                  : syncCount !== null
+                    ? t('prefs.autosync.synced', { n: syncCount })
+                    : t('prefs.autosync.syncNow')}
+              </Button>
+              <Switch
+                checked={autoSync}
+                label={t('prefs.autosync.title')}
+                onChange={(next) => {
+                  setAutoSync(next)
+                  if (setAutoSyncModels !== undefined) {
+                    void setAutoSyncModels(next).then((err) => {
+                      if (err !== null) setBindError(err)
+                    })
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {familyList.all.length > 0 && (
         <>

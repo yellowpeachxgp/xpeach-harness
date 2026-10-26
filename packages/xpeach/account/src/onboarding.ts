@@ -491,7 +491,7 @@ function scanPrompts(): XPeachDetectedPrompt[] {
 export function scanOnboarding(): XPeachOnboardingScan {
   const p = paths()
   const sources: XPeachDetectedSource[] = [
-    { id: 'deepseek', label: 'DeepSeek Harness', path: p.deepseek, found: false, threads: 0 },
+    { id: 'deepseek', label: 'DeepSeek CLI / 旧版会话', path: p.deepseek, found: false, threads: 0 },
     { id: 'claude', label: 'Claude Code', path: p.claude, found: false, threads: 0 },
     { id: 'codex', label: 'Codex', path: p.codex, found: false, threads: 0 },
     { id: 'zcode', label: 'zcode', path: p.zcode, found: false, threads: 0 },
@@ -1454,7 +1454,7 @@ export function readMcpPatchEntries(patchPath: string): XPeachMcpPatchEntry[] {
   const raw = readText(patchPath)
   if (raw === undefined) return []
   const { entries, rawMcpCount } = splitPatchFile(raw)
-  if (rawMcpCount > entries.length) {
+  if (rawMcpCount > entries.length || (entries.length > 0 && !raw.includes('backgroundStartup: true'))) {
     try { writeMcpPatchEntries(patchPath, entries) } catch (_err) { /* ignore */ }
   }
   return entries
@@ -1472,6 +1472,7 @@ function formatMcpPatchEntry(entry: XPeachMcpPatchEntry): string {
     `        transport: ${entry.transportType}`,
     `        serverName: ${JSON.stringify(serverName)}`,
     '        failOnStartupError: false',
+    '        backgroundStartup: true',
   ]
   if (entry.transportType === 'streamable-http') {
     if (entry.url !== undefined && entry.url.length > 0) {

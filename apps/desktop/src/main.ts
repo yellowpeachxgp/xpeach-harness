@@ -185,19 +185,19 @@ function runtimeResources(): RuntimeResources {
 }
 
 function developmentPrimaryRuntime(): string {
-  const directory = process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR
+  const directory = process.env.XPH_DESKTOP_PRIMARY_RUNTIME_DIR ?? process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR
   if (directory === undefined || directory === '') {
-    throw new Error('dsh desktop: DSH_DESKTOP_PRIMARY_RUNTIME_DIR is required for an unpackaged launch')
+    throw new Error('xph desktop: XPH_DESKTOP_PRIMARY_RUNTIME_DIR is required for an unpackaged launch')
   }
   return directory
 }
 
 function developmentHostInspectPort(enabled: boolean): number | undefined {
-  const configured = process.env.DSH_DESKTOP_HOST_INSPECT_PORT
+  const configured = process.env.XPH_DESKTOP_HOST_INSPECT_PORT ?? process.env.DSH_DESKTOP_HOST_INSPECT_PORT
   if (!enabled || configured === undefined || configured === '') return undefined
   const port = Number(configured)
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
-    throw new Error('dsh desktop: DSH_DESKTOP_HOST_INSPECT_PORT must be an integer from 1 through 65535')
+    throw new Error('xph desktop: XPH_DESKTOP_HOST_INSPECT_PORT must be an integer from 1 through 65535')
   }
   return port
 }
@@ -446,7 +446,7 @@ async function main(): Promise<void> {
     assertDesktopSender(event, ['app'])
     if (mainWindow === undefined || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents
       || event.senderFrame === null || event.senderFrame !== mainWindow.webContents.mainFrame) {
-      throw new Error('dsh desktop: rejected IPC from an unowned renderer')
+      throw new Error('xph desktop: rejected IPC from an unowned renderer')
     }
   }
   let navigation: { window: BrowserWindow; url: string; promise: Promise<void> } | undefined
@@ -600,10 +600,12 @@ async function main(): Promise<void> {
 
   const reconcileBackend = (): Promise<void> => {
     startup ??= (async () => {
-      await navigateMain(applicationUrl)
-      await backend.start(async () => {
-        await Promise.all([manager.applyRelease(), prepareHostEnvironment()])
-      })
+      await Promise.all([
+        navigateMain(applicationUrl),
+        backend.start(async () => {
+          await Promise.all([manager.applyRelease(), prepareHostEnvironment()])
+        }),
+      ])
       if (backend.host !== undefined) await openInitialWindow()
       if (backend.host !== undefined) updateJournal?.action('workspace-ready')
       // The existing Web document resumes through the boot IPC response.
@@ -730,9 +732,9 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.bootFailed, (event, message: unknown) => {
     assertDesktopSender(event, ['app'])
     if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) {
-      throw new Error('dsh desktop: rejected startup failure from a non-primary frame')
+      throw new Error('xph desktop: rejected startup failure from a non-primary frame')
     }
-    if (typeof message !== 'string') throw new Error('dsh desktop: startup failure must be text')
+    if (typeof message !== 'string') throw new Error('xph desktop: startup failure must be text')
     reportFatal(new Error(message), 'web-boot')
   })
 
@@ -789,7 +791,8 @@ async function main(): Promise<void> {
       throw new Error('desktop welcome: rejected locale request from an unowned frame')
     }
     if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
-    return { languages: systemLanguages, preference: await welcomeBackend.readLocalePreference() }
+    const preference = await welcomeBackend.readLocalePreference().catch(() => null)
+    return { languages: systemLanguages, preference }
   })
   ipcMain.on(DESKTOP_IPC.localeChanged, (event, next: unknown) => {
     const window = mainWindow
@@ -804,6 +807,9 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.updatesStatus, (event) => {
     assertProductSender(event)
+    if (!quitting && updates.state.phase === 'idle') {
+      void updateSchedule.check(false).catch((error: unknown) => { console.error(error) })
+    }
     return presentDesktopUpdate(updates.state)
   })
   ipcMain.handle(DESKTOP_IPC.deviceInfo, (event) => {
@@ -1177,9 +1183,16 @@ async function main(): Promise<void> {
     })
     window.webContents.on('render-process-gone', (_event, details) => {
       navigation = undefined
-      if (!quitting && !window.isDestroyed() && details.reason !== 'clean-exit') {
-        reportFatal(new Error(`Desktop renderer exited: ${details.reason}`), 'renderer')
+      if (quitting || shuttingDown || window.isDestroyed() || details.reason === 'clean-exit') return
+      if (details.reason === 'killed') {
+        setTimeout(() => {
+          if (!quitting && !shuttingDown && !window.isDestroyed()) {
+            void navigateMain(applicationUrl).catch(() => undefined)
+          }
+        }, 150)
+        return
       }
+      reportFatal(new Error(`Desktop renderer exited: ${details.reason}`), 'renderer')
     })
     return window
   }
@@ -1202,7 +1215,7 @@ async function main(): Promise<void> {
       window.moveTop()
       window.focus()
     }
-    if (activate && development && process.env.DSH_DESKTOP_OPEN_DEVTOOLS !== '0') {
+    if (activate && development && (process.env.XPH_DESKTOP_OPEN_DEVTOOLS ?? process.env.DSH_DESKTOP_OPEN_DEVTOOLS) !== '0') {
       window.webContents.openDevTools({ mode: 'detach' })
     }
   }
@@ -1215,10 +1228,13 @@ async function main(): Promise<void> {
    * @returns true when a token file carries a non-empty value.
    */
   const desktopHasSiteCredential = (profile: string): boolean => {
-    const file = join(profile, 'xpeach.admin')
-    try {
-      return existsSync(file) && readFileSync(file, 'utf8').trim().length > 0
-    } catch { return false }
+    for (const filename of ['xpeach.admin', 'xpeach.key', 'xpeach.sso.json']) {
+      const file = join(profile, filename)
+      try {
+        if (existsSync(file) && readFileSync(file, 'utf8').trim().length > 0) return true
+      } catch { /* ignore unreadable credential file */ }
+    }
+    return false
   }
 
   let openingWelcome: Promise<void> | undefined
@@ -1285,6 +1301,15 @@ async function main(): Promise<void> {
   }
   const openInitialWindow = async (): Promise<void> => {
     if (quitting || recovery.active) return
+    if (desktopHasSiteCredential(paths.profile)) {
+      const preference = await welcomeBackend?.readLocalePreference().catch(() => null) ?? null
+      if (isQuitting() || backend.state.phase !== 'ready') return
+      locale = resolveDesktopStartupLocale(preference, systemLanguages)
+      windowsLanguage = locale.id
+      refreshApplicationMenu()
+      await enterWorkspace({ gate: false })
+      return
+    }
     const state = await readWelcomeState().catch((error: unknown) => {
       console.error(error)
       return undefined
@@ -1326,10 +1351,10 @@ async function main(): Promise<void> {
     window.focus()
   }
 
-  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('dsh')
+  if (app.isPackaged || process.env.XPH_DESKTOP_DEV_APP === '1' || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('xph')
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    if (url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()
+    if (url === 'xph://open' || url === 'xph://open/' || url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()
   })
 
   app.on('activate', (_event, hasVisibleWindows) => {
@@ -1428,7 +1453,7 @@ async function main(): Promise<void> {
   // Window lifecycle callbacks run while backend startup is pending.
   if (isQuitting()) return
   const window = currentMainWindow()
-  if (window !== undefined && development && process.env.DSH_DESKTOP_OPEN_DEVTOOLS !== '0') {
+  if (window !== undefined && development && (process.env.XPH_DESKTOP_OPEN_DEVTOOLS ?? process.env.DSH_DESKTOP_OPEN_DEVTOOLS) !== '0') {
     window.webContents.openDevTools({ mode: 'detach' })
   }
   publishUpdate(updateState)

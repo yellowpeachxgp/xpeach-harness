@@ -4,11 +4,7 @@
   name: "@xpeach/xph-client-ui-settings-general"
   config:
     welcomeNoticeVersion: 2026-09-28.1
-- id: ui-settings-account
-  disabled: true
 - id: deepseek-account
-  disabled: true
-- id: account-controller
   disabled: true
 - id: plugin-package-inventory-deepseek
   disabled: true
@@ -59,6 +55,7 @@
   config:
     provider: xpeach
     model: swe-2-max
+    reasoningEffort: high
 - id: llm-pi-ai
   name: "@xpeach/xph-llm-pi-ai"
   config:
@@ -68,6 +65,10 @@
         apiKeyEnv: XPEACH_RELAY_KEY
         api: openai-completions
         baseURL: https://fast.xpeach.codes/v1
+        defaultInput:
+          - text
+          - image
+        reasoning: high
         # The catalog is not frozen here: the account plugin writes the site's
         # live model list into this namespace at boot and after every bind.
 
@@ -106,4 +107,9 @@
   config:
     default: standard
     selectedDefault: ptc
+- id: session-persistence-jsonl
+  name: "@xpeach/xph-session-persistence-jsonl"
+  config:
+    root: !!js dshHomePath('sessions')
+    listConcurrency: 32
 

@@ -29,6 +29,15 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
     return () => { clearTimeout(timer) }
   }, [copyResult])
   const authorizeUrl = attempt?.authorizeUrl
+  const deviceCode = (() => {
+    if (!authorizeUrl) return null
+    try {
+      const code = new URL(authorizeUrl, 'https://sso.xpeach.codes').searchParams.get('code')
+      return code !== null && code.trim().length > 0 ? code.trim() : null
+    } catch {
+      return null
+    }
+  })()
   const phase = attempt?.phase
   const active = busy || phase === 'initializing' || phase === 'waiting-browser' || phase === 'exchanging' || phase === 'committing'
   const expired = phase === 'expired'
@@ -68,6 +77,9 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
           <IconCloseOutlineRegular size={14} />
         </button>
       </div>
+      {waiting && deviceCode !== null && <p className={css.description}>
+        <code style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.14em' }}>{deviceCode}</code>
+      </p>}
       {waiting ? <p className={css.description}>
         {t('browserPrompt')}<button type="button" className={css.link} disabled={!authorizeUrl}
           onClick={authorizeUrl ? () => { void copyLink(authorizeUrl) } : undefined}>

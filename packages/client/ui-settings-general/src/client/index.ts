@@ -35,7 +35,7 @@ import type { DesktopUpdateBridge } from '../types.ts'
 import { DesktopUpdateSource } from './desktop-update-source.ts'
 import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
-import { CurrentVersionRow } from './CurrentVersionRow.tsx'
+import { CurrentVersionRow, type CurrentVersionRowInjected } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
@@ -84,15 +84,25 @@ export function apply(ctx: ClientContext): void {
       setEnabled: enabled => ctx.configForms.developerTools.setEnabled(enabled),
     }),
   }, DeveloperToolsRow))
-  // Version information follows the core preferences.
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item', id: 'current-version', order: 100, locale: NS,
-  }, CurrentVersionRow))
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
   const carrier = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion: number; updates?: DesktopUpdateBridge } }).dshDesktop
-  const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : undefined)
+  const hasDesktopUpdate = carrier?.protocolVersion === 1 && carrier.updates !== undefined
+  const desktopUpdate = new DesktopUpdateSource(hasDesktopUpdate ? carrier.updates : undefined)
   ctx.effect(() => () => { desktopUpdate.dispose() }, 'ui-settings-general: desktop update carrier')
+  // Version information and Desktop update controls follow the core preferences.
+  ctx.slots.inject('settings.general.item', () => hasDesktopUpdate
+    ? ctx.slots.register({
+      name: 'settings.general.item', id: 'current-version', order: 100, locale: NS,
+      inject: (): CurrentVersionRowInjected => ({
+        openDesktopUpdate: () => { desktopUpdate.open() },
+        refreshDesktopUpdate: () => { desktopUpdate.refresh() },
+        hooks: { desktopUpdate: desktopUpdate.store },
+      }),
+    }, CurrentVersionRow)
+    : ctx.slots.register({
+      name: 'settings.general.item', id: 'current-version', order: 100, locale: NS,
+    }, CurrentVersionRow))
   ctx.slots.inject('sidebar.toggle.badge', () => ctx.slots.register({
     name: 'sidebar.toggle.badge', locale: NS,
     inject: () => ({ hooks: { desktopUpdate: desktopUpdate.store, connectionState: connection.state } }),

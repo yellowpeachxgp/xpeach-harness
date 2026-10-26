@@ -118,6 +118,14 @@ export interface XPeachModel {
   readonly groups?: readonly string[]
   /** Endpoint protocols the entry accepts (e.g. ['openai']). */
   readonly supported_endpoint_types?: readonly string[]
+  /** Maximum combined input and output context window in tokens. */
+  readonly contextWindow?: number
+  /** Maximum output tokens per response. */
+  readonly maxTokens?: number
+  /** Request modalities the model accepts. */
+  readonly inputModalities?: readonly ('text' | 'image')[]
+  /** Default reasoning effort level when thinking is enabled. */
+  readonly defaultReasoningEffort?: string
 }
 
 /** Request for `xpeach.bindKey`: the relay API key the user pasted. */
@@ -616,8 +624,6 @@ export interface XPeachMacosInstallerStatus {
   readonly appPath: string
   readonly xphCliInstalled: boolean
   readonly xphCliPath: string
-  readonly dshCliInstalled: boolean
-  readonly dshCliPath: string
   readonly receiptPath: string
   readonly installedAt?: string | undefined
 }
@@ -634,4 +640,95 @@ export interface XPeachMacosInstallerActionResult {
   readonly message: string
   readonly status: XPeachMacosInstallerStatus
   readonly verifyOutput?: string | undefined
+}
+
+/** Request options for starting an XPeach SSO Device Authorization flow. */
+export interface XPeachSsoDeviceStartRequest {
+  readonly openBrowser?: boolean | undefined
+  readonly clientName?: string | undefined
+}
+
+/** Response returned when starting an XPeach SSO Device Authorization flow. */
+export interface XPeachSsoDeviceStartResult {
+  readonly deviceCode: string
+  readonly userCode: string
+  readonly verificationUri: string
+  readonly verificationUriComplete: string
+  readonly expiresIn: number
+  readonly interval: number
+  readonly browserOpened: boolean
+}
+
+/** Request payload for polling an XPeach SSO Device Authorization flow. */
+export interface XPeachSsoDevicePollRequest {
+  readonly deviceCode: string
+}
+
+/** Bridged SSO + PeachCode (NewAPI) credential bundle returned upon Device Flow approval. */
+export interface XPeachSsoBridgePayload {
+  readonly sso?: {
+    readonly accessToken: string
+    readonly expiresIn?: number | undefined
+    readonly user?: {
+      readonly id: string
+      readonly username?: string | null | undefined
+      readonly email?: string | null | undefined
+      readonly name?: string | null | undefined
+      readonly picture?: string | null | undefined
+    } | undefined
+  } | undefined
+  readonly peachcode?: {
+    readonly baseUrl?: string | undefined
+    readonly userId?: number | undefined
+    readonly username?: string | undefined
+    readonly group?: string | undefined
+    readonly quota?: number | undefined
+    readonly usedQuota?: number | undefined
+    readonly accessToken?: string | undefined
+    readonly apiKey?: string | undefined
+    readonly tokenId?: number | undefined
+    readonly tokenName?: string | undefined
+  } | undefined
+}
+
+/** Status returned by a single poll cycle against XPeach SSO Device Authorization. */
+export interface XPeachSsoDevicePollResult {
+  readonly status: 'pending' | 'approved' | 'expired' | 'denied' | 'error'
+  readonly bound?: boolean | undefined
+  readonly username?: string | undefined
+  readonly email?: string | undefined
+  readonly preview?: string | undefined
+  readonly adminPreview?: string | undefined
+  readonly message?: string | undefined
+}
+
+/** Result of verifying or refreshing an SSO + PeachCode credential bundle (`POST /api/v1/peachcode/credentials`). */
+export type XPeachSsoCredentialSyncResult =
+  | {
+    readonly status: 'ok'
+    readonly payload: XPeachSsoBridgePayload
+  }
+  | {
+    readonly status: 'revoked'
+    readonly code: 401 | 403
+    readonly message: string
+  }
+  | {
+    readonly status: 'transient_error'
+    readonly message: string
+  }
+
+/** Request options for revoking an SSO session and its linked PeachCode credentials (`POST /api/v1/peachcode/revoke`). */
+export interface XPeachSsoRevokeRequest {
+  readonly allDevices?: boolean | undefined
+  readonly revokePeachcode?: boolean | undefined
+}
+
+/** Result of verifying the active SSO session and local credentials. */
+export interface XPeachSsoSessionStatus {
+  readonly valid: boolean
+  readonly status: 'ok' | 'revoked' | 'unbound' | 'transient_error'
+  readonly username?: string | undefined
+  readonly email?: string | undefined
+  readonly message?: string | undefined
 }

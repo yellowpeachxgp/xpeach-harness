@@ -70,6 +70,8 @@ export interface StdioConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Complete plugin activation without awaiting the initial connection when `failOnStartupError` is false. */
+  backgroundStartup?: boolean
   /** Maximum UTF-8 bytes of attributed server instructions (default 32768). */
   maxInstructionBytes?: number
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
@@ -94,6 +96,8 @@ export interface StreamableHttpConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Complete plugin activation without awaiting the initial connection when `failOnStartupError` is false. */
+  backgroundStartup?: boolean
   /** Maximum UTF-8 bytes of attributed server instructions (default 32768). */
   maxInstructionBytes?: number
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
@@ -116,28 +120,29 @@ const Reconnect: z<ReconnectConfig> = z.object({
   maxAttempts: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(RECONNECT_DEFAULTS.maxAttempts),
 })
 
+const commonConfigFields = {
+  serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
+  toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
+  failOnStartupError: z.boolean().default(false),
+  backgroundStartup: z.boolean().default(false),
+  maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
+  reconnect: Reconnect,
+}
+
 export const Config = z.union([
   z.object({
     transport: z.const('stdio'),
-    serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
     command: z.string().required(),
     args: z.array(String).default([]),
     env: z.dict(String).default({}),
     cwd: z.string().default(''),
-    toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
-    failOnStartupError: z.boolean().default(false),
-    maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
-    reconnect: Reconnect,
+    ...commonConfigFields,
   }),
   z.object({
     transport: z.const('streamable-http'),
-    serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
     url: z.string().required(),
     headers: z.dict(String).default({}),
-    toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
-    failOnStartupError: z.boolean().default(false),
-    maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
-    reconnect: Reconnect,
+    ...commonConfigFields,
   }),
 ]) as z<ConfigInput, Config>
 
@@ -196,6 +201,9 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   // When failOnStartupError is true, a failed initial attempt rejects the
   // fiber (Cordis rolls it back); otherwise the error is logged and the
   // supervisor enters its reconnect loop.
+  if (config.backgroundStartup === true && !config.failOnStartupError) {
+    return
+  }
   const outcome = await connection.ready
   if (outcome.error !== undefined && config.failOnStartupError) {
     throw new Error(`mcp-client(${config.serverName}): initial connection or tool synchronization failed`, { cause: outcome.error })

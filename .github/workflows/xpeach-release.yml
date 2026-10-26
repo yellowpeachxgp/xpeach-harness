@@ -163,6 +163,13 @@ jobs:
               \( -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
               -exec cp {} out/ \;
           done
+          PRERELEASE_CHANNEL=$(node -e "const m = /^[^-]+-([A-Za-z0-9]+)/.exec('${{ needs.version.outputs.version }}'); if (m) console.log(m[1]);")
+          if [ -n "$PRERELEASE_CHANNEL" ]; then
+            for yml in out/latest*.yml; do
+              [ -f "$yml" ] || continue
+              cp "$yml" "${yml/out\/latest/out\/$PRERELEASE_CHANNEL}"
+            done
+          fi
           ls -la out
       - uses: actions/upload-artifact@v4
         with:

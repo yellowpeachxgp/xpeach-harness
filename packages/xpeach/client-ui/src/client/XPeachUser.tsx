@@ -7,7 +7,7 @@ import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { XPeachOnboardingScan, XPeachOps, XPeachUserSelfRow, XPeachUserTokenRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
 import { MacosInstallerCard } from './XPeachProfile.tsx'
-import { SOURCE_META } from './XPeachOnboarding.tsx'
+import { SOURCE_META, openXPeachLoginModal } from './XPeachOnboarding.tsx'
 import css from './xpeach.module.css'
 import { EditDrawer, DrawerField } from './XPeachDrawer.tsx'
 import { SITE } from './fmt.ts'
@@ -172,6 +172,14 @@ export function XPeachUser({
           <span className={css.emptyMark} aria-hidden="true">🍑</span>
           <p className={css.sparkTitle}>{t('user.needSession')}</p>
           <p className={css.bindHint}>{t('user.needSessionHint')}</p>
+          <button
+            type="button"
+            className={css.bindButton}
+            style={{ marginTop: '10px' }}
+            onClick={() => { openXPeachLoginModal(true) }}
+          >
+            {t('sso.loginBtn')}
+          </button>
         </div>
         <MacosInstallerCard t={t} macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />
         <ImportDeepseekCard t={t} run={importDeepseek} onboardingScan={onboardingScan} importConversations={importConversations} />
@@ -249,8 +257,14 @@ export function XPeachUser({
   return (
     <>
       {/* profile card */}
-      <section className={css.dailyBox}>
-        <p className={css.sparkTitle}>{t('user.profile')}</p>
+      <section className={css.bentoCard}>
+        <div className={css.bentoCardHead}>
+          <p className={css.sparkTitle}>{t('user.profile')}</p>
+          <button type="button" className={css.bindGhost} onClick={() => {
+            setEditOpen(v => !v)
+            if (me !== undefined && !('error' in me)) setEditDraft({ display_name: me.display_name ?? '', username: me.username ?? '', email: me.email ?? '', password: '', aff_code: me.aff_code ?? '' })
+          }}>{editOpen ? t('market.tryClose') : t('user.editProfile')}</button>
+        </div>
         {me !== undefined && 'error' in me && <p className={css.bindError}>{String(me.error)}</p>}
         {me !== undefined && !('error' in me) && (
           <dl className={css.usageGrid}>
@@ -261,10 +275,6 @@ export function XPeachUser({
             <div className={css.usageCell}><dt>{t('user.used')}</dt><dd>{me.used_quota !== undefined ? fmtQuota(me.used_quota) : '—'}</dd></div>
           </dl>
         )}
-        <button type="button" className={css.bindGhost} onClick={() => {
-          setEditOpen(v => !v)
-          if (me !== undefined && !('error' in me)) setEditDraft({ display_name: me.display_name ?? '', username: me.username ?? '', email: me.email ?? '', password: '', aff_code: me.aff_code ?? '' })
-        }}>{editOpen ? t('market.tryClose') : t('user.editProfile')}</button>
         {editOpen && (
           <EditDrawer
             actions={<button type="button" className={css.bindButton} onClick={() => { void doEditSave() }}>{t('admin.save')}</button>}>
@@ -281,17 +291,21 @@ export function XPeachUser({
       </section>
 
       {/* my tokens */}
-      <section className={css.dailyBox}>
-        <p className={css.sparkTitle}>{t('user.tokens')}{tokens !== undefined && !('error' in tokens) ? ` · ${tokens.total}` : ''}</p>
+      <section className={css.bentoCard}>
+        <div className={css.bentoCardHead}>
+          <p className={css.sparkTitle}>{t('user.tokens')}{tokens !== undefined && !('error' in tokens) ? ` · ${tokens.total}` : ''}</p>
+          {tokens !== undefined && !('error' in tokens) && (
+            <div className={css.bentoCardActions}>
+              {tokMsg !== null && <span className={css.bindHint}>{tokMsg}</span>}
+              <button type="button" className={css.bindButton} onClick={() => { setTokOpen(v => !v) }}>
+                {tokOpen ? t('market.tryClose') : t('user.newToken')}
+              </button>
+            </div>
+          )}
+        </div>
         {tokens !== undefined && 'error' in tokens && <p className={css.bindError}>{tokens.error}</p>}
         {tokens !== undefined && !('error' in tokens) && (
           <>
-            <div className={css.bindRow}>
-              <button type="button" className={css.bindGhost} onClick={() => { setTokOpen(v => !v) }}>
-                {tokOpen ? t('market.tryClose') : t('user.newToken')}
-              </button>
-              {tokMsg !== null && <span className={css.bindHint}>{tokMsg}</span>}
-            </div>
             {tokOpen && (
               <div className={css.chEdit}>
                 <label className={css.chField}>
@@ -370,70 +384,71 @@ export function XPeachUser({
         )}
       </section>
 
-      {/* redemption top-up */}
-      <section className={css.dailyBox}>
-        <p className={css.sparkTitle}>{t('user.topup')}</p>
-        <div className={css.bindRow}>
-          <input className={css.bindInput} type="text" placeholder={t('user.codePh')}
-            value={code} onChange={(e) => { setCode(e.target.value) }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !codeBusy) void doTopup() }} />
-          <button type="button" className={css.bindButton} disabled={codeBusy || code.trim().length < 8}
-            onClick={() => { void doTopup() }}>{codeBusy ? t('bind.working') : t('user.redeem')}</button>
-        </div>
-        {codeMsg !== null && <p className={css.bindHint}>{codeMsg}</p>}
-      </section>
+      {/* 2-Column Bento Row: Top-up & Payment + Referrals */}
+      <div className={css.bentoSplitRow}>
+        <section className={css.bentoCard}>
+          <p className={css.sparkTitle}>{t('user.pay')}</p>
+          <div className={css.bindRow}>
+            <select
+              className={css.bindInput}
+              value={method}
+              onChange={(e) => { setMethod(e.target.value); setPayPreview(null); setPayUrl(null) }}
+            >
+              <option value="stripe">{t('user.payStripeUsd')}</option>
+              <option value="stripe-cny">{t('user.payStripeCny')}</option>
+              <option value="nowpayments">{t('user.payNow')}</option>
+            </select>
+            <input className={css.bindInput} type="number" min={1} value={amount}
+              onChange={(e) => { setAmount(e.target.value); setPayPreview(null); setPayUrl(null) }} />
+            <button type="button" className={css.bindGhost} disabled={payBusy} onClick={() => { void doPreview() }}>{t('user.preview')}</button>
+            <button type="button" className={css.bindButton} disabled={payBusy || Number(amount) <= 0} onClick={() => { void doPay() }}>
+              {payBusy ? t('bind.working') : t('user.goPay')}
+            </button>
+          </div>
+          {payPreview !== null && <p className={css.bindHint}>{t('user.payPreview', { money: payPreview })}</p>}
+          {payUrl !== null && <p className={css.bindHint}>{t('user.payOpened')} <a href={payUrl} target="_blank" rel="noreferrer">{payUrl}</a></p>}
+          {payErr !== null && <p className={css.bindError}>{payErr}</p>}
 
-      {/* Stripe / payment shortcut */}
-      <section className={css.dailyBox}>
-        <p className={css.sparkTitle}>{t('user.pay')}</p>
-        <div className={css.bindRow}>
-          <select
-            className={css.bindInput}
-            value={method}
-            onChange={(e) => { setMethod(e.target.value); setPayPreview(null); setPayUrl(null) }}
-          >
-            <option value="stripe">{t('user.payStripeUsd')}</option>
-            <option value="stripe-cny">{t('user.payStripeCny')}</option>
-            <option value="nowpayments">{t('user.payNow')}</option>
-          </select>
-          <input className={css.bindInput} type="number" min={1} value={amount}
-            onChange={(e) => { setAmount(e.target.value); setPayPreview(null); setPayUrl(null) }} />
-          <button type="button" className={css.bindGhost} disabled={payBusy} onClick={() => { void doPreview() }}>{t('user.preview')}</button>
-          <button type="button" className={css.bindButton} disabled={payBusy || Number(amount) <= 0} onClick={() => { void doPay() }}>
-            {payBusy ? t('bind.working') : t('user.goPay')}
-          </button>
-        </div>
-        {payPreview !== null && <p className={css.bindHint}>{t('user.payPreview', { money: payPreview })}</p>}
-        {payUrl !== null && <p className={css.bindHint}>{t('user.payOpened')} <a href={payUrl} target="_blank" rel="noreferrer">{payUrl}</a></p>}
-        {payErr !== null && <p className={css.bindError}>{payErr}</p>}
-      </section>
+          <hr className={css.bentoDivider} />
 
-      {/* 邀请推广 */}
-      <section className={css.dailyBox}>
-        <p className={css.sparkTitle}>{t('user.aff')}</p>
-        {aff !== undefined && 'error' in aff && typeof aff.error === 'string' && <p className={css.bindError}>{aff.error}</p>}
-        {aff !== undefined && !('error' in aff) && (
-          <>
-            <dl className={css.usageGrid}>
-              <div className={css.usageCell}>
-                <dt>{t('user.affCode')}</dt>
-                <dd><code>{typeof aff['aff_code'] === 'string' ? aff['aff_code'] : '—'}</code></dd>
-              </div>
-              <div className={css.usageCell}><dt>{t('user.affQuota')}</dt><dd>{typeof aff['quota'] === 'number' ? fmtQuota(aff['quota']) : '—'}</dd></div>
-            </dl>
-            {typeof aff['aff_code'] === 'string' && aff['aff_code'] !== '' && (
-              <div className={css.bindRow}>
-                <code className={css.keyMask}>{`${SITE.register}?${new URLSearchParams({ aff: aff['aff_code'] }).toString()}`}</code>
-                <button type="button" className={css.bindGhost} onClick={() => {
-                  const affCode = typeof aff['aff_code'] === 'string' ? aff['aff_code'] : ''
-                  void navigator.clipboard.writeText(`${SITE.register}?${new URLSearchParams({ aff: affCode }).toString()}`)
-                  setEditMsg(t('bind.copied'))
-                }}>{t('bind.copyApi')}</button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
+          <p className={css.sparkTitle}>{t('user.topup')}</p>
+          <div className={css.bindRow}>
+            <input className={css.bindInput} type="text" placeholder={t('user.codePh')}
+              value={code} onChange={(e) => { setCode(e.target.value) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !codeBusy) void doTopup() }} />
+            <button type="button" className={css.bindButton} disabled={codeBusy || code.trim().length < 8}
+              onClick={() => { void doTopup() }}>{codeBusy ? t('bind.working') : t('user.redeem')}</button>
+          </div>
+          {codeMsg !== null && <p className={css.bindHint}>{codeMsg}</p>}
+        </section>
+
+        {/* 邀请推广 */}
+        <section className={css.bentoCard}>
+          <p className={css.sparkTitle}>{t('user.aff')}</p>
+          {aff !== undefined && 'error' in aff && typeof aff.error === 'string' && <p className={css.bindError}>{aff.error}</p>}
+          {aff !== undefined && !('error' in aff) && (
+            <>
+              <dl className={css.usageGrid}>
+                <div className={css.usageCell}>
+                  <dt>{t('user.affCode')}</dt>
+                  <dd><code>{typeof aff['aff_code'] === 'string' ? aff['aff_code'] : '—'}</code></dd>
+                </div>
+                <div className={css.usageCell}><dt>{t('user.affQuota')}</dt><dd>{typeof aff['quota'] === 'number' ? fmtQuota(aff['quota']) : '—'}</dd></div>
+              </dl>
+              {typeof aff['aff_code'] === 'string' && aff['aff_code'] !== '' && (
+                <div className={css.bindRow}>
+                  <code className={css.keyMask}>{`${SITE.register}?${new URLSearchParams({ aff: aff['aff_code'] }).toString()}`}</code>
+                  <button type="button" className={css.bindGhost} onClick={() => {
+                    const affCode = typeof aff['aff_code'] === 'string' ? aff['aff_code'] : ''
+                    void navigator.clipboard.writeText(`${SITE.register}?${new URLSearchParams({ aff: affCode }).toString()}`)
+                    setEditMsg(t('bind.copied'))
+                  }}>{t('bind.copyApi')}</button>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      </div>
       <MacosInstallerCard t={t} macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />
       <ImportDeepseekCard t={t} run={importDeepseek} onboardingScan={onboardingScan} importConversations={importConversations} />
     </>

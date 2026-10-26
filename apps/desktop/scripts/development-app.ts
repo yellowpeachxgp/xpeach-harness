@@ -15,6 +15,7 @@ export interface DevelopmentAppOptions {
   readonly rendererPort: number
   readonly hostPort: number
   readonly openDevtools: string
+  readonly primaryRuntime?: string
 }
 
 function quote(value: string): string { return `'${value.replaceAll("'", "'\\''")}'` }
@@ -26,9 +27,10 @@ function quote(value: string): string { return `'${value.replaceAll("'", "'\\''"
  */
 export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
   const source = dirname(dirname(dirname(options.electron)))
-  const bundle = join(options.directory, 'Harness Dev.app')
-  const executable = join(bundle, 'Contents', 'MacOS', 'HarnessDev')
-  const stamp = join(bundle, 'Contents', 'Resources', 'dsh-development.json')
+  rmSync(join(options.directory, 'Harness Dev.app'), { recursive: true, force: true })
+  const bundle = join(options.directory, 'XPeach Harness.app')
+  const executable = join(bundle, 'Contents', 'MacOS', 'XPeachHarness')
+  const stamp = join(bundle, 'Contents', 'Resources', 'xph-development.json')
   const launcher = developmentLauncher(options, bundle)
   const icon = join(options.appRoot, 'resources', 'icon.icns')
   const iconHash = existsSync(icon) ? createHash('sha256').update(readFileSync(icon)).digest('hex') : ''
@@ -39,11 +41,11 @@ export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
     if (existsSync(icon)) copyFileSync(icon, join(bundle, 'Contents', 'Resources', 'electron.icns'))
     const plist = join(bundle, 'Contents', 'Info.plist')
     const values = {
-      CFBundleIdentifier: `com.deepseek.harness.dev.${createHash('sha256').update(options.appRoot).digest('hex').slice(0, 12)}`,
-      CFBundleName: 'Harness Dev',
-      CFBundleDisplayName: 'Harness Dev',
-      CFBundleExecutable: 'HarnessDev',
-      CFBundleURLTypes: [{ CFBundleURLName: 'XPeach Harness', CFBundleURLSchemes: ['dsh'], CFBundleTypeRole: 'Viewer' }],
+      CFBundleIdentifier: `codes.xpeach.harness.dev.${createHash('sha256').update(options.appRoot).digest('hex').slice(0, 12)}`,
+      CFBundleName: 'XPeach Harness',
+      CFBundleDisplayName: 'XPeach Harness',
+      CFBundleExecutable: 'XPeachHarness',
+      CFBundleURLTypes: [{ CFBundleURLName: 'XPeach Harness', CFBundleURLSchemes: ['xph'], CFBundleTypeRole: 'Viewer' }],
     }
     for (const [key, value] of Object.entries(values)) {
       execFileSync('/usr/bin/plutil', ['-replace', key, '-json', JSON.stringify(value), plist])
@@ -64,10 +66,18 @@ export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
  */
 export function developmentLauncher(options: DevelopmentAppOptions, bundle: string): string {
   const environment = {
+    XPH_HOME: options.home,
     DSH_HOME: options.home,
+    XPH_DESKTOP_DEV_APP: '1',
     DSH_DESKTOP_DEV_APP: '1',
+    XPH_DESKTOP_HOST_INSPECT_PORT: String(options.hostPort),
     DSH_DESKTOP_HOST_INSPECT_PORT: String(options.hostPort),
+    XPH_DESKTOP_OPEN_DEVTOOLS: options.openDevtools,
     DSH_DESKTOP_OPEN_DEVTOOLS: options.openDevtools,
+    ...(options.primaryRuntime !== undefined && options.primaryRuntime !== '' ? {
+      XPH_DESKTOP_PRIMARY_RUNTIME_DIR: options.primaryRuntime,
+      DSH_DESKTOP_PRIMARY_RUNTIME_DIR: options.primaryRuntime,
+    } : {}),
     ELECTRON_ENABLE_LOGGING: '1',
   }
   const args = [

@@ -4,6 +4,10 @@ import type {
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
   XPeachModel,
+  XPeachSsoDevicePollRequest,
+  XPeachSsoDevicePollResult,
+  XPeachSsoDeviceStartRequest,
+  XPeachSsoDeviceStartResult,
   XPeachTokenLogEntry,
   XPeachTokenUsage,
 } from '@xpeach/xph-account/types'
@@ -12,6 +16,10 @@ export type {
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachSsoDevicePollRequest,
+  XPeachSsoDevicePollResult,
+  XPeachSsoDeviceStartRequest,
+  XPeachSsoDeviceStartResult,
 }
 
 /** One combined usage/log read outcome. */
@@ -299,6 +307,27 @@ export interface XPeachNetworkSnapshot {
   readonly history: Readonly<Record<string, readonly XPeachNetworkPoint[]>>
 }
 
+/** One active Cordis settings namespace entry returned by `settings.describe`. */
+export interface XPeachSettingsNamespaceItem {
+  readonly ns: string
+  readonly value: Readonly<Record<string, unknown>>
+  readonly base?: Readonly<Record<string, unknown>> | undefined
+  readonly user?: Readonly<Record<string, unknown>> | undefined
+  readonly revision: number
+}
+
+/** One mutation operation passed to `settings.mutate`. */
+export type XPeachSettingsMutationOp =
+  | {
+    readonly op: 'set'
+    readonly path: readonly string[]
+    readonly value: null | boolean | number | string | readonly (boolean | number | string)[] | Readonly<Record<string, unknown>>
+  }
+  | {
+    readonly op: 'unset'
+    readonly path: readonly string[]
+  }
+
 /** Operations the plugin injects into the Cordis-free components. */
 export interface XPeachOps {
   /** Read only the token usage summary (fast — one small request). */
@@ -338,6 +367,10 @@ export interface XPeachOps {
   readonly trackingState: () => Promise<boolean>
   /** Turn the tracking headers on or off for every product provider; null on success. */
   readonly setTracking: (enabled: boolean) => Promise<string | null>
+  /** Whether startup and settings changes automatically sync the site model catalog. */
+  readonly autoSyncModels?: () => Promise<boolean>
+  /** Enable or disable automatic site model catalog syncing; null on success. */
+  readonly setAutoSyncModels?: (enabled: boolean) => Promise<string | null>
   /** Which wire the catalogue routes prefer. */
   readonly protocolPreference: () => Promise<'compatible' | 'native' | 'auto'>
   /** Choose the wire preference and re-sync the catalogue; null on success. */
@@ -513,6 +546,24 @@ export interface XPeachOps {
   readonly macosInstallerAction: (
     action: 'build' | 'open' | 'reveal' | 'install-direct',
   ) => Promise<XPeachMacosInstallerActionResult | { error: string }>
+  /** Start an XPeach SSO Device Authorization session and optionally open the browser. */
+  readonly ssoDeviceStart?: (openBrowser?: boolean) => Promise<XPeachSsoDeviceStartResult | { error: string }>
+  /** Poll an XPeach SSO Device Authorization session once and bind credentials on approval. */
+  readonly ssoDevicePoll?: (deviceCode: string) => Promise<XPeachSsoDevicePollResult | { error: string }>
+  /** Self-revoke the active SSO session and clear all local credentials. */
+  readonly ssoLogout?: (allDevices?: boolean) => Promise<void>
+  /** Subscribe to session-expired / dynamic revocation events (`deepseek-account/session-expired`). */
+  readonly subscribeSessionExpired?: (fn: () => void) => () => void
+  /** Subscribe to model sign-in required events (`deepseek-account/model-sign-in-required`). */
+  readonly subscribeModelSignInRequired?: (fn: () => void) => () => void
+  /** Describe all active Cordis settings namespaces and their base/user/effective values. */
+  readonly describeSettings?: () => Promise<readonly XPeachSettingsNamespaceItem[] | { error: string }>
+  /** Apply one or more set/unset operations to a Cordis settings namespace. */
+  readonly mutateSettings?: (
+    ns: string,
+    ops: readonly XPeachSettingsMutationOp[],
+    expectedRevision?: number,
+  ) => Promise<XPeachSettingsNamespaceItem | { error: string }>
 }
 
 /** Admin-facing row aliases kept client-side (mirrors host types). */

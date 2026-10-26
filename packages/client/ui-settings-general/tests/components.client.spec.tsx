@@ -247,6 +247,49 @@ describe('current version', () => {
     const view = render(<CurrentVersionRow {...kit} t={t} />)
     expect(view.container.textContent).toBe('')
   })
+
+  it('renders the update check button and auto-update toggle beside the version when Desktop update is injected', () => {
+    vi.stubEnv('DSH_CLIENT_VERSION', '0.0.16-alpha')
+    const translate: TriggerContentProps['t'] = (key, params) => {
+      let text = (zh as Record<string, string>)[key] ?? key
+      for (const [name, value] of Object.entries(params ?? {})) text = text.replace(`{${name}}`, String(value))
+      return text
+    }
+    const openDesktopUpdate = vi.fn()
+    const refreshDesktopUpdate = vi.fn()
+    let state: DesktopUpdateView = { failed: false, opening: false, presentation: { phase: 'idle' } }
+    const view = render(
+      <CurrentVersionRow
+        {...kit}
+        t={translate}
+        useDesktopUpdate={select => select(state)}
+        openDesktopUpdate={openDesktopUpdate}
+        refreshDesktopUpdate={refreshDesktopUpdate}
+      />,
+    )
+    expect(screen.getByText('当前版本：0.0.16-alpha')).toBeTruthy()
+    expect(screen.getByText('已是最新版本')).toBeTruthy()
+    expect(refreshDesktopUpdate).toHaveBeenCalledOnce()
+    const checkBtn = screen.getByRole('button', { name: '检查更新' })
+    fireEvent.click(checkBtn)
+    expect(openDesktopUpdate).toHaveBeenCalledOnce()
+    const toggle = screen.getByRole('switch', { name: '自动检测并下载更新' })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    state = { failed: false, opening: false, presentation: { phase: 'available', version: '0.0.17-alpha' } }
+    view.rerender(
+      <CurrentVersionRow
+        {...kit}
+        t={translate}
+        useDesktopUpdate={select => select(state)}
+        openDesktopUpdate={openDesktopUpdate}
+        refreshDesktopUpdate={refreshDesktopUpdate}
+      />,
+    )
+    expect(screen.getByText('发现新版本 0.0.17-alpha')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '立即下载' })).toBeTruthy()
+  })
 })
 
 describe('Host release change confirmation', () => {

@@ -313,7 +313,7 @@ describe('session.export download endpoint', () => {
     )
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/zip')
-    expect(response.headers.get('content-disposition')).toContain('dsh-session-session-root.zip')
+    expect(response.headers.get('content-disposition')).toContain('xph-session-session-root.zip')
     const files = unzipSync(await responseBytes(response))
     expect(Object.keys(files)).toEqual([exportLogName])
     expect(strFromU8(files[exportLogName] as Uint8Array)).toBe(logText(stored))
@@ -328,7 +328,7 @@ describe('session.export download endpoint', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/zip')
-    expect(response.headers.get('content-disposition')).toContain('dsh-session-session-root.zip')
+    expect(response.headers.get('content-disposition')).toContain('xph-session-session-root.zip')
     expect(response.body).toBeNull()
     expect(open).toHaveBeenCalledOnce()
   })

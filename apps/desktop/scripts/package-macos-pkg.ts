@@ -1,6 +1,6 @@
 /**
  * Build, verify, and optionally install or open the macOS native `.pkg` guided
- * installer for XPeach Harness (`XPeach Harness.app` + `xph` & `dsh` CLI + `~/.xph`).
+ * installer for XPeach Harness (`XPeach Harness.app` + `xph` CLI + `~/.xph`).
  */
 
 import { resolve } from 'node:path'

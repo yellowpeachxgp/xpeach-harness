@@ -16,7 +16,72 @@ import type {
   XPeachModelPricingChange, XPeachModelPricingSnapshot,
   XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption, XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
   XPeachUserSelf, XPeachSelfLogPage, XPeachSelfLogStat,
+  XPeachSsoBridgePayload, XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
 } from './types.ts'
+
+/**
+ * Validate and normalize an XPeach SSO base URL.
+ * Only `https:` origins or loopback `http:` origins (`localhost`, `127.0.0.1`, `[::1]`)
+ * without embedded credentials are permitted.
+ *
+ * @param rawUrl - candidate SSO base URL string.
+ * @returns normalized origin URL without a trailing slash.
+ */
+export function validateSsoBaseUrl(rawUrl: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl.trim())
+  } catch {
+    throw new RemoteError('xpeach/invalid-sso-url', `xpeach: invalid SSO base URL: ${rawUrl}`, {})
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    throw new RemoteError('xpeach/invalid-sso-url', 'xpeach: SSO base URL must not contain embedded credentials', {})
+  }
+  const isHttps = parsed.protocol === 'https:'
+  const isLoopbackHttp = parsed.protocol === 'http:' && (
+    parsed.hostname === 'localhost'
+    || parsed.hostname === '127.0.0.1'
+    || parsed.hostname === '[::1]'
+    || parsed.hostname === '::1'
+  )
+  if (!isHttps && !isLoopbackHttp) {
+    throw new RemoteError('xpeach/invalid-sso-url', `xpeach: SSO base URL must use HTTPS or loopback HTTP (${parsed.origin})`, {})
+  }
+  return parsed.origin
+}
+
+/**
+ * Validate a browser verification URL returned by the SSO Device Authorization endpoint.
+ * Rejects non-HTTP(S) schemes (`javascript:`, `file:`, `data:`), embedded credentials,
+ * and non-HTTPS non-loopback origins.
+ *
+ * @param rawUrl - candidate verification URL or relative path.
+ * @param fallbackOrigin - validated SSO origin used to resolve relative URLs.
+ * @returns validated absolute URL string safe for opening in the user's browser.
+ */
+export function validateVerificationUrl(rawUrl: string, fallbackOrigin: string): string {
+  const safeOrigin = validateSsoBaseUrl(fallbackOrigin)
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl.trim(), safeOrigin)
+  } catch {
+    throw new RemoteError('xpeach/invalid-sso-url', `xpeach: invalid verification URL: ${rawUrl}`, {})
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    throw new RemoteError('xpeach/invalid-sso-url', 'xpeach: verification URL must not contain embedded credentials', {})
+  }
+  const isHttps = parsed.protocol === 'https:'
+  const isLoopbackHttp = parsed.protocol === 'http:' && (
+    parsed.hostname === 'localhost'
+    || parsed.hostname === '127.0.0.1'
+    || parsed.hostname === '[::1]'
+    || parsed.hostname === '::1'
+  )
+  if (!isHttps && !isLoopbackHttp) {
+    throw new RemoteError('xpeach/invalid-sso-url', `xpeach: verification URL must use HTTPS or loopback HTTP (${parsed.protocol})`, {})
+  }
+  return parsed.toString()
+}
 
 /** Configuration options for constructing an `XPeachApi` client. */
 export interface XPeachApiOptions {
@@ -32,6 +97,8 @@ export interface XPeachApiOptions {
   readonly resolveCookie: () => string | undefined
   /** Price sync-table persistence path; empty disables the disk layer. */
   readonly priceCacheFile?: string
+  /** Optional callback invoked when an authenticated endpoint rejects credentials with HTTP 401 or 403. */
+  readonly onAuthRejected?: ((status: 401 | 403, path: string, message: string) => void) | undefined
 }
 
 type GroupCatalog = Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }>
@@ -50,6 +117,7 @@ export class XPeachApi {
   private readonly resolveKey: () => Promise<string>
   private readonly resolveAdmin: () => string | undefined
   private readonly resolveCookie: () => string | undefined
+  private readonly onAuthRejected: ((status: 401 | 403, path: string, message: string) => void) | undefined
   private adminKeyOverride: string | undefined
   private sessionKeyOverride: string | undefined
   /**
@@ -91,6 +159,7 @@ export class XPeachApi {
     this.resolveKey = options.resolveKey
     this.resolveAdmin = options.resolveAdmin
     this.resolveCookie = options.resolveCookie
+    this.onAuthRejected = options.onAuthRejected
   }
 
   private currentAdmin(): string | undefined {
@@ -265,6 +334,17 @@ export class XPeachApi {
     const envelope = body as { success?: boolean; message?: string; data?: unknown; error?: { message?: string } } | undefined
     if (!response.ok || envelope?.success === false) {
       const message = envelope?.message ?? envelope?.error?.message ?? response.statusText
+      if ((response.status === 401 || response.status === 403) && this.onAuthRejected !== undefined) {
+        let pathname = url
+        try {
+          pathname = new URL(url).pathname
+        } catch {
+          // URL parsing failed; keep raw URL string.
+        }
+        if (pathname === '/api/user/self' || pathname.startsWith('/api/usage/token')) {
+          this.onAuthRejected(response.status, pathname, message)
+        }
+      }
       throw new RemoteError('xpeach/request-failed', 'xpeach: request rejected: ' + message, { status: response.status, message })
     }
     return (envelope?.data ?? body) as T
@@ -1185,5 +1265,302 @@ export class XPeachApi {
    */
   adminModelPricingPatch(changes: readonly XPeachModelPricingChange[], signal: AbortSignal): Promise<XPeachWriteResult> {
     return this.adminWrite('PATCH', '/api/option/model_pricing', { changes }, signal)
+  }
+
+  /* ---------- XPeach SSO Device Authorization & Bridge surfaces ---------- */
+
+  private ssoBaseURLOverride: string | undefined
+
+  private candidateSsoBaseURLs(ssoBaseURL: string): string[] {
+    const primary = validateSsoBaseUrl(this.ssoBaseURLOverride ?? ssoBaseURL)
+    const candidates = [primary]
+    const fallbackLocal = 'http://localhost:3000'
+    if (primary !== fallbackLocal) {
+      candidates.push(fallbackLocal)
+    }
+    return candidates
+  }
+
+  /**
+   * Initiate an XPeach SSO Device Authorization session (`POST /api/v1/device/authorize`).
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param clientId - registered client identifier.
+   * @param clientName - human-readable device/client label.
+   * @param signal - request cancellation signal.
+   * @returns device code, user code, verification URLs, and polling parameters.
+   */
+  async ssoDeviceAuthorize(
+    ssoBaseURL: string,
+    clientId: string,
+    clientName: string,
+    signal: AbortSignal,
+  ): Promise<Omit<XPeachSsoDeviceStartResult, 'browserOpened'>> {
+    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
+    let response: Response | undefined
+    let activeBase = candidates[0] ?? ssoBaseURL
+    let lastCause: unknown
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(`${candidate}/api/v1/device/authorize`, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            clientName,
+            scope: 'openid profile email offline_access peachcode:credentials',
+          }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
+        })
+        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
+          continue
+        }
+        response = res
+        activeBase = candidate
+        this.ssoBaseURLOverride = candidate
+        break
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        lastCause = cause
+      }
+    }
+    if (response === undefined) {
+      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${String(lastCause)}`, { status: 0, message: String(lastCause) })
+    }
+    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
+    if (!response.ok || body === undefined) {
+      const msg = typeof body?.['message'] === 'string'
+        ? body['message']
+        : typeof body?.['error'] === 'string'
+          ? body['error']
+          : response.statusText
+      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize rejected: ${msg}`, { status: response.status, message: msg })
+    }
+    const readStr = (val: unknown, fallback = ''): string => typeof val === 'string' ? val : fallback
+    const deviceCode = readStr(body['deviceCode'] ?? body['device_code'])
+    const userCode = readStr(body['userCode'] ?? body['user_code'])
+    const rawVerificationUri = readStr(body['verificationUri'] ?? body['verification_uri'], `${activeBase}/device`)
+    const verificationUri = validateVerificationUrl(rawVerificationUri, activeBase)
+    const rawVerificationUriComplete = readStr(
+      body['verificationUriComplete'] ?? body['verification_uri_complete'],
+      `${verificationUri}?code=${encodeURIComponent(userCode)}`,
+    )
+    const verificationUriComplete = validateVerificationUrl(rawVerificationUriComplete, activeBase)
+    const expiresIn = typeof body['expiresIn'] === 'number'
+      ? body['expiresIn']
+      : typeof body['expires_in'] === 'number'
+        ? body['expires_in']
+        : 600
+    const interval = typeof body['interval'] === 'number' && body['interval'] > 0 ? body['interval'] : 2
+    if (deviceCode.length === 0 || userCode.length === 0) {
+      throw new RemoteError('xpeach/request-failed', 'xpeach: SSO device authorize returned incomplete codes', { status: response.status, message: 'incomplete device payload' })
+    }
+    return {
+      deviceCode,
+      userCode,
+      verificationUri,
+      verificationUriComplete,
+      expiresIn,
+      interval,
+    }
+  }
+
+  /**
+   * Poll the XPeach SSO Device Token endpoint (`POST /api/v1/device/token`).
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param clientId - registered client identifier.
+   * @param deviceCode - opaque device code from `ssoDeviceAuthorize`.
+   * @param signal - request cancellation signal.
+   * @returns current device authorization status and bridged credentials when approved.
+   */
+  async ssoDeviceToken(
+    ssoBaseURL: string,
+    clientId: string,
+    deviceCode: string,
+    signal: AbortSignal,
+  ): Promise<{
+    readonly status: 'pending' | 'approved' | 'expired' | 'denied' | 'error'
+    readonly message?: string | undefined
+    readonly payload?: XPeachSsoBridgePayload | undefined
+  }> {
+    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
+    let response: Response | undefined
+    let lastCause: unknown
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(`${candidate}/api/v1/device/token`, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, deviceCode }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
+        })
+        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
+          continue
+        }
+        response = res
+        this.ssoBaseURLOverride = candidate
+        break
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        lastCause = cause
+      }
+    }
+    if (response === undefined) {
+      return { status: 'error', message: String(lastCause) }
+    }
+    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
+    if (body === undefined) {
+      return { status: 'error', message: `HTTP ${String(response.status)}` }
+    }
+    const rawStatus = typeof body['status'] === 'string'
+      ? body['status']
+      : typeof body['error'] === 'string'
+        ? body['error']
+        : ''
+    if (rawStatus === 'authorization_pending' || rawStatus === 'pending' || rawStatus === 'slow_down') {
+      return { status: 'pending' }
+    }
+    if (rawStatus === 'expired_token' || rawStatus === 'expired' || rawStatus === 'invalid_grant') {
+      return { status: 'expired', message: typeof body['message'] === 'string' ? body['message'] : '验证码已过期' }
+    }
+    if (rawStatus === 'access_denied' || rawStatus === 'denied') {
+      return { status: 'denied', message: typeof body['message'] === 'string' ? body['message'] : '已拒绝授权' }
+    }
+    if (body['ok'] === true || rawStatus === 'approved') {
+      return {
+        status: 'approved',
+        payload: {
+          sso: body['sso'] as XPeachSsoBridgePayload['sso'],
+          peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
+        },
+      }
+    }
+    return {
+      status: 'error',
+      message: typeof body['message'] === 'string' ? body['message'] : (rawStatus || `HTTP ${String(response.status)}`),
+    }
+  }
+
+  /**
+   * Fetch or refresh PeachCode (NewAPI) credentials from XPeach SSO using a
+   * previously issued SSO Bearer `AccessToken` (`POST /api/v1/peachcode/credentials`).
+   * Distinguishes definitive revocation/ban (`401`/`403` -> `status: 'revoked'`)
+   * from transient network or 5xx failures (`status: 'transient_error'`).
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
+   * @param signal - request cancellation signal.
+   * @returns credential sync status and payload when valid.
+   */
+  async ssoPeachcodeCredentials(
+    ssoBaseURL: string,
+    ssoAccessToken: string,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoCredentialSyncResult> {
+    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
+    let response: Response | undefined
+    let lastCause: unknown
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(`${candidate}/api/v1/peachcode/credentials`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${ssoAccessToken}`,
+          },
+          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
+        })
+        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
+          continue
+        }
+        response = res
+        this.ssoBaseURLOverride = candidate
+        break
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        lastCause = cause
+      }
+    }
+    if (response === undefined) {
+      return {
+        status: 'transient_error',
+        message: String(lastCause),
+      }
+    }
+    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
+    if (response.status === 401 || response.status === 403) {
+      const msg = typeof body?.['message'] === 'string'
+        ? body['message']
+        : typeof body?.['error'] === 'string'
+          ? body['error']
+          : response.statusText
+      return {
+        status: 'revoked',
+        code: response.status,
+        message: msg || (response.status === 403 ? 'Account has been disabled' : 'SSO session expired or revoked'),
+      }
+    }
+    if (!response.ok || body?.['ok'] !== true) {
+      const msg = typeof body?.['message'] === 'string'
+        ? body['message']
+        : typeof body?.['error'] === 'string'
+          ? body['error']
+          : response.statusText
+      return {
+        status: 'transient_error',
+        message: msg || `HTTP ${String(response.status)}`,
+      }
+    }
+    return {
+      status: 'ok',
+      payload: {
+        sso: body['sso'] as XPeachSsoBridgePayload['sso'],
+        peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
+      },
+    }
+  }
+
+  /**
+   * Self-revoke the active SSO session and optionally all device tokens and
+   * PeachCode credentials (`POST /api/v1/peachcode/revoke` Mode B).
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoAccessToken - active SSO Bearer access token (`xph_at_...`).
+   * @param options - revocation scope flags (`allDevices`, `revokePeachcode`).
+   * @param signal - request cancellation signal.
+   * @returns `true` when the SSO server acknowledged revocation.
+   */
+  async ssoRevokeToken(
+    ssoBaseURL: string,
+    ssoAccessToken: string,
+    options: XPeachSsoRevokeRequest,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
+    for (const candidate of candidates) {
+      try {
+        const res = await fetch(`${candidate}/api/v1/peachcode/revoke`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ssoAccessToken}`,
+          },
+          body: JSON.stringify({
+            allDevices: options.allDevices ?? false,
+            revokePeachcode: options.revokePeachcode ?? false,
+          }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
+        })
+        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
+          continue
+        }
+        return res.ok
+      } catch (cause) {
+        if (signal.aborted) throw cause
+      }
+    }
+    return false
   }
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
-import type { XPeachOps, XPeachOnboardingScan } from './ops.ts'
+import type { XPeachOps, XPeachOnboardingScan, XPeachSsoDeviceStartResult } from './ops.ts'
 import { XPeachMark as XPeachMarkInline } from './brand.tsx'
 import { SITE } from './fmt.ts'
 import css from './xpeach.module.css'
@@ -17,6 +17,19 @@ type Status = 'pending' | 'running' | 'done' | 'error'
 interface ProgressItem { readonly id: string; readonly label: string; status: Status }
 
 const STEPS: readonly StepId[] = ['welcome', 'login', 'sources', 'extras', 'done']
+
+type LoginModalListener = (autoStartSso: boolean) => void
+const loginModalListeners = new Set<LoginModalListener>()
+
+/**
+ * Open the XPeach login modal overlay from any client UI surface.
+ * @param autoStartSso - when true, immediately starts the SSO Device Flow.
+ */
+export function openXPeachLoginModal(autoStartSso = false): void {
+  for (const listener of loginModalListeners) {
+    listener(autoStartSso)
+  }
+}
 
 /**
  * Whether the desktop shell demands a bound token before the workspace opens.
@@ -43,18 +56,56 @@ export const SOURCE_META: Record<string, { icon: string; key: string }> = {
  * @returns the modal element, or null when closed.
  */
 export function XPeachOnboarding({
-  t, bind, sessionLogin, keyState, sessionBound, onboardingScan,
+  t, bind, sessionLogin, ssoDeviceStart, ssoDevicePoll, subscribeSessionExpired, subscribeModelSignInRequired,
+  keyState, sessionBound, onboardingScan,
   importConversations, importAssets, onboardingDone, onboardingComplete,
 }: Props): JSX.Element | null {
   const [stage, setStage] = useState<Stage>('check')
+  const [standaloneLogin, setStandaloneLogin] = useState(false)
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ssoSession, setSsoSession] = useState<XPeachSsoDeviceStartResult | null>(null)
+  const [ssoCodeCopied, setSsoCodeCopied] = useState(false)
   const [scan, setScan] = useState<XPeachOnboardingScan | undefined>(undefined)
   const [picked, setPicked] = useState<readonly string[]>([])
   const [assets, setAssets] = useState({ mcp: true, skills: true, prompts: true })
   const [progress, setProgress] = useState<readonly ProgressItem[]>([])
   const [summary, setSummary] = useState({ threads: 0, skills: 0, prompts: 0, mcp: 0 })
+
+  useEffect(() => {
+    const onOpenModal: LoginModalListener = (autoStartSso) => {
+      setStandaloneLogin(true)
+      setError(null)
+      setStage('login')
+      if (autoStartSso) {
+        void doSsoDevice()
+      }
+    }
+    loginModalListeners.add(onOpenModal)
+    return () => {
+      loginModalListeners.delete(onOpenModal)
+    }
+  })
+
+  useEffect(() => {
+    const offExpired = subscribeSessionExpired?.(() => {
+      setStandaloneLogin(true)
+      setSsoSession(null)
+      setError(t('sso.sessionRevokedNotice'))
+      setStage('login')
+    })
+    const offModelSignIn = subscribeModelSignInRequired?.(() => {
+      setStandaloneLogin(true)
+      setSsoSession(null)
+      setError(t('sso.modelSignInRequiredNotice'))
+      setStage('login')
+    })
+    return () => {
+      offExpired?.()
+      offModelSignIn?.()
+    }
+  }, [subscribeSessionExpired, subscribeModelSignInRequired, t])
 
   useEffect(() => {
     let live = true
@@ -77,6 +128,37 @@ export function XPeachOnboarding({
 
   const sourceList = useMemo(() => scan?.sources.filter(source => source.found) ?? [], [scan])
   const hasAssets = (scan?.mcp.length ?? 0) + (scan?.skills.length ?? 0) + (scan?.prompts.length ?? 0) > 0
+
+  useEffect(() => {
+    if (stage !== 'login' || ssoSession === null || ssoDevicePoll === undefined) return
+    let active = true
+    const intervalMs = Math.max(1500, (ssoSession.interval || 2) * 1000)
+    const timer = setInterval(() => {
+      void ssoDevicePoll(ssoSession.deviceCode).then((res) => {
+        if (!active) return
+        if ('error' in res) {
+          setError(res.error)
+          setSsoSession(null)
+          return
+        }
+        if (res.status === 'approved') {
+          setSsoSession(null)
+          setError(null)
+          setStage(standaloneLogin ? 'closed' : 'sources')
+        } else if (res.status === 'expired') {
+          setError(res.message ?? t('sso.expired'))
+          setSsoSession(null)
+        } else if (res.status === 'denied') {
+          setError(res.message ?? t('sso.denied'))
+          setSsoSession(null)
+        }
+      })
+    }, intervalMs)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [stage, ssoSession, ssoDevicePoll, standaloneLogin, t])
 
   const goLoginOrSources = async (): Promise<void> => {
     const [k, s] = await Promise.all([keyState().catch(() => null), sessionBound().catch(() => null)])
@@ -191,20 +273,84 @@ export function XPeachOnboarding({
                 <h2>{t('onb.loginTitle')}</h2>
                 {t('onb.loginSub') !== '' && <p>{t('onb.loginSub')}</p>}
               </div>
-              <div className={css.onbLoginCard}>
-                <label className={css.onbLabel}>{t('onb.loginToken')}</label>
-                <input className={css.bindInput} type="password" placeholder={t('bind.placeholder')}
-                  value={key} onChange={(e) => { setKey(e.target.value) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !busy) { void doBind() } }} />
-                <p className={css.onbHint}><a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a>{t('onb.loginPrivacy') !== '' && ` · ${t('onb.loginPrivacy')}`}</p>
-                {error !== null && <p className={css.bindError}>{error}</p>}
-              </div>
+              {ssoSession !== null ? (
+                <div className={css.onbLoginCard}>
+                  <label className={css.onbLabel}>{t('sso.waitingTitle')}</label>
+                  <p className={css.onbHint}>{t('sso.userCodeLabel')}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '8px 0', flexWrap: 'wrap' }}>
+                    <code className={css.keyMask} style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '0.14em', padding: '8px 16px' }}>
+                      {ssoSession.userCode}
+                    </code>
+                    <button
+                      type="button"
+                      className={css.onbPrimary}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(ssoSession.userCode)
+                        setSsoCodeCopied(true)
+                        setTimeout(() => { setSsoCodeCopied(false) }, 1500)
+                      }}
+                    >
+                      {ssoCodeCopied ? t('bind.copied') : t('sso.copyCode')}
+                    </button>
+                    <a
+                      href={ssoSession.verificationUriComplete}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={css.onbGhost}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      {t('sso.openBrowserAgain')}
+                    </a>
+                  </div>
+                  <p className={css.onbHint}>{t('sso.pollingHint')}</p>
+                  {error !== null && <p className={css.bindError}>{error}</p>}
+                </div>
+              ) : (
+                <div className={css.onbLoginCard}>
+                  {ssoDeviceStart !== undefined && (
+                    <div style={{ marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.1))' }}>
+                      <button
+                        type="button"
+                        className={css.onbPrimary}
+                        style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', fontSize: '14px' }}
+                        disabled={busy}
+                        onClick={() => { void doSsoDevice() }}
+                      >
+                        {busy ? t('sso.starting') : t('sso.loginBtn')}
+                      </button>
+                    </div>
+                  )}
+                  <label className={css.onbLabel}>{t('onb.loginToken')}</label>
+                  <input className={css.bindInput} type="password" placeholder={t('bind.placeholder')}
+                    value={key} onChange={(e) => { setKey(e.target.value) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !busy) { void doBind() } }} />
+                  <p className={css.onbHint}><a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a>{t('onb.loginPrivacy') !== '' && ` · ${t('onb.loginPrivacy')}`}</p>
+                  {error !== null && <p className={css.bindError}>{error}</p>}
+                </div>
+              )}
               <div className={css.onbFooter}>
-                <button type="button" className={css.onbPrimary} disabled={busy || key.trim() === ''} onClick={() => { void doBind() }}>
-                  {busy ? t('bind.working') : t('bind.submit')}
-                </button>
-                <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { void doBrowser() }}>{t('onb.loginBrowser')}</button>
-                {!authGateRequired() && <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { setStage('sources') }}>{t('onb.loginLater')}</button>}
+                {ssoSession !== null ? (
+                  <button type="button" className={css.onbGhost} onClick={() => { setSsoSession(null) }}>
+                    {t('sso.cancel')}
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className={css.onbPrimary} disabled={busy || key.trim() === ''} onClick={() => { void doBind() }}>
+                      {busy ? t('bind.working') : t('bind.submit')}
+                    </button>
+                    <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { void doBrowser() }}>{t('onb.loginBrowser')}</button>
+                  </>
+                )}
+                {!authGateRequired() && (
+                  <button
+                    type="button"
+                    className={css.onbGhost}
+                    disabled={busy}
+                    onClick={() => { setStage(standaloneLogin ? 'closed' : 'sources') }}
+                  >
+                    {t('onb.loginLater')}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -340,7 +486,7 @@ export function XPeachOnboarding({
     const err = await bind(key.trim())
     setBusy(false)
     if (err !== null) { setError(err); return }
-    setStage('sources')
+    setStage(standaloneLogin ? 'closed' : 'sources')
   }
 
   async function doBrowser(): Promise<void> {
@@ -348,6 +494,21 @@ export function XPeachOnboarding({
     const r = await sessionLogin()
     setBusy(false)
     if (!r.bound) { setError(r.error ?? t('status.error')); return }
-    setStage('sources')
+    setStage(standaloneLogin ? 'closed' : 'sources')
+  }
+
+  async function doSsoDevice(): Promise<void> {
+    if (ssoDeviceStart === undefined) return
+    setBusy(true); setError(null)
+    const r = await ssoDeviceStart(true)
+    setBusy(false)
+    if ('error' in r) {
+      setError(r.error)
+      return
+    }
+    setSsoSession(r)
+    if (!r.browserOpened && typeof window !== 'undefined') {
+      window.open(r.verificationUriComplete, '_blank', 'noopener,noreferrer')
+    }
   }
 }
