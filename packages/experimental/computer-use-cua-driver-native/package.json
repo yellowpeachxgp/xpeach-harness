@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-computer-use-cua-driver-native",
   "description": "Experimental computer-use provider embedding the Cua Driver native npm SDK",
-  "version": "0.0.17-alpha",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },
