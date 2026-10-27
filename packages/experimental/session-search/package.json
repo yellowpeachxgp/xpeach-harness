@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-session-search",
   "description": "Give Agents tools to search and read earlier sessions from the current workspace.",
-  "version": "0.0.17-alpha",
+  "version": "0.0.18-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
