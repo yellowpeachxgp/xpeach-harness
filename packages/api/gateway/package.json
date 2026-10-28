@@ -63,7 +63,7 @@
     "@xpeach/xph-deque": "workspace:*",
     "@xpeach/xph-timeout": "workspace:*",
     "@xpeach/xph-schemastery": "workspace:~",
-    "ws": "^8.21.3",
+    "ws": "^8.22.0",
     "@xpeach/xph-typert-protocol": "workspace:*"
   },
   "peerDependencies": {

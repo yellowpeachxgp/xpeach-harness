@@ -59,7 +59,7 @@
     "typescript": "^6.0.3",
     "vite": "^6.4.3",
     "vitest": "^4.1.11",
-    "ws": "8.21.3",
+    "ws": "8.22.0",
     "@xpeach/xph-client-ui-theme": "workspace:*",
     "@xpeach/xph-launch-environment": "workspace:*",
     "@xpeach/xph-workspace-changes": "workspace:*",
