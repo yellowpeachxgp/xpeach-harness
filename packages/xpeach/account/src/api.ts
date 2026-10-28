@@ -52,13 +52,24 @@ export function validateSsoBaseUrl(rawUrl: string): string {
 
 /**
  * Resolve the validated candidate SSO origin list for a configured SSO base URL.
- * Never falls back to plaintext loopback (`http://localhost:3000`).
+ * Loopback (`http://localhost:3000`) is a dev convenience and is appended only
+ * when XPEACH_SSO_DEV_LOCAL=1 and no explicit XPEACH_SSO_URL is configured.
  *
  * @param ssoBaseURL - configured SSO base URL.
- * @returns single-element array containing the normalized SSO origin.
+ * @returns candidate SSO origins, with loopback appended only in dev mode.
  */
 export function candidateSsoBaseURLs(ssoBaseURL: string): string[] {
-  return [validateSsoBaseUrl(ssoBaseURL)]
+  const primary = validateSsoBaseUrl(ssoBaseURL)
+  const candidates = [primary]
+  const fallbackLocal = 'http://localhost:3000'
+  // Loopback probing is a dev convenience — anything bound to :3000 can
+  // intercept device codes. Requires XPEACH_SSO_DEV_LOCAL=1 AND no explicit
+  // XPEACH_SSO_URL (an explicit URL is a declaration, never a probe hint).
+  const devLocal = process.env.XPEACH_SSO_DEV_LOCAL === '1' && !process.env.XPEACH_SSO_URL?.trim()
+  if (devLocal && primary !== fallbackLocal) {
+    candidates.push(fallbackLocal)
+  }
+  return candidates
 }
 
 /**
@@ -1355,7 +1366,7 @@ export class XPeachApi {
    * Resolve the validated candidate SSO origin list for a configured SSO base URL.
    *
    * @param ssoBaseURL - configured SSO base URL.
-   * @returns single-element array containing the normalized SSO origin.
+   * @returns candidate SSO origins, with loopback appended only in dev mode.
    */
   candidateSsoBaseURLs(ssoBaseURL: string): string[] {
     return candidateSsoBaseURLs(ssoBaseURL)

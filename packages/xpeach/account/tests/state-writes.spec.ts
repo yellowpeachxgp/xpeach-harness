@@ -22,6 +22,7 @@ import {
   scanOnboarding,
   writeMcpPatchEntries,
 } from '../src/onboarding.ts'
+import { XPeachApi } from '../src/api.ts'
 import {
   XPeachAccount,
   XPeachDeepSeekAccount,
@@ -1352,5 +1353,55 @@ describe('account state writes on a fresh install', () => {
     expect(cat.groups.map(g => g.name)).toEqual(['SWE', 'DeepSeek Flash'])
     expect(cat.tokenGroups).toEqual(['SWE'])
     expect(adminTokenUpdate).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ssoBaseURL fallback gating', () => {
+  const makeApi = () => new XPeachApi({
+    baseURL: 'https://fast.xpeach.codes',
+    timeoutMs: 1500,
+    resolveKey: async () => 'key',
+    resolveAdmin: () => undefined,
+    resolveCookie: () => undefined,
+  })
+  const authorize = (api: XPeachApi) =>
+    api.ssoDeviceAuthorize('https://sso.xpeach.codes', 'xpeach-harness', 'dev', new AbortController().signal)
+  const stubFetch404 = () => {
+    const calls: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      calls.push(String(input))
+      return new Response(JSON.stringify({ error: 'not_found' }), { status: 404 })
+    }))
+    return calls
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.XPEACH_SSO_DEV_LOCAL
+    delete process.env.XPEACH_SSO_URL
+  })
+
+  it('probes localhost:3000 only when XPEACH_SSO_DEV_LOCAL=1 and XPEACH_SSO_URL is unset', async () => {
+    process.env.XPEACH_SSO_DEV_LOCAL = '1'
+    const calls = stubFetch404()
+    await expect(authorize(makeApi())).rejects.toThrow()
+    expect(calls).toEqual([
+      'https://sso.xpeach.codes/api/v1/device/authorize',
+      'http://localhost:3000/api/v1/device/authorize',
+    ])
+  })
+
+  it('never probes localhost:3000 by default', async () => {
+    const calls = stubFetch404()
+    await expect(authorize(makeApi())).rejects.toThrow()
+    expect(calls).toEqual(['https://sso.xpeach.codes/api/v1/device/authorize'])
+  })
+
+  it('never probes localhost:3000 when XPEACH_SSO_URL is set', async () => {
+    process.env.XPEACH_SSO_DEV_LOCAL = '1'
+    process.env.XPEACH_SSO_URL = 'https://sso.xpeach.codes'
+    const calls = stubFetch404()
+    await expect(authorize(makeApi())).rejects.toThrow()
+    expect(calls).toEqual(['https://sso.xpeach.codes/api/v1/device/authorize'])
   })
 })
