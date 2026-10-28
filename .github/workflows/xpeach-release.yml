@@ -252,7 +252,7 @@ jobs:
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
           else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
           fi
           gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
           ASSETS=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
