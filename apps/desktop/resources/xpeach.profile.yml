@@ -4,11 +4,7 @@
   name: "@xpeach/xph-client-ui-settings-general"
   config:
     welcomeNoticeVersion: 2026-09-28.1
-- id: ui-settings-account
-  disabled: true
 - id: deepseek-account
-  disabled: true
-- id: account-controller
   disabled: true
 - id: plugin-package-inventory-deepseek
   disabled: true
@@ -16,8 +12,14 @@
   disabled: true
 - id: session-log-deepseek
   disabled: true
+- id: session-telemetry-otel
+  disabled: true
+- id: llm-deepseek-account
+  disabled: true
+- id: ui-deepseek-model-label-1017
+  disabled: true
 - id: llm-deepseek
-  disabled: true # 站点目录无 deepseek-* 模型(实测 /v1/models 仅 swe-2-max);启用即报 AUTH
+  disabled: true # Disabled: models are served through the xpeach provider in llm-pi-ai.
   name: "@xpeach/xph-llm-deepseek-api-key"
   config:
     apiKeyEnv: XPEACH_RELAY_KEY
@@ -53,6 +55,7 @@
   config:
     provider: xpeach
     model: swe-2-max
+    reasoningEffort: high
 - id: llm-pi-ai
   name: "@xpeach/xph-llm-pi-ai"
   config:
@@ -62,6 +65,10 @@
         apiKeyEnv: XPEACH_RELAY_KEY
         api: openai-completions
         baseURL: https://fast.xpeach.codes/v1
+        defaultInput:
+          - text
+          - image
+        reasoning: high
         # The catalog is not frozen here: the account plugin writes the site's
         # live model list into this namespace at boot and after every bind.
 
@@ -100,4 +107,9 @@
   config:
     default: standard
     selectedDefault: ptc
+- id: session-persistence-jsonl
+  name: "@xpeach/xph-session-persistence-jsonl"
+  config:
+    root: !!js dshHomePath('sessions')
+    listConcurrency: 32
 

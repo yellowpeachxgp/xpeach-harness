@@ -224,6 +224,24 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
 }
 
 /**
+ * Conversation tracking headers for one request.
+ * @param sessionId - Session the request belongs to.
+ * @param enabled - Whether the profile wants tracking headers.
+ * @returns Headers to merge into the request.
+ */
+export function conversationHeaders(sessionId: string | undefined, enabled: boolean): Record<string, string> {
+  if (!enabled || sessionId === undefined) return {}
+  return {
+    'X-Session-ID': sessionId,
+    'session-id': sessionId,
+    'X-Conversation-ID': sessionId,
+    'thread-id': sessionId,
+    'X-Client-Request-ID': sessionId,
+    'prompt_cache_key': sessionId,
+  }
+}
+
+/**
  * pi-ai-backed multi-provider adapter. Each operation reads the current
  * profiles, so a configuration change reaches the next request without a
  * restart; model descriptors come from the collection those profiles built.
@@ -282,9 +300,6 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
-    // The configured name, not the route key: `displayName` exists so a
-    // deployment can label a route, and a label only the configuration surface
-    // reads would leave every selector showing the raw key.
     return { id: provider, name: this.current().profiles.get(provider)?.displayName ?? provider }
   }
 
@@ -421,7 +436,13 @@ export class PiAiAdapter extends LlmAdapter {
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
-        headers: requestHeaders(profile.headers),
+        headers: {
+          ...requestHeaders(profile.headers),
+          ...conversationHeaders(
+            options.sessionId === undefined ? undefined : String(options.sessionId),
+            profile.conversationTracking !== false,
+          ),
+        },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false

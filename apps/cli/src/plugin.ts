@@ -7,6 +7,11 @@ import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
+function isDesktopProfile(profile: string): boolean {
+  const lower = profile.toLowerCase()
+  return lower === 'desktop' || lower === 'xpeach-desktop'
+}
+
 function requireDesktopProfile(dir: string): void {
   if (!existsSync(join(dir, 'package.json'))) {
     throw new Error('Open DeepSeek Harness Desktop once to initialize its profile, then fully quit it before running dsh plugin --profile desktop.')
@@ -41,9 +46,9 @@ async function versionCommand(profile: string, args: readonly string[]): Promise
       process.stderr.write('dsh: warning: allowing incompatible plugin versions can break the application or corrupt data. Approval applies only to the exact package and DSH versions.\n')
     }
     const dir = resolveProfileDir(profile)
-    if (profile !== 'desktop') await mkdir(dir, { recursive: true })
+    if (!isDesktopProfile(profile)) await mkdir(dir, { recursive: true })
     await withFileLock(join(dir, 'package.json'), async () => {
-      if (profile === 'desktop') requireDesktopProfile(dir)
+      if (isDesktopProfile(profile)) requireDesktopProfile(dir)
       else if (!existsSync(join(dir, 'package.json'))) initProfile(dir, PROFILE_TEMPLATES[profile]?.bundles ?? DEFAULT_PROFILE_BUNDLES)
       if (request === undefined) {
         const { exemptions, warnings } = readProfileCompatibility(dir)
@@ -68,7 +73,7 @@ async function versionCommand(profile: string, args: readonly string[]): Promise
  * @returns Zero on success; nonzero on invalid approval or package-manager failure.
  */
 export async function runPlugin(profile: string, args: readonly string[], packageManager?: ProfileContext['packageManager']): Promise<number> {
-  if (profile === 'desktop') {
+  if (isDesktopProfile(profile)) {
     try { requireDesktopProfile(resolveProfileDir(profile)) } catch (error) {
       process.stderr.write(`dsh: ${String(error)}\n`)
       return 1
@@ -89,7 +94,7 @@ export async function runPlugin(profile: string, args: readonly string[], packag
     lookupTimeoutMs: 120000,
     onOutput: (text, stream) => { process[stream].write(text) },
   }
-  const result = profile === 'desktop'
+  const result = isDesktopProfile(profile)
     ? await withFileLock(join(dir, 'package.json'), async () => {
       requireDesktopProfile(dir)
       return runProfilePnpm(context, args, options)

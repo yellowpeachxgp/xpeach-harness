@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-client-ui-cot-translation",
   "description": "Optional machine translation of expanded reasoning, preserving original Session text",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },

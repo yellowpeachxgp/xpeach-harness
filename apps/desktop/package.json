@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-desktop",
   "description": "Electron desktop shell for a bundled dsh runtime and external plugins",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -26,6 +26,7 @@
     "check:package": "tsx scripts/package-target.ts --check",
     "restore:mac-proxy": "tsx scripts/macos-notarization-proxy.ts",
     "package:dir": "tsx scripts/package-target.ts --dir",
+    "package:mac:pkg": "tsx scripts/package-macos-pkg.ts",
     "package:mac:arm64": "tsx scripts/package-target.ts mac-arm64",
     "package:mac:arm64:unsigned": "tsx scripts/package-target.ts mac-arm64 --unsigned",
     "package:mac:arm64:dir": "tsx scripts/package-target.ts mac-arm64 --dir",

@@ -177,6 +177,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [candidateQuery, setCandidateQuery] = useState('')
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
+  // Active drag source index shared across rows so drop targets can accept the move.
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
   // `1000` to `1K` mid-word. Unreadable text is kept past blur so the refusal
@@ -220,11 +222,47 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     })
   }
 
+  const reindexOnMove = (at: number, from: number, to: number): number => {
+    if (at === from) return to
+    if (from < to && at > from && at <= to) return at - 1
+    if (from > to && at >= to && at < from) return at + 1
+    return at
+  }
+
+  /**
+   * Move one model to another position.
+   *
+   * Order is the profile's own array order, so a move is a splice rather than a
+   * stored index: every later edit keeps addressing the model, not the slot.
+   * @param from - index being dragged.
+   * @param to - index it should land on.
+   */
+  const reorder = (from: number, to: number): void => {
+    if (from === to || from < 0 || to < 0 || from >= models.length || to >= models.length) return
+    const next = [...models]
+    const [moved] = next.splice(from, 1)
+    if (moved === undefined) return
+    next.splice(to, 0, moved)
+    onChange(next)
+    setExpanded((current) => {
+      const movedSet = new Set<number>()
+      for (const at of current) movedSet.add(reindexOnMove(at, from, to))
+      return movedSet
+    })
+    setEditing((current) => {
+      const movedMap = new Map<string, string>()
+      for (const [key, value] of current) {
+        const colon = key.indexOf(':')
+        const at = reindexOnMove(Number(key.slice(0, colon)), from, to)
+        movedMap.set(`${String(at)}${key.slice(colon)}`, value)
+      }
+      return movedMap
+    })
+  }
+
   const patch = (index: number, next: Record<string, string | number | undefined>): void => {
     onChange(models.map((model, at) => {
       if (at !== index) return model
-      // Rebuilt rather than spread over: an emptied optional field has to leave
-      // the profile, not be stored as a value its schema would reject.
       // Spread first so a field this card does not edit survives; an emptied
       // optional field is then dropped rather than stored as a value its
       // schema would reject.
@@ -371,6 +409,11 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             reasoningLevels={props.reasoningLevels}
             expanded={expanded.has(index)}
             disabled={disabled}
+            onReorder={reorder}
+            rowCount={models.length}
+            dragFrom={dragFrom}
+            onDragStart={setDragFrom}
+            onDragEnd={() => { setDragFrom(null) }}
             t={t}
             contextWindow={{
               value: capacityText(model, index, 'contextWindow'),

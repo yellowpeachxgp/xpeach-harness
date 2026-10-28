@@ -1,7 +1,7 @@
 /** Build one release target with matching Electron and dsh architecture. */
 
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { join, resolve } from 'node:path'
 import {
@@ -504,13 +504,29 @@ export async function packageTarget(
   rmSync(buildPaths.packedLandlock, { recursive: true, force: true })
   mkdirSync(buildPaths.packedLandlock, { recursive: true })
   await execute(['--dir', 'native/system', 'run', 'build:ts'], buildEnv, REPOSITORY_ROOT)
-  await execute([
-    '--dir',
-    'native/system/packages/entry',
-    'pack',
-    '--pack-destination',
-    buildPaths.packedLandlock,
-  ], buildEnv, REPOSITORY_ROOT)
+  // The entry package resolves its platform implementation through optional
+  // dependencies, so each target also ships the native build for its own
+  // platform; the desktop closure only reaches the ones present here.
+  const nativePlate =
+    target.platform === 'darwin'
+      ? `darwin-${target.arch}`
+      : target.platform === 'linux' ? `linux-${target.arch}` : undefined
+  // The platform package carries a compiled binary that only exists once the
+  // addon is built for this host; packing an empty one would fail the archive.
+  const plateBuilt = nativePlate !== undefined
+    && existsSync(join(REPOSITORY_ROOT, 'native', 'system', 'packages', nativePlate, 'bin', 'system.node'))
+  if (nativePlate !== undefined && !plateBuilt) {
+    console.warn(`desktop package: ${nativePlate} has no built addon; the profile will miss the native system addon`)
+  }
+  for (const directory of ['entry', ...(plateBuilt ? [`${nativePlate}`] : [])]) {
+    await execute([
+      '--dir',
+      `native/system/packages/${directory}`,
+      'pack',
+      '--pack-destination',
+      buildPaths.packedLandlock,
+    ], buildEnv, REPOSITORY_ROOT)
+  }
   await execute(['run', 'prepare:runtime', ...(signPrimaryRuntime ? ['--defer-primary-runtime-smoke'] : [])], downloadEnv)
   if (signPrimaryRuntime) await execute(['run', 'sign:primary-runtime'], electronBuilderEnv)
   await execute(['run', 'prepare:packages'], targetEnv)

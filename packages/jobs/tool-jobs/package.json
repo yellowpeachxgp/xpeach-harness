@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-jobs",
   "description": "Model-facing background job control tools (job_output, job_list, job_kill) over the ctx.jobs registry",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -20,11 +20,7 @@
     },
     "./src/*": "./src/*",
     "./package.json": "./package.json",
-    "./locale/*.json": "./locale/*.json",
-    "./render": {
-      "types": "./lib/types/render.d.ts",
-      "default": "./lib/render.js"
-    }
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "locale/*.json",

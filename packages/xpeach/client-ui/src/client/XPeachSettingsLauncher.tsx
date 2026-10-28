@@ -7,12 +7,16 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-u
 import { HoverCard } from '@xpeach/xph-client-ui-primitives'
 import type {} from '@xpeach/xph-client-ui-settings/client'
 import type { XPeachOps, XPeachSelfLogRow, XPeachUserSelfRow } from './ops.ts'
+import { openXPeachLoginModal } from './XPeachOnboarding.tsx'
 import { quotaUsd, SITE } from './fmt.ts'
 import css from './xpeach.module.css'
 
 type Props = PropsRuntime<'settings.launcher'> & PropsLocale<'xpeach.account'> & InjectFace<{
   userSelf: XPeachOps['userSelf']
   userLogs: XPeachOps['userLogs']
+  unbind?: XPeachOps['unbind']
+  ssoLogout?: XPeachOps['ssoLogout']
+  subscribeCredentialChange?: XPeachOps['subscribeCredentialChange']
 }>
 
 const GearIcon = (): JSX.Element => (
@@ -35,26 +39,51 @@ function dailyBars(logs: readonly XPeachSelfLogRow[], days: number): number[] {
   }
   for (const row of logs) {
     const slot = index.get(new Date(row.created_at * 1000).toDateString())
-    if (slot !== undefined) buckets[slot] = (buckets[slot] ?? 0) + (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0)
+    if (slot !== undefined) buckets[slot] = (buckets[slot] ?? 0) + row.prompt_tokens + row.completion_tokens
   }
   return buckets
 }
 
-export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, userSelf, userLogs, t }: Props): JSX.Element {
+/**
+ * Render the sidebar settings launcher and site-balance hover card.
+ * @param props - launcher runtime props, locale translator, and injected account ops.
+ * @returns the launcher row element.
+ */
+export function XPeachSettingsLauncher({
+  wide, settingsShortcut, openSettings, userSelf, userLogs, unbind, ssoLogout, subscribeCredentialChange, t,
+}: Props): JSX.Element {
   const [me, setMe] = useState<XPeachUserSelfRow | undefined>(undefined)
   const [logs, setLogs] = useState<readonly XPeachSelfLogRow[]>([])
   const loaded = useRef(false)
 
   useEffect(() => {
     let alive = true
-    void userSelf().then(r => { if (alive && !('error' in r)) setMe(r) })
-    return () => { alive = false }
-  }, [userSelf])
+    const reload = (): void => {
+      void userSelf().then((r) => {
+        if (!alive) return
+        if ('error' in r) {
+          setMe(undefined)
+          setLogs([])
+        } else {
+          setMe(r)
+        }
+      })
+    }
+    reload()
+    const off = subscribeCredentialChange?.(() => {
+      loaded.current = false
+      reload()
+    })
+    return () => {
+      alive = false
+      off?.()
+    }
+  }, [userSelf, subscribeCredentialChange])
 
   const ensureLogs = (): void => {
     if (loaded.current) return
     loaded.current = true
-    void userLogs(0, 100).then(r => { if (!('error' in r)) setLogs(r.items) })
+    void userLogs(0, 100).then((r) => { if (!('error' in r)) setLogs(r.items) })
   }
   useEffect(() => { ensureLogs() }, [])
 
@@ -67,20 +96,21 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
     const today = new Date().toDateString()
     return logs
       .filter(row => new Date(row.created_at * 1000).toDateString() === today)
-      .reduce((sum, row) => sum + (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0), 0)
+      .reduce((sum, row) => sum + row.prompt_tokens + row.completion_tokens, 0)
   }, [logs])
   const dayLabels = useMemo(() => {
-    const names = '日一二三四五六'
+    const keys = ['weekday.0', 'weekday.1', 'weekday.2', 'weekday.3', 'weekday.4', 'weekday.5', 'weekday.6'] as const
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date()
       date.setHours(0, 0, 0, 0)
       date.setDate(date.getDate() - (6 - index))
-      return { label: names[date.getDay()] ?? '', today: index === 6 }
+      const wk = keys[date.getDay()] ?? 'weekday.0'
+      return { label: t(wk), today: index === 6 }
     })
-  }, [])
+  }, [t])
   const fmtTokens = (value: number): string => value >= 1e8
-    ? (value / 1e8).toFixed(2) + '亿'
-    : value >= 1e4 ? (value / 1e4).toFixed(1) + '万' : String(value)
+    ? t('unit.yi', { n: (value / 1e8).toFixed(2) })
+    : value >= 1e4 ? t('unit.wan', { n: (value / 1e4).toFixed(1) }) : String(value)
 
   return (
     <div className={css.launchRow}>
@@ -120,7 +150,12 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
             </div>
             <div className={css.launchPopBars}>
               {bars.map((v, i) => (
-                <span key={i} data-empty={v === 0} style={{ height: Math.max(3, (v / maxBar) * 30) + 'px' }} title={v.toLocaleString() + ' tok'} />
+                <span
+                  key={i}
+                  data-empty={v === 0}
+                  style={{ height: `${Math.max(3, (v / maxBar) * 30)}px` }}
+                  title={t('unit.tok', { n: v.toLocaleString() })}
+                />
               ))}
             </div>
             <div className={css.launchPopDays} aria-hidden="true">
@@ -128,8 +163,39 @@ export function XPeachSettingsLauncher({ wide, settingsShortcut, openSettings, u
                 <span key={index} data-today={day.today}>{day.label}</span>
               ))}
             </div>
-            <button type="button" className={css.launchTopup}
-              onClick={() => { window.open(SITE.topup, '_blank', 'noopener') }}>{t('launch.topup')}</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" className={css.launchTopup} style={{ flex: 1 }}
+                onClick={() => { window.open(SITE.topup, '_blank', 'noopener') }}>{t('launch.topup')}</button>
+              {me !== undefined ? (
+                <button
+                  type="button"
+                  className={css.launchTopup}
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    const task = ssoLogout !== undefined
+                      ? ssoLogout(false)
+                      : unbind !== undefined
+                        ? unbind()
+                        : Promise.resolve()
+                    void task.finally(() => {
+                      setMe(undefined)
+                      setLogs([])
+                    })
+                  }}
+                >
+                  {t('launch.signOut')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={css.launchTopup}
+                  style={{ flex: 1 }}
+                  onClick={() => { openXPeachLoginModal(true) }}
+                >
+                  {t('launch.signIn')}
+                </button>
+              )}
+            </div>
           </div>
         )}
       />

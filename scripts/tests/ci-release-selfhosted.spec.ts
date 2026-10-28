@@ -1,5 +1,5 @@
 /** Release rehearsal routing and persistent-runner isolation, without executing release builds. */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { load } from 'js-yaml'
@@ -82,6 +82,7 @@ const fallbackCases: Array<[string, Record<string, string | boolean>]> = [
 ]
 
 for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['release-vendor.yml', ['pack']]] as const) {
+  if (!existsSync(resolve(root, '.github/workflows', file))) continue
   describe(file, () => {
     const release = workflow(file)
     it('preserves the logical jobs, rehearsal events and read-only permission', () => {

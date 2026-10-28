@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-reference",
   "description": "Unified Web @file and @session reference source",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },

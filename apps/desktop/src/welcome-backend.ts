@@ -73,7 +73,13 @@ export async function connectDesktopWelcome(
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
     const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: undefined }
+    if (official === undefined) {
+      const piAi: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-pi-ai')
+      const providers = record(piAi) && record(piAi.value) && record(piAi.value.providers) ? piAi.value.providers : undefined
+      const xpeach = providers !== undefined && record(providers.xpeach) ? providers.xpeach : undefined
+      const fallbackRef = xpeach !== undefined && typeof xpeach.apiKeyEnv === 'string' ? xpeach.apiKeyEnv : undefined
+      return { settings: { namespaces: settings.namespaces }, ref: fallbackRef }
+    }
     if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
       throw new Error('desktop welcome: missing official DeepSeek credential reference')
     }
@@ -137,6 +143,17 @@ export async function connectDesktopWelcome(
     async save(apiKey) {
       if (!/^[\x21-\x7e]+$/.test(apiKey)) return { ok: false }
       try {
+        try {
+          if (/^(?:xpk|sk)-/u.test(apiKey)) {
+            const added = await invoke({ namespace: 'xpeach', method: 'keySlotAdd', args: { name: 'welcome', key: apiKey } })
+            if (record(added) && added.ok === true) return { ok: true }
+          } else {
+            await invoke({ namespace: 'xpeach', method: 'bindKey', args: { key: apiKey } })
+            return { ok: true }
+          }
+        } catch {
+          // Fall back to standard credentials/set when the xpeach RPC is not active.
+        }
         const { ref } = await settingsAndReference()
         if (ref === undefined) return { ok: false }
         await invoke({ namespace: 'credentials', method: 'set', args: { ref, value: apiKey } })

@@ -210,6 +210,17 @@ describe('apply (plugin lifecycle)', () => {
     await fiber.dispose()
   })
 
+  it('activates immediately when backgroundStartup is enabled and publishes tools asynchronously', async () => {
+    const connection: PromiseWithResolvers<void> = Promise.withResolvers()
+    mockConnect.mockImplementation(async () => {
+      await connection.promise
+    })
+    await apply(ctx, { ...stdioConfig, backgroundStartup: true })
+    expect(ctx.tools.get('mcp__srv__remote')).toBeUndefined()
+    connection.resolve()
+    await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__remote')).toBeDefined() })
+  })
+
   it('rejects a duplicate serverName at load and leaves the first instance intact', async () => {
     await apply(ctx, stdioConfig)
     expect(ctx.tools.get('mcp__srv__remote')).toBeDefined()

@@ -16,5 +16,5 @@
     "lib/typert.client.js",
     "lib/typert.client.d.ts"
   ],
-  "version": "0.0.3-least"
+  "version": "0.0.18-alpha"
 }

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-launch-environment",
   "description": "Immutable DeepSeek Harness launch environment that records which layer supplied each value",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },

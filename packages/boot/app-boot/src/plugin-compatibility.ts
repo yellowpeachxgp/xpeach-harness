@@ -66,7 +66,7 @@ function unmetRequirements(fields: Record<string, unknown>, runtimeVersion: stri
     if (typeof range !== 'string') {
       throw new Error(`Plugin manifest peerDependencies[${JSON.stringify(name)}] must be a string`)
     }
-    if (name !== '@xpeach/xph-dsh' && !name.startsWith('@xpeach/xph-')) continue
+    if (!/^@xpeach\/xph(?:-(?!cordis(?:-|$)|schemastery$|cosmokit$|node-addon-system(?:-|$)|dshx$)|$)/u.test(name)) continue
     const requirement = ['workspace:^', 'workspace:~', 'workspace:*'].includes(range) ? runtimeVersion : range
     if (!satisfies(runtimeVersion, requirement)) unmet[name] = range
   }

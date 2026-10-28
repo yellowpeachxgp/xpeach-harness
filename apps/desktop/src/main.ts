@@ -1,24 +1,12 @@
-import type { ProductEventMap, ProductEvent } from '@xpeach/xph-client-product-analytics/types'
-import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
-// Electron derives userData from app.name. Keeping the packaged package name would
-// point XPeach at DeepSeek Harness's own userData directory, which both breaks the
-// single-instance lock against a running DeepSeek app and mixes caches. Name the
-// product before anything reads a path.
-app.setName('XPeach Harness')
-
-// XPeach owns its data root. Pinning XPH_HOME before any path resolution keeps
-// every Electron-side root — profile, lock, settings, caches, logs — under
-// ~/.xph, so the desktop shell never shares DeepSeek Harness's ~/.dsh.
-process.env.XPH_HOME ??= join(homedir(), '.xph')
-// The bundled runtime reads XPH_PRODUCT to pick the product name it announces.
-process.env.XPH_PRODUCT ??= '1'
-
-import { existsSync } from 'node:fs'
+import type { ProductEventMap, ProductEvent } from '@xpeach/xph-client-product-analytics/types'
+import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 import { readFile, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   app,
@@ -38,6 +26,14 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
+
+const XPEACH_PROFILE_NAME = 'xpeach-desktop'
+
+app.setName('XPeach Harness')
+if (!process.env.XPH_HOME && !process.env.DSH_HOME) {
+  process.env.XPH_HOME = join(homedir(), '.xph')
+}
+process.env.XPH_PRODUCT ??= '1'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -112,7 +108,7 @@ const recovery = new DesktopFatalRecovery({
   show: options => dialog.showMessageBox(options),
   stop: () => { shuttingDown = true; return stopForRecovery() },
   disablePlugins: async () => {
-    const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources())
+    const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources(), productProfilePatch())
     const backupPath = await manager.disableAllPlugins()
     console.info('Desktop profile recovery completed:', { profilePatchBackup: backupPath ?? null, homePatch: 'unchanged' })
   },
@@ -165,9 +161,13 @@ interface RuntimeResources {
   readonly dsh: string
 }
 
-/** Packaged XPeach product profile patch; absent in a development checkout. */
+/** Shipped XPeach product profile patch path, when available. */
 function productProfilePatch(): string | undefined {
-  if (!app.isPackaged) return process.env.DSH_DESKTOP_PRODUCT_PATCH
+  if (!app.isPackaged) {
+    if (process.env.DSH_DESKTOP_PRODUCT_PATCH !== undefined) return process.env.DSH_DESKTOP_PRODUCT_PATCH
+    const development = join(app.getAppPath(), 'resources', 'xpeach.profile.yml')
+    return existsSync(development) ? development : undefined
+  }
   const packaged = join(process.resourcesPath, 'xpeach.profile.yml')
   return existsSync(packaged) ? packaged : undefined
 }
@@ -185,19 +185,19 @@ function runtimeResources(): RuntimeResources {
 }
 
 function developmentPrimaryRuntime(): string {
-  const directory = process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR
+  const directory = process.env.XPH_DESKTOP_PRIMARY_RUNTIME_DIR ?? process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR
   if (directory === undefined || directory === '') {
-    throw new Error('dsh desktop: DSH_DESKTOP_PRIMARY_RUNTIME_DIR is required for an unpackaged launch')
+    throw new Error('xph desktop: XPH_DESKTOP_PRIMARY_RUNTIME_DIR is required for an unpackaged launch')
   }
   return directory
 }
 
 function developmentHostInspectPort(enabled: boolean): number | undefined {
-  const configured = process.env.DSH_DESKTOP_HOST_INSPECT_PORT
+  const configured = process.env.XPH_DESKTOP_HOST_INSPECT_PORT ?? process.env.DSH_DESKTOP_HOST_INSPECT_PORT
   if (!enabled || configured === undefined || configured === '') return undefined
   const port = Number(configured)
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
-    throw new Error('dsh desktop: DSH_DESKTOP_HOST_INSPECT_PORT must be an integer from 1 through 65535')
+    throw new Error('xph desktop: XPH_DESKTOP_HOST_INSPECT_PORT must be an integer from 1 through 65535')
   }
   return port
 }
@@ -366,6 +366,8 @@ async function main(): Promise<void> {
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
   let welcomeWindow: BrowserWindow | undefined
+  /** Whether the renderer must hold the sign-in gate before revealing the workspace. */
+  let authGateRequired = false
   let enteredWorkspace = false
   // NSIS passes --updated when it launches the application after installation.
   let raiseAfterUpdate = process.platform === 'win32' && process.argv.includes('--updated')
@@ -444,7 +446,7 @@ async function main(): Promise<void> {
     assertDesktopSender(event, ['app'])
     if (mainWindow === undefined || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents
       || event.senderFrame === null || event.senderFrame !== mainWindow.webContents.mainFrame) {
-      throw new Error('dsh desktop: rejected IPC from an unowned renderer')
+      throw new Error('xph desktop: rejected IPC from an unowned renderer')
     }
   }
   let navigation: { window: BrowserWindow; url: string; promise: Promise<void> } | undefined
@@ -467,7 +469,11 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, {
+        ...hostEnvironment,
+        DSH_CLIENT_VERSION: desktopClientVersion(),
+        XPH_PROFILE: XPEACH_PROFILE_NAME,
+      }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
     return {
@@ -478,9 +484,6 @@ async function main(): Promise<void> {
         if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
         injections = ready.injections
         welcomeBackend = await connectDesktopWelcome(ready.url, (input, init) => net.fetch(input, init), async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; ')).catch((error: unknown) => {
-          // The XPeach product patch replaces DeepSeek's sign-in surface, so the
-          // native welcome has no DeepSeek credential namespace to read. That is
-          // expected: the product onboarding in the workspace owns binding.
           console.error(error)
           return undefined
         })
@@ -597,10 +600,12 @@ async function main(): Promise<void> {
 
   const reconcileBackend = (): Promise<void> => {
     startup ??= (async () => {
-      await navigateMain(applicationUrl)
-      await backend.start(async () => {
-        await Promise.all([manager.applyRelease(), prepareHostEnvironment()])
-      })
+      await Promise.all([
+        navigateMain(applicationUrl),
+        backend.start(async () => {
+          await Promise.all([manager.applyRelease(), prepareHostEnvironment()])
+        }),
+      ])
       if (backend.host !== undefined) await openInitialWindow()
       if (backend.host !== undefined) updateJournal?.action('workspace-ready')
       // The existing Web document resumes through the boot IPC response.
@@ -719,15 +724,17 @@ async function main(): Promise<void> {
     assertDesktopSender(event, ['app'])
     await startup
     if (backend.host === undefined || hostUrl === undefined) throw new Error('Desktop Host is unavailable')
-    return { injections, streamBaseUrl: new URL(hostUrl).origin }
+    // The renderer holds the product sign-in gate when this profile has no site
+    // token, so the workspace cannot be used by an unauthenticated user.
+    return { injections, streamBaseUrl: new URL(hostUrl).origin, requireAuth: authGateRequired }
   })
 
   ipcMain.handle(DESKTOP_IPC.bootFailed, (event, message: unknown) => {
     assertDesktopSender(event, ['app'])
     if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) {
-      throw new Error('dsh desktop: rejected startup failure from a non-primary frame')
+      throw new Error('xph desktop: rejected startup failure from a non-primary frame')
     }
-    if (typeof message !== 'string') throw new Error('dsh desktop: startup failure must be text')
+    if (typeof message !== 'string') throw new Error('xph desktop: startup failure must be text')
     reportFatal(new Error(message), 'web-boot')
   })
 
@@ -784,7 +791,8 @@ async function main(): Promise<void> {
       throw new Error('desktop welcome: rejected locale request from an unowned frame')
     }
     if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
-    return { languages: systemLanguages, preference: await welcomeBackend.readLocalePreference() }
+    const preference = await welcomeBackend.readLocalePreference().catch(() => null)
+    return { languages: systemLanguages, preference }
   })
   ipcMain.on(DESKTOP_IPC.localeChanged, (event, next: unknown) => {
     const window = mainWindow
@@ -799,6 +807,9 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.updatesStatus, (event) => {
     assertProductSender(event)
+    if (!quitting && updates.state.phase === 'idle') {
+      void updateSchedule.check(false).catch((error: unknown) => { console.error(error) })
+    }
     return presentDesktopUpdate(updates.state)
   })
   ipcMain.handle(DESKTOP_IPC.deviceInfo, (event) => {
@@ -807,7 +818,7 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
-    return (await readWelcomeState()).hasApiKey
+    return (await readWelcomeState().catch(() => undefined))?.hasApiKey ?? false
   })
   ipcMain.on(DESKTOP_IPC.onboardingActive, (event, active: unknown) => {
     const window = mainWindow
@@ -957,8 +968,12 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
+  const applicationIconPath = development
+    ? join(app.getAppPath(), 'resources', process.platform === 'darwin' ? 'icon-macos.png' : 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')
+  if (process.platform === 'darwin' && existsSync(applicationIconPath)) {
+    try { app.dock?.setIcon(nativeImage.createFromPath(applicationIconPath)) } catch (_error) { /* Headless Darwin omits Dock. */ }
+  }
   app.setAboutPanelOptions({
     applicationName: 'XPeach Harness',
     applicationVersion: app.getVersion(),
@@ -979,6 +994,33 @@ async function main(): Promise<void> {
       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
       { role: 'unhide', label: currentDesktopLocale().messages.showAllApplications }, { type: 'separator' }]
     : []
+  const openMacosPkgInstaller = async (): Promise<void> => {
+    const pkgFileName = `XPeach-Harness-${app.getVersion()}-mac-${process.arch}.pkg`
+    const candidates = [
+      join(app.getAppPath(), '.desktop-build', 'installer', pkgFileName),
+      join(process.resourcesPath, 'installer', pkgFileName),
+      join(process.env.XPH_HOME ?? join(homedir(), '.xph'), 'installer', pkgFileName),
+    ]
+    const existingPkg = candidates.find(candidate => existsSync(candidate))
+    if (existingPkg !== undefined) {
+      await new Promise<void>((resolve) => {
+        execFile('/usr/bin/open', ['-a', '/System/Library/CoreServices/Installer.app', existingPkg], (err) => {
+          if (err !== null) void shell.openPath(existingPkg)
+          resolve()
+        })
+      })
+      return
+    }
+    const scriptPath = join(app.getAppPath(), 'scripts', 'package-macos-pkg.ts')
+    if (existsSync(scriptPath)) {
+      await new Promise<void>((resolve) => {
+        execFile(resources.node, ['--import', 'tsx/esm', scriptPath, '--open'], {
+          cwd: join(app.getAppPath(), '..', '..'),
+          env: { ...hostEnvironment, PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${hostEnvironment.PATH ?? ''}` },
+        }, () => { resolve() })
+      })
+    }
+  }
   const applicationItems = (): MenuItemConstructorOptions[] => [
     // Windows has no system About panel; Electron's fallback is a plain
     // message box, so the shell shows its own dimmed dialog instead.
@@ -990,6 +1032,8 @@ async function main(): Promise<void> {
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
     ...process.platform === 'darwin' || process.platform === 'win32'
       ? [{ label: currentDesktopLocale().messages.cliCommandMenu, click: () => { void commandManager.show() } }] : [],
+    ...process.platform === 'darwin' && existsSync(app.getAppPath())
+      ? [{ label: currentDesktopLocale().messages.macosPkgInstallerMenu, click: () => { void openMacosPkgInstaller() } }] : [],
     ...development ? [
       { type: 'separator' as const },
       { label: currentDesktopLocale().messages.reloadPageMenu, role: 'reload' as const },
@@ -1139,14 +1183,22 @@ async function main(): Promise<void> {
     })
     window.webContents.on('render-process-gone', (_event, details) => {
       navigation = undefined
-      if (!quitting && !window.isDestroyed() && details.reason !== 'clean-exit') {
-        reportFatal(new Error(`Desktop renderer exited: ${details.reason}`), 'renderer')
+      if (quitting || shuttingDown || window.isDestroyed() || details.reason === 'clean-exit') return
+      if (details.reason === 'killed') {
+        setTimeout(() => {
+          if (!quitting && !shuttingDown && !window.isDestroyed()) {
+            void navigateMain(applicationUrl).catch(() => undefined)
+          }
+        }, 150)
+        return
       }
+      reportFatal(new Error(`Desktop renderer exited: ${details.reason}`), 'renderer')
     })
     return window
   }
-  const enterWorkspace = async ({ activate = true }: { activate?: boolean } = {}): Promise<void> => {
+  const enterWorkspace = async ({ activate = true, gate = false }: { activate?: boolean; gate?: boolean } = {}): Promise<void> => {
     if (quitting) return
+    authGateRequired = gate
     const window = mainWindow ?? createMainWindow()
     await navigateMain(applicationUrl)
     if (isQuitting() || recovery.active || window.isDestroyed()) return
@@ -1163,10 +1215,28 @@ async function main(): Promise<void> {
       window.moveTop()
       window.focus()
     }
-    if (activate && development && process.env.DSH_DESKTOP_OPEN_DEVTOOLS !== '0') {
+    if (activate && development && (process.env.XPH_DESKTOP_OPEN_DEVTOOLS ?? process.env.DSH_DESKTOP_OPEN_DEVTOOLS) !== '0') {
       window.webContents.openDevTools({ mode: 'detach' })
     }
   }
+  /**
+   * Whether this profile holds a site access token.
+   *
+   * The relay credential and the account surfaces are useless without it, so it
+   * is the product's sign-in state.
+   * @param profile - the desktop profile directory.
+   * @returns true when a token file carries a non-empty value.
+   */
+  const desktopHasSiteCredential = (profile: string): boolean => {
+    for (const filename of ['xpeach.admin', 'xpeach.key', 'xpeach.sso.json']) {
+      const file = join(profile, filename)
+      try {
+        if (existsSync(file) && readFileSync(file, 'utf8').trim().length > 0) return true
+      } catch { /* ignore unreadable credential file */ }
+    }
+    return false
+  }
+
   let openingWelcome: Promise<void> | undefined
   const showWelcome = (): Promise<void> => {
     if (quitting) return Promise.resolve()
@@ -1231,14 +1301,28 @@ async function main(): Promise<void> {
   }
   const openInitialWindow = async (): Promise<void> => {
     if (quitting || recovery.active) return
-    // A product that replaces the sign-in surface has no native welcome to show:
-    // when the welcome projection is unavailable, boot straight into the workspace
-    // and let the product's own onboarding own binding.
+    if (desktopHasSiteCredential(paths.profile)) {
+      const preference = await welcomeBackend?.readLocalePreference().catch(() => null) ?? null
+      if (isQuitting() || backend.state.phase !== 'ready') return
+      locale = resolveDesktopStartupLocale(preference, systemLanguages)
+      windowsLanguage = locale.id
+      refreshApplicationMenu()
+      await enterWorkspace({ gate: false })
+      return
+    }
     const state = await readWelcomeState().catch((error: unknown) => {
       console.error(error)
       return undefined
     })
-    if (state === undefined) { await enterWorkspace(); return }
+    if (state === undefined) {
+      const preference = await welcomeBackend?.readLocalePreference().catch(() => null) ?? null
+      if (isQuitting() || backend.state.phase !== 'ready') return
+      locale = resolveDesktopStartupLocale(preference, systemLanguages)
+      windowsLanguage = locale.id
+      refreshApplicationMenu()
+      await enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) })
+      return
+    }
     if (isQuitting() || backend.state.phase !== 'ready') return
     locale = resolveDesktopStartupLocale(state.localePreference, systemLanguages)
     windowsLanguage = locale.id
@@ -1267,10 +1351,10 @@ async function main(): Promise<void> {
     window.focus()
   }
 
-  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('dsh')
+  if (app.isPackaged || process.env.XPH_DESKTOP_DEV_APP === '1' || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('xph')
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    if (url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()
+    if (url === 'xph://open' || url === 'xph://open/' || url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()
   })
 
   app.on('activate', (_event, hasVisibleWindows) => {
@@ -1369,7 +1453,7 @@ async function main(): Promise<void> {
   // Window lifecycle callbacks run while backend startup is pending.
   if (isQuitting()) return
   const window = currentMainWindow()
-  if (window !== undefined && development && process.env.DSH_DESKTOP_OPEN_DEVTOOLS !== '0') {
+  if (window !== undefined && development && (process.env.XPH_DESKTOP_OPEN_DEVTOOLS ?? process.env.DSH_DESKTOP_OPEN_DEVTOOLS) !== '0') {
     window.webContents.openDevTools({ mode: 'detach' })
   }
   publishUpdate(updateState)

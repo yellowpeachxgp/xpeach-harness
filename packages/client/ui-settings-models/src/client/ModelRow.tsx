@@ -1,6 +1,6 @@
 /** Shared model fields and actions for both adapter catalog editors. */
 
-import type { ReactNode } from 'react'
+import { useState, type DragEvent, type ReactNode } from 'react'
 import {
   IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconTrashOutlineRegular,
 } from '@xpeach/xph-client-ui-primitives'
@@ -29,6 +29,14 @@ interface ModelRowProps {
   reasoningLevels?: readonly string[] | undefined
   expanded: boolean
   disabled: boolean
+  /** Move this row to another position; omission hides the drag affordance. */
+  onReorder?: ((from: number, to: number) => void) | undefined
+  /** Total rows, so the last one cannot be dragged past the end. */
+  rowCount?: number | undefined
+  /** Index the editor is currently dragging, shared by every row. */
+  dragFrom?: number | null | undefined
+  onDragStart?: ((index: number) => void) | undefined
+  onDragEnd?: (() => void) | undefined
   t: (key: ModelsKey) => string
   contextWindow: CapacityInput
   maxTokens: CapacityInput
@@ -46,14 +54,58 @@ interface ModelRowProps {
  */
 export function ModelRow(props: ModelRowProps): ReactNode {
   const { model, position, t, disabled } = props
+  const onReorder = props.onReorder
+  const dragFrom = props.dragFrom
+  const [dropTarget, setDropTarget] = useState(false)
+  const blockInputDrag = (event: DragEvent<HTMLInputElement>): void => {
+    event.stopPropagation()
+    event.preventDefault()
+  }
+  const drag = onReorder === undefined || props.onDragStart === undefined
+    ? {}
+    : {
+      draggable: !disabled,
+      onDragStart: (event: DragEvent<HTMLDivElement>) => {
+        if (event.target instanceof HTMLInputElement
+          || (document.activeElement instanceof HTMLInputElement && event.currentTarget.contains(document.activeElement))) {
+          event.preventDefault()
+          return
+        }
+        props.onDragStart?.(position - 1)
+        event.dataTransfer.effectAllowed = 'move'
+        // Firefox only starts a drag when some data is set.
+        event.dataTransfer.setData('text/plain', String(position - 1))
+      },
+      onDragOver: (event: DragEvent<HTMLDivElement>) => {
+        if (dragFrom === undefined || dragFrom === null) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+        setDropTarget(true)
+      },
+      onDragLeave: (event: DragEvent<HTMLDivElement>) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(false)
+      },
+      onDrop: (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        setDropTarget(false)
+        if (dragFrom !== undefined && dragFrom !== null) onReorder(dragFrom, position - 1)
+      },
+      onDragEnd: () => { setDropTarget(false); props.onDragEnd?.() },
+    }
   return (
-    <div className={styles['modelEntry']}>
+    <div
+      className={dropTarget ? `${styles['modelEntry']} ${styles['modelEntryDrop']}` : styles['modelEntry']}
+      data-drag-handle={onReorder === undefined ? undefined : 'model-row'}
+      {...drag}
+    >
       <div className={styles['modelRow']}>
         {(['id', 'name'] as const).map(field => (
           <input
             key={field}
             className={styles['input']}
             type="text"
+            draggable={!disabled && onReorder !== undefined}
+            onDragStart={blockInputDrag}
             value={typeof model[field] === 'string' ? model[field] : ''}
             placeholder={t(field === 'id' ? 'modelId' : 'modelName')}
             aria-label={`${t(field === 'id' ? 'modelId' : 'modelName')} ${String(position)}`}
@@ -96,6 +148,8 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                   className={styles['input']}
                   type="text"
                   inputMode="numeric"
+                  draggable={!disabled && onReorder !== undefined}
+                  onDragStart={blockInputDrag}
                   value={props[field].value}
                   placeholder={props[field].placeholder}
                   aria-label={`${t(field)} ${String(position)}`}

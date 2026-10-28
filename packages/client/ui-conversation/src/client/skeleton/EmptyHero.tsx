@@ -135,8 +135,8 @@ function heroGreeting(t: HeroTranslate): string {
   const h = new Date().getHours()
   const band = h >= 5 && h < 11 ? 'hero.greet.morning'
     : h >= 11 && h < 14 ? 'hero.greet.noon'
-    : h >= 14 && h < 18 ? 'hero.greet.afternoon'
-    : h >= 18 && h < 23 ? 'hero.greet.evening' : 'hero.greet.late'
+      : h >= 14 && h < 18 ? 'hero.greet.afternoon'
+        : h >= 18 && h < 23 ? 'hero.greet.evening' : 'hero.greet.late'
   const pool = [band, band, band, 'hero.greet.back', 'hero.greet.home', 'hero.greet.ask'] as const
   return t(pool[Math.floor(Math.random() * pool.length)] ?? 'hero.greet.morning')
 }

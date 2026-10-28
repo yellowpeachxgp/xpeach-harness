@@ -67,16 +67,7 @@ export const DEFAULT_CONTEXT_WINDOW = 262_144
 /** Output capability assumed for a model neither configuration nor the catalog sizes. */
 export const DEFAULT_MAX_TOKENS = 32_768
 
-/**
- * Modalities assumed for a model neither configuration nor the catalog
- * declares. Text is the floor every supported protocol certainly carries, so
- * this is the absence of a declaration rather than a guess at the endpoint:
- * nothing can interrogate a gateway for its modalities, and the two wrong
- * answers do not cost the same. Under-claiming refuses the image before it is
- * attached, naming the model. Over-claiming admits one the provider then
- * rejects mid-turn, after the message is durable, leaving the session
- * repeating a request that cannot succeed.
- */
+/** Modalities assumed when neither configuration nor the catalog declares any. */
 export const DEFAULT_INPUT: readonly PiAiModality[] = ['text']
 
 export type {
@@ -150,6 +141,12 @@ export interface PiAiProviderProfile {
   defaultInput?: PiAiModality[]
   /** Provider request headers, validated against Fetch when the profile resolves; Harness attribution wins reserved names. */
   headers?: Record<string, string>
+  /**
+   * Send the conversation identity a gateway uses for billing and prompt-cache
+   * accounting. Some routes reject a request that names no conversation, so this
+   * defaults to on; a deployment whose route ignores the headers can turn it off.
+   */
+  conversationTracking?: boolean
   /** Provider-neutral pi-ai reasoning level. */
   reasoning?: ModelThinkingLevel
   /** Token budgets used by reasoning providers that support them. */
@@ -335,6 +332,7 @@ const profile = z.object({
   defaultMaxTokens: z.number().step(1).min(1).default(DEFAULT_MAX_TOKENS),
   defaultInput: z.array(z.union(MODALITIES)).default([...DEFAULT_INPUT]),
   headers: z.dict(z.string()),
+  conversationTracking: z.boolean().default(true),
   reasoning: z.union(THINKING_LEVELS),
   thinkingBudgets,
   cacheRetention: z.union(['none', 'short', 'long']),
@@ -455,9 +453,7 @@ export function resolveProfiles(
     if (defaultInput.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" defaultInput must name at least one modality`)
     }
-    // The route key, not the installed provider's own name: the directory has
-    // always shown route keys, and a catalog route must not silently rename
-    // itself on every configuration surface just because it gained a profile.
+    // Default to the route key so adding a profile does not rename a catalog route.
     const displayName = source.displayName ?? provider
     let catalog: RouteCatalog | undefined
     let piProvider: Provider | undefined

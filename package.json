@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-root",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -33,6 +33,7 @@
     "prepare:desktop": "pnpm --filter @xpeach/xph-desktop run prepare:package",
     "package:desktop": "pnpm --filter @xpeach/xph-desktop run package",
     "package:desktop:dir": "pnpm --filter @xpeach/xph-desktop run package:dir",
+    "package:mac:pkg": "pnpm --filter @xpeach/xph-desktop run package:mac:pkg",
     "package:desktop:mac:arm64": "pnpm --filter @xpeach/xph-desktop run package:mac:arm64",
     "package:desktop:mac:arm64:unsigned": "pnpm --filter @xpeach/xph-desktop run package:mac:arm64:unsigned",
     "package:desktop:mac:arm64:dir": "pnpm --filter @xpeach/xph-desktop run package:mac:arm64:dir",
@@ -297,5 +298,13 @@
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-tool-worktree": "workspace:*",
     "@xpeach/xph-experimental-cua-macos": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yellowpeachxgp/xpeach-harness.git"
+  },
+  "homepage": "https://xpeach.codes",
+  "bugs": {
+    "url": "https://github.com/yellowpeachxgp/xpeach-harness/issues"
   }
 }

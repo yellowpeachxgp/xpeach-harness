@@ -893,7 +893,7 @@ it('captures run mode and queue intent at submission before later projection cha
     b.shell.setDraft('private prompt')
     b.shell.submit('queue', 'click')
     expect(track).toHaveBeenCalledExactlyOnceWith('send_button_click', {
-      session_id: 's1', model_name: 'fixture/model', thinking_effort: 'high', run_mode: 'plan', msg_type: 'queue',
+      session_id: 's1', model_name: 'fixture/model', thinking_effort: 'high', run_mode: 'plan', msg_type: 'queue', is_new_session: false,
     }, expect.any(Number))
     await b.runtime.sessions.setProjection('s1', 'plan', { active: false, pending: false })
     expect(track).toHaveBeenCalledTimes(1)
@@ -912,6 +912,6 @@ it.each([
     await b.runtime.sessions.updateSessionSnapshot('s1', (state) => { state.running = running; state.blank = true })
     b.shell.setDraft('message')
     b.shell.submit(mode, 'enter')
-    expect(track).toHaveBeenCalledExactlyOnceWith('send_button_click', { run_mode: 'default', msg_type: expected }, expect.any(Number))
+    expect(track).toHaveBeenCalledExactlyOnceWith('send_button_click', { run_mode: 'default', msg_type: expected, is_new_session: true }, expect.any(Number))
   } finally { await b.runtime.dispose() }
 })

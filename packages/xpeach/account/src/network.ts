@@ -7,6 +7,7 @@ import type { XPeachNetworkPoint, XPeachNetworkRoute, XPeachNetworkSnapshot } fr
 
 export type { XPeachNetworkPoint, XPeachNetworkRoute, XPeachNetworkSnapshot }
 
+/** Published API endpoint descriptor before probing. */
 export interface XPeachRoute {
   readonly id: string
   readonly label: string
@@ -45,7 +46,7 @@ async function probeRoute(route: XPeachRoute, key: string | undefined, timeoutMs
         okCount += 1
         latencies.push(performance.now() - started)
       }
-    } catch { /* timeout or transport error counts as loss */ }
+    } catch (_err) { /* timeout or transport error counts as loss */ }
   }
   const sorted = [...latencies].sort((a, b) => a - b)
   const latencyMs = sorted.length === 0 ? undefined : Math.round(sorted[Math.floor(sorted.length / 2)] as number)
@@ -58,7 +59,13 @@ async function probeRoute(route: XPeachRoute, key: string | undefined, timeoutMs
   }
 }
 
-/** Probe every route in parallel (three samples each). */
+/**
+ * Probe every route in parallel (three samples each).
+ *
+ * @param key - optional relay API key used to probe `/v1/models` instead of `/api/status`.
+ * @param timeoutMs - per-sample timeout in milliseconds.
+ * @returns probe measurements for each published route.
+ */
 export async function probeRoutes(key: string | undefined, timeoutMs = 6000): Promise<XPeachRouteProbe[]> {
   return await Promise.all(ROUTES.map(route => probeRoute(route, key, timeoutMs)))
 }
@@ -73,6 +80,10 @@ function score(probe: XPeachRouteProbe): number {
 /**
  * Pick the best route. Keeps the current route unless another one is at least
  * 15% better (or the current one is failing) to avoid flapping.
+ *
+ * @param probes - current probe results across published routes.
+ * @param current - URL of the currently active route.
+ * @returns the selected route probe, or `undefined` when every route is unreachable.
  */
 export function chooseBest(probes: readonly XPeachRouteProbe[], current: string): XPeachRouteProbe | undefined {
   const ranked = [...probes].filter(probe => probe.ok).sort((a, b) => score(a) - score(b))

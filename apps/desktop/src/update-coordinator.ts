@@ -6,6 +6,7 @@ import { app } from 'electron'
 import electronUpdater, { type AppUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
 import { gt, valid } from 'semver'
 import type { DesktopUpdateState } from './ipc.ts'
+import { configureMacosAdhocUpdater, isPackagedGitHubProvider } from './macos-adhoc-updater.ts'
 import { DesktopUpdateHttpExecutor } from './update-http-executor.ts'
 import { DesktopUpdatePreparationError } from './update-error.ts'
 
@@ -18,13 +19,15 @@ const { autoUpdater } = electronUpdater
  * @param info - the feed's update descriptor.
  * @returns release-name and release-notes fields, omitting empty values.
  */
-function changelog(info: { releaseName?: string | null, releaseNotes?: string | Array<{ note?: string | null }> | null }): { releaseName?: string, releaseNotes?: string } {
+function changelog(
+  info: { releaseName?: string | null; releaseNotes?: string | Array<{ note?: string | null }> | null },
+): { releaseName?: string; releaseNotes?: string } {
   const name = typeof info.releaseName === 'string' && info.releaseName.trim() !== '' ? info.releaseName.trim() : undefined
   const raw = info.releaseNotes
   const notes = typeof raw === 'string'
     ? raw
     : Array.isArray(raw)
-      ? raw.map(entry => entry?.note ?? '').filter(note => note !== '').join('\n')
+      ? raw.map(entry => entry.note ?? '').filter(note => note !== '').join('\n')
       : undefined
   const cleaned = notes === undefined ? undefined : notes.replace(/<[^>]+>/gu, '').trim()
   return {
@@ -80,7 +83,7 @@ export class DesktopUpdateCoordinator {
   ) {
     if (updater === autoUpdater) {
       if (process.env.XPEACH_SILENT_UPDATE !== '0') {
-        setTimeout(() => { void this.check().catch(() => {}) }, 20_000).unref?.()
+        setTimeout(() => { void this.check().catch(() => {}) }, 3_000).unref()
       }
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
@@ -89,13 +92,19 @@ export class DesktopUpdateCoordinator {
         Number(process.env.DSH_DESKTOP_UPDATE_HTTP_IDLE_TIMEOUT_MS ?? 60_000),
         (authInfo, callback) => { updater.emit('login', authInfo, callback) },
       )
+      configureMacosAdhocUpdater(updater)
     }
     // XPeach ships with silent updates: download in the background and install on
     // quit; a user-initiated check can still surface progress in the UI.
-    this.updater.autoDownload = process.env.XPEACH_SILENT_UPDATE !== '0'
+    const allowPrerelease = channel === 'nightly' || this.currentVersion().includes('-')
+    this.updater.autoDownload = false
     this.updater.autoInstallOnAppQuit = process.env.XPEACH_SILENT_UPDATE !== '0'
-    this.updater.channel = channel
-    this.updater.allowPrerelease = channel === 'nightly'
+    // GitHubProvider treats a non-null updater.channel as a prerelease tag filter
+    // (such as -latest), and AppUpdater.channel setter rejects null once set.
+    if (!(updater === autoUpdater && allowPrerelease && isPackagedGitHubProvider())) {
+      this.updater.channel = channel
+    }
+    this.updater.allowPrerelease = allowPrerelease
     // Selecting a channel can enable downgrade in electron-updater.
     this.updater.allowDowngrade = false
     this.updater.on('download-progress', this.onProgress)
@@ -123,7 +132,7 @@ export class DesktopUpdateCoordinator {
     const result = await this.checkOperation
     if (manual && result.phase === 'error') this.setState(result)
     // Silent mode: fetch the installer in the background so the next quit applies it.
-    if (silent && result.phase === 'available' && result.version !== undefined && this.downloadOperation === undefined) {
+    if (silent && result.phase === 'available' && result.version !== undefined) {
       void this.download(result.version).catch(() => {})
     }
     return result
@@ -218,13 +227,16 @@ export class DesktopUpdateCoordinator {
     try {
       this.assertLive()
       if (!this.enabled()) throw new Error('desktop update: this application has no packaged update source')
+      const running = this.currentVersion()
+      if (running.includes('-')) {
+        this.updater.allowPrerelease = true
+      }
       const result = await this.updater.checkForUpdates()
       if (result === null) throw new Error('desktop update: no check result was returned')
       const version = result.updateInfo.version
       if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
       // A stable channel refuses prereleases; a prerelease build follows the same
       // feed so alpha and beta installs can still update themselves.
-      const running = this.currentVersion()
       if (this.channel === 'latest' && version.includes('-') && !running.includes('-')) {
         throw new Error('desktop update: latest feed contains a prerelease')
       }

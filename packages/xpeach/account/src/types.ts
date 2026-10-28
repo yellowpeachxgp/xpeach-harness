@@ -118,12 +118,20 @@ export interface XPeachModel {
   readonly groups?: readonly string[]
   /** Endpoint protocols the entry accepts (e.g. ['openai']). */
   readonly supported_endpoint_types?: readonly string[]
+  /** Maximum combined input and output context window in tokens. */
+  readonly contextWindow?: number
+  /** Maximum output tokens per response. */
+  readonly maxTokens?: number
+  /** Request modalities the model accepts. */
+  readonly inputModalities?: readonly ('text' | 'image')[]
+  /** Default reasoning effort level when thinking is enabled. */
+  readonly defaultReasoningEffort?: string
 }
 
 /** Request for `xpeach.bindKey`: the relay API key the user pasted. */
 export interface XPeachBindKeyRequest {
   /**
-   * The site Access Token (系统访问令牌) — the user's management credential,
+   * The site Access Token (system access token) — the user's management credential,
    * sent as a raw Authorization header. Not an sk- API key: the account layer
    * mints/reuses the sk- relay token itself.
    */
@@ -408,6 +416,7 @@ export interface XPeachModelPricingEntry {
   readonly cache_write_mode?: string
   readonly billing_details?: Record<string, JsonValue>
 }
+/** Full pricing snapshot returned by GET /api/option/model_pricing. */
 export interface XPeachModelPricingSnapshot {
   readonly entries: readonly XPeachModelPricingEntry[]
   readonly options: Record<string, string>
@@ -423,7 +432,101 @@ export interface XPeachModelPricingChange {
 
 
 /** Local conversation store ids the first-run onboarding can detect. */
-export type XPeachSourceId = 'deepseek' | 'claude' | 'codex' | 'zcode' | 'chatgpt'
+export type XPeachSourceId = 'deepseek' | 'claude' | 'codex' | 'zcode' | 'chatgpt' | 'gemini' | 'antigravity'
+
+/** One skill entry discovered in the user/agents/project skill roots. */
+export interface XPeachSkillItem {
+  readonly id: string
+  readonly name: string
+  readonly dirName: string
+  readonly description: string
+  readonly whenToUse?: string
+  readonly path: string
+  readonly source: 'user' | 'agents' | 'project' | 'builtin'
+  readonly enabled: boolean
+  readonly valid: boolean
+  readonly reason?: string
+  readonly content: string
+}
+
+/** Snapshot of local skills and global AGENTS.md rules. */
+export interface XPeachSkillsSnapshot {
+  readonly skills: readonly XPeachSkillItem[]
+  readonly rulesPath: string
+  readonly rulesContent: string
+}
+
+/** Request payload for `xpeach.skillToggle`. */
+export interface XPeachSkillToggleRequest {
+  readonly dirName: string
+  readonly name: string
+  readonly enabled: boolean
+}
+
+/** Request payload for `xpeach.skillSave`. */
+export interface XPeachSkillSaveRequest {
+  readonly dirName?: string
+  readonly name: string
+  readonly description: string
+  readonly whenToUse?: string
+  readonly content: string
+}
+
+/** Request payload for `xpeach.skillDelete`. */
+export interface XPeachSkillDeleteRequest {
+  readonly dirName: string
+}
+
+/** Request payload for `xpeach.rulesSave`. */
+export interface XPeachRulesSaveRequest {
+  readonly content: string
+}
+
+/** One configured MCP server in the profile patch and its live tool state. */
+export interface XPeachMcpItem {
+  readonly id: string
+  readonly serverName: string
+  readonly disabled: boolean
+  readonly transportType: 'stdio' | 'streamable-http'
+  readonly command?: string
+  readonly args?: readonly string[]
+  readonly env?: Readonly<Record<string, string>>
+  readonly url?: string
+  readonly headers?: Readonly<Record<string, string>>
+  readonly status: 'active' | 'disabled' | 'configured'
+  readonly toolCount: number
+  readonly tools: readonly { readonly name: string; readonly description: string }[]
+}
+
+/** Snapshot of configured MCP servers and active profile patch path. */
+export interface XPeachMcpSnapshot {
+  readonly servers: readonly XPeachMcpItem[]
+  readonly patchPath: string
+}
+
+/** Request payload for `xpeach.mcpToggle`. */
+export interface XPeachMcpToggleRequest {
+  readonly id: string
+  readonly enabled: boolean
+}
+
+/** Request payload for `xpeach.mcpSave`. */
+export interface XPeachMcpSaveRequest {
+  readonly id?: string
+  readonly serverName: string
+  readonly transportType: 'stdio' | 'streamable-http'
+  readonly command?: string
+  readonly args?: readonly string[]
+  readonly env?: Readonly<Record<string, string>>
+  readonly url?: string
+  readonly headers?: Readonly<Record<string, string>>
+  readonly disabled?: boolean
+}
+
+/** Request payload for `xpeach.mcpDelete`. */
+export interface XPeachMcpDeleteRequest {
+  readonly id: string
+}
 
 /** One detected local conversation store. */
 export interface XPeachDetectedSource {
@@ -506,4 +609,126 @@ export interface XPeachNetworkSnapshot {
   readonly auto: boolean
   readonly probes: readonly XPeachNetworkRoute[]
   readonly history: Readonly<Record<string, readonly XPeachNetworkPoint[]>>
+}
+
+/** Status of the macOS native `.pkg` guided installer and installed bundle/CLI. */
+export interface XPeachMacosInstallerStatus {
+  readonly supported: boolean
+  readonly platform: string
+  readonly arch: string
+  readonly version: string
+  readonly pkgPath: string
+  readonly pkgExists: boolean
+  readonly pkgSizeBytes: number
+  readonly appInstalled: boolean
+  readonly appPath: string
+  readonly xphCliInstalled: boolean
+  readonly xphCliPath: string
+  readonly receiptPath: string
+  readonly installedAt?: string | undefined
+}
+
+/** Request options for building, opening, or installing the macOS `.pkg` guided installer. */
+export interface XPeachMacosInstallerActionRequest {
+  readonly action: 'build' | 'open' | 'reveal' | 'install-direct'
+}
+
+/** Result of a macOS `.pkg` guided installer action. */
+export interface XPeachMacosInstallerActionResult {
+  readonly ok: boolean
+  readonly action: 'build' | 'open' | 'reveal' | 'install-direct'
+  readonly message: string
+  readonly status: XPeachMacosInstallerStatus
+  readonly verifyOutput?: string | undefined
+}
+
+/** Request options for starting an XPeach SSO Device Authorization flow. */
+export interface XPeachSsoDeviceStartRequest {
+  readonly openBrowser?: boolean | undefined
+  readonly clientName?: string | undefined
+}
+
+/** Response returned when starting an XPeach SSO Device Authorization flow. */
+export interface XPeachSsoDeviceStartResult {
+  readonly deviceCode: string
+  readonly userCode: string
+  readonly verificationUri: string
+  readonly verificationUriComplete: string
+  readonly expiresIn: number
+  readonly interval: number
+  readonly browserOpened: boolean
+}
+
+/** Request payload for polling an XPeach SSO Device Authorization flow. */
+export interface XPeachSsoDevicePollRequest {
+  readonly deviceCode: string
+}
+
+/** Bridged SSO + PeachCode (NewAPI) credential bundle returned upon Device Flow approval. */
+export interface XPeachSsoBridgePayload {
+  readonly sso?: {
+    readonly accessToken: string
+    readonly expiresIn?: number | undefined
+    readonly user?: {
+      readonly id: string
+      readonly username?: string | null | undefined
+      readonly email?: string | null | undefined
+      readonly name?: string | null | undefined
+      readonly picture?: string | null | undefined
+    } | undefined
+  } | undefined
+  readonly peachcode?: {
+    readonly baseUrl?: string | undefined
+    readonly userId?: number | undefined
+    readonly username?: string | undefined
+    readonly group?: string | undefined
+    readonly quota?: number | undefined
+    readonly usedQuota?: number | undefined
+    readonly accessToken?: string | undefined
+    readonly apiKey?: string | undefined
+    readonly tokenId?: number | undefined
+    readonly tokenName?: string | undefined
+  } | undefined
+}
+
+/** Status returned by a single poll cycle against XPeach SSO Device Authorization. */
+export interface XPeachSsoDevicePollResult {
+  readonly status: 'pending' | 'approved' | 'expired' | 'denied' | 'error'
+  readonly bound?: boolean | undefined
+  readonly username?: string | undefined
+  readonly email?: string | undefined
+  readonly preview?: string | undefined
+  readonly adminPreview?: string | undefined
+  readonly message?: string | undefined
+}
+
+/** Result of verifying or refreshing an SSO + PeachCode credential bundle (`POST /api/v1/peachcode/credentials`). */
+export type XPeachSsoCredentialSyncResult =
+  | {
+    readonly status: 'ok'
+    readonly payload: XPeachSsoBridgePayload
+  }
+  | {
+    readonly status: 'revoked'
+    readonly code: 401 | 403
+    readonly message: string
+  }
+  | {
+    readonly status: 'transient_error'
+    readonly message: string
+  }
+
+/** Request options for revoking an SSO session and its linked PeachCode credentials (`POST /api/v1/peachcode/revoke`). */
+export interface XPeachSsoRevokeRequest {
+  readonly allDevices?: boolean | undefined
+  readonly revokePeachcode?: boolean | undefined
+}
+
+/** Result of verifying the active SSO session and local credentials. */
+export interface XPeachSsoSessionStatus {
+  readonly valid: boolean
+  readonly status: 'ok' | 'revoked' | 'unbound' | 'transient_error'
+  readonly username?: string | undefined
+  readonly email?: string | undefined
+  readonly message?: string | undefined
 }

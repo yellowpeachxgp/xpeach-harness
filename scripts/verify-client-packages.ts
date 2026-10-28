@@ -9,7 +9,7 @@ import ts from 'typescript'
 import { TypeScriptProject } from './ts-project.ts'
 
 const GATE = 'verify-client-packages'
-const CLIENT_MANIFEST_GLOB = 'packages/client/*/package.json'
+const CLIENT_MANIFEST_GLOB = ['packages/client/*/package.json', 'packages/xpeach/client-ui/package.json']
 const MANIFEST_GLOBS = ['packages/*/*/package.json', 'apps/*/package.json', 'vendor/*/package.json']
 const CONFIG_GLOB = 'packages/*/*/tsdown.config.ts'
 const PLATFORM_SOURCE = 'packages/client/web/src/platform.ts'

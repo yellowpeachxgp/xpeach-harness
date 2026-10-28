@@ -1,3 +1,18 @@
+XPeach Harness
+Copyright (c) 2026 XPeach
+
+This product is a derivative work of DeepSeek Harness
+(https://github.com/deepseek-ai/deepseek-harness), which is distributed under
+the MIT License reproduced in full below. The upstream copyright notice is
+preserved as that licence requires.
+
+Modifications in this repository include, but are not limited to: the XPeach
+product identity, the @xpeach/xph-* package namespace, the 🍑Code relay client
+and its credential handling, the desktop packaging and release pipeline, and
+the settings surfaces contributed by this project.
+
+---
+
 MIT License
 
 Copyright (c) 2026 DeepSeek

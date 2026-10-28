@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-remote-access",
   "description": "Method-level Remote access control for non-owner Peers and the per-Peer access snapshot",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },

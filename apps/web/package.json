@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-web-frontend",
   "description": "Web application entry: vite build over the @xpeach/xph-client-web shell library; dist/ served by apps/cli's dsh web",
-  "version": "0.0.3-least",
+  "version": "0.0.18-alpha",
   "publishConfig": {
     "access": "public"
   },

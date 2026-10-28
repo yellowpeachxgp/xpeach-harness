@@ -235,6 +235,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'authorization': 'credentials.md',
   'credentials': 'credentials.md',
   'deepseek-account': 'credentials.md',
+  'xpeach': 'credentials.md',
   'domain': 'storage.md',
   'fs': 'filesystem.md',
   'goal': 'goal.md',

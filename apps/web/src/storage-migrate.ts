@@ -36,7 +36,8 @@ export function migrateLegacyStorageKeys(): void {
       for (const [fromP, toP] of PREFIXED) {
         if (k.startsWith(fromP)) {
           const to = toP + k.slice(fromP.length)
-          if (localStorage.getItem(to) === null) localStorage.setItem(to, localStorage.getItem(k)!)
+          const current = localStorage.getItem(k)
+          if (current !== null && localStorage.getItem(to) === null) localStorage.setItem(to, current)
         }
       }
     }

@@ -38,6 +38,16 @@ export class DesktopUpdateSource {
     })
   }
 
+  /** Re-read carrier status so opening General Settings reflects current or newly triggered checks. */
+  refresh(): void {
+    if (!this.live || this.bridge === undefined) return
+    void this.bridge.status().then((presentation) => {
+      if (this.live) this.store.set({ ...this.store.getSnapshot(), presentation, failed: false })
+    }, () => {
+      if (this.live) this.store.set({ ...this.store.getSnapshot(), failed: true })
+    })
+  }
+
   /** Detach the carrier and ignore any pending status or action completion. */
   dispose(): void { this.live = false; this.unsubscribe?.() }
 }

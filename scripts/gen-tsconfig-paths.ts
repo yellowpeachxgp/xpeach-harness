@@ -12,8 +12,8 @@
  * This generator writes one explicit entry per package into a marked region of
  * `tsconfig.base.json`, leaving every hand-written alias and comment outside
  * that region untouched. `--check` reports drift instead of writing, so a new
- * package that needs an alias fails a gate rather than silently resolving
- * through a fallback that no longer exists.
+ * package that needs an alias fails a gate rather than resolving through built
+ * output.
  *
  * @module scripts/gen-tsconfig-paths
  */
@@ -83,16 +83,15 @@ function workspacePackages(): WorkspacePackage[] {
 }
 
 /**
- * Collect every package the removed wildcards could resolve.
+ * Collect every package the generated region can map.
  *
- * A wildcard substituted the specifier's suffix into `packages/<group>/<suffix>/src`,
- * so it only ever resolved a package whose declared name is exactly
- * `@xpeach/xph-<directory>`. Packages named after something other than
- * their directory already carry a hand-written alias and are skipped here.
+ * The generated region maps each package whose declared name is exactly
+ * `@xpeach/xph-<directory>` to `packages/<group>/<directory>/src`. Packages
+ * named after something other than their directory carry a hand-written alias
+ * and are skipped here.
  *
  * @returns Aliases sorted by specifier.
- * @throws When two package directories claim one specifier, which the removed
- * wildcards resolved by group order and an explicit map cannot express.
+ * @throws When two package directories claim one specifier.
  */
 export function collectPackageAliases(): PackageAlias[] {
   const bySpecifier = new Map<string, PackageAlias & { directory: string }>()
@@ -102,7 +101,7 @@ export function collectPackageAliases(): PackageAlias[] {
     if (previous !== undefined) {
       throw new Error(
         `gen-tsconfig-paths: ${name} is claimed by packages/${previous.directory} and packages/${group}/${directory}; `
-        + 'an explicit alias cannot express the group-order tiebreak the wildcard used.',
+        + 'an explicit alias cannot express a group-order tiebreak.',
       )
     }
     bySpecifier.set(name, {
@@ -120,9 +119,8 @@ export function collectPackageAliases(): PackageAlias[] {
  * Collect every workspace package the aliases must cover.
  *
  * Unlike {@link collectPackageAliases} this keeps packages whose name does not
- * match their directory. The generator cannot map those — only a hand-written
- * alias can — but they still have to be mapped by something, because deleting
- * the group wildcards removed the fallback that used to catch them.
+ * match their directory. Only a hand-written alias can map those, and every
+ * `@xpeach/xph-` package with a `src` directory must be mapped.
  *
  * @returns Declared names of every `@xpeach/xph-` package carrying a `src` directory.
  */
@@ -139,7 +137,7 @@ export function collectPackageNames(): string[] {
  */
 export function mappedSpecifiers(text: string): Set<string> {
   const keys = new Set<string>()
-  for (const match of text.matchAll(/^\s*"(@deepseek-ai\/dsh-[^"/]+)":/gm)) {
+  for (const match of text.matchAll(/^\s*"(@xpeach\/xph-[^"/]+)":/gm)) {
     const key = match[1]
     if (key !== undefined) keys.add(key)
   }
@@ -208,7 +206,7 @@ function handWrittenSpecifiers(text: string): Set<string> {
   const end = text.indexOf(END)
   const outside = begin < 0 || end < begin ? text : text.slice(0, begin) + text.slice(end)
   const keys = new Set<string>()
-  for (const match of outside.matchAll(/^\s*"(@deepseek-ai\/[^"]+)":/gm)) {
+  for (const match of outside.matchAll(/^\s*"(@xpeach\/[^"]+)":/gm)) {
     const key = match[1]
     if (key !== undefined) keys.add(key)
   }

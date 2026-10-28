@@ -3,7 +3,13 @@
 import z from '@xpeach/xph-schemastery'
 
 /** Built-in preferences accepted at the registry and settings boundaries. */
-export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const
+export const THEME_PREFERENCES = [
+  'light', 'dark', 'system',
+  'peach', 'peach-dark',
+  'forest', 'forest-dark',
+  'sea', 'sea-dark',
+  'dusk', 'dusk-dark',
+] as const
 
 /** Settings namespace owned by the theme plugin. */
 export const THEME_SETTINGS_NAMESPACE = 'ui-theme'

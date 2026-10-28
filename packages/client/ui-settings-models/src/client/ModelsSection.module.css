@@ -829,3 +829,11 @@ select.input {
   line-height: 20px;
   text-align: center;
 }
+
+/* The row being dragged over: a top rule reads as the insertion point. */
+.modelEntryDrop {
+  box-shadow: inset 0 2px 0 0 var(--dsw-alias-brand-primary);
+}
+/* A draggable row shows the move cursor so the affordance is discoverable. */
+.modelEntry[draggable='true'] .modelRow { cursor: grab; }
+.modelEntry[draggable='true'] .modelRow:active { cursor: grabbing; }

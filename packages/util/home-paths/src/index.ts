@@ -142,8 +142,9 @@ export function resolveDshHome(configured?: string, env: Record<string, string |
   // full-isolation xph boot lands every root under ~/.xph even when a stale
   // DSH_HOME rides the ambient environment.
   const xph = env[XPH_HOME_ENV]
-  const effective = xph !== undefined && xph.trim().length > 0 ? { ...env, [DSH_HOME_ENV]: xph } : env
-  return resolveRoot(configured, effective, DSH_HOME_ENV, xph !== undefined && xph.trim().length > 0 ? () => join(homedir(), XPH_HOME_DIR_NAME) : defaultDshHome)
+  const hasXph = xph !== undefined && xph.trim().length > 0
+  const effective = hasXph ? { ...env, [DSH_HOME_ENV]: xph } : env
+  return resolveRoot(configured, effective, DSH_HOME_ENV, hasXph ? () => join(homedir(), XPH_HOME_DIR_NAME) : defaultDshHome)
 }
 
 /**

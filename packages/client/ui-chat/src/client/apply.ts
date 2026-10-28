@@ -48,6 +48,23 @@ import { useTurnDataValue } from './chat/use-turn-data.ts'
 import { bindDisclosure } from './chat/use-disclosure.ts'
 import { useFlowHidden, useMotionHidden } from './chat/flow-motion.ts'
 
+/**
+ * Seed a child Session's saved draft before its composer mounts.
+ * @param sessionId - child Session whose draft to seed.
+ * @param text - plain text to place in the composer.
+ */
+function seedDraft(sessionId: string, text: string): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const key = `xph.conversation.${sessionId}`
+    const raw = localStorage.getItem(key)
+    const stored: Record<string, unknown> = raw === null ? {} : JSON.parse(raw) as Record<string, unknown>
+    localStorage.setItem(key, JSON.stringify({ ...stored, draft: { text, references: [] } }))
+  } catch {
+    // An unavailable or full store simply leaves the composer empty.
+  }
+}
+
 /** Bind group and header visibility to the viewport of one flow render. */
 export const CHAT_FLOW_INJECT: ChatFlowInjected = {
   hooks: {
@@ -281,6 +298,25 @@ export function apply(ctx: Context): void {
               else chatScrollPositions.set(sessionId, position)
             },
             read: () => chatScrollPositions.get(sessionId) ?? null,
+          },
+          editAt: (seq, text) => {
+            // Fork before the enclosing turn when one is known so the child
+            // does not inherit an open turn prefix before the edited message.
+            const turn = [...chat.getSnapshot().timeline.turns.values()].find(
+              candidate =>
+                candidate.start !== undefined && candidate.start.seq <= seq && (candidate.end === undefined || seq <= candidate.end.seq),
+            )
+            const boundary = turn?.start !== undefined ? turn.start.seq : seq
+            ctx.sessions.fork({ sessionId, atSeq: Math.max(0, boundary - 1), increaseTitle: true, onCreated: (childId) => {
+              ctx.get('productAnalytics')?.track('branch_session_click', { session_id: childId, parent_session_id: sessionId, click_position: 'edit' })
+            } })
+              .then((childId) => {
+                seedDraft(childId, text)
+                ctx.uiWorkspace.openSession(childId)
+              })
+              .catch(() => {
+                // A refused fork leaves the source view unchanged.
+              })
           },
           forkAt: (seq) => {
             const turn = [...chat.getSnapshot().timeline.turns.values()].find(turn => turn.end?.seq === seq)

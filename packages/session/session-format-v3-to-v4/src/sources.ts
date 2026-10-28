@@ -41,6 +41,8 @@ const RENAMED_PRODUCERS: Readonly<Record<string, string>> = Object.freeze({
   'tools-code-mode': 'ptc-mode',
   'tools-ptc': 'ptc-mode',
   'dsh-compaction-basic': 'compact-basic',
+  'xph-compaction-basic': 'compact-basic',
+  '@deepseek-ai/dsh-system-prompt': 'runtime-context',
   '@xpeach/xph-system-prompt': 'runtime-context',
 })
 
@@ -52,12 +54,12 @@ const RELEASED_SAME_NAME_PRODUCERS: ReadonlySet<string> = new Set([
   'plan-mode', 'time-context', 'tmux-context', 'user-approval',
   'repeat-tool-reminder', 'tool-cordis', 'cordis-host-runner', 'tool-goal',
   'tool-jobs', 'hooks-codex', 'hooks-claude-code', 'schedule',
-  'dsh-session-title-llm',
+  'dsh-session-title-llm', 'xph-session-title-llm',
 ])
 
 /** Resolve the current producer kind for one released V3 plugin string. */
 function producerKind(plugin: string, role: SessionFormatJsonValue | undefined): string {
-  if (plugin === '@xpeach/xph-system-prompt' && role === 'system') return 'system-prompt'
+  if ((plugin === '@xpeach/xph-system-prompt' || plugin === '@deepseek-ai/dsh-system-prompt') && role === 'system') return 'system-prompt'
   const renamed = Object.hasOwn(RENAMED_PRODUCERS, plugin) ? RENAMED_PRODUCERS[plugin] : undefined
   if (renamed !== undefined) return renamed
   if (RELEASED_SAME_NAME_PRODUCERS.has(plugin)) return plugin

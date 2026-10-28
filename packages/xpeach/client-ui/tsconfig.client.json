@@ -2,10 +2,14 @@
   "extends": "../../../tsconfig.base.client.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "lib/types"
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/index.ts"
   ],
   "references": [
     {
@@ -42,10 +46,16 @@
       "path": "../../client/ui-sidebar"
     },
     {
+      "path": "../../client/ui-sidebar-right"
+    },
+    {
       "path": "../../client/ui-layout"
     },
     {
       "path": "../../client/ui-chat/tsconfig.client.json"
+    },
+    {
+      "path": "../../client/ui-conversation/tsconfig.client.json"
     }
   ]
 }

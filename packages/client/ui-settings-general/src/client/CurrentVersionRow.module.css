@@ -5,3 +5,127 @@
   line-height: 22px;
   overflow-wrap: anywhere;
 }
+
+.desktopContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.autoUpdateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.autoUpdateText {
+  min-width: 0;
+}
+
+.title {
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.description {
+  margin-top: 4px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.versionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.versionInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.versionText {
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-2, rgba(128, 128, 128, 0.1));
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.statusBadgeBrand {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent);
+  color: var(--dsw-alias-brand-primary);
+  font-weight: 500;
+}
+
+.statusBadgeError {
+  background: rgba(220, 38, 38, 0.12);
+  color: #ef4444;
+}
+
+.updateButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.24));
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, rgba(128, 128, 128, 0.08));
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.updateButton:hover:not(:disabled) {
+  border-color: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
+}
+
+.updateButton:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.updateButtonPrimary {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-brand-primary-invert, #ffffff);
+}
+
+.updateButtonPrimary:hover:not(:disabled) {
+  background: var(--dsw-alias-brand-primary);
+  opacity: 0.92;
+}
+
+.spinner {
+  animation: current-version-spin 0.9s linear infinite;
+}
+
+@keyframes current-version-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

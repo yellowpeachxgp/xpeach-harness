@@ -900,7 +900,7 @@ describe('runtime resolution', { concurrent: false }, () => {
   it('keeps a local legacy main outside its package directory ahead of the resolution', async () => {
     const f = fixture()
     const local = join(f.profile.dir, 'node_modules', '@xpeach/xph-core')
-    const outside = join(f.profile.dir, 'node_modules', '@deepseek-ai', 'outside.cjs')
+    const outside = join(f.profile.dir, 'node_modules', '@xpeach', 'outside.cjs')
     file(join(local, 'package.json'), JSON.stringify({ name: '@xpeach/xph-core', main: '../outside.cjs' }))
     file(outside, 'module.exports = { marker: 2 }\n')
     const require = createRequire(join(f.profile.dir, 'entry.cjs'))
@@ -2093,7 +2093,7 @@ describe('runtime resolution', { concurrent: false }, () => {
     const f = fixture()
     const installDir = dirname(f.installAnchor)
     pkg(installDir, '@xpeach/xph-dsh', 0, { '@xpeach/xph-core': '*', '@xpeach/xph-util': '*' })
-    pkg(join(installDir, 'node_modules', '@deepseek-ai', 'dsh-util'), '@xpeach/xph-util', 2)
+    pkg(join(installDir, 'node_modules', '@xpeach', 'xph-util'), '@xpeach/xph-util', 2)
     const linkedRoot = join(f.root, 'work', 'my-plugin')
     const writeManifest = (peers: Record<string, string> | undefined): void => {
       file(join(linkedRoot, 'package.json'), JSON.stringify({
@@ -2112,9 +2112,9 @@ describe('runtime resolution', { concurrent: false }, () => {
     file(join(linkedRoot, 'index.cjs'), 'module.exports = { marker: 30 }\n')
     // The devDependency copy a type checker needs, the plugin's own third-party version, and a dsh package
     // declared as a plain dependency.
-    pkg(join(linkedRoot, 'node_modules', '@deepseek-ai', 'dsh-core'), '@xpeach/xph-core', 21)
+    pkg(join(linkedRoot, 'node_modules', '@xpeach', 'xph-core'), '@xpeach/xph-core', 21)
     pkg(join(linkedRoot, 'node_modules', 'zod'), 'zod', 22)
-    pkg(join(linkedRoot, 'node_modules', '@deepseek-ai', 'dsh-util'), '@xpeach/xph-util', 23)
+    pkg(join(linkedRoot, 'node_modules', '@xpeach', 'xph-util'), '@xpeach/xph-util', 23)
     pkg(join(f.root, 'work', 'node_modules', 'left-pad'), 'left-pad', 24)
     // A transitive dependency in pnpm's isolated layout, with a sibling of its own.
     const helper = join(linkedRoot, 'node_modules', '.pnpm', 'helper@1.0.0', 'node_modules', 'helper')
@@ -2574,7 +2574,7 @@ describe('runtime resolution', { concurrent: false }, () => {
     expect(resolveFrom('zod', `${parent}?t=1`)).toBe(pathToFileURL(join(linkedRoot, 'node_modules', 'zod', 'index.js')).href)
     // Plain dependencies keep the plugin's own copies, including a dsh package declared as one.
     await expectResolution('zod', join(linkedRoot, 'node_modules', 'zod'), 22)
-    await expectResolution('@xpeach/xph-util', join(linkedRoot, 'node_modules', '@deepseek-ai', 'dsh-util'), 23)
+    await expectResolution('@xpeach/xph-util', join(linkedRoot, 'node_modules', '@xpeach', 'xph-util'), 23)
     // An undeclared name without an entry follows the real ancestor chain.
     await expectResolution('left-pad', join(f.root, 'work', 'node_modules', 'left-pad'), 24)
     // Package imports and self-references keep their Node semantics inside the linked package.
@@ -2596,10 +2596,10 @@ describe('runtime resolution', { concurrent: false }, () => {
   it('continues above a linked plugin after a CommonJS subpath miss in an occupied peer', async () => {
     const { f, linkedRoot } = linkedPluginFixture()
     file(join(f.installed, 'package.json'), JSON.stringify({ name: '@xpeach/xph-core', version: '1.0.0', main: './index.cjs' }))
-    const above = join(f.root, 'work', 'node_modules', '@deepseek-ai', 'dsh-core')
+    const above = join(f.root, 'work', 'node_modules', '@xpeach', 'xph-core')
     file(join(above, 'package.json'), JSON.stringify({ name: '@xpeach/xph-core', version: '3.0.0' }))
     file(join(above, 'sub.cjs'), 'module.exports = { marker: 3 }\n')
-    file(join(linkedRoot, 'node_modules', '@deepseek-ai', 'dsh-core', 'sub.cjs'), 'module.exports = { marker: 21 }\n')
+    file(join(linkedRoot, 'node_modules', '@xpeach', 'xph-core', 'sub.cjs'), 'module.exports = { marker: 21 }\n')
     const registration = installRuntimeInterception(await resolutionOf(f))
     registrations.push(registration)
     const require = createRequire(join(linkedRoot, 'entry.cjs'))
@@ -2640,7 +2640,7 @@ describe('runtime resolution', { concurrent: false }, () => {
     const { f, linkedRoot, writeManifest } = linkedPluginFixture({})
     const registration = installRuntimeInterception(await resolutionOf(f))
     registrations.push(registration)
-    const devCopy = join(linkedRoot, 'node_modules', '@deepseek-ai', 'dsh-core')
+    const devCopy = join(linkedRoot, 'node_modules', '@xpeach', 'xph-core')
     const require = createRequire(join(linkedRoot, 'entry.cjs'))
     const parent = pathToFileURL(join(linkedRoot, 'entry.mjs')).href
     expect(require.resolve('@xpeach/xph-core')).toBe(join(devCopy, 'index.cjs'))

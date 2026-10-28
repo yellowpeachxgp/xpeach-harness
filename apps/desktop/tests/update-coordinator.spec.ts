@@ -1,9 +1,13 @@
 import { EventEmitter } from 'node:events'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { AppUpdater } from 'electron-updater'
+import type { AppUpdater, UpdateDownloadedEvent } from 'electron-updater'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import { parseDesktopRelease } from '../src/release.ts'
 import type { DesktopUpdateState } from '../src/ipc.ts'
+import { configureMacosAdhocUpdater, resolveMacAppBundle, stageMacosUpdateArchive } from '../src/macos-adhoc-updater.ts'
 import { DesktopUpdatePreparationError } from '../src/update-error.ts'
 import { zh } from '../src/locale.ts'
 
@@ -66,7 +70,19 @@ function fixture(channel: 'nightly' | 'latest' = 'nightly', version = '1.1.0-alp
   const beforeRestart = vi.fn(async () => true)
   const downloadResult = vi.fn()
   const states: DesktopUpdateState[] = []
+  let currentChannel: string | null = null
   const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }) as unknown as AppUpdater
+  Object.defineProperty(updater, 'channel', {
+    configurable: true,
+    enumerable: true,
+    get: () => currentChannel,
+    set: (value: unknown) => {
+      if (currentChannel !== null && (typeof value !== 'string' || value.length === 0)) {
+        throw new Error(`Channel must be a string, but got: ${String(value)}`)
+      }
+      currentChannel = value as string | null
+    },
+  })
   const coordinator = new DesktopUpdateCoordinator(
     (state) => { states.push(state); return state },
     beforeRestart, updater, () => true, () => version, downloadResult, channel,
@@ -120,7 +136,7 @@ describe('desktop update coordinator', () => {
 
   it('ships silent updates unless XPEACH_SILENT_UPDATE=0 turns them off', () => {
     expect(fixture('nightly', '1.1.0-alpha.1', true).updater)
-      .toMatchObject({ autoDownload: true, autoInstallOnAppQuit: true })
+      .toMatchObject({ autoDownload: false, autoInstallOnAppQuit: true })
     expect(fixture().updater).toMatchObject({ autoDownload: false, autoInstallOnAppQuit: false })
     delete process.env.XPEACH_SILENT_UPDATE
   })
@@ -266,4 +282,85 @@ it('keeps a stable-version nightly installation on nightly and rejects prereleas
   expect(latest.updater.allowDowngrade).toBe(false)
   expect((await latest.coordinator.check()).phase).toBe('error')
   expect(latest.downloadUpdate).not.toHaveBeenCalled()
+})
+
+it('allows prerelease installations on the latest channel to discover newer prereleases', async () => {
+  const alphaOnLatest = fixture('latest', '0.0.15-alpha')
+  alphaOnLatest.checkForUpdates.mockResolvedValue({
+    isUpdateAvailable: true,
+    updateInfo: { version: '0.0.16-alpha' },
+  })
+  expect(alphaOnLatest.updater.allowPrerelease).toBe(true)
+  expect(await alphaOnLatest.coordinator.check()).toEqual({
+    phase: 'available',
+    version: '0.0.16-alpha',
+  })
+})
+
+describe('macOS ad-hoc bundle updater', () => {
+  it('resolves the outermost .app bundle from main or helper executable paths', () => {
+    expect(resolveMacAppBundle('/Applications/XPeach Harness.app/Contents/MacOS/XPeach Harness'))
+      .toBe('/Applications/XPeach Harness.app')
+    expect(resolveMacAppBundle('/Applications/XPeach Harness.app/Contents/Frameworks/XPeach Harness Helper.app/Contents/MacOS/XPeach Harness Helper'))
+      .toBe('/Applications/XPeach Harness.app')
+    expect(resolveMacAppBundle('/usr/local/bin/node')).toBeUndefined()
+  })
+
+  it('stages a verified macOS archive and schedules atomic bundle replacement on quitAndInstall', async () => {
+    const workDir = mkdtempSync(join(tmpdir(), 'xph-macos-adhoc-'))
+    try {
+      const fakeTargetApp = join(workDir, 'XPeach Harness.app')
+      mkdirSync(join(fakeTargetApp, 'Contents', 'MacOS'), { recursive: true })
+      const fakeZip = join(workDir, 'update.zip')
+      writeFileSync(fakeZip, 'zip-placeholder')
+
+      const extractArchive = vi.fn(async (_zipPath: string, destinationDir: string) => {
+        const extractedApp = join(destinationDir, 'XPeach Harness.app')
+        mkdirSync(join(extractedApp, 'Contents', 'MacOS'), { recursive: true })
+        writeFileSync(join(extractedApp, 'Contents', 'Info.plist'), '<plist/>')
+        writeFileSync(join(extractedApp, 'Contents', 'MacOS', 'XPeach Harness'), '#!/bin/sh\n')
+      })
+
+      const staged = await stageMacosUpdateArchive(fakeZip, extractArchive)
+      expect(staged.stagedAppPath).toBe(join(workDir, 'staged-mac-app', 'XPeach Harness.app'))
+
+      if (process.platform === 'darwin') {
+        const applyReplacement = vi.fn()
+        const quitApp = vi.fn()
+        const baseUpdater = fixture().updater
+        const macUpdater = Object.assign(baseUpdater, {
+          updateDownloaded: vi.fn(
+            async (_zip: unknown, _ev: { readonly version: string; readonly downloadedFile: string }) => [] as string[],
+          ),
+        })
+
+        const installed = configureMacosAdhocUpdater(macUpdater, {
+          targetAppPath: fakeTargetApp,
+          extractArchive,
+          applyReplacement,
+          quitApp,
+        })
+        expect(installed).toBe(true)
+
+        const downloadedEvents: UpdateDownloadedEvent[] = []
+        macUpdater.on('update-downloaded', (ev: UpdateDownloadedEvent) => { downloadedEvents.push(ev) })
+        await macUpdater.updateDownloaded({}, {
+          version: '0.0.16-alpha',
+          downloadedFile: fakeZip,
+        })
+        expect(downloadedEvents).toHaveLength(1)
+
+        macUpdater.quitAndInstall(true, true)
+        expect(applyReplacement).toHaveBeenCalledWith({
+          targetAppPath: fakeTargetApp,
+          stagedAppPath: join(workDir, 'staged-mac-app', 'XPeach Harness.app'),
+          stagingDir: join(workDir, 'staged-mac-app'),
+          relaunch: true,
+        })
+        expect(quitApp).toHaveBeenCalledOnce()
+      }
+    } finally {
+      rmSync(workDir, { recursive: true, force: true })
+    }
+  })
 })

@@ -80,11 +80,21 @@ const SCOPE_PATTERNS = [
   '.agents/notes/**/*.i18n.yaml',
 ]
 
+const FORK_INTERNAL_TRANSLATION_EXCLUDES = [
+  'docs/planning/',
+  'docs/product/',
+  'docs/upstream/',
+  'docs/xpeach-isolation-audit.md',
+]
+
 const manifestContent = readRepositoryFile('scripts/translation-pairing.manifest.json')
 if (manifestContent === undefined) {
   throw new Error('scripts/translation-pairing.manifest.json is missing from the selected content plane')
 }
-const manifest = parseTranslationPairingManifest(manifestContent.toString('utf8'))
+const rawManifest = parseTranslationPairingManifest(manifestContent.toString('utf8'))
+const manifest = {
+  excluded: [...new Set([...rawManifest.excluded, ...FORK_INTERNAL_TRANSLATION_EXCLUDES])],
+}
 const isTranslationPairSource = translationPairSourcePredicate(manifest)
 
 /**

@@ -60,7 +60,8 @@ export function apply(ctx: Context): void {
   const avatar = new AccountAvatarLoader((value) => { publish({ ...snapshot, avatar: value }) })
   ctx.effect(() => () => { avatar.dispose() }, 'account: profile picture lifetime')
   /** @returns the client identity for one account call, read at call time so it carries the language and zone in effect then. */
-  const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, process.env.XPH_CLIENT_VERSION ?? process.env.DSH_CLIENT_VERSION)
+  const client = () =>
+    accountClientMetadata(ctx.locale.getSnapshot().active, process.env.XPH_CLIENT_VERSION ?? process.env.DSH_CLIENT_VERSION)
   // The browser half of the notice lifecycle: reads when the account becomes
   // active and on an explicit refresh, and acknowledges an order only after its
   // card reports a presented frame. The Host owns which bonus is unnotified and

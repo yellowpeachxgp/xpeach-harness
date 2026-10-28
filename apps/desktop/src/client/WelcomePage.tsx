@@ -165,6 +165,16 @@ export function Welcome({ api }: { api: WelcomeApi }) {
 
   const phase = starting ? 'initializing' : attempt?.phase ?? 'failed'
   const waiting = phase === 'waiting-browser'
+  const deviceCode = (() => {
+    const url = attempt?.authorizeUrl
+    if (!url) return null
+    try {
+      const code = new URL(url, 'https://sso.xpeach.codes').searchParams.get('code')
+      return code !== null && code.trim().length > 0 ? code.trim() : null
+    } catch {
+      return null
+    }
+  })()
   const failed = phase === 'expired' || phase === 'failed'
   const title = phase === 'initializing' ? m.welcomeAuthStarting
     : waiting ? m.welcomeAuthWaiting : phase === 'expired' ? m.welcomeAuthExpired
@@ -193,6 +203,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       <section id="auth-page" className={`key-heading ${waiting ? 'auth-waiting' : phase === 'expired' ? 'auth-expired' : ''}`}
         hidden={page !== 'account'} aria-live="polite">
         <h1 id="auth-status">{title}</h1>
+        {waiting && deviceCode !== null && <p id="auth-device-code"><code style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.14em' }}>{deviceCode}</code></p>}
         <p id="auth-description" hidden={!waiting && phase !== 'expired'}>{waiting ? m.welcomeAuthWaitingDescription : m.welcomeAuthExpiredDescription}</p>
         <button id="auth-copy" className="copy-link" type="button" hidden={!waiting} disabled={!waiting || (copyState === 'busy' || copyState === 'copied')} onClick={() => { void copyLink() }}>
           {copyState === 'copied' ? m.welcomeAuthCopied : copyState === 'failed' ? m.welcomeAuthCopyFailed : m.welcomeAuthCopyLink}

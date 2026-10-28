@@ -70,7 +70,20 @@ function findViolations(absPath: string): Violation[] {
   return out
 }
 
-const files = uniqueRepoFiles(root, PATTERNS, isArchivedAgentNotePath)
+const FORK_INTERNAL_DOC_PREFIXES = [
+  'docs/planning/',
+  'docs/product/',
+  'docs/upstream/',
+]
+
+function isExcludedMdWrapPath(relativePath: string): boolean {
+  const normalized = relativePath.replaceAll('\\', '/')
+  return isArchivedAgentNotePath(normalized)
+    || normalized === 'docs/xpeach-isolation-audit.md'
+    || FORK_INTERNAL_DOC_PREFIXES.some(prefix => normalized.startsWith(prefix))
+}
+
+const files = uniqueRepoFiles(root, PATTERNS, isExcludedMdWrapPath)
 const all = files.flatMap(file => findViolations(file.abs))
 const checked = files.length
 
