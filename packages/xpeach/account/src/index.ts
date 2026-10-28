@@ -578,7 +578,7 @@ export class XPeachAccount extends TypertRemoteService {
     enabledFamilies: z.array(z.string()).default([]).volatile(),
     conversationTracking: z.boolean().default(true).volatile(),
     autoSyncModels: z.boolean().default(true).volatile(),
-    modelMetadataUrl: z.string().default('https://raw.githubusercontent.com/YellowPeach122/xpeach-harness/main/resources/model-metadata.json').volatile(),
+    modelMetadataUrl: z.string().default('https://raw.githubusercontent.com/yellowpeachxgp/xpeach-harness/main/resources/model-metadata.json').volatile(),
     timeoutMs: z.natural().min(1000).default(15000).volatile(),
     watchModels: z.array(z.string()).default([
       'swe-2-max',
@@ -907,7 +907,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   private async refreshModelMetadata(signal: AbortSignal): Promise<ModelMetadataRegistry | undefined> {
     const url = unwrapConfigValue(this.liveConfig.modelMetadataUrl)?.trim()
-      || 'https://raw.githubusercontent.com/YellowPeach122/xpeach-harness/main/resources/model-metadata.json'
+      || 'https://raw.githubusercontent.com/yellowpeachxgp/xpeach-harness/main/resources/model-metadata.json'
     try {
       const res = await fetch(url, {
         signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
