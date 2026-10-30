@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-web-search-exa",
   "description": "Exa-backed search provider for the DeepSeek Harness web capability seam (ctx.web)",
-  "version": "0.0.21-alpha",
+  "version": "0.0.22-alpha",
   "publishConfig": {
     "access": "public"
   },
