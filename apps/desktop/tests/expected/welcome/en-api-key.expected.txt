@@ -1,7 +1,7 @@
 XPeach Harness
 XPeach Harness
 Add an API key to get started
-Configure official DeepSeek models to start using XPeach Harness
+Configure official XPeach models to start using XPeach Harness
 Enter API key [password]
 Save and continue [disabled]
 Set up later

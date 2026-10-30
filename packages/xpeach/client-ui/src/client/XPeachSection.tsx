@@ -1,5 +1,5 @@
-/** XPeach settings section: key binding, token usage, site models, call log. */
-import { type JSX, useEffect, useRef, useState } from 'react'
+/** XPeach settings section: SSO authentication, token usage, site models, call log. */
+import { type JSX, useEffect, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachModel } from '@xpeach/xph-account/types'
 import type { XPeachOps, XPeachSsoDeviceStartResult } from './ops.ts'
@@ -22,10 +22,9 @@ type LoadState =
 
 /** The settings section bound component; all data arrives through props. */
 export function XPeachSection({
-  t, load, models, modelMatch, keyState, bind, unbind, subscribeCredentialChange,
-  sessionBound, sessionUser, sessionLogin, bindSession, unbindSession,
-  ssoDeviceStart, ssoDevicePoll,
-  keySlots, keySlotAdd, keySlotSwitch, keySlotRemove,
+  t, load, models, modelMatch, keyState, unbind, subscribeCredentialChange,
+  sessionBound, sessionUser, unbindSession,
+  ssoDeviceStart, ssoDevicePoll, ssoLogout,
   trackingState, setTracking, autoSyncModels, setAutoSyncModels, syncModels,
   protocolPreference, setProtocolPreference,
   families, setFamilies, recents,
@@ -45,20 +44,7 @@ export function XPeachSection({
   useEffect(() => { void families().then(setFamilyList) }, [families])
   useEffect(() => { void recents().then(setRecentModels) }, [recents])
   const [bound, setBound] = useState<Bound>('unknown')
-  const [keyMask, setKeyMask] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [sessBound, setSessBound] = useState<'unknown' | 'bound' | 'unbound'>('unknown')
   const [sessAs, setSessAs] = useState<string | null>(null)
-  const [sessCookie, setSessCookie] = useState('')
-  const [sessBusy, setSessBusy] = useState(false)
-  const [sessError, setSessError] = useState<string | null>(null)
-  const [sessMsg, setSessMsg] = useState<string | null>(null)
-  const [slots, setSlots] = useState<readonly { name: string; prefix: string; active: boolean }[]>([])
-  const [slotName, setSlotName] = useState('')
-  const [slotKey, setSlotKey] = useState('')
-  const [slotBusy, setSlotBusy] = useState(false)
-  const [slotMsg, setSlotMsg] = useState<string | null>(null)
-  const [key, setKey] = useState('')
   const [bindBusy, setBindBusy] = useState(false)
   const [bindError, setBindError] = useState<string | null>(null)
   const [ssoSession, setSsoSession] = useState<XPeachSsoDeviceStartResult | null>(null)
@@ -66,9 +52,6 @@ export function XPeachSection({
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [modelList, setModelList] = useState<readonly XPeachModel[] | { error: string }>([])
   const [match, setMatch] = useState<readonly { id: string; available: boolean }[]>([])
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => { clearTimeout(copyTimer.current) }, [])
 
   const refresh = (): void => {
     setState({ status: 'loading' })
@@ -88,32 +71,25 @@ export function XPeachSection({
     void keyState().then((v) => {
       if (!live) return
       setBound(v.bound ? 'bound' : 'unbound')
-      setKeyMask(v.preview ?? null)
       if (v.bound) refresh()
     })
     void sessionBound().then((v) => {
       if (!live) return
       const isBound = 'bound' in v && v.bound
-      setSessBound(isBound ? 'bound' : 'unbound')
       if (isBound) void sessionUser().then((u) => { if (live && u.as !== undefined) setSessAs(u.as) })
     })
-    void keySlots().then((v) => { if (live) setSlots(v) })
     return () => { live = false }
   }, [])
   // A credential change elsewhere (pill bind, shell write) re-reads the gate.
   useEffect(() => subscribeCredentialChange(() => {
-    void keyState().then((v) => { setBound(v.bound ? 'bound' : 'unbound'); setKeyMask(v.preview ?? null); if (v.bound) refresh(); else setModelList([]) })
+    void keyState().then((v) => { setBound(v.bound ? 'bound' : 'unbound'); if (v.bound) refresh(); else setModelList([]) })
+    void sessionBound().then((v) => {
+      const isBound = 'bound' in v && v.bound
+      if (isBound) void sessionUser().then((u) => { if (u.as !== undefined) setSessAs(u.as) })
+      else setSessAs(null)
+    })
   }), [subscribeCredentialChange])
 
-  const doBind = async (): Promise<void> => {
-    setBindBusy(true); setBindError(null)
-    const error = await bind(key)
-    setBindBusy(false)
-    if (error !== null) { setBindError(error); return }
-    setKey('')
-    setBound('bound')
-    refresh()
-  }
   const doSsoDevice = async (): Promise<void> => {
     if (ssoDeviceStart === undefined) return
     setBindBusy(true); setBindError(null)
@@ -144,7 +120,6 @@ export function XPeachSection({
           setSsoSession(null)
           setBindError(null)
           setBound('bound')
-          if (res.preview !== undefined) setKeyMask(res.preview)
           refresh()
         } else if (res.status === 'expired') {
           setBindError(res.message ?? t('sso.expired'))
@@ -163,61 +138,15 @@ export function XPeachSection({
       clearInterval(timer)
     }
   }, [ssoSession, ssoDevicePoll, t])
-  const reloadSlots = (): void => { void keySlots().then(setSlots) }
-  const doSlotAdd = async (): Promise<void> => {
-    setSlotBusy(true); setSlotMsg(null)
-    const err = await keySlotAdd(slotName, slotKey)
-    setSlotBusy(false)
-    if (err !== null) { setSlotMsg(err); return }
-    setSlotName(''); setSlotKey('')
-    reloadSlots()
-    void keyState().then((v) => { setBound(v.bound ? 'bound' : 'unbound'); setKeyMask(v.preview ?? null); if (v.bound) refresh() })
-  }
-  const doSlotSwitch = async (i: number): Promise<void> => {
-    setSlotMsg(null)
-    const err = await keySlotSwitch(i)
-    if (err !== null) { setSlotMsg(err); return }
-    reloadSlots()
-    void keyState().then((v) => { setKeyMask(v.preview ?? null); if (v.bound) refresh() })
-  }
-  const doSlotRemove = async (i: number): Promise<void> => {
-    setSlotMsg(null)
-    const err = await keySlotRemove(i)
-    if (err !== null) { setSlotMsg(err); return }
-    reloadSlots()
-    void keyState().then((v) => { setBound(v.bound ? 'bound' : 'unbound'); setKeyMask(v.preview ?? null) })
-  }
-  const doSessionLogin = async (): Promise<void> => {
-    setSessBusy(true); setSessError(null)
-    const r = await sessionLogin()
-    setSessBusy(false)
-    if (!r.bound) { setSessError(r.error ?? 'login failed'); return }
-    setSessBound('bound')
-    if (r.as !== undefined) setSessAs(r.as)
-    if (r.minted === true) {
-      setSessMsg(t('session.mintOk'))
-      setBound('bound')
-      void keyState().then((v) => { setBound(v.bound ? 'bound' : 'unbound'); setKeyMask(v.preview ?? null) })
-    } else if (r.mintErr !== undefined) setSessMsg(t('session.mintFail') + ': ' + r.mintErr)
-    void sessionUser().then((u) => { if (u.as !== undefined) setSessAs(u.as) })
-  }
-
-  const doSessionBind = async (): Promise<void> => {
-    setSessBusy(true); setSessError(null)
-    const r = await bindSession(sessCookie)
-    setSessBusy(false)
-    if (r.error !== undefined && r.error !== '') { setSessError(r.error); return }
-    setSessCookie('')
-    setSessBound('bound')
-    if (r.as !== undefined) setSessAs(r.as)
-  }
-  const doSessionUnbind = async (): Promise<void> => {
-    await unbindSession()
-    setSessBound('unbound')
-  }
   const doUnbind = async (): Promise<void> => {
-    await unbind()
+    if (ssoLogout !== undefined) {
+      await ssoLogout(false)
+    } else {
+      await unbind()
+      await unbindSession()
+    }
     setBound('unbound')
+    setSessAs(null)
     setState({ status: 'loading' })
     setModelList([])
   }
@@ -233,32 +162,18 @@ export function XPeachSection({
         <span className={css.badge}><XPeachMark size={12} />{t('brand.code')}</span>
       </header>
 
-      {/* 凭据绑定卡 —— 半登录核心 */}
       <div className={css.bindCard}>
         <p className={css.groupTitle}>{t('bind.title')}</p>
         {bound === 'unknown' && <p>{t('status.loading')}</p>}
         {bound === 'unbound' && (
           <>
-            <p className={css.bindHint}>{t('bind.hint')} <a href={SITE.token} target="_blank" rel="noreferrer">{t('bind.getKey')}</a></p>
-            <div className={css.bindRow}>
-              <input
-                ref={inputRef}
-                className={css.bindInput}
-                type="password"
-                placeholder={t('bind.placeholder')}
-                value={key}
-                onChange={(e) => { setKey(e.target.value) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !bindBusy) void doBind() }}
-              />
-              <Button variant="primary" className={css.bindButton} disabled={bindBusy || key.trim() === ''} onClick={() => { void doBind() }}>
-                {bindBusy ? t('bind.working') : t('bind.submit')}
-              </Button>
-              {ssoDeviceStart !== undefined && ssoSession === null && (
-                <Button variant="outline" className={css.bindGhost} disabled={bindBusy} onClick={() => { void doSsoDevice() }}>
-                  {t('sso.loginBtn')}
+            {ssoDeviceStart !== undefined && ssoSession === null && (
+              <div className={css.bindRow}>
+                <Button variant="primary" className={css.bindButton} disabled={bindBusy} onClick={() => { void doSsoDevice() }}>
+                  {bindBusy ? t('sso.starting') : t('sso.loginBtn')}
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
             {ssoSession !== null && (
               <div className={css.ssoCodeCard}>
                 <p className={css.ssoCodeHint}>{t('sso.waitingTitle')} · {t('sso.userCodeLabel')}</p>
@@ -293,80 +208,11 @@ export function XPeachSection({
         {bound === 'bound' && (
           <>
             <div className={css.bindRow}>
-              <span className={css.bindOk}>● {t('bind.bound')}</span>
-              {keyMask !== null && <code className={css.keyMask}>{keyMask}</code>}
-              <button type="button" className={css.bindGhost} onClick={() => {
-                void navigator.clipboard.writeText(SITE.apiBase)
-                setCopied(true)
-                clearTimeout(copyTimer.current)
-                copyTimer.current = setTimeout(() => { setCopied(false) }, 1500)
-              }}>{copied ? t('bind.copied') : t('bind.copyApi')}</button>
-              <Button variant="outline" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('bind.unbind')}</Button>
+              <span className={css.bindOk}>● {t('bind.bound')}{sessAs !== null && <span className={css.adminDim}> @{sessAs}</span>}</span>
+              <Button variant="outline" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('launch.signOut')}</Button>
             </div>
             {bindError !== null && <p className={css.bindError}>{bindError}</p>}
           </>
-        )}
-      </div>
-
-      {/* 多槽切换 —— 多枚 PAT 本地轮换 */}
-      <div className={css.bindCard}>
-        <p className={css.groupTitle}>{t('slots.title')}</p>
-        <ul className={css.slotList}>
-          {slots.map((sl, i) => (
-            <li key={sl.prefix} className={css.slotRow}>
-              <span className={sl.active ? css.slotOn : css.slotDot}>{sl.active ? '●' : '○'}</span>
-              <span className={css.slotName}>{sl.name}</span>
-              <code className={css.keyMask}>{sl.prefix}</code>
-              {sl.active ? <span className={css.groupNow}>{t('slots.current')}</span> : (
-                <button type="button" className={css.rowAct} onClick={() => { void doSlotSwitch(i) }}>{t('slots.use')}</button>
-              )}
-              <button type="button" className={css.rowAct} onClick={() => { void doSlotRemove(i) }}>{t('slots.del')}</button>
-            </li>
-          ))}
-          {slots.length === 0 && <li className={css.slotRow}><span className={css.adminDim}>{t('slots.empty')}</span></li>}
-        </ul>
-        <div className={css.bindRow}>
-          <input className={css.bindInput} style={{ maxWidth: '140px' }} placeholder={t('slots.namePh')} value={slotName} onChange={(e) => { setSlotName(e.target.value) }} />
-          <input className={css.bindInput} type="password" placeholder={t('slots.keyPh')} value={slotKey} onChange={(e) => { setSlotKey(e.target.value) }} />
-          <Button variant="outline" className={css.bindGhost} disabled={slotBusy || (slotKey.trim().match(/^(?:xpk|sk)-/u) === null)} onClick={() => { void doSlotAdd() }}>
-            {slotBusy ? t('bind.working') : t('slots.add')}
-          </Button>
-        </div>
-        {slotMsg !== null && <p className={css.bindHint}>{slotMsg}</p>}
-      </div>
-
-      {/* 站点会话卡 —— 写操作(建令牌/充值/资料)需要 site session cookie */}
-      <div className={css.bindCard}>
-        <p className={css.groupTitle}>{t('session.title')}</p>
-        {sessBound === 'unbound' && (
-          <>
-            <p className={css.bindHint}>{t('session.hint')}</p>
-            <div className={css.bindRow}>
-              <input
-                className={css.bindInput}
-                type="password"
-                placeholder={t('session.placeholder')}
-                value={sessCookie}
-                onChange={(e) => { setSessCookie(e.target.value) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !sessBusy) void doSessionBind() }}
-              />
-              <button type="button" className={css.bindButton} disabled={sessBusy || sessCookie.trim().length < 16}
-                onClick={() => { void doSessionBind() }}>
-                {sessBusy ? t('bind.working') : t('session.submit')}
-              </button>
-              <Button variant="outline" className={css.bindGhost} disabled={sessBusy} onClick={() => { void doSessionLogin() }}>
-                {t('session.browserLogin')}
-              </Button>
-            </div>
-            {sessError !== null && <p className={css.bindError}>{sessError}</p>}
-            {sessMsg !== null && <p className={css.bindHint}>{sessMsg}</p>}
-          </>
-        )}
-        {sessBound === 'bound' && (
-          <div className={css.bindRow}>
-            <span className={css.bindOk}>● {t('session.bound')}{sessAs !== null && <span className={css.adminDim}> @{sessAs}</span>}</span>
-            <Button variant="outline" className={css.bindGhost} onClick={() => { void doSessionUnbind() }}>{t('session.unbind')}</Button>
-          </div>
         )}
       </div>
 
@@ -554,7 +400,6 @@ export function XPeachSection({
           <nav className={css.siteLinks}>
             <button type="button" className={css.siteLinkBtn} onClick={() => { footerBridge.openConsole() }}>{t('pill.openConsole')}</button>
             <a href={SITE.console} target="_blank" rel="noreferrer">{t('pill.openSite')}</a>
-            <a href={SITE.token} target="_blank" rel="noreferrer">{t('pill.tokens')}</a>
             <a href={SITE.topup} target="_blank" rel="noreferrer">{t('pill.topup')}</a>
           </nav>
         </>

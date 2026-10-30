@@ -158,7 +158,7 @@ function Playground({ model, t, chat, subscribePlaygroundChunk }: {
 
 /** The right-pane console tab body. */
 export function XPeachTab({
-  t, sessionId, load, models, keyState, bind, chat, mountedModels, addModel, selectModel,
+  t, sessionId, load, models, keyState, chat, mountedModels, addModel, selectModel,
   subscribePlaygroundChunk, subscribeCredentialChange, adminOverview, adminUsers, adminTokens,
   adminPricing, adminLogs, modelHealth, billingRate, groupCatalog, priceSync, sessionBound,
   userSelf, userTokens, userTopup, stripeAmount, stripePay, adminChannels, adminRedemptions,
@@ -291,17 +291,6 @@ export function XPeachTab({
       setGroupMsg('error' in r ? r.error : t('market.synced', { n: r.count }))
       void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
     })
-  }
-  const [loginKey, setLoginKey] = useState('')
-  const [loginBusy, setLoginBusy] = useState(false)
-  const [loginErr, setLoginErr] = useState<string | null>(null)
-  const doLogin = async (): Promise<void> => {
-    setLoginBusy(true); setLoginErr(null)
-    const err = await bind(loginKey)
-    setLoginBusy(false)
-    if (err !== null) { setLoginErr(err); return }
-    setLoginKey('')
-    refresh()
   }
   const [priceAt, setPriceAt] = useState<{ at: number; stale: boolean } | undefined>(undefined)
   const syncPrice = (force = false): void => {
@@ -454,7 +443,7 @@ export function XPeachTab({
             <h2 className={css.pageTitle}>{t('tab.title')}</h2>
             <p className={css.pageIntro}>
               <span className={ `${css.statusDot} ${css.statusDotOk}` } aria-hidden="true" />
-              <span>{SITE.host}{keyMask !== null ? ' · ' + keyMask : ''}{priceAt !== undefined ? ' · ' + t('price.synced', { at: rel(Math.floor(priceAt.at / 1000), t('time.justNow'), n => t('time.minAgo', { n })) }) + (priceAt.stale ? ' ⚠' : '') : ''}</span>
+              <span>{SITE.host}{priceAt !== undefined ? ' · ' + t('price.synced', { at: rel(Math.floor(priceAt.at / 1000), t('time.justNow'), n => t('time.minAgo', { n })) }) + (priceAt.stale ? ' ⚠' : '') : ''}</span>
             </p>
           </div>
         </div>
@@ -514,25 +503,15 @@ export function XPeachTab({
       {state.status === 'error' && (
         <div className={css.loginCard}>
           <XPeachMark size={26} />
-          <h3 className={css.loginTitle}>{t('bind.title')}</h3>
+          <h3 className={css.loginTitle}>{t('onb.loginTitle')}</h3>
           <button
             type="button"
             className={css.bindButton}
-            style={{ width: '100%', maxWidth: '340px', marginBottom: '8px' }}
+            style={{ width: '100%', maxWidth: '340px', marginTop: '4px' }}
             onClick={() => { openXPeachLoginModal(true) }}
           >
             {t('sso.loginBtn')}
           </button>
-          <p className={css.bindHint}>{t('bind.hint')} <a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a></p>
-          <div className={css.bindRow}>
-            <input className={css.bindInput} type="password" placeholder={t('bind.placeholder')}
-              value={loginKey} onChange={(e) => { setLoginKey(e.target.value) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !loginBusy) void doLogin() }} />
-            <button type="button" className={css.bindButton}
-              disabled={loginBusy || loginKey.trim() === ''}
-              onClick={() => { void doLogin() }}>{loginBusy ? t('bind.working') : t('bind.submit')}</button>
-          </div>
-          {loginErr !== null && <p className={css.bindError}>{loginErr}</p>}
         </div>
       )}
       {state.status !== 'error' && seg === 'overview' && (

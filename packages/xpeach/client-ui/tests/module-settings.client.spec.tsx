@@ -2,6 +2,7 @@
 /** Unit tests for the Feature Module settings panel and General Preferences rows. */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ComponentProps } from 'react'
 import { GeneralPreferencesRow } from '../src/client/GeneralPreferencesRow.tsx'
 import { en, type XPeachKey, zh } from '../src/client/locales.ts'
 import {
@@ -9,7 +10,9 @@ import {
   type ModuleSettingsSectionProps,
   ModuleSettingsTab,
 } from '../src/client/ModuleSettingsSection.tsx'
-import type { XPeachSettingsMutationOp, XPeachSettingsNamespaceItem } from '../src/client/ops.ts'
+import type { XPeachOps, XPeachSettingsMutationOp, XPeachSettingsNamespaceItem } from '../src/client/ops.ts'
+import { XPeachOnboarding } from '../src/client/XPeachOnboarding.tsx'
+import { XPeachSection, type XPeachSectionProps } from '../src/client/XPeachSection.tsx'
 
 afterEach(cleanup)
 
@@ -196,5 +199,66 @@ describe('ModuleSettingsSection & GeneralPreferencesRow', () => {
     )
 
     expect(screen.getAllByText(zh['modules.subagent.modelSel.title']).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('enforces mandatory SSO login gate when unbound and hides manual sk/access_token inputs', async () => {
+    const t = makeTranslator(zh)
+    const noopOps: Partial<XPeachOps> = {
+      load: async () => ({}),
+      models: async () => [],
+      modelMatch: async () => [],
+      families: async () => ({ all: [], enabled: [] }),
+      setFamilies: async () => null,
+      recents: async () => [],
+      keyState: async () => ({ bound: false }),
+      sessionBound: async () => ({ bound: false }),
+      sessionUser: async () => ({ bound: false }),
+      unbind: async () => undefined,
+      unbindSession: async () => undefined,
+      onboardingDone: async () => ({ done: true }),
+      onboardingComplete: async () => ({ done: true }),
+      subscribeCredentialChange: () => () => undefined,
+      ssoDeviceStart: async () => ({
+        deviceCode: 'dc-1',
+        userCode: 'ABCD-1234',
+        verificationUri: 'https://sso.xpeach.codes/device',
+        verificationUriComplete: 'https://sso.xpeach.codes/device?user_code=ABCD-1234',
+        expiresIn: 600,
+        interval: 5,
+        browserOpened: false,
+      }),
+      ssoDevicePoll: async () => ({ status: 'pending' as const }),
+      ssoLogout: async () => undefined,
+      trackingState: async () => true,
+      setTracking: async () => null,
+      protocolPreference: async () => 'compatible' as const,
+      setProtocolPreference: async () => null,
+      autoSyncModels: async () => true,
+      setAutoSyncModels: async () => null,
+      syncModels: async () => ({ ok: true, count: 0, groups: [] }),
+    }
+    const onboardingProps = { t, ...noopOps } as ComponentProps<typeof XPeachOnboarding>
+    const sectionProps = { t, close: () => undefined, ...noopOps } as XPeachSectionProps
+
+    render(
+      <div>
+        <XPeachOnboarding {...onboardingProps} />
+        <XPeachSection {...sectionProps} />
+      </div>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: zh['sso.loginBtn'] }).length).toBeGreaterThanOrEqual(2)
+    })
+
+    // Mandatory SSO gate is active with no close/skip escape and no manual token inputs
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.getAttribute('data-gate')).toBe('true')
+    expect(screen.queryByPlaceholderText(zh['bind.placeholder'])).toBeNull()
+    expect(screen.queryByText(zh['sso.manualToken'])).toBeNull()
+    expect(screen.queryByText(zh['onb.skipGuide'])).toBeNull()
+    expect(screen.queryByText(zh['onb.loginLater'])).toBeNull()
+    expect(screen.queryByText(zh['slots.title'])).toBeNull()
+    expect(screen.queryByText(zh['session.title'])).toBeNull()
   })
 })

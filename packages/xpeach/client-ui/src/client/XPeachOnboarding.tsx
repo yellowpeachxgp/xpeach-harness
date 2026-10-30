@@ -5,7 +5,6 @@ import type { JSX } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachOps, XPeachOnboardingScan, XPeachSsoDeviceStartResult } from './ops.ts'
 import { XPeachMark as XPeachMarkInline } from './brand.tsx'
-import { SITE } from './fmt.ts'
 import css from './xpeach.module.css'
 
 type Props = PropsRuntime<'shell.overlay'> & PropsLocale<'xpeach.account'> & InjectFace<XPeachOps>
@@ -56,13 +55,12 @@ export const SOURCE_META: Record<string, { icon: string; key: string }> = {
  * @returns the modal element, or null when closed.
  */
 export function XPeachOnboarding({
-  t, bind, sessionLogin, ssoDeviceStart, ssoDevicePoll, subscribeCredentialChange, subscribeSessionExpired, subscribeModelSignInRequired,
+  t, ssoDeviceStart, ssoDevicePoll, subscribeCredentialChange, subscribeSessionExpired, subscribeModelSignInRequired,
   keyState, sessionBound, onboardingScan,
   importConversations, importAssets, onboardingDone, onboardingComplete,
 }: Props): JSX.Element | null {
   const [stage, setStage] = useState<Stage>('check')
   const [standaloneLogin, setStandaloneLogin] = useState(false)
-  const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ssoSession, setSsoSession] = useState<XPeachSsoDeviceStartResult | null>(null)
@@ -119,13 +117,18 @@ export function XPeachOnboarding({
     ]).then(([done, k, s]) => {
       if (!live) return
       const alreadyBound = (k !== null && (k.bound || k.adminBound === true)) || (s !== null && 'bound' in s && s.bound)
-      if (alreadyBound || ((done.done || localDone) && !authGateRequired())) {
+      if (alreadyBound) {
         try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
         ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
-        if (alreadyBound && !done.done) {
+        if (!done.done) {
           void onboardingComplete()
         }
         setStage('closed')
+        return
+      }
+      if (done.done || localDone) {
+        setStandaloneLogin(true)
+        setStage('login')
         return
       }
       void onboardingScan().then((r) => {
@@ -144,7 +147,12 @@ export function XPeachOnboarding({
     const offCred = subscribeCredentialChange(() => {
       void Promise.all([keyState().catch(() => null), sessionBound().catch(() => null)]).then(([k, s]) => {
         const boundNow = (k !== null && (k.bound || k.adminBound === true)) || (s !== null && 'bound' in s && s.bound)
-        if (!boundNow) return
+        if (!boundNow) {
+          setStandaloneLogin(true)
+          setSsoSession(null)
+          setStage('login')
+          return
+        }
         try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
         ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
         void onboardingComplete()
@@ -281,7 +289,7 @@ export function XPeachOnboarding({
   )
 
   return (
-    <div className={css.onbBackdrop} data-gate={authGateRequired() ? 'true' : 'false'} role="dialog" aria-modal="true" aria-label={t('onb.welcomeTitle')}>
+    <div className={css.onbBackdrop} data-gate={(stage === 'welcome' || stage === 'login' || authGateRequired()) ? 'true' : 'false'} role="dialog" aria-modal="true" aria-label={t('onb.welcomeTitle')}>
       <div className={css.onbShell}>
         {rail}
         <main className={css.onbMain}>
@@ -296,7 +304,6 @@ export function XPeachOnboarding({
               </div>
               <div className={css.onbFooter}>
                 <button type="button" className={css.onbPrimary} onClick={() => { void goLoginOrSources() }}>{t('onb.start')}</button>
-                {!authGateRequired() && <button type="button" className={css.onbGhost} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>}
               </div>
             </>
           )}
@@ -354,38 +361,16 @@ export function XPeachOnboarding({
                       </button>
                     </div>
                   )}
-                  <label className={css.onbLabel}>{t('onb.loginToken')}</label>
-                  <input className={css.bindInput} type="password" placeholder={t('bind.placeholder')}
-                    value={key} onChange={(e) => { setKey(e.target.value) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !busy) { void doBind() } }} />
-                  <p className={css.onbHint}><a href={SITE.accessToken} target="_blank" rel="noreferrer">{t('bind.getKey')}</a>{t('onb.loginPrivacy') !== '' && ` · ${t('onb.loginPrivacy')}`}</p>
                   {error !== null && <p className={css.bindError}>{error}</p>}
                 </div>
               )}
-              <div className={css.onbFooter}>
-                {ssoSession !== null ? (
+              {ssoSession !== null && (
+                <div className={css.onbFooter}>
                   <button type="button" className={css.onbGhost} onClick={() => { setSsoSession(null) }}>
-                    {t('sso.manualToken')}
+                    {t('sso.cancel')}
                   </button>
-                ) : (
-                  <>
-                    <button type="button" className={css.onbPrimary} disabled={busy || key.trim() === ''} onClick={() => { void doBind() }}>
-                      {busy ? t('bind.working') : t('bind.submit')}
-                    </button>
-                    <button type="button" className={css.onbGhost} disabled={busy} onClick={() => { void doBrowser() }}>{t('onb.loginBrowser')}</button>
-                  </>
-                )}
-                {!authGateRequired() && (
-                  <button
-                    type="button"
-                    className={css.onbGhost}
-                    disabled={busy}
-                    onClick={() => { setStage(standaloneLogin ? 'closed' : 'sources') }}
-                  >
-                    {t('onb.loginLater')}
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
 
@@ -514,28 +499,6 @@ export function XPeachOnboarding({
       </div>
     </div>
   )
-
-  async function doBind(): Promise<void> {
-    setBusy(true); setError(null)
-    const err = await bind(key.trim())
-    setBusy(false)
-    if (err !== null) { setError(err); return }
-    try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
-    ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
-    void onboardingComplete()
-    setStage(standaloneLogin ? 'closed' : 'sources')
-  }
-
-  async function doBrowser(): Promise<void> {
-    setBusy(true); setError(null)
-    const r = await sessionLogin()
-    setBusy(false)
-    if (!r.bound) { setError(r.error ?? t('status.error')); return }
-    try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
-    ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
-    void onboardingComplete()
-    setStage(standaloneLogin ? 'closed' : 'sources')
-  }
 
   async function doSsoDevice(): Promise<void> {
     if (ssoDeviceStart === undefined) return

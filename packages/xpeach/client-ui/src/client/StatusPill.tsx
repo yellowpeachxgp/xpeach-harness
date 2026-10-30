@@ -30,15 +30,11 @@ type PillState =
  * @returns the pill (nothing while the first read is in flight).
  */
 export function XPeachStatusPill(
-  { t, loadUsage, load, bind, keyState, subscribeCredentialChange }: XPeachStatusPillProps,
+  { t, loadUsage, load, subscribeCredentialChange }: XPeachStatusPillProps,
 ): JSX.Element | null {
   const [state, setState] = useState<PillState>({ status: 'loading' })
-  const [keyMask, setKeyMask] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [logsLoaded, setLogsLoaded] = useState(false)
-  const [bindKey, setBindKey] = useState('')
-  const [bindBusy, setBindBusy] = useState(false)
-  const [bindError, setBindError] = useState<string | null>(null)
   const [flash, setFlash] = useState(false)
   const root = useRef<HTMLDivElement | null>(null)
   const lastUsed = useRef<number | undefined>(undefined)
@@ -48,7 +44,6 @@ export function XPeachStatusPill(
     void loadUsage().then((result) => {
       if (result.usage === undefined) {
         lastUsed.current = undefined
-        setKeyMask(null)
         setState({ status: 'error', message: result.error ?? t('status.unavailable') })
         return
       }
@@ -63,7 +58,6 @@ export function XPeachStatusPill(
       const usage = result.usage
       setState(prevState => ({ status: 'ready', usage, logs: prevState.status === 'ready' ? prevState.logs : [] }))
     })
-    void keyState().then((s) => { setKeyMask(s.bound ? (s.preview ?? null) : null) })
   }
   useEffect(() => () => { clearTimeout(flashTimer.current) }, [])
   useEffect(refresh, [loadUsage])
@@ -93,14 +87,6 @@ export function XPeachStatusPill(
     return () => { document.removeEventListener('mousedown', onDown) }
   }, [open])
 
-  const doBind = async (): Promise<void> => {
-    setBindBusy(true); setBindError(null)
-    const error = await bind(bindKey)
-    setBindBusy(false)
-    if (error !== null) { setBindError(error); return }
-    setBindKey('')
-    refresh()
-  }
   if (state.status === 'loading') return null
   const usage = state.status === 'ready' ? state.usage : undefined
   // Remaining quota under 20% of the grant → alarm styling (unlimited never alarms).
@@ -134,7 +120,7 @@ export function XPeachStatusPill(
           <button
             type="button"
             className={css.bindButton}
-            style={{ width: '100%', marginBottom: '8px' }}
+            style={{ width: '100%' }}
             onClick={() => {
               setOpen(false)
               openXPeachLoginModal(true)
@@ -142,20 +128,6 @@ export function XPeachStatusPill(
           >
             {t('sso.loginBtn')}
           </button>
-          <p className={css.bindHint}>{t('bind.hint')} <a href={SITE.token} target="_blank" rel="noreferrer">{t('bind.getKey')}</a></p>
-          <div className={css.bindRow}>
-            <input
-              className={css.bindInput}
-              type="password"
-              placeholder={t('bind.placeholder')}
-              value={bindKey}
-              onChange={(e) => { setBindKey(e.target.value) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !bindBusy) { void doBind() } }}
-            />
-            <button type="button" className={css.bindButton} disabled={bindBusy || bindKey.trim() === ''}
-              onClick={() => { void doBind() }}>{bindBusy ? t('bind.working') : t('bind.submit')}</button>
-          </div>
-          {bindError !== null && <p className={css.bindError}>{bindError}</p>}
         </div>
       )}
       {open && state.status === 'ready' && (
@@ -172,7 +144,6 @@ export function XPeachStatusPill(
               </svg>
             </button>
           </header>
-          {keyMask !== null && <p className={css.maskLine}>{keyMask}</p>}
           <dl className={css.pillGrid}>
             <div><dt>{t('usage.name')}</dt><dd>{state.usage.name}</dd></div>
             <div>
@@ -209,22 +180,10 @@ export function XPeachStatusPill(
           {lowQuota && <p className={css.lowWarn}>{t('pill.low')}</p>}
           <nav className={css.pillLinks}>
             <a href={SITE.console} target="_blank" rel="noreferrer">{t('pill.openSite')}</a>
-            <a href={SITE.token} target="_blank" rel="noreferrer">{t('pill.tokens')}</a>
             <a href={SITE.topup} target="_blank" rel="noreferrer">{t('pill.topup')}</a>
           </nav>
           <button type="button" className={css.consoleLink} onClick={() => { setOpen(false); footerBridge.openConsole() }}>
             {t('pill.openConsole')}
-          </button>
-          <button
-            type="button"
-            className={css.consoleLink}
-            style={{ marginTop: '4px' }}
-            onClick={() => {
-              setOpen(false)
-              openXPeachLoginModal(false)
-            }}
-          >
-            {t('sso.loginBtn')}
           </button>
         </div>
       )}

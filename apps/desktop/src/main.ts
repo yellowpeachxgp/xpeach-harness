@@ -1277,7 +1277,7 @@ async function main(): Promise<void> {
           await enterWorkspace()
           return { ok: true }
         },
-        skip: enterWorkspace,
+        skip: () => enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) }),
       })
       const window = welcomeWindow
       window.once('closed', () => {

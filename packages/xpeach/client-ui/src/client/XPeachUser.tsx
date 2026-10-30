@@ -1,10 +1,9 @@
 /**
- * User-scope segment: profile card, own token list, redemption top-up, and the
- * Stripe/NowPayments pay shortcut — all gated on the site session cookie
- * (Settings → XPeach). When unbound it renders a guide card instead of errors.
+ * User-scope segment: profile card, redemption top-up, and the
+ * Stripe/NowPayments pay shortcut — gated on XPeach SSO authentication.
  */
 import { type JSX, useCallback, useEffect, useState } from 'react'
-import type { XPeachOnboardingScan, XPeachOps, XPeachUserSelfRow, XPeachUserTokenRow } from './ops.ts'
+import type { XPeachOnboardingScan, XPeachOps, XPeachUserSelfRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
 import { MacosInstallerCard } from './XPeachProfile.tsx'
 import { SOURCE_META, openXPeachLoginModal } from './XPeachOnboarding.tsx'
@@ -106,23 +105,23 @@ function ImportDeepseekCard({ t, run, onboardingScan, importConversations }: {
  * @returns the user segment element.
  */
 export function XPeachUser({
-  t, sessionBound, userSelf, userTokens, userTopup, stripeAmount, stripePay,
-  userTokenCreate, userTokenUpdate, userTokenDelete, userSelfEdit, userAff, userTokenKey, importDeepseek,
+  t, sessionBound, userSelf, userTopup, stripeAmount, stripePay,
+  userSelfEdit, userAff, importDeepseek,
   onboardingScan, importConversations, macosInstallerStatus, macosInstallerAction,
 }: {
   readonly t: XPeachTabProps['t']
   readonly sessionBound: XPeachOps['sessionBound']
   readonly userSelf: XPeachOps['userSelf']
-  readonly userTokens: XPeachOps['userTokens']
+  readonly userTokens?: XPeachOps['userTokens'] | undefined
   readonly userTopup: XPeachOps['userTopup']
   readonly stripeAmount: XPeachOps['stripeAmount']
   readonly stripePay: XPeachOps['stripePay']
-  readonly userTokenCreate: XPeachOps['userTokenCreate']
-  readonly userTokenUpdate: XPeachOps['userTokenUpdate']
-  readonly userTokenDelete: XPeachOps['userTokenDelete']
+  readonly userTokenCreate?: XPeachOps['userTokenCreate'] | undefined
+  readonly userTokenUpdate?: XPeachOps['userTokenUpdate'] | undefined
+  readonly userTokenDelete?: XPeachOps['userTokenDelete'] | undefined
   readonly userSelfEdit: XPeachOps['userSelfEdit']
   readonly userAff: XPeachOps['userAff']
-  readonly userTokenKey: XPeachOps['userTokenKey']
+  readonly userTokenKey?: XPeachOps['userTokenKey'] | undefined
   readonly importDeepseek: XPeachOps['importDeepseek']
   readonly onboardingScan?: XPeachOps['onboardingScan'] | undefined
   readonly importConversations?: XPeachOps['importConversations'] | undefined
@@ -130,7 +129,6 @@ export function XPeachUser({
   readonly macosInstallerAction?: XPeachOps['macosInstallerAction'] | undefined
 }): JSX.Element {
   const [me, setMe] = useState<XPeachUserSelfRow | { error: string } | undefined>(undefined)
-  const [tokens, setTokens] = useState<{ items: readonly XPeachUserTokenRow[]; total: number } | { error: string } | undefined>(undefined)
   const [code, setCode] = useState('')
   const [codeBusy, setCodeBusy] = useState(false)
   const [codeMsg, setCodeMsg] = useState<string | null>(null)
@@ -143,16 +141,12 @@ export function XPeachUser({
   const [editOpen, setEditOpen] = useState(false)
   const [editDraft, setEditDraft] = useState<Record<string, string>>({})
   const [editMsg, setEditMsg] = useState<string | null>(null)
-  const [tokOpen, setTokOpen] = useState(false)
-  const [tokDraft, setTokDraft] = useState({ name: '', quota: '', unlimited: true, group: '' })
-  const [tokMsg, setTokMsg] = useState<string | null>(null)
   const [aff, setAff] = useState<Record<string, unknown> | { error: string } | undefined>(undefined)
 
   const reload = useCallback((): void => {
     void userSelf().then(setMe)
-    void userTokens(0).then(setTokens)
     void userAff().then(setAff)
-  }, [userSelf, userTokens, userAff])
+  }, [userSelf, userAff])
 
   useEffect(() => {
     let live = true
@@ -213,38 +207,6 @@ export function XPeachUser({
     setEditMsg(err ?? t('user.savedOk'))
     if (err === null) { setEditOpen(false); reload() }
   }
-  const doTokCreate = async (): Promise<void> => {
-    setTokMsg(null)
-    const payload: Record<string, unknown> = {
-      name: tokDraft.name.trim() || 'console-token',
-      expired_time: -1,
-      unlimited_quota: tokDraft.unlimited,
-      model_limits_enabled: false,
-    }
-    if (!tokDraft.unlimited && tokDraft.quota !== '') payload['remain_quota'] = Number(tokDraft.quota) * 500000
-    if (tokDraft.group !== '') payload['group'] = tokDraft.group
-    const err = await userTokenCreate(payload)
-    setTokMsg(err ?? t('user.tokCreated'))
-    if (err === null) { setTokOpen(false); setTokDraft({ name: '', quota: '', unlimited: true, group: '' }); reload() }
-  }
-  const doTokToggle = async (id: number, status: number): Promise<void> => {
-    setTokMsg(null)
-    const err = await userTokenUpdate(id, { status: status === 1 ? 2 : 1 })
-    setTokMsg(err ?? null)
-    reload()
-  }
-  const doTokDelete = async (id: number): Promise<void> => {
-    if (!window.confirm(t('user.tokDelConfirm'))) return
-    setTokMsg(null)
-    const err = await userTokenDelete(id)
-    setTokMsg(err ?? null)
-    reload()
-  }
-  const [reveal, setReveal] = useState<Record<number, string>>({})
-  const doReveal = async (id: number): Promise<void> => {
-    const r = await userTokenKey(id)
-    if (typeof r === 'string' && r !== '') setReveal(prev => ({ ...prev, [id]: r }))
-  }
   const doPay = async (): Promise<void> => {
     setPayBusy(true); setPayErr(null); setPayUrl(null)
     const r = await stripePay(Number(amount), method)
@@ -288,100 +250,6 @@ export function XPeachUser({
           </EditDrawer>
         )}
         {editMsg !== null && <p className={css.bindHint}>{editMsg}</p>}
-      </section>
-
-      {/* my tokens */}
-      <section className={css.bentoCard}>
-        <div className={css.bentoCardHead}>
-          <p className={css.sparkTitle}>{t('user.tokens')}{tokens !== undefined && !('error' in tokens) ? ` · ${tokens.total}` : ''}</p>
-          {tokens !== undefined && !('error' in tokens) && (
-            <div className={css.bentoCardActions}>
-              {tokMsg !== null && <span className={css.bindHint}>{tokMsg}</span>}
-              <button type="button" className={css.bindButton} onClick={() => { setTokOpen(v => !v) }}>
-                {tokOpen ? t('market.tryClose') : t('user.newToken')}
-              </button>
-            </div>
-          )}
-        </div>
-        {tokens !== undefined && 'error' in tokens && <p className={css.bindError}>{tokens.error}</p>}
-        {tokens !== undefined && !('error' in tokens) && (
-          <>
-            {tokOpen && (
-              <div className={css.chEdit}>
-                <label className={css.chField}>
-                  <span>{t('user.tname')}</span>
-                  <input
-                    className={css.bindInput}
-                    value={tokDraft.name}
-                    onChange={(e) => { setTokDraft({ ...tokDraft, name: e.target.value }) }}
-                  />
-                </label>
-                <label className={css.chField}>
-                  <span>{t('user.tgroup')}</span>
-                  <input
-                    className={css.bindInput}
-                    placeholder={t('user.tgroupPh')}
-                    value={tokDraft.group}
-                    onChange={(e) => { setTokDraft({ ...tokDraft, group: e.target.value }) }}
-                  />
-                </label>
-                <label className={css.chField}>
-                  <span>{t('user.tquotaPeach')}</span>
-                  <input
-                    className={css.bindInput}
-                    type="number"
-                    disabled={tokDraft.unlimited}
-                    value={tokDraft.quota}
-                    onChange={(e) => { setTokDraft({ ...tokDraft, quota: e.target.value }) }}
-                  />
-                </label>
-                <label className={css.chField}><span>{t('user.tUnlimited')}</span>
-                  <input
-                    type="checkbox"
-                    checked={tokDraft.unlimited}
-                    onChange={(e) => { setTokDraft({ ...tokDraft, unlimited: e.target.checked }) }}
-                  />
-                </label>
-                <div className={css.bindRow}>
-                  <button type="button" className={css.bindButton} onClick={() => { void doTokCreate() }}>{t('admin.codeMake')}</button>
-                </div>
-              </div>
-            )}
-            <table className={css.logTable}>
-              <thead>
-                <tr>
-                  <th>{t('user.tname')}</th>
-                  <th>{t('user.tkey')}</th>
-                  <th>{t('user.tgroup')}</th>
-                  <th>{t('user.tquota')}</th>
-                  <th>{t('user.tstatus')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {tokens.items.map(tk => (
-                  <tr key={tk.id}>
-                    <td>{tk.name}</td>
-                    <td><code className={css.keyMask}>{reveal[tk.id] ?? tk.key ?? tk.key_prefix ?? '—'}</code>
-                      {reveal[tk.id] === undefined && (
-                        <button type="button" className={css.rowAct} onClick={() => { void doReveal(tk.id) }}>👁</button>
-                      )}
-                    </td>
-                    <td>{tk.group ?? '—'}</td>
-                    <td>{tk.unlimited_quota === true ? t('usage.unlimited') : fmtQuota(tk.remain_quota ?? 0)}</td>
-                    <td>{tk.status === 1 ? t('user.statusOn') : t('user.statusOff')}</td>
-                    <td>
-                      <button type="button" className={css.rowAct} onClick={() => { void doTokToggle(tk.id, tk.status) }}>
-                        {tk.status === 1 ? t('admin.chOff') : t('admin.chEnable')}
-                      </button>
-                      <button type="button" className={css.rowAct} onClick={() => { void doTokDelete(tk.id) }}>{t('admin.del')}</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
       </section>
 
       {/* 2-Column Bento Row: Top-up & Payment + Referrals */}
