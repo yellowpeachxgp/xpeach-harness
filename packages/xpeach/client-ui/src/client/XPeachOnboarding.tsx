@@ -56,7 +56,7 @@ export const SOURCE_META: Record<string, { icon: string; key: string }> = {
  * @returns the modal element, or null when closed.
  */
 export function XPeachOnboarding({
-  t, bind, sessionLogin, ssoDeviceStart, ssoDevicePoll, subscribeSessionExpired, subscribeModelSignInRequired,
+  t, bind, sessionLogin, ssoDeviceStart, ssoDevicePoll, subscribeCredentialChange, subscribeSessionExpired, subscribeModelSignInRequired,
   keyState, sessionBound, onboardingScan,
   importConversations, importAssets, onboardingDone, onboardingComplete,
 }: Props): JSX.Element | null {
@@ -109,18 +109,20 @@ export function XPeachOnboarding({
 
   useEffect(() => {
     let live = true
+    const localDone = (() => {
+      try { return localStorage.getItem('xpeach.onboarding.done') === '1' } catch (_err) { return false }
+    })()
     void Promise.all([
       onboardingDone().catch(() => ({ done: false })),
       keyState().catch(() => null),
       sessionBound().catch(() => null),
     ]).then(([done, k, s]) => {
       if (!live) return
-      const alreadyBound = (k !== null && k.bound) || (s !== null && 'bound' in s && s.bound)
-      // A gated launch owns the screen even when onboarding was completed before:
-      // the profile has no token, so there is nothing to enter.
-      if ((done.done || alreadyBound) && !authGateRequired()) {
+      const alreadyBound = (k !== null && (k.bound || k.adminBound === true)) || (s !== null && 'bound' in s && s.bound)
+      if (alreadyBound || ((done.done || localDone) && !authGateRequired())) {
+        try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
+        ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
         if (alreadyBound && !done.done) {
-          try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
           void onboardingComplete()
         }
         setStage('closed')
@@ -137,6 +139,20 @@ export function XPeachOnboarding({
     })
     return () => { live = false }
   }, [onboardingDone, onboardingComplete, onboardingScan, keyState, sessionBound])
+
+  useEffect(() => {
+    const offCred = subscribeCredentialChange(() => {
+      void Promise.all([keyState().catch(() => null), sessionBound().catch(() => null)]).then(([k, s]) => {
+        const boundNow = (k !== null && (k.bound || k.adminBound === true)) || (s !== null && 'bound' in s && s.bound)
+        if (!boundNow) return
+        try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
+        ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
+        void onboardingComplete()
+        setStage(prev => (prev === 'welcome' || (prev === 'login' && standaloneLogin)) ? 'closed' : prev)
+      })
+    })
+    return () => { offCred() }
+  }, [subscribeCredentialChange, keyState, sessionBound, onboardingComplete, standaloneLogin])
 
   const sourceList = useMemo(() => scan?.sources.filter(source => source.found) ?? [], [scan])
   const hasAssets = (scan?.mcp.length ?? 0) + (scan?.skills.length ?? 0) + (scan?.prompts.length ?? 0) > 0
@@ -157,6 +173,8 @@ export function XPeachOnboarding({
           setSsoSession(null)
           setError(null)
           try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
+          ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
+          void onboardingComplete()
           setStage(standaloneLogin ? 'closed' : 'sources')
         } else if (res.status === 'expired') {
           setError(res.message ?? t('sso.expired'))
@@ -502,6 +520,9 @@ export function XPeachOnboarding({
     const err = await bind(key.trim())
     setBusy(false)
     if (err !== null) { setError(err); return }
+    try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
+    ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
+    void onboardingComplete()
     setStage(standaloneLogin ? 'closed' : 'sources')
   }
 
@@ -510,6 +531,9 @@ export function XPeachOnboarding({
     const r = await sessionLogin()
     setBusy(false)
     if (!r.bound) { setError(r.error ?? t('status.error')); return }
+    try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
+    ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
+    void onboardingComplete()
     setStage(standaloneLogin ? 'closed' : 'sources')
   }
 

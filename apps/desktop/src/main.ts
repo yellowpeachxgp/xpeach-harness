@@ -1228,7 +1228,7 @@ async function main(): Promise<void> {
    * @returns true when a token file carries a non-empty value.
    */
   const desktopHasSiteCredential = (profile: string): boolean => {
-    for (const filename of ['xpeach.admin', 'xpeach.key', 'xpeach.sso.json']) {
+    for (const filename of ['xpeach.admin', 'xpeach.key', 'xpeach.sso.json', 'xpeach.keys', 'xpeach.session']) {
       const file = join(profile, filename)
       try {
         if (existsSync(file) && readFileSync(file, 'utf8').trim().length > 0) return true

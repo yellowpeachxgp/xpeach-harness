@@ -1061,4 +1061,202 @@ describe('account state writes on a fresh install', () => {
     expect(chunks[0]?.['type']).toBe('finish')
     expect((chunks[0]?.['error'] as { code?: string } | undefined)?.code).toBe('ACCOUNT_SIGN_IN_REQUIRED')
   })
+
+  it('persists credentials and onboarding state across restarts and sibling profiles until explicit sign-out', async () => {
+    const rootHome = freshProfile()
+    const cliProfile = join(rootHome, 'profiles', 'xpeach')
+    const desktopProfile = join(rootHome, 'profiles', 'xpeach-desktop')
+    const prevHome = process.env.XPH_HOME
+    process.env.XPH_HOME = rootHome
+
+    try {
+      const settingsUpdateMock = vi.fn().mockResolvedValue(undefined)
+      const cliAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+      Object.assign(cliAccount, {
+        liveConfig: {
+          ssoBaseURL: 'https://sso.xpeach.codes',
+          ssoClientId: 'xpeach-harness',
+        },
+        keyFile: join(cliProfile, 'xpeach.key'),
+        keyVar: 'XPEACH_TEST_PERSIST_RELAY_KEY',
+        adminKeyFile: join(cliProfile, 'xpeach.admin'),
+        adminKeyVar: 'XPEACH_TEST_PERSIST_ADMIN_KEY',
+        sessionKeyFile: join(cliProfile, 'xpeach.session'),
+        sessionKeyVar: 'XPEACH_TEST_PERSIST_SESSION_KEY',
+        ssoStateFile: join(cliProfile, 'xpeach.sso.json'),
+        routeFile: join(cliProfile, 'xpeach.route.json'),
+        apiKeyEnv: 'XPEACH_API_KEY',
+        timeoutMs: 15_000,
+        lastSsoVerifyAt: 0,
+        api: {
+          siteBaseURL: 'https://fast.xpeach.codes',
+          models: vi.fn().mockResolvedValue([]),
+          ssoRevokeToken: vi.fn().mockResolvedValue(true),
+          setAdminKey: vi.fn(),
+          setSessionKey: vi.fn(),
+        },
+        ctx: {
+          emit: vi.fn(),
+          get: (name: string) => {
+            if (name === 'settings') {
+              return {
+                describe: () => Promise.resolve({
+                  namespaces: [{
+                    ns: 'ui-settings-account',
+                    value: { version: 1, step: 'welcome', completion: null },
+                  }],
+                }),
+                update: settingsUpdateMock,
+              }
+            }
+            return undefined
+          },
+        },
+      })
+
+      const applyBridge = Reflect.get(XPeachAccount.prototype, 'applySsoBridgePayload') as (
+        payload: unknown,
+        signal: AbortSignal,
+      ) => Promise<unknown>
+      await applyBridge.call(
+        cliAccount,
+        {
+          sso: {
+            accessToken: 'xph_at_persistent_session',
+            expiresIn: 2592000,
+            user: { id: 'usr_persist', username: 'persistuser', email: 'persist@xpeach.codes' },
+          },
+          peachcode: {
+            userId: 77,
+            username: 'persistuser',
+            group: 'SWE',
+            accessToken: 'admin_persist_token_1234567890',
+            apiKey: 'sk-xphPersistKey1234567890abcdef1234567890abcdef',
+            tokenId: 5,
+            tokenName: 'xph-sso-default',
+          },
+        },
+        new AbortController().signal,
+      )
+
+      // Wait a tick for async ensureDesktopOnboardingCompleted
+      await new Promise(resolve => setTimeout(resolve, 10))
+      expect(settingsUpdateMock).toHaveBeenCalledWith('ui-settings-account', {
+        version: 1,
+        step: 'done',
+        completion: 'completed',
+      })
+      expect(cliAccount.onboardingDoneOp({}, new AbortController().signal)).toEqual({ done: true })
+
+      // Simulate cold start in sibling desktop profile (xpeach-desktop)
+      const desktopAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+      Object.assign(desktopAccount, {
+        liveConfig: {
+          ssoBaseURL: 'https://sso.xpeach.codes',
+          ssoClientId: 'xpeach-harness',
+        },
+        keyFile: join(desktopProfile, 'xpeach.key'),
+        keyVar: 'XPEACH_TEST_PERSIST_RELAY_KEY',
+        adminKeyFile: join(desktopProfile, 'xpeach.admin'),
+        adminKeyVar: 'XPEACH_TEST_PERSIST_ADMIN_KEY',
+        sessionKeyFile: join(desktopProfile, 'xpeach.session'),
+        sessionKeyVar: 'XPEACH_TEST_PERSIST_SESSION_KEY',
+        ssoStateFile: join(desktopProfile, 'xpeach.sso.json'),
+        routeFile: join(desktopProfile, 'xpeach.route.json'),
+        apiKeyEnv: 'XPEACH_API_KEY',
+        timeoutMs: 15_000,
+        lastSsoVerifyAt: 0,
+        api: {
+          siteBaseURL: 'https://fast.xpeach.codes',
+          setAdminKey: vi.fn(),
+          setSessionKey: vi.fn(),
+        },
+        ctx: {
+          emit: vi.fn(),
+          get: () => undefined,
+        },
+      })
+
+      const bootstrapKey = Reflect.get(XPeachAccount.prototype, 'bootstrapKey') as () => void
+      bootstrapKey.call(desktopAccount)
+
+      expect(desktopAccount.isBound()).toBe(true)
+      expect(existsSync(join(desktopProfile, 'xpeach.key'))).toBe(true)
+      expect(existsSync(join(desktopProfile, 'xpeach.admin'))).toBe(true)
+      expect(existsSync(join(desktopProfile, 'xpeach.sso.json'))).toBe(true)
+      expect(desktopAccount.onboardingDoneOp({}, new AbortController().signal)).toEqual({ done: true })
+
+      // Explicit sign-out must wipe both profiles + shared root and record .xpeach-signed-out
+      await cliAccount.unbindKey({}, new AbortController().signal)
+      expect(cliAccount.isBound()).toBe(false)
+      expect(existsSync(join(cliProfile, 'xpeach.key'))).toBe(false)
+      expect(existsSync(join(desktopProfile, 'xpeach.key'))).toBe(false)
+      expect(existsSync(join(rootHome, 'xpeach.key'))).toBe(false)
+      expect(existsSync(join(rootHome, '.xpeach-signed-out'))).toBe(true)
+
+      // Subsequent cold start must stay signed out and not resurrect credentials
+      bootstrapKey.call(desktopAccount)
+      expect(desktopAccount.isBound()).toBe(false)
+    } finally {
+      if (prevHome === undefined) {
+        Reflect.deleteProperty(process.env, 'XPH_HOME')
+      } else {
+        process.env.XPH_HOME = prevHome
+      }
+      Reflect.deleteProperty(process.env, 'XPEACH_TEST_PERSIST_RELAY_KEY')
+      Reflect.deleteProperty(process.env, 'XPEACH_TEST_PERSIST_ADMIN_KEY')
+      Reflect.deleteProperty(process.env, 'XPEACH_TEST_PERSIST_SESSION_KEY')
+    }
+  })
+
+  it('does not wipe existing credentials when probing a rejected candidate key in keySlotAddOp', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+
+    writeState(keyFile, 'sk-existingValidKey1234567890\n')
+    writeState(adminKeyFile, 'admin-existingValidToken1234\n')
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    const handleAuthRejected = Reflect.get(XPeachAccount.prototype, 'handleAuthRejected') as (status: 401 | 403) => Promise<void>
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      keyFile,
+      keyVar: 'XPEACH_TEST_SLOT_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_SLOT_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_SLOT_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      probingSlotKey: false,
+      api: {
+        tokenUsage: vi.fn(async () => {
+          await handleAuthRejected.call(fakeAccount, 401)
+          throw new Error('401 Unauthorized')
+        }),
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: () => undefined,
+      },
+    })
+
+    const res = await fakeAccount.keySlotAddOp(
+      { name: 'bad-slot', key: 'sk-invalidCandidateKey000000' },
+      new AbortController().signal,
+    )
+    expect(res.ok).toBe(false)
+    expect(existsSync(keyFile)).toBe(true)
+    expect(existsSync(adminKeyFile)).toBe(true)
+    expect(fakeAccount.isBound()).toBe(true)
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_SLOT_RELAY_KEY')
+  })
 })

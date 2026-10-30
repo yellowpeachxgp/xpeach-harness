@@ -16,8 +16,8 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { homedir } from 'node:os'
+import { basename, dirname, join, resolve } from 'node:path'
+import { homedir, tmpdir } from 'node:os'
 import { copyFileSync, cpSync } from 'node:fs'
 import {
   DESKTOP_HOST_PACKAGE,
@@ -193,20 +193,59 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 }
 
 /**
- * Copy site credentials bound in the CLI profile when the desktop profile has none yet.
+ * Copy site credentials bound in the CLI profile or shared home root when the desktop profile has none yet.
  * @param profileDir - the desktop profile directory.
  */
 export function adoptSharedSiteCredentials(profileDir: string): void {
-  const home = process.env.XPH_HOME ?? join(homedir(), '.xph')
-  for (const file of ['xpeach.admin', 'xpeach.key', 'xpeach.session']) {
+  const parent = dirname(profileDir)
+  const localHome = basename(parent) === 'profiles'
+    ? dirname(parent)
+    : (process.env.XPH_HOME ?? process.env.DSH_HOME ?? join(homedir(), '.xph'))
+  if (existsSync(join(localHome, '.xpeach-signed-out'))) return
+  const inTmp = resolve(profileDir).startsWith(resolve(tmpdir())) || resolve(localHome).startsWith(resolve(tmpdir()))
+  const globalHome = join(homedir(), '.xph')
+  if (!inTmp && existsSync(join(globalHome, '.xpeach-signed-out'))) return
+
+  const sourceDirs = [
+    localHome,
+    join(localHome, 'profiles', 'xpeach-desktop'),
+    join(localHome, 'profiles', 'xpeach'),
+    ...(!inTmp
+      ? [
+        globalHome,
+        join(globalHome, 'profiles', 'xpeach-desktop'),
+        join(globalHome, 'profiles', 'xpeach'),
+      ]
+      : []),
+  ]
+
+  for (const file of [
+    'xpeach.admin',
+    'xpeach.key',
+    'xpeach.session',
+    'xpeach.sso.json',
+    'xpeach.keys',
+    'xpeach.token',
+    'xpeach.route.json',
+  ]) {
     const target = join(profileDir, file)
-    if (existsSync(target)) continue
-    const candidate = join(home, 'profiles', 'xpeach', file)
-    if (!existsSync(candidate)) continue
-    try {
-      copyFileSync(candidate, target)
-      chmodSync(target, 0o600)
-    } catch (_error) { /* Read-only source leaves this profile unbound. */ }
+    if (existsSync(target)) {
+      try {
+        if (readFileSync(target, 'utf8').trim().length > 0) continue
+      } catch (_err) { /* overwrite unreadable empty file */ }
+    }
+    for (const sourceDir of sourceDirs) {
+      if (resolve(sourceDir) === resolve(profileDir)) continue
+      const candidate = join(sourceDir, file)
+      if (!existsSync(candidate)) continue
+      try {
+        if (readFileSync(candidate, 'utf8').trim().length === 0) continue
+        mkdirSync(dirname(target), { recursive: true })
+        copyFileSync(candidate, target)
+        chmodSync(target, 0o600)
+        break
+      } catch (_error) { /* Read-only source leaves this profile unbound. */ }
+    }
   }
 }
 

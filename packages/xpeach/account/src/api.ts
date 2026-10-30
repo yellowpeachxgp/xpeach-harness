@@ -359,7 +359,12 @@ export class XPeachApi {
     const envelope = body as { success?: boolean; message?: string; data?: unknown; error?: { message?: string } } | undefined
     if (!response.ok || envelope?.success === false) {
       const message = envelope?.message ?? envelope?.error?.message ?? response.statusText
-      if ((response.status === 401 || response.status === 403) && this.onAuthRejected !== undefined) {
+      if (
+        (response.status === 401 || response.status === 403)
+        && this.onAuthRejected !== undefined
+        && this.adminKeyOverride === undefined
+        && this.sessionKeyOverride === undefined
+      ) {
         let pathname = url
         try {
           pathname = new URL(url).pathname

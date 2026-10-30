@@ -834,6 +834,7 @@ export class XPeachAccount extends TypertRemoteService {
   private revokingPromise: Promise<void> | undefined
   private ssoVerifyPromise: Promise<XPeachSsoSessionStatus> | undefined
   private lastSsoVerifyAt = 0
+  private probingSlotKey = false
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'xpeachAccount', { namespace: 'xpeach' })
@@ -858,13 +859,14 @@ export class XPeachAccount extends TypertRemoteService {
     this.keyVar = resolved.keyVar
     this.ssoStateFile = resolveProfileFile(resolved.ssoStateFile, 'xpeach.sso.json')
     this.routeFile = join(dirname(this.keyFile), 'xpeach.route.json')
-    const storedRoute = this.readRouteFile()
-    this.activeBaseURL = (storedRoute.url ?? this.baseURL).replace(/\/+$/, '')
-    this.networkAuto = storedRoute.auto ?? true
     this.adminKeyFile = resolveProfileFile(resolved.adminKeyFile, 'xpeach.admin')
     this.adminKeyVar = resolved.adminKeyVar
     this.sessionKeyFile = resolveProfileFile(resolved.sessionKeyFile, 'xpeach.session')
     this.sessionKeyVar = resolved.sessionKeyVar
+    this.adoptSharedCredentials()
+    const storedRoute = this.readRouteFile()
+    this.activeBaseURL = (storedRoute.url ?? this.baseURL).replace(/\/+$/, '')
+    this.networkAuto = storedRoute.auto ?? true
     this.bootstrapKey()
 
     this.api = new XPeachApi({
@@ -902,6 +904,20 @@ export class XPeachAccount extends TypertRemoteService {
       deps: readonly string[],
       callback: (ctx: Context) => void,
     ) => void
+    injectServices(['credentials'], () => {
+      const boundKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+      if (boundKey !== undefined && boundKey.length > 0) {
+        void this.publishCredential(boundKey)
+      }
+    })
+    injectServices(['settings'], () => {
+      if (this.isBound() || existsSync(join(this.ownHome(), '.xpeach-onboarded')) || existsSync(join(this.profileRootHome(), '.xpeach-onboarded'))) {
+        void this.ensureDesktopOnboardingCompleted().catch(() => {})
+      }
+      if (this.isBound()) {
+        this.syncCatalogOnce()
+      }
+    })
     injectServices(['sessionPersistence', 'sessionProjectionCache', 'workspaceRegistry'], () => {
       void this.reconcileSessionsAndWorkspaces().catch(() => {})
     })
@@ -934,18 +950,207 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
+   * Resolve the home root that owns `this.keyFile` (`<home>/profiles/<name>/xpeach.key` -> `<home>`).
+   */
+  private profileRootHome(): string {
+    if (typeof this.keyFile === 'string' && this.keyFile.length > 0) {
+      const profileDir = dirname(this.keyFile)
+      const parentDir = dirname(profileDir)
+      if (basename(parentDir) === 'profiles') {
+        return dirname(parentDir)
+      }
+    }
+    return this.ownHome()
+  }
+
+  /** Sentinel written on explicit user sign-out or authoritative ban so restarts do not re-adopt credentials. */
+  private signedOutMarker(homeDir = this.profileRootHome()): string {
+    return join(homeDir, '.xpeach-signed-out')
+  }
+
+  /**
+   * Candidate shared/sibling directories for cross-profile and dev/packaged credential persistence.
+   * When running inside `os.tmpdir()` (isolated unit tests), candidates stay strictly inside that temp home.
+   */
+  private sharedMirrorDirs(): string[] {
+    if (typeof this.keyFile !== 'string' || this.keyFile.length === 0) return []
+    const profileDir = dirname(this.keyFile)
+    const parentDir = dirname(profileDir)
+    if (basename(parentDir) !== 'profiles') return []
+    const rootHome = dirname(parentDir)
+    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const defaultHome = join(homedir(), '.xph')
+    const candidates = [
+      rootHome,
+      join(rootHome, 'profiles', 'xpeach-desktop'),
+      join(rootHome, 'profiles', 'xpeach'),
+      ...(inTmp ? [] : [
+        defaultHome,
+        join(defaultHome, 'profiles', 'xpeach-desktop'),
+        join(defaultHome, 'profiles', 'xpeach'),
+      ]),
+    ]
+    const seen = new Set<string>([resolve(profileDir)])
+    const result: string[] = []
+    for (const dir of candidates) {
+      const resolved = resolve(dir)
+      if (seen.has(resolved)) continue
+      seen.add(resolved)
+      result.push(dir)
+    }
+    return result
+  }
+
+  /**
+   * Mirror one credential or route configuration file to the shared home root and sibling profiles
+   * so switching between CLI, Web, unpackaged dev, and packaged Desktop retains user state.
+   */
+  private mirrorCredentialFile(filename: string, body: string): void {
+    const rootHome = this.profileRootHome()
+    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const defaultHome = join(homedir(), '.xph')
+    for (const dir of this.sharedMirrorDirs()) {
+      const isRootDir = resolve(dir) === resolve(rootHome) || (!inTmp && resolve(dir) === resolve(defaultHome))
+      if (!isRootDir && !existsSync(dir)) continue
+      try {
+        this.writeState(join(dir, filename), body)
+      } catch (_err) { /* best effort mirror */ }
+    }
+  }
+
+  /**
+   * Record that onboarding is complete and clear any explicit sign-out sentinel.
+   */
+  private markOnboardedAndClearSignOut(): void {
+    const stamp = new Date().toISOString() + '\n'
+    const rootHome = this.profileRootHome()
+    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const homes = new Set<string>([rootHome, this.ownHome()])
+    if (!inTmp) homes.add(join(homedir(), '.xph'))
+    for (const home of homes) {
+      const marker = this.signedOutMarker(home)
+      if (existsSync(marker)) {
+        try { unlinkSync(marker) } catch (_err) { /* ignore */ }
+      }
+      const onboardedFile = join(home, '.xpeach-onboarded')
+      if (!existsSync(onboardedFile)) {
+        try { this.writeState(onboardedFile, stamp) } catch (_err) { /* ignore */ }
+      }
+    }
+  }
+
+  /**
+   * Ensure the host `ui-settings-account` onboarding step is marked `'done'` once XPeach credentials
+   * or onboarding completion exist so the legacy 4-step DesktopOnboarding overlay never re-prompts on startup.
+   */
+  private async ensureDesktopOnboardingCompleted(): Promise<void> {
+    const settings = this.ctx.get('settings') as
+      | {
+        describe?: () => unknown
+        update?: (ns: string, patch: object) => Promise<void>
+      }
+      | undefined
+    if (settings?.describe === undefined || settings.update === undefined) return
+    const described = await settings.describe()
+    if (typeof described !== 'object' || described === null) return
+    const namespaces = (described as { namespaces?: unknown }).namespaces
+    if (!Array.isArray(namespaces)) return
+    const accountNs = namespaces.find(
+      (item): item is { ns: string; value?: { step?: string } } =>
+        typeof item === 'object' && item !== null && (item as { ns?: unknown }).ns === 'ui-settings-account',
+    )
+    if (accountNs?.value?.step === 'done') return
+    await settings.update('ui-settings-account', {
+      version: 1,
+      step: 'done',
+      completion: 'completed',
+    })
+  }
+
+  /**
+   * Adopt persisted credentials from the shared home root or sibling profiles on cold start
+   * unless the user explicitly signed out.
+   */
+  private adoptSharedCredentials(): void {
+    const rootHome = this.profileRootHome()
+    if (existsSync(this.signedOutMarker(rootHome))) return
+    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    if (!inTmp && ! this.isBound() && existsSync(this.signedOutMarker(join(homedir(), '.xph')))) return
+    const mirrorDirs = this.sharedMirrorDirs()
+    if (mirrorDirs.length === 0) return
+
+    const targets: readonly [string, string][] = [
+      [this.keyFile, 'xpeach.key'],
+      [this.adminKeyFile, 'xpeach.admin'],
+      [this.sessionKeyFile, 'xpeach.session'],
+      [this.ssoStateFile, 'xpeach.sso.json'],
+      [this.slotsFile(), 'xpeach.keys'],
+      [this.tokenInfoFile(), 'xpeach.token'],
+      [this.routeFile, 'xpeach.route.json'],
+    ]
+
+    for (const [localPath, filename] of targets) {
+      if (existsSync(localPath)) {
+        try {
+          const current = readFileSync(localPath, 'utf8')
+          if (current.trim().length > 0) {
+            this.mirrorCredentialFile(filename, current)
+            continue
+          }
+        } catch (_err) { /* try adopting below */ }
+      }
+      for (const dir of mirrorDirs) {
+        const candidate = join(dir, filename)
+        if (!existsSync(candidate)) continue
+        try {
+          const content = readFileSync(candidate, 'utf8')
+          if (content.trim().length === 0) continue
+          this.writeState(localPath, content)
+          break
+        } catch (_err) { /* ignore unreadable candidate */ }
+      }
+    }
+  }
+
+  /**
    * Our independent key channel: profile-local file → process.env export for
    * the LLM providers → never the shared credentials.yaml. Seeding from the
    * shared store happens exactly once (tracked by the .seeded sentinel); an
    * explicit unbind never resurrects.
    */
   private bootstrapKey(): void {
+    this.adoptSharedCredentials()
     let key = this.readKeyFile()
-    // A profile can hold the site token but no local xpk (first launch after an
-    // upgrade, or a wiped key file). Re-derive the relay credential from the
-    // server rather than starting keyless; the server reuses its own token, so
-    // this does not mint a new one each boot.
-    if (key === undefined && this.resolveAdmin() !== undefined) {
+    if (key === undefined) {
+      const slots = this.readSlots()
+      if (slots[0]?.key !== undefined) {
+        key = slots[0].key
+        this.writeKeyFile(key)
+      }
+    }
+    const admin = this.resolveAdmin()
+    if (admin !== undefined) {
+      process.env[this.adminKeyVar] = admin
+    }
+    const session = this.resolveSession()
+    if (session !== undefined) {
+      process.env[this.sessionKeyVar] = session
+    }
+    const sso = this.readSsoState()
+    const hasEffect = typeof (this.ctx as { effect?: unknown } | undefined)?.effect === 'function'
+    if (key === undefined && sso?.accessToken !== undefined && sso.accessToken.length > 0 && hasEffect) {
+      this.ctx.effect(() => {
+        const bootSsoTimer = setTimeout(() => {
+          void this.verifyAndSyncSsoSession(true).catch(() => {})
+        }, 250)
+        bootSsoTimer.unref()
+        return () => { clearTimeout(bootSsoTimer) }
+      })
+    } else if (key === undefined && admin !== undefined && hasEffect) {
+      // A profile can hold the site token but no local xpk (first launch after an
+      // upgrade, or a wiped key file). Re-derive the relay credential from the
+      // server rather than starting keyless; the server reuses its own token, so
+      // this does not mint a new one each boot.
       this.ctx.effect(() => {
         const bootMintTimer = setTimeout(() => {
           void (async () => {
@@ -965,7 +1170,14 @@ export class XPeachAccount extends TypertRemoteService {
       }
       this.writeState(this.seededMarker(), '')
     }
-    if (key !== undefined) { process.env[this.keyVar] = key; void this.publishCredential(key) }
+    if (key !== undefined) {
+      process.env[this.keyVar] = key
+      process.env[this.apiKeyEnv] = key
+      void this.publishCredential(key)
+    }
+    if (this.isBound()) {
+      this.markOnboardedAndClearSignOut()
+    }
   }
 
   /** Sentinel that "the shared store already contributed once". */
@@ -1000,7 +1212,9 @@ export class XPeachAccount extends TypertRemoteService {
   /** Write the key file with 0600 permissions, mkdir -p its parent. */
   private writeKeyFile(key: string): void {
     mkdirSync(dirname(this.keyFile), { recursive: true })
-    this.writeState(this.keyFile, key + '\n')
+    const content = key + '\n'
+    this.writeState(this.keyFile, content)
+    this.mirrorCredentialFile('xpeach.key', content)
   }
 
   /** Multi-slot key store: xpeach.keys JSON [{name,key}] next to keyFile. */
@@ -1018,7 +1232,9 @@ export class XPeachAccount extends TypertRemoteService {
   }
   private writeSlots(slots: { name: string; key: string }[]): void {
     mkdirSync(dirname(this.slotsFile()), { recursive: true })
-    this.writeState(this.slotsFile(), JSON.stringify(slots))
+    const serialized = JSON.stringify(slots)
+    this.writeState(this.slotsFile(), serialized)
+    this.mirrorCredentialFile('xpeach.keys', serialized)
   }
 
   /** This runtime's own home (XPH_HOME > DSH_HOME > ~/.xph). */
@@ -1043,7 +1259,9 @@ export class XPeachAccount extends TypertRemoteService {
   }
   private writeTokenInfo(info: { id?: number; name?: string; groups?: string[] }): void {
     mkdirSync(dirname(this.tokenInfoFile()), { recursive: true })
-    this.writeState(this.tokenInfoFile(), JSON.stringify(info))
+    const serialized = JSON.stringify(info)
+    this.writeState(this.tokenInfoFile(), serialized)
+    this.mirrorCredentialFile('xpeach.token', serialized)
   }
 
   /**
@@ -1343,6 +1561,8 @@ export class XPeachAccount extends TypertRemoteService {
   private persistKey(key: string): void {
     this.writeKeyFile(key)
     process.env[this.keyVar] = key
+    process.env[this.apiKeyEnv] = key
+    this.markOnboardedAndClearSignOut()
     void this.publishCredential(key)
   }
 
@@ -1351,8 +1571,11 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private persistAdmin(token: string): void {
     mkdirSync(dirname(this.adminKeyFile), { recursive: true })
-    this.writeState(this.adminKeyFile, token + '\n')
+    const content = token + '\n'
+    this.writeState(this.adminKeyFile, content)
+    this.mirrorCredentialFile('xpeach.admin', content)
     process.env[this.adminKeyVar] = token
+    this.markOnboardedAndClearSignOut()
   }
 
   /** Best-effort runtime record under the provider's apiKeyEnv name. */
@@ -1471,6 +1694,7 @@ export class XPeachAccount extends TypertRemoteService {
     const key = request.key.trim()
     if (key.match(/^(?:xpk|sk)-/u) === null) return { ok: false, message: 'xpeach: key must start with xpk-' }
     const prev = this.readKeyFile()
+    this.probingSlotKey = true
     this.persistKey(key)
     try {
       await this.api.tokenUsage(signal)
@@ -1479,14 +1703,22 @@ export class XPeachAccount extends TypertRemoteService {
         this.persistKey(prev)
       } else {
         try { unlinkSync(this.keyFile) } catch (_err) { /* absent */ }
+        for (const dir of this.sharedMirrorDirs()) {
+          try { unlinkSync(join(dir, 'xpeach.key')) } catch (_err) { /* absent */ }
+        }
         Reflect.deleteProperty(process.env, this.keyVar)
+        Reflect.deleteProperty(process.env, this.apiKeyEnv)
         await this.revokeCredential()
       }
       return { ok: false, message: e instanceof Error ? e.message : 'xpeach: key rejected' }
+    } finally {
+      this.probingSlotKey = false
     }
     const slots = this.readSlots().filter(s => s.key !== key)
     slots.push({ name: request.name.trim() || `slot-${String(slots.length + 1)}`, key })
     this.writeSlots(slots)
+    this.markOnboardedAndClearSignOut()
+    void this.ensureDesktopOnboardingCompleted().catch(() => {})
     this.notifyKeyChanged()
     return { ok: true, message: 'xpeach: key slot added + active' }
   }
@@ -1528,7 +1760,11 @@ export class XPeachAccount extends TypertRemoteService {
         this.persistKey(next.key)
       } else {
         try { unlinkSync(this.keyFile) } catch (_err) { /* absent */ }
+        for (const dir of this.sharedMirrorDirs()) {
+          try { unlinkSync(join(dir, 'xpeach.key')) } catch (_err) { /* absent */ }
+        }
         Reflect.deleteProperty(process.env, this.keyVar)
+        Reflect.deleteProperty(process.env, this.apiKeyEnv)
         void this.revokeCredential()
       }
       this.notifyKeyChanged()
@@ -1573,6 +1809,7 @@ export class XPeachAccount extends TypertRemoteService {
       try { unlinkSync(this.slotsFile()) } catch (_err) { /* absent */ }
       try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
       Reflect.deleteProperty(process.env, this.keyVar)
+      Reflect.deleteProperty(process.env, this.apiKeyEnv)
       await this.revokeCredential()
     }
     this.persistAdmin(token)
@@ -1586,6 +1823,8 @@ export class XPeachAccount extends TypertRemoteService {
       )
     }
     this.lastSsoVerifyAt = Date.now()
+    this.markOnboardedAndClearSignOut()
+    void this.ensureDesktopOnboardingCompleted().catch(() => {})
     const emitEvent = this.ctx.emit.bind(this.ctx) as (name: string) => void
     try { emitEvent('deepseek-account/signed-in') } catch (_err) { /* contained */ }
     this.notifyKeyChanged()
@@ -1913,8 +2152,13 @@ export class XPeachAccount extends TypertRemoteService {
     this.api.setSessionKey(trimmed)
     try {
       const me = await this.api.sessionSelf(signal)
-      this.writeState(this.sessionKeyFile, trimmed + '\n')
+      const content = trimmed + '\n'
+      this.writeState(this.sessionKeyFile, content)
+      this.mirrorCredentialFile('xpeach.session', content)
       process.env[this.sessionKeyVar] = trimmed
+      this.markOnboardedAndClearSignOut()
+      void this.ensureDesktopOnboardingCompleted().catch(() => {})
+      this.notifyKeyChanged()
       return { bound: true, as: me.username }
     } finally {
       this.api.setSessionKey(undefined)
@@ -2137,13 +2381,9 @@ export class XPeachAccount extends TypertRemoteService {
     return await this.resolveAccountBalance(signal ?? AbortSignal.timeout(10_000))
   }
 
-  private async handleAuthRejected(status: 401 | 403): Promise<void> {
-    const sso = this.readSsoState()
-    if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
-      await this.verifyAndSyncSsoSession(true).catch(() => {})
-      return
-    }
-    await this.revokeAllLocalCredentials(status === 403 ? 'banned' : 'revoked')
+  private async handleAuthRejected(_status: 401 | 403): Promise<void> {
+    if (this.probingSlotKey) return
+    await this.verifyAndSyncSsoSession(true).catch(() => {})
   }
 
   private cancelRunningAccountTasks(): void {
@@ -2254,6 +2494,15 @@ export class XPeachAccount extends TypertRemoteService {
         ).catch(() => false)
       }
 
+      const credentialFilenames = [
+        'xpeach.key',
+        'xpeach.admin',
+        'xpeach.session',
+        'xpeach.sso.json',
+        'xpeach.keys',
+        'xpeach.token',
+      ]
+
       for (const file of [
         this.keyFile,
         this.adminKeyFile,
@@ -2267,7 +2516,27 @@ export class XPeachAccount extends TypertRemoteService {
         }
       }
 
+      for (const dir of this.sharedMirrorDirs()) {
+        for (const filename of credentialFilenames) {
+          const target = join(dir, filename)
+          if (existsSync(target)) {
+            try { unlinkSync(target) } catch (_err) { /* absent */ }
+          }
+        }
+      }
+
+      if (reason === 'signed-out' || reason === 'banned') {
+        const rootHome = this.profileRootHome()
+        const stamp = new Date().toISOString() + '\n'
+        try { this.writeState(this.signedOutMarker(rootHome), stamp) } catch (_err) { /* best effort */ }
+        const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+        if (!inTmp) {
+          try { this.writeState(this.signedOutMarker(join(homedir(), '.xph')), stamp) } catch (_err) { /* best effort */ }
+        }
+      }
+
       Reflect.deleteProperty(process.env, this.keyVar)
+      Reflect.deleteProperty(process.env, this.apiKeyEnv)
       Reflect.deleteProperty(process.env, this.adminKeyVar)
       Reflect.deleteProperty(process.env, this.sessionKeyVar)
       this.api.setAdminKey(undefined)
@@ -2388,18 +2657,18 @@ export class XPeachAccount extends TypertRemoteService {
         this.lastSsoVerifyAt = Date.now()
         const peach = sync.payload.peachcode
         const refreshedSso = sync.payload.sso
-        if (refreshedSso?.accessToken !== undefined && refreshedSso.accessToken.length > 0) {
+        const nextSsoToken = refreshedSso?.accessToken ?? sso.accessToken
+        if (nextSsoToken.length > 0) {
           try {
-            this.writeState(
-              this.ssoStateFile,
-              JSON.stringify({
-                accessToken: refreshedSso.accessToken,
-                expiresIn: refreshedSso.expiresIn ?? sso.expiresIn,
-                user: refreshedSso.user ?? sso.user,
-                peachcodeUserId: peach?.userId ?? sso.peachcodeUserId,
-                boundAt: Date.now(),
-              }, null, 2) + '\n',
-            )
+            const ssoContent = JSON.stringify({
+              accessToken: nextSsoToken,
+              expiresIn: refreshedSso?.expiresIn ?? sso.expiresIn,
+              user: refreshedSso?.user ?? sso.user,
+              peachcodeUserId: peach?.userId ?? sso.peachcodeUserId,
+              boundAt: Date.now(),
+            }, null, 2) + '\n'
+            this.writeState(this.ssoStateFile, ssoContent)
+            this.mirrorCredentialFile('xpeach.sso.json', ssoContent)
           } catch (_err) { /* best effort */ }
         }
         const nextAccessToken = peach?.accessToken?.trim()
@@ -2616,16 +2885,15 @@ export class XPeachAccount extends TypertRemoteService {
 
     if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
       try {
-        this.writeState(
-          this.ssoStateFile,
-          JSON.stringify({
-            accessToken: sso.accessToken,
-            expiresIn: sso.expiresIn,
-            user: sso.user,
-            peachcodeUserId: peach?.userId,
-            boundAt: Date.now(),
-          }, null, 2) + '\n',
-        )
+        const ssoContent = JSON.stringify({
+          accessToken: sso.accessToken,
+          expiresIn: sso.expiresIn,
+          user: sso.user,
+          peachcodeUserId: peach?.userId,
+          boundAt: Date.now(),
+        }, null, 2) + '\n'
+        this.writeState(this.ssoStateFile, ssoContent)
+        this.mirrorCredentialFile('xpeach.sso.json', ssoContent)
       } catch (_err) { /* best effort */ }
     }
 
@@ -2653,6 +2921,8 @@ export class XPeachAccount extends TypertRemoteService {
     }
 
     this.lastSsoVerifyAt = Date.now()
+    this.markOnboardedAndClearSignOut()
+    void this.ensureDesktopOnboardingCompleted().catch(() => {})
     const emitEvent = this.ctx.emit.bind(this.ctx) as (name: string) => void
     try { emitEvent('deepseek-account/signed-in') } catch (_err) { /* contained */ }
     this.notifyKeyChanged()
@@ -2779,8 +3049,12 @@ export class XPeachAccount extends TypertRemoteService {
     } finally {
       this.api.setSessionKey(undefined)
     }
-    this.writeState(this.sessionKeyFile, cookie + '\n')
+    const cookieContent = cookie + '\n'
+    this.writeState(this.sessionKeyFile, cookieContent)
+    this.mirrorCredentialFile('xpeach.session', cookieContent)
     process.env[this.sessionKeyVar] = cookie
+    this.markOnboardedAndClearSignOut()
+    void this.ensureDesktopOnboardingCompleted().catch(() => {})
     const mint = await this.mintConsoleKey(signal)
     return {
       bound: true,
@@ -2896,7 +3170,13 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('onboardingDone')
   onboardingDoneOp(_request: XPeachSelfRequest, signal: AbortSignal): { done: boolean } {
     signal.throwIfAborted()
-    return { done: existsSync(join(this.ownHome(), '.xpeach-onboarded')) }
+    if (this.isBound()) {
+      return { done: true }
+    }
+    return {
+      done: existsSync(join(this.ownHome(), '.xpeach-onboarded'))
+        || existsSync(join(this.profileRootHome(), '.xpeach-onboarded')),
+    }
   }
 
   /**
@@ -2909,7 +3189,8 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('onboardingComplete')
   onboardingCompleteOp(_request: XPeachSelfRequest, signal: AbortSignal): { done: boolean } {
     signal.throwIfAborted()
-    this.writeState(join(this.ownHome(), '.xpeach-onboarded'), new Date().toISOString() + '\n')
+    this.markOnboardedAndClearSignOut()
+    void this.ensureDesktopOnboardingCompleted().catch(() => {})
     return { done: true }
   }
 
@@ -3473,7 +3754,9 @@ export class XPeachAccount extends TypertRemoteService {
 
   private writeRouteFile(): void {
     try {
-      this.writeState(this.routeFile, JSON.stringify({ url: this.activeBaseURL, auto: this.networkAuto, at: Date.now() }))
+      const content = JSON.stringify({ url: this.activeBaseURL, auto: this.networkAuto, at: Date.now() })
+      this.writeState(this.routeFile, content)
+      this.mirrorCredentialFile('xpeach.route.json', content)
     } catch (_err) { /* best effort */ }
   }
 
