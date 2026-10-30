@@ -53,7 +53,7 @@
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-client-ui-primitives": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "@xpeach/xph-attachment": "workspace:*",
     "@xpeach/xph-client-ui-tool": "workspace:*",

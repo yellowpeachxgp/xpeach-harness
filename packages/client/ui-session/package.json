@@ -57,7 +57,7 @@
     "@xpeach/xph-remote-mock": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-util-values": "workspace:*",
-    "react": "^18.2.0"
+    "react": "^19.3.0"
   },
   "files": [
     "locale/*.json",

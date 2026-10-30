@@ -67,7 +67,7 @@
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-session-persistence": "workspace:*",
     "@xpeach/xph-session-query": "workspace:*",
-    "react": "^18.2.0"
+    "react": "^19.3.0"
   },
   "dsh": {
     "client": {

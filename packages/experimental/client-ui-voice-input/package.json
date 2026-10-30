@@ -52,7 +52,7 @@
     "@xpeach/xph-experimental-api-speech-to-text": "workspace:*",
     "@xpeach/xph-experimental-speech-to-text": "workspace:*",
     "@xpeach/xph-client-test-runtime": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "@testing-library/react": "^16.3.3",
     "@xpeach/xph-api-gateway": "workspace:*",

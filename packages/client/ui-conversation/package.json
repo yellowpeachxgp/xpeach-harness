@@ -83,7 +83,7 @@
     "@xpeach/xph-workspace": "workspace:*",
     "@xpeach/xph-file-reference": "workspace:*",
     "@xpeach/xph-util-workspace-path": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@lexical/headless": "^0.49.0",
     "react-dom": "^18.2.0",
     "zod": "4.4.3",

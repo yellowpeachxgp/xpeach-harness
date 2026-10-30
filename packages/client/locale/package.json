@@ -52,7 +52,7 @@
     "@xpeach/xph-client-ui-settings": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-package-manifest": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-connection": "workspace:*",
     "@xpeach/xph-settings": "workspace:*"
   },

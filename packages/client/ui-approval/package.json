@@ -60,7 +60,7 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-shortcuts": "workspace:*"
   },
   "files": [

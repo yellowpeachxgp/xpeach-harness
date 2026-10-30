@@ -89,7 +89,7 @@
     "@xpeach/xph-util-workspace-path": "workspace:*",
     "@xpeach/xph-util-values": "workspace:*",
     "@tanstack/react-virtual": "3.14.10",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "@xpeach/xph-settings": "workspace:*",
     "@xpeach/xph-client-product-analytics": "workspace:*"

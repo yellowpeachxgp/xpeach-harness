@@ -80,7 +80,7 @@
     "@xpeach/xph-util-values": "workspace:*",
     "@xpeach/xph-util-workspace-path": "workspace:*",
     "clsx": "^2.0.0",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-shortcuts": "workspace:*",
     "@xpeach/xph-client-product-analytics": "workspace:*"
   },
