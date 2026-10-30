@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-plugin-market-bundle",
   "description": "Experimental custom plugin markets: a Discover tab that browses and installs bundles from plugin market indexes",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"

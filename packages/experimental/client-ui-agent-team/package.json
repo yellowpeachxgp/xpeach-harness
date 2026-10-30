@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-client-ui-agent-team",
   "description": "Web Agent Teams roster, task board, and teammate navigation",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

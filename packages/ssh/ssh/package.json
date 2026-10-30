@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-ssh",
   "description": "Shared OpenSSH connection and versioned POSIX remote helper",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

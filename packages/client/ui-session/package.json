@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-session",
   "description": "Session Controller adapter for React and session-scoped slots",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

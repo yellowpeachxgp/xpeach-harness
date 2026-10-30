@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-subprocess-ssh",
   "description": "Subprocess and terminal provider over the shared POSIX SSH helper",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

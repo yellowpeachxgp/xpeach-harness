@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-workflow-run",
   "description": "Durable workflow-run Conversation Node and nested member disclosure for dsh web",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

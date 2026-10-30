@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-preset",
   "description": "Declare an Agent capability composition in Cordis YAML",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

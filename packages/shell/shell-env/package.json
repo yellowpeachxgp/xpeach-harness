@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-shell-env",
   "description": "Tool-independent managed DSH_* shell environment registry",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

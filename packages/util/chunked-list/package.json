@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-chunked-list",
   "description": "Persistent append-only chunked lists with bounded copying and JSON checkpoint validation",
-  "version": "0.0.22-alpha",
+  "version": "0.0.23-alpha",
   "publishConfig": {
     "access": "public"
   },

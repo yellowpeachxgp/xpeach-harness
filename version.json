@@ -1,6 +1,6 @@
 {
-  "version": "0.0.22-alpha",
-  "build": 22,
+  "version": "0.0.23-alpha",
+  "build": 23,
   "history": [
     {
       "version": "0.0.1-alpha",
@@ -111,6 +111,11 @@
       "version": "0.0.22-alpha",
       "build": 22,
       "at": "2026-10-30T11:26:36.895Z"
+    },
+    {
+      "version": "0.0.23-alpha",
+      "build": 23,
+      "at": "2026-10-30T12:31:09.236Z"
     }
   ]
 }
