@@ -197,6 +197,13 @@ export function XPeachTab({
     } catch (_err) { /* ignore */ }
     return false
   })
+  const [siteAdmin, setSiteAdmin] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem('xpeach.tab.keyState.v1')
+      if (raw !== null) return (JSON.parse(raw) as { siteAdmin?: boolean }).siteAdmin === true
+    } catch (_err) { /* ignore */ }
+    return false
+  })
   const [seg, setSeg] = useState<Seg>('overview')
   const [query, setQuery] = useState('')
   const [logModel, setLogModel] = useState<string | null>(null)
@@ -356,9 +363,23 @@ export function XPeachTab({
       const nextAdmin = s.adminBound === true
       setKeyMask(nextPreview)
       setAdminBound(nextAdmin)
-      try {
-        localStorage.setItem('xpeach.tab.keyState.v1', JSON.stringify({ preview: nextPreview, adminBound: nextAdmin }))
-      } catch (_err) { /* ignore */ }
+      if (nextAdmin) {
+        void userSelf().then((me) => {
+          if ('error' in me) return
+          const isAdmin = (me.role ?? 0) >= 10 || me.group === '管理员分组'
+          setSiteAdmin(isAdmin)
+          if (!isAdmin) setSeg(prev => prev === 'site' ? 'overview' : prev)
+          try {
+            localStorage.setItem('xpeach.tab.keyState.v1', JSON.stringify({ preview: nextPreview, adminBound: nextAdmin, siteAdmin: isAdmin }))
+          } catch (_err) { /* ignore */ }
+        })
+      } else {
+        setSiteAdmin(false)
+        setSeg(prev => prev === 'site' ? 'overview' : prev)
+        try {
+          localStorage.setItem('xpeach.tab.keyState.v1', JSON.stringify({ preview: nextPreview, adminBound: nextAdmin, siteAdmin: false }))
+        } catch (_err) { /* ignore */ }
+      }
     })
     if (seg === 'market') {
       void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
@@ -453,7 +474,7 @@ export function XPeachTab({
               <button key={k} type="button" onClick={() => { setSeg(k) }}
                 className={seg === k ? css.segOn : css.segOff}>{t(key)}</button>
             ))}
-            {adminBound && (
+            {adminBound && siteAdmin && (
               <button type="button" onClick={() => { setSeg('site') }}
                 className={seg === 'site' ? css.segOn : css.segOff}>{t('console.seg.site')}</button>
             )}
@@ -774,7 +795,7 @@ export function XPeachTab({
                         <div><dt>{t('logs.stream')}</dt><dd>{entry.is_stream ? '✓' : '—'}</dd></div>
                         {other?.cache_tokens !== undefined && <div><dt>{t('logs.cacheTok')}</dt><dd>{other.cache_tokens}</dd></div>}
                         {other?.group_ratio !== undefined && <div><dt>{t('logs.gr')}</dt><dd>×{other.group_ratio}</dd></div>}
-                        {other?.frt !== undefined && <div><dt>{t('logs.frt')}</dt><dd>{t('unit.ms', { n: String(other.frt) })}</dd></div>}
+                        {other?.frt !== undefined && other.frt >= 0 && <div><dt>{t('logs.frt')}</dt><dd>{t('unit.ms', { n: String(other.frt) })}</dd></div>}
                         {other?.billing_mode !== undefined && <div><dt>{t('logs.mode')}</dt><dd>{other.billing_mode}</dd></div>}
                         {decodeExpr(other?.expr_b64) !== undefined && (
                           <div className={css.logDetailWide}><dt>{t('logs.expr')}</dt><dd><code>{decodeExpr(other?.expr_b64)}</code></dd></div>
@@ -857,7 +878,7 @@ export function XPeachTab({
           onboardingScan={onboardingScan} importConversations={importConversations}
           macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />
       )}
-      {seg === 'site' && adminBound && (
+      {seg === 'site' && adminBound && siteAdmin && (
         <XPeachAdmin
           t={t}
           ops={{

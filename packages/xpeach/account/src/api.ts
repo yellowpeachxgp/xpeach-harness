@@ -630,7 +630,8 @@ export class XPeachApi {
    * @returns paged list of site users.
    */
   adminUsers(page: number, size: number, signal: AbortSignal): Promise<XPeachAdminPage<XPeachAdminUser>> {
-    return this.adminGet(`/api/user/?p=${String(page)}&page_size=${String(size)}`, signal)
+    const p = Math.max(1, Math.floor(page) + 1)
+    return this.adminGet(`/api/user/?p=${String(p)}&page_size=${String(size)}`, signal)
   }
 
   /**
@@ -642,7 +643,8 @@ export class XPeachApi {
    * @returns paged list of site tokens.
    */
   adminTokens(page: number, size: number, signal: AbortSignal): Promise<XPeachAdminPage<XPeachAdminToken>> {
-    return this.adminGet(`/api/token/?p=${String(page)}&page_size=${String(size)}`, signal)
+    const p = Math.max(1, Math.floor(page) + 1)
+    return this.adminGet(`/api/token/?p=${String(p)}&page_size=${String(size)}`, signal)
   }
 
   /**
@@ -745,9 +747,19 @@ export class XPeachApi {
       throw new RemoteError('xpeach/request-failed', 'xpeach: pricing fetch failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body = await response.json().catch(() => undefined) as
-      | { data?: readonly XPeachPricingEntry[]; group_ratio?: Record<string, number> }
+      | {
+        data?: readonly XPeachPricingEntry[]
+        group_ratio?: Record<string, number>
+        usable_group?: Record<string, string>
+        auto_groups?: readonly string[]
+      }
       | undefined
-    return { entries: body?.data ?? [], groupRatio: body?.group_ratio ?? {} }
+    return {
+      entries: body?.data ?? [],
+      groupRatio: body?.group_ratio ?? {},
+      ...(body?.usable_group !== undefined ? { usableGroup: body.usable_group } : {}),
+      ...(Array.isArray(body?.auto_groups) ? { autoGroups: body.auto_groups } : {}),
+    }
   }
 
   /**
@@ -764,6 +776,7 @@ export class XPeachApi {
     const entry = catalog.entries.find(e => e.model_name === model)
     if (entry === undefined) return undefined
     let groupRatio = 1
+    let resolvedGroup = group
     if (group !== undefined) {
       // Picked group: catalog's own per-group ratio wins — it is the site's
       // authoritative multiplier table; fall through to the PAT-visible
@@ -774,15 +787,33 @@ export class XPeachApi {
       } else {
         const gr = catalog.groups[group]?.ratio
         const n = typeof gr === 'string' ? Number(gr) : gr
-        if (typeof n === 'number' && n > 0) groupRatio = n
+        if (typeof n === 'number' && n >= 0) groupRatio = n
+        else if (r === 0) groupRatio = 0
       }
     } else {
       const last = (await this.tokenLogs(signal).catch(() => []))
         .find(row => row.model_name === model)
-      if (last?.other !== undefined) {
-        let other: { group_ratio?: number } | undefined
-        try { other = JSON.parse(last.other) as { group_ratio?: number } } catch (_err) { /* keep neutral group ratio */ }
-        if (other !== undefined && typeof other.group_ratio === 'number' && other.group_ratio > 0) groupRatio = other.group_ratio
+      if (last !== undefined) {
+        if (last.group !== undefined && last.group !== '') resolvedGroup = last.group
+        if (last.other !== undefined) {
+          let other: { group_ratio?: number } | undefined
+          try { other = JSON.parse(last.other) as { group_ratio?: number } } catch (_err) { /* keep neutral group ratio */ }
+          if (other !== undefined && typeof other.group_ratio === 'number' && other.group_ratio >= 0) {
+            groupRatio = other.group_ratio
+          }
+        }
+      } else {
+        const fallbackGroup = (entry.enable_groups ?? []).find(
+          g => catalog.groupRatio[g] !== undefined || catalog.groups[g]?.ratio !== undefined,
+        )
+        if (fallbackGroup !== undefined) {
+          resolvedGroup = fallbackGroup
+          const r = catalog.groupRatio[fallbackGroup]
+          const gr = catalog.groups[fallbackGroup]?.ratio
+          const n = typeof gr === 'string' ? Number(gr) : gr
+          if (r !== undefined && r > 0) groupRatio = r
+          else if (typeof n === 'number' && n >= 0) groupRatio = n
+        }
       }
     }
     return {
@@ -790,7 +821,7 @@ export class XPeachApi {
       completionRatio: entry.completion_ratio ?? 1,
       cacheRatio: entry.cache_ratio ?? 1,
       groupRatio,
-      ...(group === undefined ? {} : { group }),
+      ...(resolvedGroup === undefined ? {} : { group: resolvedGroup }),
     }
   }
 
@@ -804,7 +835,8 @@ export class XPeachApi {
    * @returns paged list of admin log entries.
    */
   adminLogs(page: number, size: number, query: string | undefined, signal: AbortSignal): Promise<XPeachAdminPage<XPeachAdminLogEntry>> {
-    let path = `/api/log/?p=${String(page)}&page_size=${String(size)}`
+    const p = Math.max(1, Math.floor(page) + 1)
+    let path = `/api/log/?p=${String(p)}&page_size=${String(size)}`
     if (query !== undefined && query.length > 0) path += '&username=' + encodeURIComponent(query)
     return this.adminGet(path, signal)
   }
@@ -876,7 +908,8 @@ export class XPeachApi {
    * @returns paged list of user tokens.
    */
   userTokens(page: number, signal: AbortSignal): Promise<XPeachTokenPage> {
-    return this.authedGet(`/api/token/?p=${String(page)}`, signal)
+    const p = Math.max(1, Math.floor(page) + 1)
+    return this.authedGet(`/api/token/?p=${String(p)}`, signal)
   }
 
   /**
@@ -931,8 +964,24 @@ export class XPeachApi {
    * @returns affiliate record containing `aff_code`.
    */
   async userAff(signal: AbortSignal): Promise<Record<string, JsonValue>> {
-    const raw = await this.authedGet<JsonValue>('/api/user/aff', signal)
-    return typeof raw === 'string' ? { aff_code: raw } : (raw as Record<string, JsonValue>)
+    const [raw, me] = await Promise.all([
+      this.authedGet<JsonValue>('/api/user/aff', signal),
+      this.userSelf(signal).catch(() => undefined),
+    ])
+    const base: Record<string, JsonValue> = typeof raw === 'string'
+      ? { aff_code: raw }
+      : (raw !== null && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, JsonValue>) } : {})
+    if (typeof base['aff_code'] !== 'string' && typeof me?.aff_code === 'string') {
+      base['aff_code'] = me.aff_code
+    }
+    const quota = typeof base['quota'] === 'number'
+      ? base['quota']
+      : (me?.aff_quota ?? me?.aff_history_quota ?? 0)
+    base['quota'] = quota
+    if (typeof me?.aff_count === 'number' && base['aff_count'] === undefined) {
+      base['aff_count'] = me.aff_count
+    }
+    return base
   }
 
   /**
@@ -944,7 +993,8 @@ export class XPeachApi {
    * @returns paged list of user usage log rows.
    */
   userLogs(page: number, size: number, signal: AbortSignal): Promise<XPeachSelfLogPage> {
-    return this.authedGet(`/api/log/self?p=${String(page)}&page_size=${String(size)}`, signal)
+    const p = Math.max(1, Math.floor(page) + 1)
+    return this.authedGet(`/api/log/self?p=${String(p)}&page_size=${String(size)}`, signal)
   }
 
   /**
@@ -1092,7 +1142,8 @@ export class XPeachApi {
    * @returns paged list of channels.
    */
   adminChannels(page: number, signal: AbortSignal): Promise<XPeachAdminPage<XPeachChannel>> {
-    return this.adminGet(`/api/channel/?p=${String(page)}`, signal)
+    const p = Math.max(1, Math.floor(page) + 1)
+    return this.adminGet(`/api/channel/?p=${String(p)}`, signal)
   }
 
   /**
@@ -1206,7 +1257,8 @@ export class XPeachApi {
    * @returns paged list of redemption rows.
    */
   adminRedemptions(page: number, signal: AbortSignal): Promise<XPeachAdminPage<XPeachRedemption>> {
-    return this.adminGet(`/api/redemption/?p=${String(page)}`, signal)
+    const p = Math.max(1, Math.floor(page) + 1)
+    return this.adminGet(`/api/redemption/?p=${String(p)}`, signal)
   }
 
   /**

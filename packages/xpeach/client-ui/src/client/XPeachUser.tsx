@@ -294,27 +294,39 @@ export function XPeachUser({
         <section className={css.bentoCard}>
           <p className={css.sparkTitle}>{t('user.aff')}</p>
           {aff !== undefined && 'error' in aff && typeof aff.error === 'string' && <p className={css.bindError}>{aff.error}</p>}
-          {aff !== undefined && !('error' in aff) && (
-            <>
-              <dl className={css.usageGrid}>
-                <div className={css.usageCell}>
-                  <dt>{t('user.affCode')}</dt>
-                  <dd><code>{typeof aff['aff_code'] === 'string' ? aff['aff_code'] : '—'}</code></dd>
-                </div>
-                <div className={css.usageCell}><dt>{t('user.affQuota')}</dt><dd>{typeof aff['quota'] === 'number' ? fmtQuota(aff['quota']) : '—'}</dd></div>
-              </dl>
-              {typeof aff['aff_code'] === 'string' && aff['aff_code'] !== '' && (
-                <div className={css.bindRow}>
-                  <code className={css.keyMask}>{`${SITE.register}?${new URLSearchParams({ aff: aff['aff_code'] }).toString()}`}</code>
-                  <button type="button" className={css.bindGhost} onClick={() => {
-                    const affCode = typeof aff['aff_code'] === 'string' ? aff['aff_code'] : ''
-                    void navigator.clipboard.writeText(`${SITE.register}?${new URLSearchParams({ aff: affCode }).toString()}`)
-                    setEditMsg(t('bind.copied'))
-                  }}>{t('bind.copyApi')}</button>
-                </div>
-              )}
-            </>
-          )}
+          {((aff !== undefined && !('error' in aff)) || (me !== undefined && !('error' in me))) && (() => {
+            const affObj = aff !== undefined && !('error' in aff) ? aff : undefined
+            const meObj = me !== undefined && !('error' in me) ? me : undefined
+            const resolvedAffCode = typeof affObj?.['aff_code'] === 'string' && affObj['aff_code'] !== ''
+              ? affObj['aff_code']
+              : (meObj?.aff_code ?? '')
+            const resolvedAffQuota: number | undefined = typeof affObj?.['quota'] === 'number'
+              ? affObj['quota']
+              : meObj?.aff_quota
+            return (
+              <>
+                <dl className={css.usageGrid}>
+                  <div className={css.usageCell}>
+                    <dt>{t('user.affCode')}</dt>
+                    <dd><code>{resolvedAffCode !== '' ? resolvedAffCode : '—'}</code></dd>
+                  </div>
+                  <div className={css.usageCell}>
+                    <dt>{t('user.affQuota')}</dt>
+                    <dd>{typeof resolvedAffQuota === 'number' ? fmtQuota(resolvedAffQuota) : '—'}</dd>
+                  </div>
+                </dl>
+                {resolvedAffCode !== '' && (
+                  <div className={css.bindRow}>
+                    <code className={css.keyMask}>{`${SITE.register}?${new URLSearchParams({ aff: resolvedAffCode }).toString()}`}</code>
+                    <button type="button" className={css.bindGhost} onClick={() => {
+                      void navigator.clipboard.writeText(`${SITE.register}?${new URLSearchParams({ aff: resolvedAffCode }).toString()}`)
+                      setEditMsg(t('bind.copied'))
+                    }}>{t('bind.copyApi')}</button>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </section>
       </div>
       <MacosInstallerCard t={t} macosInstallerStatus={macosInstallerStatus} macosInstallerAction={macosInstallerAction} />

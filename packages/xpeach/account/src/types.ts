@@ -36,6 +36,7 @@ export interface XPeachUserSelf {
   readonly aff_code?: string
   readonly aff_count?: number
   readonly aff_quota?: number
+  readonly aff_history_quota?: number
   readonly has_password?: boolean
 }
 
@@ -343,10 +344,12 @@ export interface XPeachBillingRate {
   readonly group?: string
 }
 
-/** Raw pricing payload: entry rows plus the per-group ratio table. */
+/** Raw pricing payload: entry rows plus the per-group ratio table and usable groups. */
 export interface XPeachPricingCatalog {
   readonly entries: readonly XPeachPricingEntry[]
   readonly groupRatio: Readonly<Record<string, number>>
+  readonly usableGroup?: Readonly<Record<string, string>> | undefined
+  readonly autoGroups?: readonly string[] | undefined
 }
 
 /** One measured health row for a catalog model. */
@@ -688,6 +691,7 @@ export interface XPeachSsoBridgePayload {
     readonly apiKey?: string | undefined
     readonly tokenId?: number | undefined
     readonly tokenName?: string | undefined
+    readonly tokenGroups?: readonly string[] | undefined
   } | undefined
 }
 

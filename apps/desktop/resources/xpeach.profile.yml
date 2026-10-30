@@ -4,7 +4,11 @@
   name: "@xpeach/xph-client-ui-settings-general"
   config:
     welcomeNoticeVersion: 2026-09-28.1
+- id: ui-settings-account
+  disabled: true
 - id: deepseek-account
+  disabled: true
+- id: account-controller
   disabled: true
 - id: plugin-package-inventory-deepseek
   disabled: true

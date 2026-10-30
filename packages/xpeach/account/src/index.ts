@@ -1265,43 +1265,65 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Backfill the token metadata for a bind made before this file existed:
-   * find the newest xph-/dsh- token and record its id/name/groups.
+   * Backfill and self-heal the token metadata: find the active xph-/dsh- token,
+   * prune any retired/unauthorized groups against the site's `usable_group` set,
+   * and persist its id/name/groups.
    */
   private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number; name?: string; groups?: string[] }> {
     const info = this.readTokenInfo()
-    if (info.id !== undefined) {
-      let detail: Record<string, JsonValue> | undefined
-      try { detail = await this.api.adminTokenGet(info.id, signal) } catch (_err) { return info }
-      const groups = Array.isArray(detail.groups)
-        ? detail.groups.filter((g): g is string => typeof g === 'string' && g.length > 0)
-        : []
-      const next = { ...info, groups }
-      this.writeTokenInfo(next)
-      return next
+    let tokenId = info.id
+    let tokenName = info.name
+    if (tokenId === undefined) {
+      let page: XPeachAdminPage<XPeachAdminToken> | undefined
+      try { page = await this.api.adminTokens(0, 100, signal) } catch (_err) { return info }
+      const live = page.items
+        .filter(t => t.status === 1 && ((t.name ?? '').startsWith('xph-') || (t.name ?? '').startsWith('dsh-') || (t.name ?? '').startsWith('sso-')))
+        .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
+      if (live === undefined) return info
+      tokenId = live.id
+      tokenName = live.name
     }
-    let page: XPeachAdminPage<XPeachAdminToken> | undefined
-    try { page = await this.api.adminTokens(1, 100, signal) } catch (_err) { return info }
-    const live = page.items
-      .filter(t => t.status === 1 && ((t.name ?? '').startsWith('xph-') || (t.name ?? '').startsWith('dsh-')))
-      .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
-    if (live === undefined) return info
     let detail: Record<string, JsonValue> | undefined
-    try { detail = await this.api.adminTokenGet(live.id, signal) } catch (_err) { return info }
-    const groups = Array.isArray(detail.groups)
+    try { detail = await this.api.adminTokenGet(tokenId, signal) } catch (_err) { return info }
+    const rawGroups = Array.isArray(detail.groups)
       ? detail.groups.filter((g): g is string => typeof g === 'string' && g.length > 0)
       : []
-    const next = { id: live.id, ...(live.name !== undefined ? { name: live.name } : {}), groups }
+    let groups = rawGroups
+    try {
+      const counts = await this.groupModelCounts(signal)
+      if (counts.size > 0) {
+        const valid = rawGroups.filter(g => (counts.get(g) ?? 0) > 0)
+        if (rawGroups.length === 0 || valid.length !== rawGroups.length) {
+          const fallback = valid.length > 0 ? valid : await this.defaultGroups(signal)
+          if (fallback.length > 0) {
+            groups = fallback
+            await this.api.adminTokenUpdate({ ...detail, groups, group: groups[0] ?? '' }, signal).catch(() => {})
+          }
+        }
+      }
+    } catch (_err) {
+      // Keep raw token groups when pricing catalog lookup is unavailable.
+    }
+    const next = {
+      id: tokenId,
+      ...(tokenName !== undefined ? { name: tokenName } : {}),
+      groups,
+    }
     this.writeTokenInfo(next)
     return next
   }
 
-  /** Model counts per site group, read off the pricing catalog. */
+  /** Model counts per site group, filtered to groups usable by the signed-in user. */
   private async groupModelCounts(signal: AbortSignal): Promise<Map<string, number>> {
     const pricing = await this.api.adminPricing(signal)
+    const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
+    const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
     const counts = new Map<string, number>()
     for (const entry of pricing.entries) {
-      for (const group of entry.enable_groups ?? []) counts.set(group, (counts.get(group) ?? 0) + 1)
+      for (const group of entry.enable_groups ?? []) {
+        if (usableSet !== undefined && !usableSet.has(group)) continue
+        counts.set(group, (counts.get(group) ?? 0) + 1)
+      }
     }
     return counts
   }
@@ -1609,7 +1631,29 @@ export class XPeachAccount extends TypertRemoteService {
    */
   @Remote('tokenUsage')
   async tokenUsage(_request: XPeachTokenUsageRequest, signal: AbortSignal): Promise<XPeachTokenUsage> {
-    return await this.api.tokenUsage(signal)
+    const usage = await this.api.tokenUsage(signal)
+    if ((usage.unlimited_quota || usage.total_available < 0) && this.resolveAdmin() !== undefined) {
+      try {
+        const me = await this.api.userSelf(signal)
+        if (typeof me.quota === 'number' && Number.isFinite(me.quota)) {
+          const used = typeof me.used_quota === 'number' && Number.isFinite(me.used_quota)
+            ? me.used_quota
+            : Math.max(0, usage.total_used)
+          const avail = Math.max(0, me.quota)
+          return {
+            ...usage,
+            name: me.display_name || me.username || usage.name,
+            total_available: avail,
+            total_used: used,
+            total_granted: avail + used,
+            unlimited_quota: false,
+          }
+        }
+      } catch (_err) {
+        // Fall back to raw token usage when personal profile lookup fails.
+      }
+    }
+    return usage
   }
 
   /**
@@ -2906,10 +2950,13 @@ export class XPeachAccount extends TypertRemoteService {
     let preview: string | undefined
     if (apiKey !== undefined && apiKey.length > 0) {
       if (apiKey.match(/^(?:xpk|sk)-/u) === null) apiKey = 'sk-' + apiKey
+      const bridgeGroups = Array.isArray(peach?.tokenGroups)
+        ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.length > 0)
+        : []
       this.writeTokenInfo({
         ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
         ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
-        ...(peach?.group !== undefined && peach.group.length > 0 ? { groups: [peach.group] } : {}),
+        ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
       })
       this.persistKey(apiKey)
       preview = apiKey.slice(0, 5) + '…' + apiKey.slice(-4)
@@ -2972,6 +3019,9 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
+  private ssoDevicePollInFlight?: Map<string, Promise<XPeachSsoDevicePollResult>>
+  private ssoDeviceApprovedCache?: Map<string, XPeachSsoDevicePollResult>
+
   /**
    * Poll an active XPeach SSO Device Authorization session once; when approved,
    * automatically bind the bridged PeachCode access token and `sk-` relay key.
@@ -2990,19 +3040,41 @@ export class XPeachAccount extends TypertRemoteService {
     if (deviceCode.length === 0) {
       return { status: 'error', message: 'missing deviceCode' }
     }
-    const polled = await this.api.ssoDeviceToken(
-      this.currentSsoBaseURL(),
-      this.currentSsoClientId(),
-      deviceCode,
-      signal,
-    )
-    if (polled.status !== 'approved' || polled.payload === undefined) {
-      return {
-        status: polled.status,
-        ...(polled.message !== undefined ? { message: polled.message } : {}),
-      }
+    const approvedCache = (this.ssoDeviceApprovedCache ??= new Map())
+    const inFlightMap = (this.ssoDevicePollInFlight ??= new Map())
+    const cachedApproved = approvedCache.get(deviceCode)
+    if (cachedApproved !== undefined) {
+      return cachedApproved
     }
-    return await this.applySsoBridgePayload(polled.payload, signal)
+    const inFlight = inFlightMap.get(deviceCode)
+    if (inFlight !== undefined) {
+      return await inFlight
+    }
+    const run = (async (): Promise<XPeachSsoDevicePollResult> => {
+      const polled = await this.api.ssoDeviceToken(
+        this.currentSsoBaseURL(),
+        this.currentSsoClientId(),
+        deviceCode,
+        signal,
+      )
+      if (polled.status !== 'approved' || polled.payload === undefined) {
+        return {
+          status: polled.status,
+          ...(polled.message !== undefined ? { message: polled.message } : {}),
+        }
+      }
+      const applied = await this.applySsoBridgePayload(polled.payload, signal)
+      if (approvedCache.size >= 32) {
+        const oldestKey = approvedCache.keys().next().value
+        if (oldestKey !== undefined) approvedCache.delete(oldestKey)
+      }
+      approvedCache.set(deviceCode, applied)
+      return applied
+    })().finally(() => {
+      inFlightMap.delete(deviceCode)
+    })
+    inFlightMap.set(deviceCode, run)
+    return await run
   }
 
   /**
@@ -3114,7 +3186,7 @@ export class XPeachAccount extends TypertRemoteService {
       const defaults = await this.defaultGroups(signal)
       let id: number | undefined
       let name: string | undefined
-      const page = await this.api.adminTokens(1, 100, signal)
+      const page = await this.api.adminTokens(0, 100, signal)
       const live = page.items
         .filter(t => t.status === 1 && ((t.name ?? '').startsWith('xph-') || (t.name ?? '').startsWith('dsh-')))
         .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
@@ -3132,7 +3204,7 @@ export class XPeachAccount extends TypertRemoteService {
           unlimited_quota: true,
           model_limits_enabled: false,
         }, signal)
-        const after = await this.api.adminTokens(1, 100, signal)
+        const after = await this.api.adminTokens(0, 100, signal)
         const hit = after.items.filter(t => t.name === name).sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
         if (hit === undefined) return { ok: false, err: 'token not found after create' }
         id = hit.id
@@ -3331,19 +3403,31 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('siteCatalog')
   async siteCatalogOp(_request: XPeachSelfRequest, signal: AbortSignal): Promise<XPeachSiteCatalog> {
     signal.throwIfAborted()
-    const [pricing, list] = await Promise.all([this.api.adminPricing(signal), this.api.models(signal)])
+    const [pricing, info] = await Promise.all([
+      this.api.adminPricing(signal),
+      this.ensureTokenInfo(signal),
+    ])
+    const list = await this.api.models(signal).catch(() => [])
+    const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
+    const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
     const counts = new Map<string, number>()
     for (const entry of pricing.entries) {
-      for (const group of entry.enable_groups ?? []) counts.set(group, (counts.get(group) ?? 0) + 1)
+      for (const group of entry.enable_groups ?? []) {
+        if (usableSet !== undefined && !usableSet.has(group)) continue
+        counts.set(group, (counts.get(group) ?? 0) + 1)
+      }
     }
     const groups = [...counts.entries()]
+      .filter(([name]) => name !== 'default' && name !== '管理员分组')
       .map(([name, models]) => ({
         name,
         models,
         ...(pricing.groupRatio[name] !== undefined ? { ratio: pricing.groupRatio[name] } : {}),
+        ...(pricing.usableGroup?.[name] !== undefined && pricing.usableGroup[name] !== ''
+          ? { desc: pricing.usableGroup[name] }
+          : {}),
       }))
       .sort((a, b) => b.models - a.models)
-    const info = await this.ensureTokenInfo(signal)
     return {
       groups,
       tokenGroups: info.groups ?? [],

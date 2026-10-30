@@ -1259,4 +1259,98 @@ describe('account state writes on a fresh install', () => {
     expect(fakeAccount.isBound()).toBe(true)
     Reflect.deleteProperty(process.env, 'XPEACH_TEST_SLOT_RELAY_KEY')
   })
+
+  it('enriches unlimited-quota tokenUsage with the signed-in user account balance and prunes forbidden token groups in siteCatalogOp', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+
+    writeState(keyFile, 'sk-validRelayKey1234567890\n')
+    writeState(adminKeyFile, 'admin-validAccessToken123456\n')
+    writeState(join(profile, 'xpeach.token'), JSON.stringify({
+      id: 5372,
+      name: 'xph-sso-default',
+      groups: ['SWE', 'DeepSeek Pro'],
+    }))
+
+    const adminTokenUpdate = vi.fn(async () => ({ success: true }))
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      keyFile,
+      keyVar: 'XPEACH_TEST_ENRICH_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_ENRICH_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_ENRICH_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      probingSlotKey: false,
+      api: {
+        tokenUsage: vi.fn(async () => ({
+          name: 'xph-sso-default',
+          total_granted: 0,
+          total_used: 5_000_000,
+          total_available: -5_000_000,
+          unlimited_quota: true,
+          model_limits_enabled: false,
+          expires_at: 0,
+        })),
+        userSelf: vi.fn(async () => ({
+          id: 1,
+          username: 'yellowpeach',
+          display_name: 'YellowPeach',
+          quota: 75_000_000,
+          used_quota: 25_000_000,
+          group: 'default',
+        })),
+        adminSelf: vi.fn(async () => ({
+          display_name: 'YellowPeach',
+          quota: 75_000_000,
+          group: 'default',
+        })),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE', 'ELY | Spark'] },
+            { model_name: 'deepseek-v4.1-flash', enable_groups: ['DeepSeek Flash', 'DeepSeek Pro'] },
+          ],
+          groupRatio: { SWE: 0.22, 'DeepSeek Flash': 1.5, 'DeepSeek Pro': 2.0 },
+          usableGroup: { SWE: 'SWE Group', 'DeepSeek Flash': 'Flash Group', default: 'Default' },
+        })),
+        adminTokenGet: vi.fn(async () => ({
+          id: 5372,
+          name: 'xph-sso-default',
+          group: 'SWE',
+          groups: ['SWE', 'DeepSeek Pro'],
+        })),
+        adminTokenUpdate,
+        models: vi.fn(async () => [
+          { id: 'swe-2-max' },
+          { id: 'deepseek-v4.1-flash' },
+        ]),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: () => undefined,
+      },
+    })
+
+    const signal = new AbortController().signal
+    const usage = await fakeAccount.tokenUsage({}, signal)
+    expect(usage.unlimited_quota).toBe(false)
+    expect(usage.name).toBe('YellowPeach')
+    expect(usage.total_available).toBe(75_000_000)
+    expect(usage.total_used).toBe(25_000_000)
+    expect(usage.total_granted).toBe(100_000_000)
+
+    const cat = await fakeAccount.siteCatalogOp({}, signal)
+    expect(cat.groups.map(g => g.name)).toEqual(['SWE', 'DeepSeek Flash'])
+    expect(cat.tokenGroups).toEqual(['SWE'])
+    expect(adminTokenUpdate).toHaveBeenCalledTimes(1)
+  })
 })

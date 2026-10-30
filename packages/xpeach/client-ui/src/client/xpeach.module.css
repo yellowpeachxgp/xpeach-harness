@@ -1515,6 +1515,9 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-base);
   border: 0.5px solid var(--dsw-alias-border-l2);
 }
+.logDetail > div {
+  min-width: 0;
+}
 .logDetail dt {
   font-size: var(--xph-type-meta);
   color: var(--dsw-alias-label-tertiary);
@@ -1524,6 +1527,14 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-caption);
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-primary);
+  min-width: 0;
+}
+.logDetail dd code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 .logDetailWide {
   grid-column: 1 / -1;

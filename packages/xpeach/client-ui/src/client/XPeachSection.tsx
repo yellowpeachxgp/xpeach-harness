@@ -107,9 +107,13 @@ export function XPeachSection({
   useEffect(() => {
     if (ssoSession === null || ssoDevicePoll === undefined) return
     let active = true
+    let inFlight = false
     const intervalMs = Math.max(1500, (ssoSession.interval || 2) * 1000)
     const timer = setInterval(() => {
+      if (inFlight) return
+      inFlight = true
       void ssoDevicePoll(ssoSession.deviceCode).then((res) => {
+        inFlight = false
         if (!active) return
         if ('error' in res) {
           setBindError(res.error)
@@ -131,6 +135,8 @@ export function XPeachSection({
           setBindError(res.message ?? t('sso.failed'))
           setSsoSession(null)
         }
+      }).catch(() => {
+        inFlight = false
       })
     }, intervalMs)
     return () => {

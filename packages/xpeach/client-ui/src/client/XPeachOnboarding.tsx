@@ -155,8 +155,14 @@ export function XPeachOnboarding({
         }
         try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
         ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
+        setSsoSession(null)
+        setError(null)
         void onboardingComplete()
-        setStage(prev => (prev === 'welcome' || (prev === 'login' && standaloneLogin)) ? 'closed' : prev)
+        setStage((prev) => {
+          if (prev === 'welcome') return 'closed'
+          if (prev === 'login') return standaloneLogin ? 'closed' : 'sources'
+          return prev
+        })
       })
     })
     return () => { offCred() }
@@ -168,9 +174,13 @@ export function XPeachOnboarding({
   useEffect(() => {
     if (stage !== 'login' || ssoSession === null || ssoDevicePoll === undefined) return
     let active = true
+    let inFlight = false
     const intervalMs = Math.max(1500, (ssoSession.interval || 2) * 1000)
     const timer = setInterval(() => {
+      if (inFlight) return
+      inFlight = true
       void ssoDevicePoll(ssoSession.deviceCode).then((res) => {
+        inFlight = false
         if (!active) return
         if ('error' in res) {
           setError(res.error)
@@ -194,6 +204,8 @@ export function XPeachOnboarding({
           setError(res.message ?? t('sso.failed'))
           setSsoSession(null)
         }
+      }).catch(() => {
+        inFlight = false
       })
     }, intervalMs)
     return () => {
@@ -409,11 +421,12 @@ export function XPeachOnboarding({
                 <button type="button" className={css.onbGhost} onClick={() => { setPicked([]) }}>{t('onb.clearAll')}</button>
                 <span className={css.onbSpacer} />
                 {sourceList.length > 0 && <span className={css.onbHint}>{picked.length} / {sourceList.length}</span>}
+                <button type="button" className={css.onbGhost} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>
                 {hasAssets && <button type="button" className={css.onbPrimary} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>}
                 {!hasAssets && (sourceList.length === 0 || scan === undefined
                   ? <button type="button" className={css.onbPrimary} disabled={scan === undefined} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>
                   : picked.length === 0
-                    ? <button type="button" className={css.onbPrimary} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>
+                    ? null
                     : <button type="button" className={css.onbPrimary} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>)}
               </div>
             </>
@@ -449,6 +462,7 @@ export function XPeachOnboarding({
               <div className={css.onbFooter}>
                 <button type="button" className={css.onbGhost} onClick={() => { setStage('sources') }}>{t('onb.back')}</button>
                 <span className={css.onbSpacer} />
+                <button type="button" className={css.onbGhost} onClick={() => { void finish() }}>{t('onb.skipGuide')}</button>
                 <button type="button" className={css.onbPrimary} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>
               </div>
             </>

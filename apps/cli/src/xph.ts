@@ -61,13 +61,14 @@ function normalizeXphArgv(rawArgs: readonly string[]): string[] {
 }
 
 process.env.XPH_PRODUCT = '1'
+const explicitHome = process.env.XPH_HOME !== undefined
 const XPH_HOME = process.env.XPH_HOME ?? join(homedir(), '.xph')
 process.env.XPH_HOME = XPH_HOME
 mkdirSync(XPH_HOME, { recursive: true })
 
 const legacyProfile = join(homedir(), '.dsh', 'profiles', 'xpeach')
 const xphProfile = join(XPH_HOME, 'profiles', 'xpeach')
-if (!existsSync(xphProfile) && existsSync(legacyProfile)) {
+if (!explicitHome && !existsSync(xphProfile) && existsSync(legacyProfile)) {
   mkdirSync(join(XPH_HOME, 'profiles'), { recursive: true })
   // Copy the user patch layer without carrying credentials, lockfiles, or legacy manifests.
   const excluded = new RegExp(
