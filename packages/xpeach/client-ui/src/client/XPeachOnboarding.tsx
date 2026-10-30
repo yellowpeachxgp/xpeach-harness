@@ -107,9 +107,6 @@ export function XPeachOnboarding({
 
   useEffect(() => {
     let live = true
-    const localDone = (() => {
-      try { return localStorage.getItem('xpeach.onboarding.done') === '1' } catch (_err) { return false }
-    })()
     void Promise.all([
       onboardingDone().catch(() => ({ done: false })),
       keyState().catch(() => null),
@@ -126,11 +123,17 @@ export function XPeachOnboarding({
         setStage('closed')
         return
       }
-      if (done.done || localDone) {
+      if (done.done) {
         setStandaloneLogin(true)
         setStage('login')
         return
       }
+      try {
+        localStorage.removeItem('xpeach.onboarding.done')
+        localStorage.removeItem('xpeach.tab.data.v1')
+        localStorage.removeItem('xpeach.tab.keyState.v1')
+        localStorage.removeItem('xpeach.profile.cache.v1')
+      } catch (_err) { /* ignore storage errors */ }
       void onboardingScan().then((r) => {
         if (!live) return
         if (!('error' in r)) {
