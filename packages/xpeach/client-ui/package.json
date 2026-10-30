@@ -42,7 +42,7 @@
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-account": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "@xpeach/xph-client-ui-theme": "workspace:*",
     "@xpeach/xph-client-ui-sidebar": "workspace:*",

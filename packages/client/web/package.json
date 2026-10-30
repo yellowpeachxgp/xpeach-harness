@@ -35,7 +35,7 @@
     "@xpeach/xph-client-ui-primitives": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "typescript": "^6.0.3",
     "@xpeach/xph-host-webserver": "workspace:*",

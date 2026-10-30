@@ -65,7 +65,7 @@
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@tanstack/react-virtual": "^3.14.10",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-client-locale": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",

@@ -58,7 +58,7 @@
     "@xpeach/xph-client-ui-settings": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-host-webserver": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "clsx": "^2.0.0",
     "@xpeach/xph-settings": "workspace:*"
   },

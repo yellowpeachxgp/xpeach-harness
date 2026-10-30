@@ -56,7 +56,7 @@
     "@xpeach/xph-client-locale": "workspace:*",
     "@xpeach/xph-client-test-runtime": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-ui-input-trigger": "workspace:*",
     "@xpeach/xph-client-ui-primitives": "workspace:*",
     "@xpeach/xph-client-ui-renderer": "workspace:*",

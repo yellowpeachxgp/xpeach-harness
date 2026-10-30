@@ -24,7 +24,7 @@
   "license": "MIT",
   "devDependencies": {
     "@xpeach/xph-client-store": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-cordis": "workspace:~"
   },
   "files": [
