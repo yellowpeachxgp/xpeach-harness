@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-webhook",
   "description": "Fire-and-forget webhook rule runtime that creates Workspace-backed DeepSeek Harness Sessions",
-  "version": "0.0.20-alpha",
+  "version": "0.0.21-alpha",
   "publishConfig": {
     "access": "public"
   },

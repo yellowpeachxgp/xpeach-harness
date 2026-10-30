@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-tool-worktree",
   "description": "Model tool that creates and enters a new Git worktree",
-  "version": "0.0.20-alpha",
+  "version": "0.0.21-alpha",
   "publishConfig": {
     "access": "public"
   },

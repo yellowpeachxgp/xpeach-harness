@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-host-directory-picker",
   "description": "Abstract workspace-directory picking seam (ctx.directoryPicker) for the DeepSeek Harness web GUI host",
-  "version": "0.0.20-alpha",
+  "version": "0.0.21-alpha",
   "publishConfig": {
     "access": "public"
   },
