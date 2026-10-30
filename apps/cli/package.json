@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-dsh",
   "description": "dsh CLI: profile launch, plugin management, and configuration inspection",
-  "version": "0.0.19-alpha",
+  "version": "0.0.20-alpha",
   "publishConfig": {
     "access": "public"
   },

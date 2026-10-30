@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-compaction-image-offload",
   "description": "Durable image offload for image-capable routes: replace over-budget request images with placeholders and retry",
-  "version": "0.0.19-alpha",
+  "version": "0.0.20-alpha",
   "publishConfig": {
     "access": "public"
   },

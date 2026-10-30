@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-auto-review",
   "description": "Per-tool LLM authorization review for the DeepSeek Harness Auto permission preset",
-  "version": "0.0.19-alpha",
+  "version": "0.0.20-alpha",
   "icon": "./icon.svg",
   "repository": {
     "type": "git",
