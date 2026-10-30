@@ -92,7 +92,7 @@
     "@lexical/utils": "^0.49.0",
     "@lexical/text": "^0.49.0",
     "@lexical/plain-text": "^0.49.0",
-    "@lexical/history": "^0.49.0",
+    "@lexical/history": "^0.52.0",
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-settings": "workspace:*",
     "@xpeach/xph-client-shortcuts": "workspace:*",
