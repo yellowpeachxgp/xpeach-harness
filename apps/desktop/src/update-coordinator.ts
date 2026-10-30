@@ -7,6 +7,12 @@ import electronUpdater, { type AppUpdater, type ProgressInfo, type UpdateInfo } 
 import { gt, valid } from 'semver'
 import type { DesktopUpdateState } from './ipc.ts'
 import { configureMacosAdhocUpdater, isPackagedGitHubProvider } from './macos-adhoc-updater.ts'
+import {
+  compareXpeachVersions,
+  isVersionEligibleForChannel,
+  readXpeachUpdateChannel,
+  type XPeachReleaseChannel,
+} from './update-channel.ts'
 import { DesktopUpdateHttpExecutor } from './update-http-executor.ts'
 import { DesktopUpdatePreparationError } from './update-error.ts'
 
@@ -44,6 +50,7 @@ export class DesktopUpdateCoordinator {
   private checkOperation: Promise<DesktopUpdateState> | undefined
   private downloadOperation: Promise<DesktopUpdateState> | undefined
   private installOperation: Promise<DesktopUpdateState> | undefined
+  private xpeachChannelOverride: XPeachReleaseChannel | undefined
 
   private readonly onProgress = (progress: ProgressInfo): void => {
     if (this.downloadOperation === undefined || this.downloaded) return
@@ -91,6 +98,7 @@ export class DesktopUpdateCoordinator {
       transportOwner.httpExecutor = new DesktopUpdateHttpExecutor(
         Number(process.env.DSH_DESKTOP_UPDATE_HTTP_IDLE_TIMEOUT_MS ?? 60_000),
         (authInfo, callback) => { updater.emit('login', authInfo, callback) },
+        () => this.resolveActiveXpeachChannel(this.currentVersion()),
       )
       configureMacosAdhocUpdater(updater)
     }
@@ -98,6 +106,7 @@ export class DesktopUpdateCoordinator {
     // quit; a user-initiated check can still surface progress in the UI.
     const allowPrerelease = channel === 'nightly' || this.currentVersion().includes('-')
     this.updater.autoDownload = false
+    this.updater.disableDifferentialDownload = true
     this.updater.autoInstallOnAppQuit = process.env.XPEACH_SILENT_UPDATE !== '0'
     // GitHubProvider treats a non-null updater.channel as a prerelease tag filter
     // (such as -latest), and AppUpdater.channel setter rejects null once set.
@@ -114,6 +123,22 @@ export class DesktopUpdateCoordinator {
 
   /** Latest observable state; complete download identity remains main-process-owned. */
   get state(): DesktopUpdateState { return this.current }
+
+  /**
+   * Override the active XPeach release channel (`'least' | 'beta' | 'alpha'`) for update checks.
+   * @param channel - Subscribed XPeach release channel, or `undefined` to use persisted preference.
+   */
+  setXpeachChannel(channel: XPeachReleaseChannel | undefined): void {
+    this.xpeachChannelOverride = channel
+  }
+
+  private resolveActiveXpeachChannel(running: string): XPeachReleaseChannel | undefined {
+    if (this.xpeachChannelOverride !== undefined) return this.xpeachChannelOverride
+    if (this.updater === autoUpdater) {
+      return readXpeachUpdateChannel(undefined, running)
+    }
+    return undefined
+  }
 
   /**
    * Check metadata without downloading, joining any current check.
@@ -240,7 +265,17 @@ export class DesktopUpdateCoordinator {
       if (this.channel === 'latest' && version.includes('-') && !running.includes('-')) {
         throw new Error('desktop update: latest feed contains a prerelease')
       }
-      this.candidate = result.isUpdateAvailable && gt(version, running) ? version : undefined
+      const activeXpeachChannel = this.resolveActiveXpeachChannel(running)
+      if (activeXpeachChannel !== undefined) {
+        if (!isVersionEligibleForChannel(version, activeXpeachChannel)) {
+          this.candidate = undefined
+          return this.setState({ phase: 'idle' })
+        }
+        const isNewer = compareXpeachVersions(version, running) > 0
+        this.candidate = result.isUpdateAvailable && isNewer ? version : undefined
+      } else {
+        this.candidate = result.isUpdateAvailable && gt(version, running) ? version : undefined
+      }
       if (this.candidate === undefined) return this.setState({ phase: 'idle' })
       return this.setState({ phase: 'available', version, ...changelog(result.updateInfo) })
     } catch (error) {

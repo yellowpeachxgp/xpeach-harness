@@ -45,6 +45,21 @@ import {
   inspectMacosInstallerStatus,
   runMacosInstallerAction,
 } from './macos-installer.ts'
+import {
+  compatibleReleaseChannels,
+  normalizeXpeachChannel,
+  parseGitHubReleasesJson,
+  parseXpeachVersion,
+  readXpeachUpdatePreference,
+  selectBestUpdateForChannel,
+  writeXpeachUpdatePreference,
+  type XPeachCheckUpdateRequest,
+  type XPeachReleaseCandidate,
+  type XPeachReleaseChannel,
+  type XPeachSetUpdateChannelRequest,
+  type XPeachUpdateChannelStatus,
+  type XPeachUpdateCheckResult,
+} from './update-channel.ts'
 import type {
   XPeachAssetImportResult,
   XPeachConversationImportResult,
@@ -92,6 +107,27 @@ export {
   runMacosInstallerAction,
   type MacosInstallerOptions,
 } from './macos-installer.ts'
+export {
+  XPEACH_CHANNEL_RANK,
+  compatibleReleaseChannels,
+  compareXpeachVersions,
+  isVersionEligibleForChannel,
+  normalizeXpeachChannel,
+  parseGitHubReleasesAtom,
+  parseGitHubReleasesJson,
+  parseXpeachVersion,
+  readXpeachUpdatePreference,
+  selectBestUpdateForChannel,
+  writeXpeachUpdatePreference,
+  type ParsedXPeachVersion,
+  type XPeachCheckUpdateRequest,
+  type XPeachReleaseCandidate,
+  type XPeachReleaseChannel,
+  type XPeachSetUpdateChannelRequest,
+  type XPeachUpdateChannelStatus,
+  type XPeachUpdateCheckResult,
+  type XPeachUpdatePreference,
+} from './update-channel.ts'
 export { candidateSsoBaseURLs, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
 
 declare module '@xpeach/xph-typert-protocol' {
@@ -171,6 +207,42 @@ export interface Config {
   readonly ssoClientId?: string
   /** Profile-local file storing bound SSO identity metadata (`xpeach.sso.json`). */
   readonly ssoStateFile?: string
+  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`, default `'beta'`). */
+  readonly updateChannel?: XPeachReleaseChannel
+  /** Whether automatic update checks are enabled (default `true`). */
+  readonly autoCheckUpdate?: boolean
+}
+
+let cachedFileRuntimeVersion: string | undefined
+
+function readCurrentRuntimeVersion(): string {
+  for (const envVar of [process.env.XPEACH_VERSION, process.env.DSH_CLIENT_VERSION]) {
+    if (typeof envVar === 'string' && parseXpeachVersion(envVar) !== null) {
+      return envVar.trim()
+    }
+  }
+  if (cachedFileRuntimeVersion !== undefined) {
+    return cachedFileRuntimeVersion
+  }
+  const baseDir = import.meta.dirname
+  const candidates = [
+    join(baseDir, '..', 'package.json'),
+    join(baseDir, '..', '..', 'package.json'),
+    join(baseDir, '..', '..', '..', 'version.json'),
+    join(baseDir, '..', '..', '..', '..', 'version.json'),
+  ]
+  for (const file of candidates) {
+    if (!existsSync(file)) continue
+    try {
+      const parsed = JSON.parse(readFileSync(file, 'utf8')) as { version?: unknown }
+      if (typeof parsed.version === 'string' && parsed.version.trim().length > 0) {
+        cachedFileRuntimeVersion = parsed.version.trim()
+        return cachedFileRuntimeVersion
+      }
+    } catch (_err) { /* try next candidate */ }
+  }
+  cachedFileRuntimeVersion = '0.0.23-alpha'
+  return cachedFileRuntimeVersion
 }
 
 /**
@@ -804,7 +876,14 @@ export class XPeachAccount extends TypertRemoteService {
     ssoBaseURL: z.string().default(process.env.XPEACH_SSO_URL ?? 'https://sso.xpeach.codes').volatile(),
     ssoClientId: z.string().default('xpeach-harness').volatile(),
     ssoStateFile: z.string().default(join(INITIAL_PROFILE_HOME, 'xpeach.sso.json')),
+    updateChannel: z.union(['least', 'beta', 'alpha']).default('beta').volatile(),
+    autoCheckUpdate: z.boolean().default(true).volatile(),
   })
+
+  private subscribedUpdateChannel: XPeachReleaseChannel | undefined
+  private autoCheckUpdateEnabled: boolean | undefined
+  private releasesCache: { at: number; items: readonly XPeachReleaseCandidate[] } | undefined
+  private updateCheckInFlight: Promise<readonly XPeachReleaseCandidate[]> | undefined
 
   private readonly liveConfig: Config
   private readonly baseURL: string
@@ -4689,6 +4768,167 @@ export class XPeachAccount extends TypertRemoteService {
   ): Promise<XPeachMacosInstallerActionResult> {
     signal.throwIfAborted()
     return await runMacosInstallerAction(request.action, { ownHome: this.ownHome() })
+  }
+
+  /**
+   * Read the current runtime version, parsed channel, user-subscribed update
+   * channel, automatic update check preference, and downward-compatible release
+   * channels.
+   *
+   * @param _request - Empty request payload.
+   * @param signal - Optional carrier cancellation signal.
+   * @returns Current update channel status.
+   */
+  @Remote('updateChannelStatus')
+  updateChannelStatus(_request?: XPeachSelfRequest, signal?: AbortSignal): XPeachUpdateChannelStatus {
+    signal?.throwIfAborted()
+    const rawVersion = readCurrentRuntimeVersion()
+    const parsedVersion = parseXpeachVersion(rawVersion)
+    const currentVersion = parsedVersion?.version ?? rawVersion
+    const currentChannel = parsedVersion?.channel ?? normalizeXpeachChannel(undefined, rawVersion)
+    const prefFile = join(this.ownHome(), 'xpeach.update-channel.json')
+    const hasPersisted = existsSync(prefFile)
+    const persisted = readXpeachUpdatePreference(this.ownHome(), currentVersion)
+    const configuredChannel = (this.liveConfig as Config | undefined) !== undefined
+      ? unwrapConfigValue(this.liveConfig.updateChannel)
+      : undefined
+    const configuredAutoCheck = (this.liveConfig as Config | undefined) !== undefined
+      ? unwrapConfigValue(this.liveConfig.autoCheckUpdate)
+      : undefined
+    const fallbackChannel = configuredChannel !== undefined
+      ? normalizeXpeachChannel(configuredChannel, currentVersion)
+      : persisted.channel
+    const subscribedChannel = hasPersisted
+      ? persisted.channel
+      : this.subscribedUpdateChannel ?? fallbackChannel
+    const autoCheckUpdate = hasPersisted
+      ? persisted.autoCheckUpdate
+      : this.autoCheckUpdateEnabled ?? (typeof configuredAutoCheck === 'boolean' ? configuredAutoCheck : persisted.autoCheckUpdate)
+    this.subscribedUpdateChannel = subscribedChannel
+    this.autoCheckUpdateEnabled = autoCheckUpdate
+    return {
+      currentVersion,
+      currentChannel,
+      subscribedChannel,
+      autoCheckUpdate,
+      compatibleChannels: compatibleReleaseChannels(subscribedChannel),
+    }
+  }
+
+  /**
+   * Update and persist the user's release channel subscription and automatic
+   * update check preference in `~/.xph/xpeach.update-channel.json`.
+   *
+   * @param request - Target update channel and/or `autoCheckUpdate` toggle.
+   * @param signal - Optional carrier cancellation signal.
+   * @returns Updated update channel status.
+   */
+  @Remote('setUpdateChannel')
+  setUpdateChannel(
+    request: XPeachSetUpdateChannelRequest,
+    signal?: AbortSignal,
+  ): XPeachUpdateChannelStatus {
+    signal?.throwIfAborted()
+    const current = this.updateChannelStatus({}, signal)
+    const nextChannel = request.channel !== undefined
+      ? normalizeXpeachChannel(request.channel, current.currentVersion)
+      : current.subscribedChannel
+    const nextAutoCheck = typeof request.autoCheckUpdate === 'boolean'
+      ? request.autoCheckUpdate
+      : current.autoCheckUpdate
+    const saved = writeXpeachUpdatePreference(
+      { channel: nextChannel, autoCheckUpdate: nextAutoCheck },
+      this.ownHome(),
+    )
+    this.subscribedUpdateChannel = saved.channel
+    this.autoCheckUpdateEnabled = saved.autoCheckUpdate
+    const settings = (this.ctx as Context | undefined)?.get('settings') as
+      | { update?: (ns: string, patch: object) => Promise<void> }
+      | undefined
+    if (settings?.update !== undefined) {
+      void settings.update('xpeach-account', {
+        updateChannel: saved.channel,
+        autoCheckUpdate: saved.autoCheckUpdate,
+      }).catch(() => {})
+    }
+    return {
+      currentVersion: current.currentVersion,
+      currentChannel: current.currentChannel,
+      subscribedChannel: saved.channel,
+      autoCheckUpdate: saved.autoCheckUpdate,
+      compatibleChannels: compatibleReleaseChannels(saved.channel),
+    }
+  }
+
+  /**
+   * Check the GitHub Releases REST API and select the highest downward-compatible
+   * release for the user's subscribed update channel.
+   *
+   * @param request - Optional channel override and `force` cache-bypass flag.
+   * @param signal - Optional carrier cancellation signal.
+   * @returns Structured update check result.
+   */
+  @Remote('checkUpdate')
+  async checkUpdate(
+    request?: XPeachCheckUpdateRequest,
+    signal?: AbortSignal,
+  ): Promise<XPeachUpdateCheckResult> {
+    signal?.throwIfAborted()
+    const status = this.updateChannelStatus({}, signal)
+    const subscribedChannel = request?.channel !== undefined
+      ? normalizeXpeachChannel(request.channel, status.currentVersion)
+      : status.subscribedChannel
+    const releases = await this.fetchGitHubReleaseCandidates(request?.force === true, signal)
+    return selectBestUpdateForChannel(
+      releases,
+      status.currentVersion,
+      subscribedChannel,
+      status.autoCheckUpdate,
+    )
+  }
+
+  private async fetchGitHubReleaseCandidates(
+    force: boolean,
+    signal?: AbortSignal,
+  ): Promise<readonly XPeachReleaseCandidate[]> {
+    const cached = this.releasesCache
+    if (!force && cached !== undefined && Date.now() - cached.at < 30_000) {
+      return cached.items
+    }
+    if (this.updateCheckInFlight !== undefined) {
+      return await this.updateCheckInFlight
+    }
+    const run = (async (): Promise<readonly XPeachReleaseCandidate[]> => {
+      const timeoutSignal = AbortSignal.timeout(this.timeoutMs > 0 ? this.timeoutMs : 15_000)
+      const effectiveSignal = signal !== undefined
+        ? AbortSignal.any([signal, timeoutSignal])
+        : timeoutSignal
+      const repoSlug = 'yellowpeachxgp/xpeach-harness'
+      try {
+        const res = await fetch(`https://api.github.com/repos/${repoSlug}/releases?per_page=30`, {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'XPeach-Harness-Updater',
+          },
+          signal: effectiveSignal,
+        })
+        if (res.ok) {
+          const json: unknown = await res.json()
+          const parsed = parseGitHubReleasesJson(json, repoSlug)
+          if (parsed.length > 0) {
+            this.releasesCache = { at: Date.now(), items: parsed }
+            return parsed
+          }
+        }
+      } catch (_err) {
+        if (signal?.aborted) throw signal.reason
+      }
+      return cached?.items ?? []
+    })().finally(() => {
+      this.updateCheckInFlight = undefined
+    })
+    this.updateCheckInFlight = run
+    return await run
   }
 
   private skillsRoot(): string {

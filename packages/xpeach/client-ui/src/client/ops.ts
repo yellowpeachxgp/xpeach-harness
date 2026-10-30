@@ -328,6 +328,34 @@ export type XPeachSettingsMutationOp =
     readonly path: readonly string[]
   }
 
+/** Supported release update channel identifier (`least` -> `beta` -> `alpha`). */
+export type XPeachReleaseChannel = 'least' | 'beta' | 'alpha'
+
+/** Snapshot of the active and subscribed release update channel. */
+export interface XPeachUpdateChannelStatus {
+  readonly currentVersion: string
+  readonly currentChannel: XPeachReleaseChannel
+  readonly subscribedChannel: XPeachReleaseChannel
+  readonly autoCheckUpdate: boolean
+  readonly compatibleChannels: readonly XPeachReleaseChannel[]
+}
+
+/** Result of checking for updates on the subscribed or requested release channel. */
+export interface XPeachUpdateCheckResult {
+  readonly currentVersion: string
+  readonly currentChannel: XPeachReleaseChannel
+  readonly subscribedChannel: XPeachReleaseChannel
+  readonly autoCheckUpdate: boolean
+  readonly compatibleChannels: readonly XPeachReleaseChannel[]
+  readonly updateAvailable: boolean
+  readonly targetVersion?: string | undefined
+  readonly targetChannel?: XPeachReleaseChannel | undefined
+  readonly releaseUrl?: string | undefined
+  readonly releaseNotes?: string | undefined
+  readonly publishedAt?: string | undefined
+  readonly checkedAt: string
+}
+
 /** Operations the plugin injects into the Cordis-free components. */
 export interface XPeachOps {
   /** Read only the token usage summary (fast — one small request). */
@@ -564,6 +592,18 @@ export interface XPeachOps {
     ops: readonly XPeachSettingsMutationOp[],
     expectedRevision?: number,
   ) => Promise<XPeachSettingsNamespaceItem | { error: string }>
+  /** Read the current release update channel status and compatible channel set. */
+  readonly updateChannelStatus?: () => Promise<XPeachUpdateChannelStatus | { error: string }>
+  /** Persist the subscribed release channel and/or automatic update check toggle. */
+  readonly setUpdateChannel?: (req: {
+    channel?: XPeachReleaseChannel
+    autoCheckUpdate?: boolean
+  }) => Promise<XPeachUpdateChannelStatus | { error: string }>
+  /** Check for updates on the subscribed or specified release channel. */
+  readonly checkUpdate?: (req?: {
+    channel?: XPeachReleaseChannel
+    force?: boolean
+  }) => Promise<XPeachUpdateCheckResult | { error: string }>
 }
 
 /** Admin-facing row aliases kept client-side (mirrors host types). */

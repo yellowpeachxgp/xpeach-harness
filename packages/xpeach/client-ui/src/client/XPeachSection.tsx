@@ -6,6 +6,7 @@ import type { XPeachOps, XPeachSsoDeviceStartResult } from './ops.ts'
 import { Button, Switch } from '@xpeach/xph-client-ui-primitives'
 import { XPeachMark } from './brand.tsx'
 import { footerBridge } from './FooterAction.tsx'
+import { UpdateChannelPreferenceRow } from './GeneralPreferencesRow.tsx'
 import { rel, useTime, SITE } from './fmt.ts'
 import css from './xpeach.module.css'
 
@@ -28,6 +29,7 @@ export function XPeachSection({
   trackingState, setTracking, autoSyncModels, setAutoSyncModels, syncModels,
   protocolPreference, setProtocolPreference,
   families, setFamilies, recents,
+  updateChannelStatus, setUpdateChannel, checkUpdate,
 }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
   const [autoSync, setAutoSync] = useState(true)
@@ -225,6 +227,13 @@ export function XPeachSection({
       <div className={css.bindCard}>
         <p className={css.groupTitle}>{t('prefs.cardTitle')}</p>
         <div className={css.prefStack}>
+          <UpdateChannelPreferenceRow
+            t={t}
+            updateChannelStatus={updateChannelStatus}
+            setUpdateChannel={setUpdateChannel}
+            checkUpdate={checkUpdate}
+          />
+
           <div className={css.prefRow}>
             <div className={css.prefRowText}>
               <div className={css.prefTitle}>{t('prefs.xsession.title')}</div>

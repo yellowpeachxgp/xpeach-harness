@@ -4,11 +4,11 @@ name: Release Desktop (XPeach)
 #   * push a v* tag     - that tag's number is published
 #   * run this workflow - the counter in version.json is bumped automatically
 #                         (optionally pass an exact version to override)
-# alpha builds on every push. beta and main are released only when the owner
-# asks for them, either by an explicit dispatch or by pushing a v* tag.
+# alpha and beta build on push. main is released when the owner asks for it,
+# either by an explicit dispatch or by pushing a v* tag.
 on:
   push:
-    branches: [alpha]
+    branches: [alpha, beta]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -29,12 +29,19 @@ permissions:
 jobs:
   version:
     name: Resolve version
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/beta' ||
+      (github.ref == 'refs/heads/alpha' && !contains(github.event.head_commit.message, '-beta') && !contains(github.event.head_commit.message, '-least'))
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       build: ${{ steps.resolve.outputs.build }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -49,6 +56,9 @@ jobs:
           BUMP="${{ github.event.inputs.bump || 'patch' }}"
           if [ -n "$REQUESTED" ]; then
             VERSION="$REQUESTED"
+            if [ "$VERSION" != "$CURRENT" ]; then
+              BUILD=$((BUILD + 1))
+            fi
             echo "manual override: $VERSION"
           elif printf '%s' "${{ github.ref }}" | grep -q '^refs/tags/v'; then
             VERSION="${{ github.ref_name }}"
@@ -58,27 +68,36 @@ jobs:
             # The branch decides the prerelease label; the counter only moves the
             # numeric core. See docs/product/RELEASE-CONTRACT.md.
             BRANCH="${{ github.ref_name }}"
-            CORE=$(node -e "
-              const v=require('./version.json').version.replace(/-.*\$/,'');
-              const p=v.split('.').map(Number);
-              if('$BUMP'==='major'){p[0]+=1;p[1]=0;p[2]=0}
-              else if('$BUMP'==='minor'){p[1]+=1;p[2]=0}
-              else{p[2]+=1}
-              console.log(p.join('.'))
-            ")
-            VERSION=$(node -e "
+            LABEL=$(node -e "
               const label={alpha:'-alpha',beta:'-beta',main:'-least'}['$BRANCH']
               if(label===undefined){console.error('not a release branch: $BRANCH');process.exit(1)}
-              console.log('$CORE'+label)
+              console.log(label)
             ")
-            echo "branch release on $BRANCH: $CURRENT -> $VERSION"
+            if [[ "$CURRENT" == *"$LABEL" ]] \
+              && ! git rev-parse -q --verify "refs/tags/v$CURRENT" >/dev/null \
+              && [ -z "$(git log -n 1 --fixed-strings --grep="release: v$CURRENT" --format='%H')" ]; then
+              VERSION="$CURRENT"
+              echo "branch release on $BRANCH (using pre-bumped version.json): $VERSION"
+            else
+              CORE=$(node -e "
+                const v=require('./version.json').version.replace(/-.*\$/,'');
+                const p=v.split('.').map(Number);
+                if('$BUMP'==='major'){p[0]+=1;p[1]=0;p[2]=0}
+                else if('$BUMP'==='minor'){p[1]+=1;p[2]=0}
+                else{p[2]+=1}
+                console.log(p.join('.'))
+              ")
+              VERSION="${CORE}${LABEL}"
+              BUILD=$((BUILD + 1))
+              echo "branch release on $BRANCH: $CURRENT -> $VERSION"
+            fi
           fi
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+[.][0-9]+[.][0-9]+(-[0-9A-Za-z.-]+)?$'; then
             echo "::error::resolved version $VERSION is not a semantic version"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build=$((BUILD + 1))" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.target }}
@@ -87,14 +106,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             target: mac-arm64
+            prefix: macos
             artifact: xpeach-macos
           - os: ubuntu-22.04
             target: linux-x64
+            prefix: linux
             artifact: xpeach-linux
           - os: windows-2022
             target: win-x64
+            prefix: windows
             artifact: xpeach-windows
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
@@ -160,17 +182,18 @@ jobs:
                            apps/desktop/.desktop-build/targets/*/unsigned-artifacts/mac-arm64; do
             [ -d "$directory" ] || continue
             find "$directory" -maxdepth 1 -type f \
-              \( -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
+              \( -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' \) \
               -exec cp {} out/ \;
           done
-          PRERELEASE_CHANNEL=$(node -e "const m = /^[^-]+-([A-Za-z0-9]+)/.exec('${{ needs.version.outputs.version }}'); if (m) console.log(m[1]);")
-          if [ -n "$PRERELEASE_CHANNEL" ]; then
-            for yml in out/latest*.yml; do
-              [ -f "$yml" ] || continue
-              base=$(basename "$yml")
-              cp "$yml" "out/${PRERELEASE_CHANNEL}${base#latest}"
-            done
-          fi
+          PREFIX="${{ matrix.prefix }}"
+          for file in out/*.dmg out/*.pkg out/*.zip out/*.exe out/*.AppImage; do
+            [ -f "$file" ] || continue
+            base=$(basename "$file")
+            case "$base" in
+              "${PREFIX}-"*) ;;
+              *) mv "$file" "out/${PREFIX}-${base}" ;;
+            esac
+          done
           ls -la out
       - uses: actions/upload-artifact@v4
         with:
@@ -184,9 +207,15 @@ jobs:
     runs-on: ubuntu-latest
     # Publish whatever built: one failing target must not withhold the installers
     # that did succeed.
-    if: always() && (startsWith(github.ref, 'refs/tags/v')
-      || github.event_name == 'workflow_dispatch'
-      || github.ref == 'refs/heads/alpha')
+    if: >-
+      always() &&
+      needs.version.result == 'success' &&
+      needs.version.outputs.version != '' &&
+      needs.build.result != 'skipped' &&
+      (startsWith(github.ref, 'refs/tags/v')
+        || github.event_name == 'workflow_dispatch'
+        || github.ref == 'refs/heads/alpha'
+        || github.ref == 'refs/heads/beta')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -212,29 +241,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          VERSION="${{ needs.version.outputs.version }}"
           # A shallow checkout may carry no tags at all, and the tag a full clone
           # would offer may point at a commit this clone never fetched.
-          PREVIOUS=$(git tag --list 'v*' --sort=-v:refname | grep -v "^v${{ needs.version.outputs.version }}$" | head -n 1 || true)
+          PREVIOUS=$(git tag --list 'v*' --sort=-v:refname | grep -v "^v${VERSION}$" | head -n 1 || true)
           if [ -n "$PREVIOUS" ] && ! git rev-parse --verify --quiet "${PREVIOUS}^{commit}" > /dev/null; then
             echo "previous tag $PREVIOUS is not in this checkout; listing recent commits instead"
             PREVIOUS=""
           fi
+          case "$VERSION" in
+            *-alpha*)
+              CHANNEL_LINE='> 通道：`alpha`（内测版）'
+              ;;
+            *-beta*)
+              CHANNEL_LINE='> 通道：`beta`（测试版 · `beta` 与 `alpha` 通道可接收）'
+              ;;
+            *)
+              CHANNEL_LINE='> 通道：`least`（正式版 · 全通道接收）'
+              ;;
+          esac
           {
-            echo "## XPeach Harness ${{ needs.version.outputs.version }}"
+            echo "## XPeach Harness v${VERSION}"
             echo
+            echo "$CHANNEL_LINE"
+            echo
+            if [ -f RELEASE_NOTES.md ]; then
+              cat RELEASE_NOTES.md
+              echo
+            fi
             if [ -n "$PREVIOUS" ]; then
-              echo "Changes since $PREVIOUS"
+              echo "### 提交记录（自 $PREVIOUS 以来）"
               echo
               # --max-count rather than head: under pipefail a SIGPIPE'd git log
               # exits 141 and fails the whole step.
-              git log --no-merges --pretty='- %s' --max-count=60 "${PREVIOUS}..HEAD"
+              git log --no-merges --invert-grep --grep='^release: v' --pretty='- %s' --max-count=40 "${PREVIOUS}..HEAD"
             else
-              echo "First public release."
+              echo "### 提交记录"
               echo
-              git log --no-merges --pretty='- %s' --max-count=60 HEAD
+              git log --no-merges --invert-grep --grep='^release: v' --pretty='- %s' --max-count=40 HEAD
             fi
           } > CHANGELOG.md
-          head -n 12 CHANGELOG.md
+          head -n 30 CHANGELOG.md
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -250,10 +297,9 @@ jobs:
               ;;
           esac
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
-          else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
+            gh release delete "$TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
           fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
           gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
           ASSETS=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           if [ "$IS_PRERELEASE" -eq 0 ] && echo "$ASSETS" | grep -qx 'latest-mac.yml' && echo "$ASSETS" | grep -qx 'latest.yml'; then

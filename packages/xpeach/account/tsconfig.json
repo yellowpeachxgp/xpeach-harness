@@ -12,7 +12,8 @@
     "src/macos-installer.ts",
     "src/network.ts",
     "src/onboarding.ts",
-    "src/types.ts"
+    "src/types.ts",
+    "src/update-channel.ts"
   ],
   "references": [
     {

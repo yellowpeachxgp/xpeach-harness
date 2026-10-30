@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-cordis-host-runner",
   "description": "Dynamic package definition registry, host-half sandbox lifecycle, and invoke handler table for model-mounted dual-half packages",
-  "version": "0.0.24-alpha",
+  "version": "0.0.25-beta",
   "publishConfig": {
     "access": "public"
   },

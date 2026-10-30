@@ -25,6 +25,7 @@ import type {
   XPeachMcpSnapshot,
   XPeachMcpToggleRequest,
   XPeachOps,
+  XPeachReleaseChannel,
   XPeachRulesSaveRequest,
   XPeachSkillDeleteRequest,
   XPeachSkillSaveRequest,
@@ -34,6 +35,8 @@ import type {
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
   XPeachSsoDeviceStartResult,
+  XPeachUpdateChannelStatus,
+  XPeachUpdateCheckResult,
 } from './ops.ts'
 import { XPeachMark, XPeachName } from './brand.tsx'
 import { XPeachStatusPill } from './StatusPill.tsx'
@@ -92,6 +95,15 @@ interface XPeachExtRemote {
     readonly allDevices?: boolean
     readonly revokePeachcode?: boolean
   }): Promise<RemoteOutcome<{ readonly bound: boolean }>>
+  updateChannelStatus(request: Record<string, never>): Promise<RemoteOutcome<XPeachUpdateChannelStatus>>
+  setUpdateChannel(request: {
+    readonly channel?: XPeachReleaseChannel
+    readonly autoCheckUpdate?: boolean
+  }): Promise<RemoteOutcome<XPeachUpdateChannelStatus>>
+  checkUpdate(request: {
+    readonly channel?: XPeachReleaseChannel
+    readonly force?: boolean
+  }): Promise<RemoteOutcome<XPeachUpdateCheckResult>>
 }
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
@@ -662,6 +674,24 @@ function registerUi(ctx: Context): Array<() => void> {
         user: (typeof item.user === 'object' && item.user !== null ? item.user : undefined) as Readonly<Record<string, unknown>> | undefined,
         revision: item.revision,
       }
+    },
+    updateChannelStatus: async () => {
+      const r = await extRemote.updateChannelStatus({})
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    setUpdateChannel: async (req) => {
+      const r = await extRemote.setUpdateChannel({
+        ...(req.channel !== undefined ? { channel: req.channel } : {}),
+        ...(req.autoCheckUpdate !== undefined ? { autoCheckUpdate: req.autoCheckUpdate } : {}),
+      })
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    checkUpdate: async (req = {}) => {
+      const r = await extRemote.checkUpdate({
+        ...(req.channel !== undefined ? { channel: req.channel } : {}),
+        ...(req.force !== undefined ? { force: req.force } : {}),
+      })
+      return r.ok ? r.value : { error: r.error.message }
     },
   }
   const undo: Array<() => void> = []

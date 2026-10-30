@@ -741,3 +741,14 @@ export interface XPeachSsoSessionStatus {
   readonly email?: string | undefined
   readonly message?: string | undefined
 }
+
+export type {
+  ParsedXPeachVersion,
+  XPeachCheckUpdateRequest,
+  XPeachReleaseCandidate,
+  XPeachReleaseChannel,
+  XPeachSetUpdateChannelRequest,
+  XPeachUpdateChannelStatus,
+  XPeachUpdateCheckResult,
+  XPeachUpdatePreference,
+} from './update-channel.ts'

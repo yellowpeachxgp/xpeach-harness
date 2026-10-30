@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-settings",
   "description": "Settings domain base plugin: shared configuration forms and the canonical settings slot-type contract",
-  "version": "0.0.24-alpha",
+  "version": "0.0.25-beta",
   "publishConfig": {
     "access": "public"
   },

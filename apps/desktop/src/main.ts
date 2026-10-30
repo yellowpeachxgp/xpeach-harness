@@ -507,9 +507,13 @@ async function main(): Promise<void> {
           if (previousAccountStatus === 'credential-stored' && state.status === 'signed-out') {
             void readWelcomeState().then(async (value) => {
               if (needsWelcome(value) && !quitting) {
-                enteredWorkspace = false
-                await showWelcome()
-                if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+                if (app.name === 'XPeach Harness') {
+                  await enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) })
+                } else {
+                  enteredWorkspace = false
+                  await showWelcome()
+                  if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+                }
               }
               return undefined
             }).catch(() => undefined)
@@ -520,6 +524,10 @@ async function main(): Promise<void> {
         }, () => {
           void readWelcomeState().then(async (value) => {
             if (!needsWelcome(value) || quitting) return
+            if (app.name === 'XPeach Harness') {
+              await enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) })
+              return
+            }
             pendingWelcomeNotice = 'session-expired'
             enteredWorkspace = false
             await showWelcome()
@@ -1327,7 +1335,9 @@ async function main(): Promise<void> {
     locale = resolveDesktopStartupLocale(state.localePreference, systemLanguages)
     windowsLanguage = locale.id
     refreshApplicationMenu()
-    if (!enteredWorkspace && needsWelcome({ loggedIn: state.loggedIn, hasApiKey: state.hasApiKey })) {
+    if (app.name === 'XPeach Harness') {
+      await enterWorkspace({ gate: !desktopHasSiteCredential(paths.profile) })
+    } else if (!enteredWorkspace && needsWelcome({ loggedIn: state.loggedIn, hasApiKey: state.hasApiKey })) {
       // A later login must retain its own activation policy instead of replaying startup focus.
       raiseAfterUpdate = false
       await showWelcome()

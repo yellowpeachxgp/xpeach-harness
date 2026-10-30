@@ -43,24 +43,27 @@ alpha ──(验证 + 我同意)──► beta ──(稳定测试 + 我同意)�
 
 | 事件 | 行为 |
 |---|---|
-| push 到 `alpha` | **唯一的自动构建**：递增 patch，构建三端，发布 `vX.Y.Z-alpha` |
-| push 到 `beta` / `main` | **不自动构建** |
+| push 到 `alpha` / `beta` | 自动构建三端并发布对应通道版本（若 `version.json` 已预置为未发布的新版本与对应分支后缀则直接使用，否则自动递增 patch） |
+| push 到 `main` | **不自动构建** |
 | 手动触发（workflow_dispatch） | 由仓库所有者发起，指定分支与版本 |
 | push tag `v*` | 用 tag 里的版本号发布，不再递增 |
 
-**beta 与 main 的发布只能由仓库所有者主动发起。** 日常开发一律只产出
-`-alpha`；需要 `-beta` 或 `-least` 时，由所有者明确指示后执行手动触发
-或推 tag，CI 才会构建并发布对应后缀的版本。
+**beta 与 main 的晋升合入只能由仓库所有者主动发起。** 日常开发在 `alpha` 分支产出 `-alpha`；当验证通过合入 `beta`、或由所有者明确指示执行手动触发 / 推 tag 时，CI 构建并发布 `-beta` 或 `-least` 版本。
 
-每次发布后 CI 把递增后的 `version.json` 提交回对应分支。
+每次发布后 CI 把递增后的 `version.json` 提交回对应分支（若推送前已在 `version.json` 中更新到目标版本号则跳过重复提交）。
 
 ## 5. 预发布与更新通道
 
-三个后缀都是预发布标识，因此：
+更新通道按稳定性分为三级（`least > beta > alpha`），采用**向下兼容**（高稳定性版本向下覆盖低稳定性通道）机制：
 
-- 应用内更新**接受预发布版本**（`allowPrerelease`）。
-- 每个通道只看自己后缀的版本，不会从 alpha 跳到 least。
-- `latest` 指向最近一次成功发布。
+- **`least`（正式版）**：仅接收 `-least` 正式版更新，不接收 `-beta` 或 `-alpha` 更新；
+- **`beta`（测试版）**：接收 `-beta` 更新，并向下兼容接收 `-least` 正式版更新，不接收 `-alpha` 更新；
+- **`alpha`（内测版）**：接收 `-alpha`、`-beta` 与 `-least` 全部更新。
+- **同版本号跨通道晋升**：当同一数字版本号（如 `0.0.24`）从 `-alpha` 晋升至 `-beta` 或 `-least` 时，稳定性权重 `least > beta > alpha`，低通道客户端可平滑升级至同版本号的更高稳定性版本。
+- **构建产物元数据映射**：
+  - 发布 `-least` 时，同步生成 `least*.yml`、`beta*.yml`、`alpha*.yml` 与 `latest*.yml`；
+  - 发布 `-beta` 时，同步生成 `beta*.yml` 与 `alpha*.yml`；
+  - 发布 `-alpha` 时，生成 `alpha*.yml`。
 
 ## 6. 检查项
 

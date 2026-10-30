@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-storage-json",
   "description": "JSON file KV storage backend for the DeepSeek Harness storage hub",
-  "version": "0.0.24-alpha",
+  "version": "0.0.25-beta",
   "publishConfig": {
     "access": "public"
   },

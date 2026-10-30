@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-deepseek-api-key",
   "description": "DeepSeek api-key provider authentication and discovery",
-  "version": "0.0.24-alpha",
+  "version": "0.0.25-beta",
   "publishConfig": {
     "access": "public"
   },

@@ -20,5 +20,5 @@
     "lib/typert.host.js",
     "lib/typert.host.d.ts"
   ],
-  "version": "0.0.24-alpha"
+  "version": "0.0.25-beta"
 }

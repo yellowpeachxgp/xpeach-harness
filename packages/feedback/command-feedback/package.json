@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-command-feedback",
   "description": "Log-only session feedback: the record event, the sessionFeedback Host Remote, and the human-facing slash command",
-  "version": "0.0.24-alpha",
+  "version": "0.0.25-beta",
   "publishConfig": {
     "access": "public"
   },

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-web-search-perplexity",
   "description": "Perplexity-backed search provider for the DeepSeek Harness web capability seam (ctx.web)",
-  "version": "0.0.24-alpha",
+  "version": "0.0.25-beta",
   "publishConfig": {
     "access": "public"
   },
