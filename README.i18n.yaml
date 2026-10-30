@@ -3,32 +3,47 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
 /xpeach-harness:
-  en: 82f81b070ae6d37e
-  zh: a7922238b62f35c8
-/xpeach-harness/what-you-get:
-  en: 02a81400d1a38019
-  zh: 7ccd15cf587bc6d2
-/xpeach-harness/run:
-  en: 4e0248e4c6474fc6
-  zh: eb2fb8d78c7d6bc0
-/xpeach-harness/run/desktop-app:
-  en: 6387787f26bd273f
-  zh: 1b6ea8978d9dc282
-/xpeach-harness/run/command-line:
-  en: e54cb086a51ed571
-  zh: ec08f1fd14982c02
-/xpeach-harness/first-run:
-  en: 4ec3819a4651db25
-  zh: cb0c34b92072c52e
-/xpeach-harness/data-and-privacy:
-  en: 2f714685cb9d6830
-  zh: daa790c43dfc4544
-/xpeach-harness/building-from-source:
-  en: b981dbb938087997
-  zh: a2d3b6903551651d
-/xpeach-harness/community:
-  en: ca297df95b6f42ab
-  zh: 2b94d6a710ba7c23
-/xpeach-harness/license:
-  en: dda364b3d288fb9c
-  zh: 0ecb1e99137d8d6b
+  en: f05f817d0ebcaab1
+  zh: 46e1cff4d7e91011
+/xpeach-harness/section:
+  en: c1b212a727f1a4d1
+  zh: c1b212a727f1a4d1
+/xpeach-harness/section/1-xpeach-sso:
+  en: b3d6c92248e32421
+  zh: b3d6c92248e32421
+/xpeach-harness/section/2:
+  en: 70b889d6aee0363e
+  zh: 70b889d6aee0363e
+/xpeach-harness/section/3-agentic-coding:
+  en: 68a237f677e82ab5
+  zh: 68a237f677e82ab5
+/xpeach-harness/section/4:
+  en: e582c2651b3e957b
+  zh: e582c2651b3e957b
+/xpeach-harness/section~2:
+  en: d7c9c44bb38ca124
+  zh: d7c9c44bb38ca124
+/xpeach-harness/section/desktop-app:
+  en: 8b8f5e64f364fa35
+  zh: 8b8f5e64f364fa35
+/xpeach-harness/section/web:
+  en: 8e0f30c7856986c2
+  zh: 8e0f30c7856986c2
+/xpeach-harness/section~3:
+  en: ec8f6a0be7036230
+  zh: ec8f6a0be7036230
+/xpeach-harness/section~4:
+  en: dc4b7a57d8d44d65
+  zh: dc4b7a57d8d44d65
+/xpeach-harness/section~5:
+  en: d54e2c8b713abe77
+  zh: d54e2c8b713abe77
+/xpeach-harness/section~6:
+  en: bef0ecb573c0c120
+  zh: 0d8a8a55dc277610
+/xpeach-harness/section~7:
+  en: 39cebafa47dae4bd
+  zh: 39cebafa47dae4bd
+/xpeach-harness/section~8:
+  en: ffbc8b6c517a2098
+  zh: ffbc8b6c517a2098
