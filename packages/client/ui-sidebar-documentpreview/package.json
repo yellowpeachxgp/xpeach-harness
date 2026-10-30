@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-sidebar-documentpreview",
   "description": "Extensible Sidebar previews for Office documents, spreadsheets, Markdown, code, images, PDF, HTML, and plain text",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },

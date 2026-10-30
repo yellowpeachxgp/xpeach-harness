@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-workspace-dependencies",
   "description": "The load_workspace_dependencies tool: absolute paths into a bundled Python, Node.js, and pnpm payload",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },

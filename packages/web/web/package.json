@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-web",
   "description": "Abstract web access capability seam (ctx.web) for the DeepSeek Harness — search/fetch provider registry, registration-order-independent selection, request/result vocabulary, and the WebError taxonomy",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },

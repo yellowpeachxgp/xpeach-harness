@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-schedule",
   "description": "Host task management page and Session reminder catalog",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

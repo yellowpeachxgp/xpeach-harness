@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-plugin-package-inventory-deepseek",
   "description": "Active Loader-backed plugin package inventory for official DeepSeek LLM API requests",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },

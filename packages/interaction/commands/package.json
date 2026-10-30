@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-commands",
   "description": "Plugin-owned human command registry for DeepSeek Harness UIs",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },

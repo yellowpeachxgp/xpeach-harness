@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-typert-registry",
   "description": "Runtime registry for generated package reflection and Zod schemas",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-file-reference",
   "description": "File-reference discovery contract and shared @file grammar",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "publishConfig": {
     "access": "public"
   },
