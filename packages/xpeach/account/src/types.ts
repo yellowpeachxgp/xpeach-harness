@@ -710,11 +710,13 @@ export type XPeachSsoCredentialSyncResult =
   }
   | {
     readonly status: 'revoked'
+    readonly revoked?: true | undefined
     readonly code: 401 | 403
     readonly message: string
   }
   | {
     readonly status: 'transient_error'
+    readonly transient?: true | undefined
     readonly message: string
   }
 
@@ -728,6 +730,9 @@ export interface XPeachSsoRevokeRequest {
 export interface XPeachSsoSessionStatus {
   readonly valid: boolean
   readonly status: 'ok' | 'revoked' | 'unbound' | 'transient_error'
+  readonly revoked?: boolean | undefined
+  readonly transient?: boolean | undefined
+  readonly error?: string | undefined
   readonly username?: string | undefined
   readonly email?: string | undefined
   readonly message?: string | undefined

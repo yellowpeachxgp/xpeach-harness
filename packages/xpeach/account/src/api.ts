@@ -51,19 +51,37 @@ export function validateSsoBaseUrl(rawUrl: string): string {
 }
 
 /**
+ * Resolve the validated candidate SSO origin list for a configured SSO base URL.
+ * Never falls back to plaintext loopback (`http://localhost:3000`).
+ *
+ * @param ssoBaseURL - configured SSO base URL.
+ * @returns single-element array containing the normalized SSO origin.
+ */
+export function candidateSsoBaseURLs(ssoBaseURL: string): string[] {
+  return [validateSsoBaseUrl(ssoBaseURL)]
+}
+
+/**
  * Validate a browser verification URL returned by the SSO Device Authorization endpoint.
  * Rejects non-HTTP(S) schemes (`javascript:`, `file:`, `data:`), embedded credentials,
- * and non-HTTPS non-loopback origins.
+ * whitespace or control characters, non-HTTPS non-loopback origins, and cross-origin
+ * URLs when `expectedSsoBaseURL` is supplied.
  *
  * @param rawUrl - candidate verification URL or relative path.
- * @param fallbackOrigin - validated SSO origin used to resolve relative URLs.
+ * @param expectedSsoBaseURL - optional validated SSO origin used to resolve relative URLs and enforce same-origin policy.
  * @returns validated absolute URL string safe for opening in the user's browser.
  */
-export function validateVerificationUrl(rawUrl: string, fallbackOrigin: string): string {
-  const safeOrigin = validateSsoBaseUrl(fallbackOrigin)
+export function validateVerificationUrl(rawUrl: string, expectedSsoBaseURL?: string): string {
+  const trimmed = rawUrl.trim()
+  if (trimmed.length === 0 || /[\s\u0000-\u0008\u000e-\u001f\u007f]/u.test(trimmed)) {
+    throw new RemoteError('xpeach/invalid-sso-url', `xpeach: invalid verification URL: ${rawUrl}`, {})
+  }
+  const expectedOrigin = expectedSsoBaseURL !== undefined
+    ? new URL(validateSsoBaseUrl(expectedSsoBaseURL)).origin
+    : undefined
   let parsed: URL
   try {
-    parsed = new URL(rawUrl.trim(), safeOrigin)
+    parsed = expectedOrigin !== undefined ? new URL(trimmed, expectedOrigin) : new URL(trimmed)
   } catch {
     throw new RemoteError('xpeach/invalid-sso-url', `xpeach: invalid verification URL: ${rawUrl}`, {})
   }
@@ -79,6 +97,13 @@ export function validateVerificationUrl(rawUrl: string, fallbackOrigin: string):
   )
   if (!isHttps && !isLoopbackHttp) {
     throw new RemoteError('xpeach/invalid-sso-url', `xpeach: verification URL must use HTTPS or loopback HTTP (${parsed.protocol})`, {})
+  }
+  if (expectedOrigin !== undefined && parsed.origin !== expectedOrigin) {
+    throw new RemoteError(
+      'xpeach/invalid-sso-url',
+      `xpeach: verification URL origin mismatch: expected ${expectedOrigin}, got ${parsed.origin}`,
+      {},
+    )
   }
   return parsed.toString()
 }
@@ -1269,16 +1294,14 @@ export class XPeachApi {
 
   /* ---------- XPeach SSO Device Authorization & Bridge surfaces ---------- */
 
-  private ssoBaseURLOverride: string | undefined
-
-  private candidateSsoBaseURLs(ssoBaseURL: string): string[] {
-    const primary = validateSsoBaseUrl(this.ssoBaseURLOverride ?? ssoBaseURL)
-    const candidates = [primary]
-    const fallbackLocal = 'http://localhost:3000'
-    if (primary !== fallbackLocal) {
-      candidates.push(fallbackLocal)
-    }
-    return candidates
+  /**
+   * Resolve the validated candidate SSO origin list for a configured SSO base URL.
+   *
+   * @param ssoBaseURL - configured SSO base URL.
+   * @returns single-element array containing the normalized SSO origin.
+   */
+  candidateSsoBaseURLs(ssoBaseURL: string): string[] {
+    return candidateSsoBaseURLs(ssoBaseURL)
   }
 
   /**
@@ -1298,7 +1321,7 @@ export class XPeachApi {
   ): Promise<Omit<XPeachSsoDeviceStartResult, 'browserOpened'>> {
     const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
     let response: Response | undefined
-    let activeBase = candidates[0] ?? ssoBaseURL
+    let activeBase = candidates[0] ?? validateSsoBaseUrl(ssoBaseURL)
     let lastCause: unknown
     for (const candidate of candidates) {
       try {
@@ -1317,7 +1340,6 @@ export class XPeachApi {
         }
         response = res
         activeBase = candidate
-        this.ssoBaseURLOverride = candidate
         break
       } catch (cause) {
         if (signal.aborted) throw cause
@@ -1399,7 +1421,6 @@ export class XPeachApi {
           continue
         }
         response = res
-        this.ssoBaseURLOverride = candidate
         break
       } catch (cause) {
         if (signal.aborted) throw cause
@@ -1445,8 +1466,8 @@ export class XPeachApi {
   /**
    * Fetch or refresh PeachCode (NewAPI) credentials from XPeach SSO using a
    * previously issued SSO Bearer `AccessToken` (`POST /api/v1/peachcode/credentials`).
-   * Distinguishes definitive revocation/ban (`401`/`403` -> `status: 'revoked'`)
-   * from transient network or 5xx failures (`status: 'transient_error'`).
+   * Distinguishes definitive revocation/ban (`401`/`403` -> `status: 'revoked'`, `revoked: true`)
+   * from transient network or 5xx failures (`status: 'transient_error'`, `transient: true`).
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
    * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
@@ -1475,7 +1496,6 @@ export class XPeachApi {
           continue
         }
         response = res
-        this.ssoBaseURLOverride = candidate
         break
       } catch (cause) {
         if (signal.aborted) throw cause
@@ -1485,6 +1505,7 @@ export class XPeachApi {
     if (response === undefined) {
       return {
         status: 'transient_error',
+        transient: true,
         message: String(lastCause),
       }
     }
@@ -1497,6 +1518,7 @@ export class XPeachApi {
           : response.statusText
       return {
         status: 'revoked',
+        revoked: true,
         code: response.status,
         message: msg || (response.status === 403 ? 'Account has been disabled' : 'SSO session expired or revoked'),
       }
@@ -1509,6 +1531,7 @@ export class XPeachApi {
           : response.statusText
       return {
         status: 'transient_error',
+        transient: true,
         message: msg || `HTTP ${String(response.status)}`,
       }
     }
@@ -1519,6 +1542,22 @@ export class XPeachApi {
         peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
       },
     }
+  }
+
+  /**
+   * Alias of `ssoPeachcodeCredentials` for callers expecting `fetchPeachcodeCredentialsFromSso`.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
+   * @param signal - request cancellation signal.
+   * @returns credential sync status and payload when valid.
+   */
+  fetchPeachcodeCredentialsFromSso(
+    ssoBaseURL: string,
+    ssoAccessToken: string,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoCredentialSyncResult> {
+    return this.ssoPeachcodeCredentials(ssoBaseURL, ssoAccessToken, signal)
   }
 
   /**

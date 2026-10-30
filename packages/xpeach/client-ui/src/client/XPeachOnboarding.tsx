@@ -109,11 +109,23 @@ export function XPeachOnboarding({
 
   useEffect(() => {
     let live = true
-    void onboardingDone().then((done) => {
+    void Promise.all([
+      onboardingDone().catch(() => ({ done: false })),
+      keyState().catch(() => null),
+      sessionBound().catch(() => null),
+    ]).then(([done, k, s]) => {
       if (!live) return
+      const alreadyBound = (k !== null && k.bound) || (s !== null && 'bound' in s && s.bound)
       // A gated launch owns the screen even when onboarding was completed before:
       // the profile has no token, so there is nothing to enter.
-      if (done.done && !authGateRequired()) { setStage('closed'); return }
+      if ((done.done || alreadyBound) && !authGateRequired()) {
+        if (alreadyBound && !done.done) {
+          try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
+          void onboardingComplete()
+        }
+        setStage('closed')
+        return
+      }
       void onboardingScan().then((r) => {
         if (!live) return
         if (!('error' in r)) {
@@ -124,7 +136,7 @@ export function XPeachOnboarding({
       })
     })
     return () => { live = false }
-  }, [onboardingDone, onboardingScan])
+  }, [onboardingDone, onboardingComplete, onboardingScan, keyState, sessionBound])
 
   const sourceList = useMemo(() => scan?.sources.filter(source => source.found) ?? [], [scan])
   const hasAssets = (scan?.mcp.length ?? 0) + (scan?.skills.length ?? 0) + (scan?.prompts.length ?? 0) > 0
@@ -144,12 +156,16 @@ export function XPeachOnboarding({
         if (res.status === 'approved') {
           setSsoSession(null)
           setError(null)
+          try { localStorage.setItem('xpeach.onboarding.done', '1') } catch (_err) { /* ignore storage quota */ }
           setStage(standaloneLogin ? 'closed' : 'sources')
         } else if (res.status === 'expired') {
           setError(res.message ?? t('sso.expired'))
           setSsoSession(null)
         } else if (res.status === 'denied') {
           setError(res.message ?? t('sso.denied'))
+          setSsoSession(null)
+        } else if (res.status === 'error') {
+          setError(res.message ?? t('sso.failed'))
           setSsoSession(null)
         }
       })
@@ -276,43 +292,43 @@ export function XPeachOnboarding({
               {ssoSession !== null ? (
                 <div className={css.onbLoginCard}>
                   <label className={css.onbLabel}>{t('sso.waitingTitle')}</label>
-                  <p className={css.onbHint}>{t('sso.userCodeLabel')}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '8px 0', flexWrap: 'wrap' }}>
-                    <code className={css.keyMask} style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '0.14em', padding: '8px 16px' }}>
-                      {ssoSession.userCode}
-                    </code>
-                    <button
-                      type="button"
-                      className={css.onbPrimary}
-                      onClick={() => {
-                        void navigator.clipboard.writeText(ssoSession.userCode)
-                        setSsoCodeCopied(true)
-                        setTimeout(() => { setSsoCodeCopied(false) }, 1500)
-                      }}
-                    >
-                      {ssoCodeCopied ? t('bind.copied') : t('sso.copyCode')}
-                    </button>
-                    <a
-                      href={ssoSession.verificationUriComplete}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={css.onbGhost}
-                      style={{ textDecoration: 'none' }}
-                    >
-                      {t('sso.openBrowserAgain')}
-                    </a>
+                  <div className={css.ssoCodeCard}>
+                    <p className={css.ssoCodeHint}>{t('sso.userCodeLabel')}</p>
+                    <div className={css.ssoCodeActions}>
+                      <code className={css.ssoCodeValue}>
+                        {ssoSession.userCode}
+                      </code>
+                      <button
+                        type="button"
+                        className={css.onbPrimary}
+                        onClick={() => {
+                          void navigator.clipboard.writeText(ssoSession.userCode)
+                          setSsoCodeCopied(true)
+                          setTimeout(() => { setSsoCodeCopied(false) }, 2000)
+                        }}
+                      >
+                        {ssoCodeCopied ? t('sso.codeCopied') : t('sso.copyCode')}
+                      </button>
+                      <a
+                        href={ssoSession.verificationUriComplete}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`${css.onbGhost} ${css.ssoLinkBtn}`}
+                      >
+                        {t('sso.openBrowserAgain')}
+                      </a>
+                    </div>
+                    <p className={css.ssoCodeHint}>{t('sso.pollingHint')}</p>
                   </div>
-                  <p className={css.onbHint}>{t('sso.pollingHint')}</p>
                   {error !== null && <p className={css.bindError}>{error}</p>}
                 </div>
               ) : (
                 <div className={css.onbLoginCard}>
                   {ssoDeviceStart !== undefined && (
-                    <div style={{ marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.1))' }}>
+                    <div className={css.ssoLoginTriggerWrap}>
                       <button
                         type="button"
-                        className={css.onbPrimary}
-                        style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', fontSize: '14px' }}
+                        className={`${css.onbPrimary} ${css.ssoLoginTriggerBtn}`}
                         disabled={busy}
                         onClick={() => { void doSsoDevice() }}
                       >
@@ -331,7 +347,7 @@ export function XPeachOnboarding({
               <div className={css.onbFooter}>
                 {ssoSession !== null ? (
                   <button type="button" className={css.onbGhost} onClick={() => { setSsoSession(null) }}>
-                    {t('sso.cancel')}
+                    {t('sso.manualToken')}
                   </button>
                 ) : (
                   <>

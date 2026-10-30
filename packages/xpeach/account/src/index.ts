@@ -6,6 +6,7 @@
  */
 
 import {
+  chmodSync,
   cpSync,
   type Dirent,
   existsSync,
@@ -17,7 +18,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { homedir, release, tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { Context, Service } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
@@ -64,6 +65,7 @@ import type {
   XPeachSkillToggleRequest,
   XPeachSourceId,
   XPeachSsoBridgePayload,
+  XPeachSsoCredentialSyncResult,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
@@ -90,7 +92,7 @@ export {
   runMacosInstallerAction,
   type MacosInstallerOptions,
 } from './macos-installer.ts'
-export { validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
+export { candidateSsoBaseURLs, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
 
 declare module '@xpeach/xph-typert-protocol' {
   interface RemoteErrorDetailsMap {
@@ -262,36 +264,98 @@ interface StoredSsoState {
     readonly picture?: string | null | undefined
   } | undefined
   readonly peachcodeUserId?: number | undefined
-  readonly boundAt?: number | undefined
+  readonly boundAt?: number | string | undefined
 }
 
-interface DeepSeekAccountAttemptSnapshot {
+/** Requesting UI identity metadata for `DeepSeekAccount` operations. */
+export interface DeepSeekAccountClientMetadata {
+  /** Client application version string. */
+  readonly version: string
+  /** Active UI language tag. */
+  readonly locale: string
+  /** Offset from UTC in seconds. */
+  readonly timezoneOffsetSeconds: number
+}
+
+/** Safe failure codes rendered through the caller's locale dictionary. */
+export type DeepSeekSignInErrorCode = 'no-response' | 'network' | 'protocol' | 'expired' | 'storage'
+
+/** Latest login attempt projection, including terminal outcomes until the next attempt. */
+export interface DeepSeekSignInAttemptView {
+  /** Identity of the local login attempt. */
   readonly id: string
-  readonly phase: 'waiting-browser' | 'exchanging' | 'succeeded' | 'failed' | 'cancelled'
-  readonly authorizeUrl?: string | undefined
-  readonly expiresAt?: number | undefined
-  readonly error?: {
-    readonly code: 'invalid_state' | 'access_denied' | 'timeout' | 'token_exchange_failed' | 'browser_open_failed' | 'callback_listen_failed'
-    readonly message: string
-  } | undefined
+  /** Current lifecycle phase of the login attempt. */
+  readonly phase: 'initializing' | 'waiting-browser' | 'exchanging' | 'committing' | 'succeeded' | 'cancelled' | 'expired' | 'failed'
+  /** Verification URL to open in the user's browser while waiting for approval. */
+  readonly authorizeUrl?: string
+  /** Expiration timestamp in epoch milliseconds. */
+  readonly expiresAt?: number
+  /** Safe error code when the attempt failed or expired. */
+  readonly errorCode?: DeepSeekSignInErrorCode
 }
 
-interface DeepSeekAccountStateSnapshot {
-  readonly status: 'signed-out' | 'signing-in' | 'credential-stored'
+/** Client-safe account state projection returned by `DeepSeekAccount`. */
+export interface DeepSeekAccountView {
+  /** Whether local account credentials are stored. */
+  readonly status: 'signed-out' | 'credential-stored'
+  /** Browser destinations for usage and top-up consoles. */
   readonly links: {
     readonly usageUrl: string
     readonly topUpUrl: string
   }
-  readonly attempt?: DeepSeekAccountAttemptSnapshot | undefined
+  /** Active or most recent sign-in attempt, or `null` when none exists. */
+  readonly attempt: DeepSeekSignInAttemptView | null
+}
+
+/** Display-safe profile outcome returned by `DeepSeekAccount.getProfile()`. */
+export type DeepSeekAccountProfileOutcome =
+  | {
+    readonly status: 'ready'
+    readonly value: {
+      readonly id: string | null
+      readonly name: string | null
+      readonly contact: string | null
+      readonly avatarUrl: string | null
+    }
+  }
+  | {
+    readonly status: 'failed'
+  }
+
+/** Wallet balance outcome returned by `DeepSeekAccount.getBalance()`. */
+export type DeepSeekAccountBalanceOutcome =
+  | {
+    readonly status: 'ready'
+    readonly value: readonly {
+      readonly currency: 'CNY' | 'USD'
+      readonly balance: string
+    }[]
+    readonly bonusWallets: readonly {
+      readonly currency: 'CNY' | 'USD'
+      readonly balance: string
+    }[]
+  }
+  | {
+    readonly status: 'failed'
+  }
+
+/** Host-only platform session credentials returned by `DeepSeekAccount.getPlatformSession()`. */
+export interface DeepSeekPlatformSession {
+  /** Platform origin URL. */
+  readonly origin: string
+  /** Bearer token for the platform session. */
+  readonly token: string
+  /** Stable account identifier, or `null` when unknown. */
+  readonly userId: string | null
 }
 
 /**
  * Cordis `deepseekAccount` service provider backed by XPeach SSO Device Flow
  * and the PeachCode (NewAPI) credential bridge.
  */
-class XPeachDeepSeekAccount extends Service {
+export class XPeachDeepSeekAccount extends Service {
   private readonly account: XPeachAccount
-  private attempt: DeepSeekAccountAttemptSnapshot | undefined
+  private attempt: DeepSeekSignInAttemptView | null = null
   private attemptAbort: AbortController | undefined
   private readonly watchers = new Set<(identityChanged: boolean) => void>()
 
@@ -300,6 +364,11 @@ class XPeachDeepSeekAccount extends Service {
     this.account = account
   }
 
+  /**
+   * Notify all active `watch()` subscribers that account state or identity changed.
+   *
+   * @param identityChanged - whether the change represents an identity transition.
+   */
   notifyWatchers(identityChanged: boolean): void {
     for (const notify of this.watchers) {
       try {
@@ -308,57 +377,84 @@ class XPeachDeepSeekAccount extends Service {
     }
   }
 
+  /**
+   * Handle local credential revocation by aborting any pending device flow and
+   * updating the attempt state before notifying watchers.
+   *
+   * @param reason - reason local credentials were revoked.
+   */
   onLocalCredentialsRevoked(reason: 'revoked' | 'banned' | 'signed-out' | 'expired'): void {
-    if (this.attempt?.phase === 'waiting-browser') {
+    if (
+      this.attempt?.phase === 'initializing'
+      || this.attempt?.phase === 'waiting-browser'
+      || this.attempt?.phase === 'exchanging'
+    ) {
       this.attemptAbort?.abort()
     }
     this.attempt = reason === 'signed-out'
-      ? undefined
+      ? null
       : {
         id: this.attempt?.id ?? `revoked-${String(Date.now())}`,
-        phase: 'failed',
-        error: {
-          code: 'access_denied',
-          message: reason === 'banned'
-            ? '您的 XPeach 账号已被停用或封禁，本地凭证已安全清除。'
-            : '您的 XPeach 登录会话已过期或被吊销，请重新登录。',
-        },
+        phase: reason === 'expired' ? 'expired' : 'failed',
+        errorCode: reason === 'expired' ? 'expired' : 'protocol',
       }
     this.notifyWatchers(true)
   }
 
-  getState(): DeepSeekAccountStateSnapshot {
-    const isBound = this.account.isBound()
-    const siteRoot = this.account.currentSiteRoot()
-    const status = isBound
-      ? 'credential-stored'
-      : this.attempt?.phase === 'waiting-browser' || this.attempt?.phase === 'exchanging'
-        ? 'signing-in'
-        : 'signed-out'
-    return {
+  /**
+   * Read the client-safe account state and latest login attempt.
+   *
+   * @returns promise resolving to the current `AccountView` projection.
+   */
+  getState(): Promise<DeepSeekAccountView> {
+    const status = this.account.isBound() ? 'credential-stored' : 'signed-out'
+    return Promise.resolve({
       status,
       links: {
-        usageUrl: `${siteRoot}/console`,
-        topUpUrl: `${siteRoot}/console/topup`,
+        usageUrl: 'https://xpeach.codes/console',
+        topUpUrl: 'https://xpeach.codes/topup',
       },
-      ...(this.attempt !== undefined ? { attempt: this.attempt } : {}),
-    }
+      attempt: this.attempt !== null ? { ...this.attempt } : null,
+    })
   }
 
+  /**
+   * Start a new XPeach SSO Device Authorization sign-in attempt.
+   *
+   * @param client - optional requesting UI metadata or label.
+   * @param _callbackOrigin - unused loopback callback origin.
+   * @param loginSource - optional initiating UI surface (`'web'` or `'desktop'`).
+   * @returns initial account state snapshot with the active sign-in attempt.
+   */
   async startSignIn(
-    client?: string,
+    client?: DeepSeekAccountClientMetadata | string,
     _callbackOrigin?: string,
-    _loginSource?: string,
-  ): Promise<DeepSeekAccountStateSnapshot> {
-    if (this.attempt?.phase === 'waiting-browser') {
+    loginSource?: string,
+  ): Promise<DeepSeekAccountView> {
+    if (
+      this.attempt?.phase === 'initializing'
+      || this.attempt?.phase === 'waiting-browser'
+      || this.attempt?.phase === 'exchanging'
+    ) {
       this.attemptAbort?.abort()
     }
     const attemptId = `sso-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`
     const abortController = new AbortController()
     this.attemptAbort = abortController
 
-    const clientLabel = client !== undefined && client.trim().length > 0
-      ? `XPeach Harness (${client.trim()})`
+    this.attempt = {
+      id: attemptId,
+      phase: 'initializing',
+    }
+    this.notifyWatchers(false)
+
+    const rawLabel = typeof client === 'string'
+      ? client.trim()
+      : typeof client?.version === 'string' && client.version.trim().length > 0
+        ? `${loginSource ?? process.platform}/${client.version.trim()}`
+        : loginSource ?? ''
+    const clientLabel = rawLabel.length > 0
+      ? `XPeach Harness (${rawLabel})`
       : `XPeach Harness (${process.platform})`
 
     try {
@@ -374,19 +470,16 @@ class XPeachDeepSeekAccount extends Service {
       }
       this.notifyWatchers(false)
       void this.pollDeviceAttempt(attemptId, started.deviceCode, started.interval || 2, abortController.signal)
-      return this.getState()
+      return await this.getState()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const isExpired = err instanceof Error && err.message === 'expired_token'
       this.attempt = {
         id: attemptId,
-        phase: 'failed',
-        error: {
-          code: 'token_exchange_failed',
-          message: msg,
-        },
+        phase: isExpired ? 'expired' : 'failed',
+        errorCode: isExpired ? 'expired' : 'network',
       }
       this.notifyWatchers(false)
-      return this.getState()
+      return await this.getState()
     }
   }
 
@@ -398,17 +491,14 @@ class XPeachDeepSeekAccount extends Service {
   ): Promise<void> {
     const intervalMs = Math.max(1500, intervalSec * 1000)
     const isAborted = (): boolean => signal.aborted
-    const currentAttempt = (): DeepSeekAccountAttemptSnapshot | undefined => this.attempt
+    const currentAttempt = (): DeepSeekSignInAttemptView | null => this.attempt
     while (!isAborted() && currentAttempt()?.id === attemptId && currentAttempt()?.phase === 'waiting-browser') {
       const expiresAt = currentAttempt()?.expiresAt
       if (expiresAt !== undefined && Date.now() >= expiresAt) {
         this.attempt = {
           id: attemptId,
-          phase: 'failed',
-          error: {
-            code: 'timeout',
-            message: 'SSO 设备授权已超时，请重新发起登录。',
-          },
+          phase: 'expired',
+          errorCode: 'expired',
         }
         this.notifyWatchers(false)
         return
@@ -418,6 +508,16 @@ class XPeachDeepSeekAccount extends Service {
         timer.unref()
       })
       if (isAborted() || currentAttempt()?.id !== attemptId) return
+      const postWaitExpiresAt = currentAttempt()?.expiresAt
+      if (postWaitExpiresAt !== undefined && Date.now() >= postWaitExpiresAt) {
+        this.attempt = {
+          id: attemptId,
+          phase: 'expired',
+          errorCode: 'expired',
+        }
+        this.notifyWatchers(false)
+        return
+      }
       try {
         const polled = await this.account.ssoDevicePollOp({ deviceCode }, signal)
         if (polled.status === 'pending') continue
@@ -426,30 +526,25 @@ class XPeachDeepSeekAccount extends Service {
           this.notifyWatchers(true)
           return
         }
+        const isExpired = polled.status === 'expired' || polled.message === 'expired_token'
         this.attempt = {
           id: attemptId,
-          phase: 'failed',
-          error: {
-            code: polled.status === 'expired'
-              ? 'timeout'
-              : polled.status === 'denied'
-                ? 'access_denied'
-                : 'token_exchange_failed',
-            message: polled.message ?? 'SSO 设备授权未通过',
-          },
+          phase: isExpired ? 'expired' : 'failed',
+          errorCode: isExpired
+            ? 'expired'
+            : polled.status === 'denied'
+              ? 'protocol'
+              : 'network',
         }
         this.notifyWatchers(false)
         return
       } catch (err) {
         if (isAborted()) return
-        const msg = err instanceof Error ? err.message : String(err)
+        const isExpired = err instanceof Error && err.message === 'expired_token'
         this.attempt = {
           id: attemptId,
-          phase: 'failed',
-          error: {
-            code: 'token_exchange_failed',
-            message: msg,
-          },
+          phase: isExpired ? 'expired' : 'failed',
+          errorCode: isExpired ? 'expired' : 'network',
         }
         this.notifyWatchers(false)
         return
@@ -457,103 +552,220 @@ class XPeachDeepSeekAccount extends Service {
     }
   }
 
-  cancelSignIn(id?: string): DeepSeekAccountStateSnapshot {
+  /**
+   * Cancel the active sign-in attempt if it matches `id`.
+   *
+   * @param id - optional attempt identifier to cancel.
+   * @returns settled account state snapshot.
+   */
+  async cancelSignIn(id?: string): Promise<DeepSeekAccountView> {
     if (
-      this.attempt !== undefined
-      && this.attempt.phase === 'waiting-browser'
+      this.attempt !== null
+      && (this.attempt.phase === 'initializing' || this.attempt.phase === 'waiting-browser' || this.attempt.phase === 'exchanging')
       && (id === undefined || this.attempt.id === id)
     ) {
       this.attemptAbort?.abort()
       this.attempt = { id: this.attempt.id, phase: 'cancelled' }
       this.notifyWatchers(false)
     }
-    return this.getState()
+    return await this.getState()
   }
 
-  async signOut(_client?: string): Promise<DeepSeekAccountStateSnapshot> {
-    if (this.attempt?.phase === 'waiting-browser') {
+  /**
+   * Sign out of XPeach SSO and clear all local credentials.
+   *
+   * @param _client - optional requesting UI metadata.
+   * @returns signed-out account state snapshot.
+   */
+  async signOut(_client?: DeepSeekAccountClientMetadata | string): Promise<DeepSeekAccountView> {
+    if (
+      this.attempt !== null
+      && (this.attempt.phase === 'initializing' || this.attempt.phase === 'waiting-browser' || this.attempt.phase === 'exchanging')
+    ) {
       this.attemptAbort?.abort()
     }
-    this.attempt = undefined
+    this.attempt = null
     await this.account.ssoLogoutOp({ allDevices: false, revokePeachcode: false }, AbortSignal.timeout(8_000))
     this.notifyWatchers(true)
-    return this.getState()
+    return await this.getState()
   }
 
-  async getProfile(_client?: string): Promise<{
-    readonly id: string | null
-    readonly name: string | null
-    readonly contact: string | null
-  }> {
-    return await this.account.resolveAccountProfile(AbortSignal.timeout(10_000))
-  }
-
-  async getBalance(_client?: string): Promise<
-    | {
-      readonly available: true
-      readonly totalBalance: string
-      readonly toppedUpBalance: string
-      readonly grantedBalance: string
-      readonly currency: 'CNY' | 'USD'
+  /**
+   * Query display-safe account profile data.
+   *
+   * @param _client - optional requesting UI metadata.
+   * @returns profile outcome, or `null` when signed out.
+   */
+  async getProfile(_client?: DeepSeekAccountClientMetadata | string): Promise<DeepSeekAccountProfileOutcome | null> {
+    if (!this.account.isBound()) return null
+    try {
+      const profile = await this.account.getProfile(true)
+      return {
+        status: 'ready',
+        value: {
+          id: profile.id || null,
+          name: profile.name || null,
+          contact: profile.contact || null,
+          avatarUrl: null,
+        },
+      }
+    } catch (_err) {
+      return { status: 'failed' }
     }
-    | { readonly available: false }
-  > {
-    return await this.account.resolveAccountBalance(AbortSignal.timeout(10_000))
   }
 
-  getUnnotifiedBonuses(_client?: string): Promise<null> {
+  /**
+   * Query account wallet balances.
+   *
+   * @param _client - optional requesting UI metadata.
+   * @returns balance outcome, or `null` when signed out.
+   */
+  async getBalance(_client?: DeepSeekAccountClientMetadata | string): Promise<DeepSeekAccountBalanceOutcome | null> {
+    if (!this.account.isBound()) return null
+    try {
+      const bal = await this.account.getBalance(true)
+      if (!bal.available) {
+        return { status: 'failed' }
+      }
+      return {
+        status: 'ready',
+        value: [{ currency: 'USD', balance: bal.totalBalance }],
+        bonusWallets: [],
+      }
+    } catch (_err) {
+      return { status: 'failed' }
+    }
+  }
+
+  /**
+   * Query unnotified bonus grants (none on XPeach).
+   *
+   * @param _client - optional requesting UI metadata.
+   * @returns always `null`.
+   */
+  getUnnotifiedBonuses(_client?: DeepSeekAccountClientMetadata | string): Promise<null> {
     return Promise.resolve(null)
   }
 
-  ackBonusNotified(_ids: readonly number[], _client?: string): Promise<boolean> {
+  /**
+   * Acknowledge a displayed bonus notification.
+   *
+   * @param _accountId - account identifier or legacy id list.
+   * @param _orderId - bonus order identifier.
+   * @param _client - optional requesting UI metadata.
+   * @returns always `false`.
+   */
+  ackBonusNotified(
+    _accountId?: string | readonly number[],
+    _orderId?: string,
+    _client?: DeepSeekAccountClientMetadata | string,
+  ): Promise<boolean> {
     return Promise.resolve(false)
   }
 
-  async resolveToken(signal?: AbortSignal): Promise<string> {
-    return await this.account.resolveVerifiedRelayKey(false, signal)
-  }
-
-  async rejectToken(_rejectedToken: string, signal?: AbortSignal): Promise<string> {
-    return await this.account.resolveVerifiedRelayKey(true, signal)
-  }
-
-  getPlatformSession():
-    | {
-      readonly status: 'signed-in'
-      readonly bearerToken: string
-      readonly userId: string | null
-      readonly expiresAt: number | null
+  /**
+   * Resolve the active inference relay token when signed in.
+   *
+   * @param urlOrSignal - optional destination URL or cancellation signal.
+   * @param signal - optional cancellation signal.
+   * @returns active relay token, or `undefined` when signed out or unavailable.
+   */
+  async resolveToken(urlOrSignal?: string | AbortSignal, signal?: AbortSignal): Promise<string | undefined> {
+    const effectiveSignal = urlOrSignal instanceof AbortSignal ? urlOrSignal : signal
+    if (!this.account.isBound()) return undefined
+    try {
+      return await this.account.resolveVerifiedRelayKey(false, effectiveSignal)
+    } catch (_err) {
+      return undefined
     }
-    | { readonly status: 'signed-out' } {
-    return this.account.currentPlatformSession()
   }
 
-  getDeviceIdentity(): { readonly deviceId: string; readonly userAgent: string } {
-    return {
+  /**
+   * Handle an inference-rejected token by re-verifying the SSO session.
+   *
+   * @param _rejectedToken - token rejected by the inference endpoint.
+   * @param signal - optional cancellation signal.
+   */
+  async rejectToken(_rejectedToken: string, signal?: AbortSignal): Promise<void> {
+    await this.account.resolveVerifiedRelayKey(true, signal).catch(() => undefined)
+  }
+
+  /**
+   * Read the current platform session for embedded platform consumers.
+   *
+   * @returns platform session snapshot, or `null` when signed out.
+   */
+  getPlatformSession(): Promise<DeepSeekPlatformSession | null> {
+    if (!this.account.isBound()) return Promise.resolve(null)
+    const sess = this.account.currentPlatformSession()
+    if (sess.status !== 'signed-in' || !sess.bearerToken) {
+      return Promise.resolve(null)
+    }
+    return Promise.resolve({
+      origin: 'https://xpeach.codes',
+      token: sess.bearerToken,
+      userId: sess.userId || null,
+    })
+  }
+
+  /**
+   * Read device and account identity for product telemetry.
+   *
+   * @returns device identifier, optional user identifier, and OS version string.
+   */
+  getDeviceIdentity(): Promise<{ deviceId?: string; userId?: string; osVersion: string }> {
+    const sess = this.account.isBound() ? this.account.currentPlatformSession() : { status: 'signed-out' as const }
+    const userId = sess.status === 'signed-in' && sess.userId ? sess.userId : undefined
+    return Promise.resolve({
       deviceId: 'xpeach-harness',
-      userAgent: `XPeachHarness/1.0 (${process.platform})`,
-    }
+      ...(userId !== undefined ? { userId } : {}),
+      osVersion: `${process.platform}-${release()}`,
+    })
   }
 
-  async *watch(signal?: AbortSignal, includeIdentityChanges = false): AsyncGenerator<void, void, void> {
+  /**
+   * Stream complete `AccountView` snapshots starting with the immediate current state
+   * and yielding on every subsequent state change until `signal` aborts.
+   *
+   * @param signal - optional subscription cancellation signal.
+   * @param includeIdentityChanges - whether to emit when identity metadata changes.
+   * @returns async generator of `AccountView` snapshots.
+   */
+  async *watch(signal?: AbortSignal, includeIdentityChanges = false): AsyncGenerator<DeepSeekAccountView, void, void> {
     const isAborted = (): boolean => signal?.aborted === true
-    while (!isAborted()) {
-      await new Promise<void>((resolvePromise) => {
-        const onAbort = (): void => {
-          this.watchers.delete(onNotify)
-          resolvePromise()
+    if (isAborted()) return
+    const watchState: { pending: boolean; wake: (() => void) | undefined } = {
+      pending: false,
+      wake: undefined,
+    }
+    const onNotify = (identityChanged: boolean): void => {
+      if (identityChanged && !includeIdentityChanges) return
+      watchState.pending = true
+      watchState.wake?.()
+    }
+    const onAbort = (): void => {
+      watchState.wake?.()
+    }
+    this.watchers.add(onNotify)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    try {
+      yield await this.getState()
+      while (!isAborted()) {
+        if (!watchState.pending) {
+          await new Promise<void>((resolvePromise) => {
+            watchState.wake = resolvePromise
+          })
+          watchState.wake = undefined
         }
-        const onNotify = (identityChanged: boolean): void => {
-          if (identityChanged && !includeIdentityChanges) return
-          signal?.removeEventListener('abort', onAbort)
-          this.watchers.delete(onNotify)
-          resolvePromise()
+        if (isAborted()) return
+        if (watchState.pending) {
+          watchState.pending = false
+          yield await this.getState()
         }
-        this.watchers.add(onNotify)
-        signal?.addEventListener('abort', onAbort, { once: true })
-      })
-      if (isAborted()) return
-      yield
+      }
+    } finally {
+      this.watchers.delete(onNotify)
+      signal?.removeEventListener('abort', onAbort)
     }
   }
 }
@@ -760,7 +972,8 @@ export class XPeachAccount extends TypertRemoteService {
   private seededMarker(): string { return this.keyFile + '.seeded' }
 
   /**
-   * Write one profile-local state file, creating its directory first.
+   * Write one profile-local state file atomically with `0o600` permissions,
+   * creating its parent directory first.
    *
    * Every path here is profile-scoped and absent on a fresh install, so a
    * direct `writeFileSync` fails with ENOENT and the plugin never activates.
@@ -769,7 +982,12 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private writeState(path: string, body: string): void {
     mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, body, { mode: 0o600 })
+    const tmpPath = `${path}.tmp.${String(process.pid)}`
+    writeFileSync(tmpPath, body, { encoding: 'utf8', mode: 0o600 })
+    try {
+      chmodSync(tmpPath, 0o600)
+    } catch (_err) { /* chmod may be a no-op on Windows */ }
+    renameSync(tmpPath, path)
   }
 
   /** Read the profile-local key file; absent or empty → undefined. */
@@ -1769,8 +1987,13 @@ export class XPeachAccount extends TypertRemoteService {
     if (bearer === undefined || bearer.length === 0) {
       return { status: 'signed-out' }
     }
-    const expiresAt = typeof sso?.boundAt === 'number' && typeof sso.expiresIn === 'number'
-      ? sso.boundAt + sso.expiresIn * 1000
+    const boundAtMs = typeof sso?.boundAt === 'number'
+      ? sso.boundAt
+      : typeof sso?.boundAt === 'string'
+        ? Date.parse(sso.boundAt)
+        : Number.NaN
+    const expiresAt = Number.isFinite(boundAtMs) && typeof sso?.expiresIn === 'number'
+      ? boundAtMs + sso.expiresIn * 1000
       : null
     const userId = sso?.user?.id ?? (typeof sso?.peachcodeUserId === 'number' ? String(sso.peachcodeUserId) : null)
     return {
@@ -1836,6 +2059,21 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
+   * Query user profile metadata for `DeepSeekAccount.getProfile()`.
+   *
+   * @param _force - whether to force a fresh profile query.
+   * @param signal - optional request cancellation signal.
+   * @returns user identifier, display name, and email/contact.
+   */
+  async getProfile(_force?: boolean, signal?: AbortSignal): Promise<{
+    readonly id: string | null
+    readonly name: string | null
+    readonly contact: string | null
+  }> {
+    return await this.resolveAccountProfile(signal ?? AbortSignal.timeout(10_000))
+  }
+
+  /**
    * Resolve account quota balance for `DeepSeekAccount.getBalance()`.
    *
    * @param signal - request cancellation signal.
@@ -1877,6 +2115,26 @@ export class XPeachAccount extends TypertRemoteService {
         return { available: false }
       }
     }
+  }
+
+  /**
+   * Query account quota balance for `DeepSeekAccount.getBalance()`.
+   *
+   * @param _force - whether to force a fresh balance query.
+   * @param signal - optional request cancellation signal.
+   * @returns USD wallet balance snapshot or `{ available: false }`.
+   */
+  async getBalance(_force?: boolean, signal?: AbortSignal): Promise<
+    | {
+      readonly available: true
+      readonly totalBalance: string
+      readonly toppedUpBalance: string
+      readonly grantedBalance: string
+      readonly currency: 'CNY' | 'USD'
+    }
+    | { readonly available: false }
+  > {
+    return await this.resolveAccountBalance(signal ?? AbortSignal.timeout(10_000))
   }
 
   private async handleAuthRejected(status: 401 | 403): Promise<void> {
@@ -2048,13 +2306,23 @@ export class XPeachAccount extends TypertRemoteService {
     if (!this.isBound()) {
       return { valid: false, status: 'unbound' }
     }
-    if (!force && Date.now() - this.lastSsoVerifyAt < 5_000) {
-      const sso = this.readSsoState()
+    const initialSso = this.readSsoState()
+    const initialBoundAtMs = typeof initialSso?.boundAt === 'number'
+      ? initialSso.boundAt
+      : typeof initialSso?.boundAt === 'string'
+        ? Date.parse(initialSso.boundAt)
+        : Number.NaN
+    const initialLocallyExpired = typeof initialSso?.expiresIn === 'number'
+      && initialSso.expiresIn > 0
+      && Number.isFinite(initialBoundAtMs)
+      && (initialBoundAtMs + initialSso.expiresIn * 1000 <= Date.now())
+
+    if (!force && !initialLocallyExpired && Date.now() - this.lastSsoVerifyAt < 5_000) {
       return {
         valid: true,
         status: 'ok',
-        ...(sso?.user?.username ? { username: sso.user.username } : {}),
-        ...(sso?.user?.email ? { email: sso.user.email } : {}),
+        ...(initialSso?.user?.username ? { username: initialSso.user.username } : {}),
+        ...(initialSso?.user?.email ? { email: initialSso.user.email } : {}),
       }
     }
     if (this.ssoVerifyPromise !== undefined) {
@@ -2063,29 +2331,77 @@ export class XPeachAccount extends TypertRemoteService {
     const effectiveSignal = signal ?? AbortSignal.timeout(Math.min(this.timeoutMs, 8_000))
     const run = (async (): Promise<XPeachSsoSessionStatus> => {
       const sso = this.readSsoState()
+      const boundAtMs = typeof sso?.boundAt === 'number'
+        ? sso.boundAt
+        : typeof sso?.boundAt === 'string'
+          ? Date.parse(sso.boundAt)
+          : Number.NaN
+      const isLocallyExpired = typeof sso?.expiresIn === 'number'
+        && sso.expiresIn > 0
+        && Number.isFinite(boundAtMs)
+        && (boundAtMs + sso.expiresIn * 1000 <= Date.now())
+
       if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
-        const sync = await this.api.ssoPeachcodeCredentials(
-          this.currentSsoBaseURL(),
-          sso.accessToken,
-          effectiveSignal,
-        )
+        let sync: XPeachSsoCredentialSyncResult
+        try {
+          sync = await this.api.ssoPeachcodeCredentials(
+            this.currentSsoBaseURL(),
+            sso.accessToken,
+            effectiveSignal,
+          )
+        } catch (err) {
+          sync = {
+            status: 'transient_error',
+            transient: true,
+            message: err instanceof Error ? err.message : String(err),
+          }
+        }
         if (sync.status === 'revoked') {
           await this.revokeAllLocalCredentials(sync.code === 403 ? 'banned' : 'revoked')
           return {
             valid: false,
             status: 'revoked',
+            revoked: true,
+            error: sync.message,
             message: sync.message,
           }
         }
         if (sync.status === 'transient_error') {
+          if (isLocallyExpired) {
+            await this.revokeAllLocalCredentials('expired')
+            return {
+              valid: false,
+              status: 'revoked',
+              revoked: true,
+              error: 'SSO session expired',
+              message: 'SSO session expired',
+            }
+          }
           return {
             valid: true,
             status: 'transient_error',
+            transient: true,
+            error: sync.message,
             message: sync.message,
           }
         }
         this.lastSsoVerifyAt = Date.now()
         const peach = sync.payload.peachcode
+        const refreshedSso = sync.payload.sso
+        if (refreshedSso?.accessToken !== undefined && refreshedSso.accessToken.length > 0) {
+          try {
+            this.writeState(
+              this.ssoStateFile,
+              JSON.stringify({
+                accessToken: refreshedSso.accessToken,
+                expiresIn: refreshedSso.expiresIn ?? sso.expiresIn,
+                user: refreshedSso.user ?? sso.user,
+                peachcodeUserId: peach?.userId ?? sso.peachcodeUserId,
+                boundAt: Date.now(),
+              }, null, 2) + '\n',
+            )
+          } catch (_err) { /* best effort */ }
+        }
         const nextAccessToken = peach?.accessToken?.trim()
         if (nextAccessToken !== undefined && nextAccessToken.length > 0 && nextAccessToken !== this.resolveAdmin()) {
           this.persistAdmin(nextAccessToken)
@@ -2108,6 +2424,17 @@ export class XPeachAccount extends TypertRemoteService {
         }
       }
 
+      if (isLocallyExpired) {
+        await this.revokeAllLocalCredentials('expired')
+        return {
+          valid: false,
+          status: 'revoked',
+          revoked: true,
+          error: 'SSO session expired',
+          message: 'SSO session expired',
+        }
+      }
+
       if (this.resolveAdmin() !== undefined) {
         try {
           const me = await this.api.userSelf(effectiveSignal)
@@ -2116,6 +2443,8 @@ export class XPeachAccount extends TypertRemoteService {
             return {
               valid: false,
               status: 'revoked',
+              revoked: true,
+              error: 'Account has been disabled',
               message: 'Account has been disabled',
             }
           }
@@ -2134,11 +2463,13 @@ export class XPeachAccount extends TypertRemoteService {
               return {
                 valid: false,
                 status: 'revoked',
+                revoked: true,
+                error: err.message,
                 message: err.message,
               }
             }
           }
-          return { valid: true, status: 'transient_error' }
+          return { valid: true, status: 'transient_error', transient: true }
         }
       }
 
@@ -2155,11 +2486,13 @@ export class XPeachAccount extends TypertRemoteService {
               return {
                 valid: false,
                 status: 'revoked',
+                revoked: true,
+                error: err.message,
                 message: err.message,
               }
             }
           }
-          return { valid: true, status: 'transient_error' }
+          return { valid: true, status: 'transient_error', transient: true }
         }
       }
 
@@ -2246,18 +2579,25 @@ export class XPeachAccount extends TypertRemoteService {
     return { bound: false }
   }
 
-  private async openUrlInSystemBrowser(url: string): Promise<boolean> {
+  private async openUrlInSystemBrowser(rawUrl: string, expectedSsoBaseURL?: string): Promise<boolean> {
+    const safeUrl = validateVerificationUrl(rawUrl, expectedSsoBaseURL ?? this.currentSsoBaseURL())
+    if (/[\s\u0000-\u0008\u000e-\u001f\u007f]/u.test(safeUrl)) {
+      throw new Error('xpeach: verification URL contains whitespace or control characters')
+    }
     if (process.env.VITEST !== undefined || process.env.NODE_ENV === 'test') return false
     try {
-      const safeUrl = validateVerificationUrl(url, this.currentSsoBaseURL())
       const { spawn } = await import('node:child_process')
-      const cmd = process.platform === 'darwin'
-        ? 'open'
-        : process.platform === 'win32'
-          ? 'cmd'
-          : 'xdg-open'
-      const args = process.platform === 'win32' ? ['/c', 'start', '', safeUrl] : [safeUrl]
-      const child = spawn(cmd, args, { detached: true, stdio: 'ignore' })
+      const child = process.platform === 'win32'
+        ? spawn('rundll32.exe', ['url.dll,FileProtocolHandler', safeUrl], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        })
+        : spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [safeUrl], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        })
       child.unref()
       return true
     } catch (_err) {
@@ -2349,11 +2689,15 @@ export class XPeachAccount extends TypertRemoteService {
     const clientId = this.currentSsoClientId()
     const clientName = request.clientName?.trim() || `XPeach Harness (${process.platform})`
     const started = await this.api.ssoDeviceAuthorize(ssoBaseURL, clientId, clientName, signal)
+    const verificationUri = validateVerificationUrl(started.verificationUri, ssoBaseURL)
+    const verificationUriComplete = validateVerificationUrl(started.verificationUriComplete, ssoBaseURL)
     const browserOpened = request.openBrowser !== false
-      ? await this.openUrlInSystemBrowser(started.verificationUriComplete)
+      ? await this.openUrlInSystemBrowser(verificationUriComplete, ssoBaseURL)
       : false
     return {
       ...started,
+      verificationUri,
+      verificationUriComplete,
       browserOpened,
     }
   }

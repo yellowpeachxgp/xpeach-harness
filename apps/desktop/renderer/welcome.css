@@ -341,3 +341,44 @@ body {
 .actions .welcome-loading { color: inherit; }
 
 .auth-waiting .copy-link:disabled { cursor: default; }
+
+.welcome-user-code-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  app-region: no-drag;
+}
+
+.welcome-user-code-hint {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.welcome-user-code-value {
+  font-family: var(--dsw-alias-font-mono, monospace);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 26px;
+  letter-spacing: 0.14em;
+  color: var(--dsw-alias-label-primary);
+}
+
+.welcome-user-code-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-user-code-actions .copy-link {
+  margin-top: 0;
+  width: auto;
+}

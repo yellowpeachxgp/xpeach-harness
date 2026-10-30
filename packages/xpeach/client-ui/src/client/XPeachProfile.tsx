@@ -3,6 +3,7 @@
  * plugins strip, and account insights. */
 import { type JSX, useEffect, useMemo, useState } from 'react'
 import { XPeachMark } from './brand.tsx'
+import { openXPeachLoginModal } from './XPeachOnboarding.tsx'
 import type { XPeachMacosInstallerStatus, XPeachOps, XPeachSelfLogRow, XPeachUserSelfRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
 import { quotaUsd, rel } from './fmt.ts'
@@ -476,7 +477,7 @@ export function XPeachProfile({
               className={css.codexGhostBtn}
               onClick={() => {
                 const code = meRow?.aff_code ?? 'xpeach'
-                copyText(`https://www.xpeach.xyz/register?aff=${code}`, 'invite')
+                copyText(`https://xpeach.codes/register?aff=${code}`, 'invite')
               }}
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -523,7 +524,14 @@ export function XPeachProfile({
               <span className={css.profileAff}>{t('profile.affTag', { code: meRow.aff_code })}</span>
             )}
           </p>
-          {error !== undefined && <p className={css.bindError}>{error}</p>}
+          {error !== undefined && (
+            <div className={css.ssoCodeActions}>
+              <p className={css.bindError}>{error}</p>
+              <button type="button" className={css.codexGhostBtn} onClick={() => { openXPeachLoginModal(false) }}>
+                <span>{t('launch.signIn')}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <dl className={css.codexStatBar}>

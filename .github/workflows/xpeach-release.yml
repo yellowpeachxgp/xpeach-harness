@@ -206,7 +206,7 @@ jobs:
             exit 0
           fi
           node scripts/version/bump.mjs "${{ needs.version.outputs.version }}"
-          git -c user.name=xpeach -c user.email=xpeach@local commit -am "release: v${{ needs.version.outputs.version }}"
+          git -c user.name=yellowpeachxgp -c user.email=yellowpeachxgp@users.noreply.github.com commit -am "release: v${{ needs.version.outputs.version }}"
           git push
       - name: Compose the changelog
         shell: bash

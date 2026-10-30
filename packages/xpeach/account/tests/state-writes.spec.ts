@@ -22,7 +22,13 @@ import {
   scanOnboarding,
   writeMcpPatchEntries,
 } from '../src/onboarding.ts'
-import { XPeachAccount, validateSsoBaseUrl, validateVerificationUrl } from '../src/index.ts'
+import {
+  XPeachAccount,
+  XPeachDeepSeekAccount,
+  candidateSsoBaseURLs,
+  validateSsoBaseUrl,
+  validateVerificationUrl,
+} from '../src/index.ts'
 
 const roots: string[] = []
 
@@ -658,10 +664,14 @@ describe('account state writes on a fresh install', () => {
     expect(existsSync(ssoStateFile)).toBe(false)
   })
 
-  it('enforces strict SSO origin and verification URL security invariants', () => {
+  it('enforces strict SSO origin and verification URL security invariants (F-01, F-02, F-03)', async () => {
     expect(validateSsoBaseUrl('https://sso.xpeach.codes/')).toBe('https://sso.xpeach.codes')
     expect(validateSsoBaseUrl('http://localhost:3000/device')).toBe('http://localhost:3000')
     expect(validateSsoBaseUrl('http://127.0.0.1:3000')).toBe('http://127.0.0.1:3000')
+
+    // F-01: candidateSsoBaseURLs never downgrades production HTTPS to plaintext localhost
+    expect(candidateSsoBaseURLs('https://sso.xpeach.codes')).toEqual(['https://sso.xpeach.codes'])
+    expect(candidateSsoBaseURLs('https://sso.xpeach.codes')).not.toContain('http://localhost:3000')
 
     expect(() => validateSsoBaseUrl('http://sso.xpeach.codes')).toThrow()
     expect(() => validateSsoBaseUrl('http://evil.example.com:3000')).toThrow()
@@ -675,9 +685,226 @@ describe('account state writes on a fresh install', () => {
     expect(
       validateVerificationUrl('http://localhost:3000/device?code=ABCD-EFGH', 'http://localhost:3000'),
     ).toBe('http://localhost:3000/device?code=ABCD-EFGH')
+
+    // F-02: Cross-origin verification URLs (including HTTPS attacker origins) must be rejected
+    expect(() => validateVerificationUrl('https://evil.example/device', 'https://sso.xpeach.codes')).toThrow(/origin mismatch/i)
+    expect(() => validateVerificationUrl('http://localhost:3000/device', 'https://sso.xpeach.codes')).toThrow(/origin mismatch/i)
     expect(() => validateVerificationUrl('javascript:alert(1)', 'https://sso.xpeach.codes')).toThrow()
     expect(() => validateVerificationUrl('http://attacker.com/device', 'https://sso.xpeach.codes')).toThrow()
     expect(() => validateVerificationUrl('https://admin:secret@sso.xpeach.codes/device', 'https://sso.xpeach.codes')).toThrow()
+    expect(() => validateVerificationUrl('https://sso.xpeach.codes/device?code=AB CD', 'https://sso.xpeach.codes')).toThrow()
+
+    // F-03: openUrlInSystemBrowser rejects cross-origin or control-character URLs
+    const openUrl = Reflect.get(XPeachAccount.prototype, 'openUrlInSystemBrowser') as (
+      rawUrl: string,
+      expectedSsoBaseURL?: string,
+    ) => Promise<boolean>
+    const fakeAccount = { currentSsoBaseURL: () => 'https://sso.xpeach.codes' }
+    await expect(openUrl.call(fakeAccount, 'https://evil.example/device', 'https://sso.xpeach.codes')).rejects.toThrow(/origin mismatch/i)
+    await expect(openUrl.call(fakeAccount, 'https://sso.xpeach.codes/device?code=A\u0000B', 'https://sso.xpeach.codes')).rejects.toThrow()
+  })
+
+  it('complies with the full DeepSeekAccount contract in XPeachDeepSeekAccount (F-04)', async () => {
+    let bound = false
+    const deviceStartMock = vi.fn().mockResolvedValue({
+      deviceCode: 'dvc_contract_1',
+      userCode: 'ABCD-1234',
+      verificationUri: 'https://sso.xpeach.codes/device',
+      verificationUriComplete: 'https://sso.xpeach.codes/device?code=ABCD-1234',
+      expiresIn: 600,
+      interval: 60,
+      browserOpened: false,
+    })
+    const devicePollMock = vi.fn().mockResolvedValue({ status: 'pending' as const })
+    const logoutMock = vi.fn(async () => {
+      bound = false
+      return { bound: false }
+    })
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      isBound: () => bound,
+      currentSiteRoot: () => 'https://xpeach.codes',
+      ssoDeviceStartOp: deviceStartMock,
+      ssoDevicePollOp: devicePollMock,
+      ssoLogoutOp: logoutMock,
+      getProfile: vi.fn().mockResolvedValue({
+        id: 'usr_101',
+        name: 'YellowPeach',
+        contact: 'admin@xpeach.codes',
+      }),
+      getBalance: vi.fn().mockResolvedValue({
+        available: true as const,
+        totalBalance: '42.50',
+        toppedUpBalance: '42.50',
+        grantedBalance: '0.00',
+        currency: 'USD' as const,
+      }),
+      currentPlatformSession: () => (bound
+        ? {
+          status: 'signed-in' as const,
+          bearerToken: 'xph_at_session_token',
+          userId: 'usr_101',
+          expiresAt: Date.now() + 3600_000,
+        }
+        : { status: 'signed-out' as const }),
+      resolveVerifiedRelayKey: vi.fn().mockResolvedValue('sk-xphVerifiedRelayKey'),
+    })
+
+    const bridge = Object.create(XPeachDeepSeekAccount.prototype) as XPeachDeepSeekAccount
+    Object.assign(bridge, {
+      account: fakeAccount,
+      attempt: null,
+      attemptAbort: undefined,
+      watchers: new Set<(identityChanged: boolean) => void>(),
+    })
+
+    // Initial state: signed-out with explicit attempt: null
+    const initialState = await bridge.getState()
+    expect(initialState).toEqual({
+      status: 'signed-out',
+      links: {
+        usageUrl: 'https://xpeach.codes/console',
+        topUpUrl: 'https://xpeach.codes/topup',
+      },
+      attempt: null,
+    })
+    expect('attempt' in initialState).toBe(true)
+
+    // Unbound profile, balance, and platform session return null
+    expect(await bridge.getProfile()).toBeNull()
+    expect(await bridge.getBalance()).toBeNull()
+    expect(await bridge.getPlatformSession()).toBeNull()
+
+    // getDeviceIdentity returns a Promise with osVersion
+    const identityUnbound = await bridge.getDeviceIdentity()
+    expect(identityUnbound.deviceId).toBe('xpeach-harness')
+    expect(typeof identityUnbound.osVersion).toBe('string')
+
+    // watch() yields initial AccountView immediately and yields subsequent transitions
+    const watchAbort = new AbortController()
+    const stream = bridge.watch(watchAbort.signal, true)
+    const firstYield = await stream.next()
+    expect(firstYield.done).toBe(false)
+    expect(firstYield.value).toEqual(initialState)
+
+    // Start sign-in with AccountClientMetadata object (verifies no client.trim crash and status is never 'signing-in')
+    const startedState = await bridge.startSignIn(
+      { version: '0.0.18', locale: 'zh-CN', timezoneOffsetSeconds: 28800 },
+      'http://127.0.0.1:4321',
+      'desktop',
+    )
+    expect(startedState.status).toBe('signed-out')
+    expect(startedState.attempt).not.toBeNull()
+    expect(startedState.attempt?.phase).toBe('waiting-browser')
+    expect(startedState.attempt?.authorizeUrl).toBe('https://sso.xpeach.codes/device?code=ABCD-1234')
+    expect(typeof startedState.attempt?.expiresAt).toBe('number')
+
+    const secondYield = await stream.next()
+    expect(secondYield.done).toBe(false)
+    expect(secondYield.value?.status).toBe('signed-out')
+    expect(secondYield.value?.attempt?.phase).toBe('waiting-browser')
+
+    // Cancel sign-in transitions attempt phase to 'cancelled'
+    const cancelledState = await bridge.cancelSignIn(startedState.attempt?.id)
+    expect(cancelledState.attempt?.phase).toBe('cancelled')
+
+    // Simulate bound state
+    bound = true
+    bridge.notifyWatchers(true)
+    const thirdYield = await stream.next()
+    expect(thirdYield.value?.status).toBe('credential-stored')
+
+    const profileOutcome = await bridge.getProfile()
+    expect(profileOutcome).toEqual({
+      status: 'ready',
+      value: {
+        id: 'usr_101',
+        name: 'YellowPeach',
+        contact: 'admin@xpeach.codes',
+        avatarUrl: null,
+      },
+    })
+
+    const balanceOutcome = await bridge.getBalance()
+    expect(balanceOutcome).toEqual({
+      status: 'ready',
+      value: [{ currency: 'USD', balance: '42.50' }],
+      bonusWallets: [],
+    })
+
+    const platformSession = await bridge.getPlatformSession()
+    expect(platformSession).toEqual({
+      origin: 'https://xpeach.codes',
+      token: 'xph_at_session_token',
+      userId: 'usr_101',
+    })
+
+    const identityBound = await bridge.getDeviceIdentity()
+    expect(identityBound.userId).toBe('usr_101')
+    expect(await bridge.resolveToken('https://fast.xpeach.codes')).toBe('sk-xphVerifiedRelayKey')
+
+    watchAbort.abort()
+    const finalYield = await stream.next()
+    expect(finalYield.done).toBe(true)
+  })
+
+  it('rejects locally expired SSO sessions when upstream refresh fails transiently instead of failing open (F-09)', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+
+    writeState(keyFile, 'sk-expiredtest1234567890\n')
+    writeState(adminKeyFile, 'admin-expiredtest123456\n')
+    writeState(ssoStateFile, JSON.stringify({
+      accessToken: 'xph_at_expired_token',
+      expiresIn: 60,
+      boundAt: new Date(Date.now() - 120_000).toISOString(),
+      user: { id: 'usr_exp', username: 'expireduser', email: 'exp@xpeach.codes' },
+    }))
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {
+        ssoBaseURL: 'https://sso.xpeach.codes',
+        ssoClientId: 'xpeach-harness',
+      },
+      keyFile,
+      keyVar: 'XPEACH_TEST_EXP_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_EXP_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_EXP_SESSION_KEY',
+      ssoStateFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      lastSsoVerifyAt: Date.now(),
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        ssoPeachcodeCredentials: vi.fn().mockResolvedValue({
+          status: 'transient_error',
+          transient: true,
+          message: 'fetch failed: ECONNREFUSED',
+        }),
+        ssoRevokeToken: vi.fn().mockResolvedValue(false),
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: () => undefined,
+      },
+    })
+
+    const verifyResult = await fakeAccount.verifyAndSyncSsoSession(false)
+    expect(verifyResult.valid).toBe(false)
+    expect(verifyResult.revoked).toBe(true)
+    expect(verifyResult.error).toBe('SSO session expired')
+    expect(existsSync(keyFile)).toBe(false)
+    expect(existsSync(adminKeyFile)).toBe(false)
+    expect(existsSync(ssoStateFile)).toBe(false)
   })
 
   it('dynamically revokes all local credentials, cancels tasks, and blocks LLM streams when SSO reports a ban (403) or revocation (401)', async () => {

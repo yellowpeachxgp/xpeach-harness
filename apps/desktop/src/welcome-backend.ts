@@ -72,13 +72,20 @@ export async function connectDesktopWelcome(
   const settingsAndReference = async () => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
+    const piAi: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-pi-ai')
+    const providers = record(piAi) && record(piAi.value) && record(piAi.value.providers) ? piAi.value.providers : undefined
+    const xpeach = providers !== undefined && record(providers.xpeach) ? providers.xpeach : undefined
+    const xpeachRef = xpeach !== undefined && typeof xpeach.apiKeyEnv === 'string'
+      ? xpeach.apiKeyEnv
+      : xpeach !== undefined && typeof xpeach.apiKey === 'string'
+        ? xpeach.apiKey
+        : undefined
+    if (xpeachRef !== undefined) {
+      return { settings: { namespaces: settings.namespaces }, ref: xpeachRef }
+    }
     const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
     if (official === undefined) {
-      const piAi: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-pi-ai')
-      const providers = record(piAi) && record(piAi.value) && record(piAi.value.providers) ? piAi.value.providers : undefined
-      const xpeach = providers !== undefined && record(providers.xpeach) ? providers.xpeach : undefined
-      const fallbackRef = xpeach !== undefined && typeof xpeach.apiKeyEnv === 'string' ? xpeach.apiKeyEnv : undefined
-      return { settings: { namespaces: settings.namespaces }, ref: fallbackRef }
+      return { settings: { namespaces: settings.namespaces }, ref: undefined }
     }
     if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
       throw new Error('desktop welcome: missing official DeepSeek credential reference')

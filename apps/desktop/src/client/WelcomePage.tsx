@@ -26,6 +26,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const [cancelling, setCancelling] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState<{ status: 'idle' | 'busy' | 'copied' | 'failed' }>({ status: 'idle' })
   const copyState = copyFeedback.status
+  const [codeCopied, setCodeCopied] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,6 +47,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     setAttempt(state.attempt)
     setStarting(false)
     setCopyFeedback({ status: 'idle' })
+    setCodeCopied(false)
     navigate(state.attempt === null || state.attempt.phase === 'cancelled' ? 'entry' : 'account')
   }
 
@@ -84,6 +86,12 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     const timer = setTimeout(() => { setCopyFeedback({ status: 'idle' }) }, 2000)
     return () => { clearTimeout(timer) }
   }, [copyFeedback])
+
+  useEffect(() => {
+    if (!codeCopied) return
+    const timer = setTimeout(() => { setCodeCopied(false) }, 2000)
+    return () => { clearTimeout(timer) }
+  }, [codeCopied])
 
   async function saveKey(event: FormEvent) {
     event.preventDefault()
@@ -203,7 +211,16 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       <section id="auth-page" className={`key-heading ${waiting ? 'auth-waiting' : phase === 'expired' ? 'auth-expired' : ''}`}
         hidden={page !== 'account'} aria-live="polite">
         <h1 id="auth-status">{title}</h1>
-        {waiting && deviceCode !== null && <p id="auth-device-code"><code style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.14em' }}>{deviceCode}</code></p>}
+        {waiting && deviceCode !== null && <div id="auth-device-code" className="welcome-user-code-card">
+          <code className="welcome-user-code-value">{deviceCode}</code>
+          <div className="welcome-user-code-actions">
+            <button id="auth-copy-code" className="copy-link" type="button" onClick={() => {
+              void navigator.clipboard.writeText(deviceCode).then(() => { setCodeCopied(true) }).catch(() => { setCopyFeedback({ status: 'failed' }) })
+            }}>
+              {codeCopied ? m.welcomeCodeCopied : m.welcomeCopyCode}
+            </button>
+          </div>
+        </div>}
         <p id="auth-description" hidden={!waiting && phase !== 'expired'}>{waiting ? m.welcomeAuthWaitingDescription : m.welcomeAuthExpiredDescription}</p>
         <button id="auth-copy" className="copy-link" type="button" hidden={!waiting} disabled={!waiting || (copyState === 'busy' || copyState === 'copied')} onClick={() => { void copyLink() }}>
           {copyState === 'copied' ? m.welcomeAuthCopied : copyState === 'failed' ? m.welcomeAuthCopyFailed : m.welcomeAuthCopyLink}

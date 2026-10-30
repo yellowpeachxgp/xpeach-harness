@@ -152,6 +152,9 @@ export function XPeachSection({
         } else if (res.status === 'denied') {
           setBindError(res.message ?? t('sso.denied'))
           setSsoSession(null)
+        } else if (res.status === 'error') {
+          setBindError(res.message ?? t('sso.failed'))
+          setSsoSession(null)
         }
       })
     }, intervalMs)
@@ -257,10 +260,10 @@ export function XPeachSection({
               )}
             </div>
             {ssoSession !== null && (
-              <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))' }}>
-                <p className={css.bindHint} style={{ margin: '0 0 6px' }}>{t('sso.waitingTitle')} · {t('sso.userCodeLabel')}</p>
-                <div className={css.bindRow}>
-                  <code className={css.keyMask} style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.1em' }}>
+              <div className={css.ssoCodeCard}>
+                <p className={css.ssoCodeHint}>{t('sso.waitingTitle')} · {t('sso.userCodeLabel')}</p>
+                <div className={css.ssoCodeActions}>
+                  <code className={css.ssoCodeValue}>
                     {ssoSession.userCode}
                   </code>
                   <Button
@@ -269,19 +272,19 @@ export function XPeachSection({
                     onClick={() => {
                       void navigator.clipboard.writeText(ssoSession.userCode)
                       setSsoCodeCopied(true)
-                      setTimeout(() => { setSsoCodeCopied(false) }, 1500)
+                      setTimeout(() => { setSsoCodeCopied(false) }, 2000)
                     }}
                   >
-                    {ssoCodeCopied ? t('bind.copied') : t('sso.copyCode')}
+                    {ssoCodeCopied ? t('sso.codeCopied') : t('sso.copyCode')}
                   </Button>
-                  <a href={ssoSession.verificationUriComplete} target="_blank" rel="noreferrer" className={css.bindGhost} style={{ textDecoration: 'none' }}>
+                  <a href={ssoSession.verificationUriComplete} target="_blank" rel="noreferrer" className={`${css.bindGhost} ${css.ssoLinkBtn}`}>
                     {t('sso.openBrowserAgain')}
                   </a>
                   <Button variant="outline" className={css.bindGhost} onClick={() => { setSsoSession(null) }}>
                     {t('sso.cancel')}
                   </Button>
                 </div>
-                <p className={css.bindHint} style={{ margin: '6px 0 0' }}>{t('sso.pollingHint')}</p>
+                <p className={css.ssoCodeHint}>{t('sso.pollingHint')}</p>
               </div>
             )}
             {bindError !== null && <p className={css.bindError}>{bindError}</p>}

@@ -21,13 +21,19 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const [copyResult, setCopyResult] = useState<{ messageKey: 'copiedLink' | 'copyFailed' } | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
   const attempt = account.view?.attempt
-  useEffect(() => { setCopyResult(null) }, [attempt?.id, attempt?.authorizeUrl])
+  useEffect(() => { setCopyResult(null); setCodeCopied(false) }, [attempt?.id, attempt?.authorizeUrl])
   useEffect(() => {
     if (copyResult === null) return
     const timer = setTimeout(() => { setCopyResult(null) }, 2000)
     return () => { clearTimeout(timer) }
   }, [copyResult])
+  useEffect(() => {
+    if (!codeCopied) return
+    const timer = setTimeout(() => { setCodeCopied(false) }, 2000)
+    return () => { clearTimeout(timer) }
+  }, [codeCopied])
   const authorizeUrl = attempt?.authorizeUrl
   const deviceCode = (() => {
     if (!authorizeUrl) return null
@@ -68,6 +74,14 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
       setCopyResult({ messageKey: 'copiedLink' })
     } catch { setCopyResult({ messageKey: 'copyFailed' }) }
   }
+  const copyDeviceCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCodeCopied(true)
+    } catch {
+      setCopyResult({ messageKey: 'copyFailed' })
+    }
+  }
   const title = error ? t('failureTitle') : active ? t('browserTitle') : expired ? t('timeoutTitle') : t('loginTitle')
   return <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
     <div className={css.content}>
@@ -77,9 +91,20 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
           <IconCloseOutlineRegular size={14} />
         </button>
       </div>
-      {waiting && deviceCode !== null && <p className={css.description}>
-        <code style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.14em' }}>{deviceCode}</code>
-      </p>}
+      {waiting && deviceCode !== null && <div className={css.userCodeCard}>
+        <div className={css.userCodeLabel}>
+          <span>{t('waiting')}</span>
+          <code className={css.userCodeValue}>{deviceCode}</code>
+        </div>
+        <div className={css.userCodeActions}>
+          <Button variant="outline" className={css.secondaryButton}
+            onClick={() => { void copyDeviceCode(deviceCode) }}>
+            {t(codeCopied ? 'codeCopied' : 'copyCode')}
+          </Button>
+          {authorizeUrl && <a className={css.link} href={authorizeUrlWithTheme(authorizeUrl, colorScheme)}
+            target="_blank" rel="noreferrer">{t('open')}</a>}
+        </div>
+      </div>}
       {waiting ? <p className={css.description}>
         {t('browserPrompt')}<button type="button" className={css.link} disabled={!authorizeUrl}
           onClick={authorizeUrl ? () => { void copyLink(authorizeUrl) } : undefined}>
