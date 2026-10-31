@@ -32,8 +32,10 @@ jobs:
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
       github.event_name == 'workflow_dispatch' ||
-      github.ref == 'refs/heads/beta' ||
-      (github.ref == 'refs/heads/alpha' && !contains(github.event.head_commit.message, '-beta') && !contains(github.event.head_commit.message, '-least'))
+      (!startsWith(github.event.head_commit.message, 'release: v') && (
+        github.ref == 'refs/heads/beta' ||
+        (github.ref == 'refs/heads/alpha' && !contains(github.event.head_commit.message, '-beta') && !contains(github.event.head_commit.message, '-least'))
+      ))
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -208,10 +210,11 @@ jobs:
     # Publish whatever built: one failing target must not withhold the installers
     # that did succeed.
     if: >-
-      always() &&
+      !cancelled() &&
       needs.version.result == 'success' &&
       needs.version.outputs.version != '' &&
       needs.build.result != 'skipped' &&
+      needs.build.result != 'cancelled' &&
       (startsWith(github.ref, 'refs/tags/v')
         || github.event_name == 'workflow_dispatch'
         || github.ref == 'refs/heads/alpha'
@@ -294,6 +297,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          shopt -s nullglob
+          ARTIFACT_FILES=(artifacts/*)
+          if [ "${#ARTIFACT_FILES[@]}" -eq 0 ]; then
+            echo "::error::No installer artifacts found in artifacts/; refusing to publish an empty release"
+            exit 1
+          fi
           TAG="v${{ needs.version.outputs.version }}"
           PRERELEASE_ARGS=()
           IS_PRERELEASE=0
