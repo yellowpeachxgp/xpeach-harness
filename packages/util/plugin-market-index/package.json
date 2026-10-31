@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-plugin-market-index",
   "description": "Plugin market index format 1: JSON validation, relative icon resolution, and pinned install arguments",
-  "version": "0.0.26-alpha",
+  "version": "0.0.27-alpha",
   "publishConfig": {
     "access": "public"
   },

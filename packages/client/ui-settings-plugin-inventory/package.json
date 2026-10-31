@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-settings-plugin-inventory",
   "description": "Read-only Cordis Loader inventory tab in Web Plugins settings",
-  "version": "0.0.26-alpha",
+  "version": "0.0.27-alpha",
   "publishConfig": {
     "access": "public"
   },

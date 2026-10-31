@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-worktree",
   "description": "Creates a named Git worktree and changes the calling Session working directory",
-  "version": "0.0.26-alpha",
+  "version": "0.0.27-alpha",
   "publishConfig": {
     "access": "public"
   },

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-agent-team-profile",
   "description": "Agent Teams collaboration, tools, and Web UI in one experimental bundle",
-  "version": "0.0.26-alpha",
+  "version": "0.0.27-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"

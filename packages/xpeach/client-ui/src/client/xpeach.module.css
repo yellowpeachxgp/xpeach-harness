@@ -4016,7 +4016,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: color-mix(in srgb, var(--xph-brand-orange, var(--dsw-alias-brand-primary)) 12%, var(--dsw-alias-bg-layer-2));
   border: 0.5px solid color-mix(in srgb, var(--xph-brand-orange, var(--dsw-alias-brand-primary)) 32%, var(--dsw-alias-border-l2));
   color: var(--xph-brand-orange-strong, var(--dsw-alias-brand-primary));
-  font-family: var(--dsw-font-family-mono, monospace);
+  font-family: var(--dsh-font-family-code, var(--ds-font-family-code, monospace));
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -4050,7 +4050,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border-radius: 4px;
   background: color-mix(in srgb, var(--xph-brand-orange, var(--dsw-alias-brand-primary)) 12%, var(--dsw-alias-bg-layer-2));
   color: var(--xph-brand-orange-strong, var(--dsw-alias-brand-primary));
-  font-family: var(--dsw-font-family-mono, monospace);
+  font-family: var(--dsh-font-family-code, var(--ds-font-family-code, monospace));
   font-size: 10px;
   font-weight: 500;
   line-height: 1.5;
@@ -4181,6 +4181,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 5px;
   padding: 2px 8px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: var(--xph-type-meta, 11px);
   font-weight: 500;
   line-height: 16px;
@@ -4322,6 +4323,207 @@ body[data-ds-dark-theme] .mark img.markDark {
   accent-color: var(--xph-brand-orange);
 }
 
+/* ─── Bundled Font Pack Selector (Settings → General) ─── */
+.fontPackBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+.fontPackHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fontPackHeadText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fontPackSectionLabel {
+  font-size: var(--xph-type-caption, 12px);
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
+  margin-top: 2px;
+}
+.fontPackGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 780px) {
+  .fontPackGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.fontPackCard,
+.fontPackCardOn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: var(--dsw-radius-md, 10px);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.fontPackCard:hover {
+  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.fontPackCardOn {
+  border-color: var(--xph-brand-orange);
+  background: color-mix(in srgb, var(--xph-brand-orange) 10%, var(--dsw-alias-bg-layer-2));
+}
+.fontPackCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 6px;
+}
+.fontPackSpecimen {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--dsw-alias-label-primary);
+}
+.fontPackCardOn .fontPackSpecimen {
+  color: var(--xph-brand-orange-strong);
+}
+.fontPackBadgeBundled,
+.fontPackBadgeSystem {
+  padding: 1px 6px;
+  border-radius: var(--dsw-radius-xs, 4px);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 14px;
+  flex-shrink: 0;
+}
+.fontPackBadgeBundled {
+  color: var(--xph-brand-orange-strong);
+  background: color-mix(in srgb, var(--xph-brand-orange) 14%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--xph-brand-orange) 35%, transparent);
+}
+.fontPackBadgeSystem {
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-bg-base);
+  border: 0.5px solid var(--dsw-alias-border-l1);
+}
+.fontPackCardName {
+  font-size: var(--xph-type-body, 13px);
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+}
+.fontPackCardDesc {
+  font-size: var(--xph-type-meta, 11px);
+  line-height: 15px;
+  color: var(--dsw-alias-label-secondary);
+}
+.fontPackCodeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fontPackCodePill,
+.fontPackCodePillOn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: var(--dsw-radius-sm, 8px);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--xph-type-caption, 12px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.fontPackCodePill:hover {
+  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.fontPackCodePillOn {
+  border-color: var(--xph-brand-orange);
+  background: color-mix(in srgb, var(--xph-brand-orange) 10%, var(--dsw-alias-bg-layer-2));
+  color: var(--xph-brand-orange-strong);
+}
+.fontPackCodeGlyph {
+  font-size: 11px;
+  opacity: 0.78;
+}
+.fontPackPreviewBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--dsw-radius-md, 10px);
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-base);
+}
+.fontPackPreviewLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--xph-type-body, 13px);
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+.fontPackPreviewTag {
+  padding: 1px 6px;
+  border-radius: var(--dsw-radius-xs, 4px);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
+}
+.fontPackPreviewCode {
+  display: block;
+  padding: 5px 8px;
+  border-radius: var(--dsw-radius-xs, 4px);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--xph-type-caption, 12px);
+  line-height: 1.45;
+  overflow-x: auto;
+}
+.fontPackCustomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fontPackCustomLabel {
+  font-size: var(--xph-type-caption, 12px);
+  font-weight: 500;
+  color: var(--dsw-alias-label-secondary);
+  flex-shrink: 0;
+}
+.fontPackCustomInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+}
+.fontPackCustomInput {
+  flex: 1;
+}
+
 /* Focus-visible accessibility contract */
 .bindButton:focus-visible,
 .bindGhost:focus-visible,
@@ -4337,7 +4539,11 @@ body[data-ds-dark-theme] .mark img.markDark {
 .pagerBtn:focus-visible,
 .codeItem:focus-visible,
 .codexGhostBtn:focus-visible,
-.codexPluginTile:focus-visible {
+.codexPluginTile:focus-visible,
+.fontPackCard:focus-visible,
+.fontPackCardOn:focus-visible,
+.fontPackCodePill:focus-visible,
+.fontPackCodePillOn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, color-mix(in srgb, var(--xph-brand-orange) 55%, var(--dsw-alias-state-business-primary)));
 }

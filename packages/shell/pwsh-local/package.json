@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-pwsh-local",
   "description": "Local PowerShell implementation of the DeepSeek Harness bash executor seam",
-  "version": "0.0.26-alpha",
+  "version": "0.0.27-alpha",
   "publishConfig": {
     "access": "public"
   },

@@ -66,9 +66,9 @@ it('parses XPeach versions, evaluates channel eligibility, and filters releases.
   const atomXml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <entry>
-    <id>tag:github.com,2008:Repository/1/v0.0.26-alpha</id>
-    <link rel="alternate" type="text/html" href="https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.26-alpha"/>
-    <title>v0.0.26-alpha</title>
+    <id>tag:github.com,2008:Repository/1/v0.0.27-alpha</id>
+    <link rel="alternate" type="text/html" href="https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.27-alpha"/>
+    <title>v0.0.27-alpha</title>
   </entry>
   <entry>
     <id>tag:github.com,2008:Repository/1/v0.0.24-least</id>
@@ -85,12 +85,12 @@ it('parses XPeach versions, evaluates channel eligibility, and filters releases.
   const filteredLeast = filterAtomFeedForChannel(atomXml, 'least')
   expect(filteredLeast).toContain('v0.0.24-least')
   expect(filteredLeast).not.toContain('v0.0.25-beta')
-  expect(filteredLeast).not.toContain('v0.0.26-alpha')
+  expect(filteredLeast).not.toContain('v0.0.27-alpha')
 
   const filteredBeta = filterAtomFeedForChannel(atomXml, 'beta')
   expect(filteredBeta).toContain('v0.0.25-beta')
   expect(filteredBeta).toContain('v0.0.24-least')
-  expect(filteredBeta).not.toContain('v0.0.26-alpha')
+  expect(filteredBeta).not.toContain('v0.0.27-alpha')
   expect(filteredBeta.indexOf('v0.0.25-beta')).toBeLessThan(filteredBeta.indexOf('v0.0.24-least'))
 })
 

@@ -1,4 +1,4 @@
-/* Montserrat; SIL Open Font License in Montserrat-OFL.txt. */
+/* Montserrat, PingFang SC, Microsoft YaHei, Inter, Plus Jakarta Sans, Lora, JetBrains Mono, Fira Code; SIL Open Font License in Montserrat-OFL.txt. */
 @font-face {
   font-family: 'Montserrat';
   font-style: normal;
@@ -21,4 +21,108 @@
   font-weight: 500;
   font-display: swap;
   src: url(./montserrat-medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'PingFang SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('PingFang SC'), local('PingFangSC-Regular'), url(./pingfang-sc-regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'PingFang SC';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('PingFang SC Medium'), local('PingFangSC-Medium'), url(./pingfang-sc-medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Microsoft YaHei';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Microsoft YaHei'), local('Microsoft YaHei UI'), url(./microsoft-yahei-regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Microsoft YaHei';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('Microsoft YaHei Bold'), local('Microsoft YaHei UI Bold'), url(./microsoft-yahei-medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(./inter-roman-latin.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./plus-jakarta-sans-regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./plus-jakarta-sans-medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./lora-regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./lora-medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./jetbrains-mono-regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./jetbrains-mono-medium.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./fira-code-regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./fira-code-medium.woff2) format('woff2');
 }

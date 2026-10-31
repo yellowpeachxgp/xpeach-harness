@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-brand-official",
   "description": "Official DeepSeek Harness brand occupants for the Web client's sidebar slots",
-  "version": "0.0.26-alpha",
+  "version": "0.0.27-alpha",
   "publishConfig": {
     "access": "public"
   },

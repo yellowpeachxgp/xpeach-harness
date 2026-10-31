@@ -55,6 +55,7 @@ import { en, NS, zh } from './locales.ts'
 import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
 import { PaletteRow } from './PaletteRow.tsx'
+import { FontPackRow } from './FontPackRow.tsx'
 import { inferClientModelSpec, XPeachModelLabel } from './model-meta.tsx'
 import { XPeachNotificationOverlay } from './NotificationOverlay.tsx'
 import {
@@ -100,6 +101,17 @@ export {
   XPeachNotificationOverlay,
   type XPeachNotificationOverlayProps,
 } from './NotificationOverlay.tsx'
+export {
+  CODE_FONT_PRESETS,
+  FontPackRow,
+  isFontPresetActive,
+  UI_FONT_PRESETS,
+  type FontPackRowProps,
+  type XPeachCodeFontPreset,
+  type XPeachFontFamiliesSnapshot,
+  type XPeachFontRole,
+  type XPeachUiFontPreset,
+} from './FontPackRow.tsx'
 
 declare module '@xpeach/xph-client-ui-slots' {
   interface SlotMap {
@@ -902,6 +914,17 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
       setTheme: (id: string) => { ctx.theme.setTheme(id) },
     }),
   }, PaletteRow)))
+  earlyUndo.push(ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'xpeach-font-pack',
+    order: 12,
+    locale: 'xpeach.account',
+    inject: () => ({
+      getFontFamilies: () => ctx.theme.getTheme().fontFamilies,
+      setFontFamily: (role, value) => { ctx.theme.setFontFamily(role, value) },
+      subscribeThemeChange: listener => ctx.on('theme/change', () => { listener() }),
+    }),
+  }, FontPackRow)))
 
   let isOverriding = false
   let undoBrandOverride: (() => void) | undefined
