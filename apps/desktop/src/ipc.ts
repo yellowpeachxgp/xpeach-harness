@@ -4,6 +4,34 @@ import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@xpeach/xph-client
 import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@xpeach/xph-client-ui-sidebar-browser/types'
 
+/** Semantic category of a task or user-interaction notification. */
+export type DesktopTaskNotificationKind =
+  | 'completed'
+  | 'error'
+  | 'approval'
+  | 'question'
+  | 'plan-review'
+
+/** Validated notification request sent by the owned application renderer. */
+export interface DesktopTaskNotificationPayload {
+  /** Deduplication key for this notification event. */
+  readonly id: string
+  /** Notification category determining urgency and attention behavior. */
+  readonly kind: DesktopTaskNotificationKind
+  /** Primary notification heading. */
+  readonly title: string
+  /** Secondary context line (session or workspace name). */
+  readonly subtitle?: string
+  /** Formatted human-readable notification body. */
+  readonly body: string
+  /** Target session identifier to focus and open when the user clicks the notification. */
+  readonly sessionId?: string
+  /** Whether the event requires user decision or immediate attention. */
+  readonly urgent?: boolean
+  /** Whether the OS notification sound should be suppressed. */
+  readonly silent?: boolean
+}
+
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
   shortcutsInput: 'dsh-desktop:shortcuts-input',
@@ -27,6 +55,8 @@ export const DESKTOP_IPC = {
   updatesStatus: 'dsh-desktop:updates-status',
   updatesOpen: 'dsh-desktop:updates-open',
   updatesPresentation: 'dsh-desktop:updates-presentation',
+  taskNotify: 'dsh-desktop:task-notify',
+  taskNotificationClicked: 'dsh-desktop:task-notification-clicked',
   nativeThemeSet: 'dsh-desktop:native-theme-set',
   windowFullscreen: 'dsh-desktop:window-fullscreen',
   windowsAppearance: 'dsh-desktop:windows-appearance',
@@ -87,6 +117,10 @@ export interface DshDesktopProductApi {
     status(): Promise<DesktopUpdatePresentation>
     open(): Promise<void>
     subscribe(listener: (state: DesktopUpdatePresentation) => void): () => void
+  }
+  readonly notifications?: {
+    notify(payload: DesktopTaskNotificationPayload): Promise<boolean>
+    subscribeClick(listener: (sessionId: string) => void): () => void
   }
 }
 

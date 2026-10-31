@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-user-questions",
   "description": "Abstract user-questions seam (ctx.userQuestions) for asking the human during agent runs",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "publishConfig": {
     "access": "public"
   },

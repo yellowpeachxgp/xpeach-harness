@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-deepseek-llm-api-extensions",
   "description": "Additive request-field registry for the official DeepSeek LLM API adapter",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "publishConfig": {
     "access": "public"
   },

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-desktop",
   "description": "Electron desktop shell for a bundled dsh runtime and external plugins",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "private": true,
   "license": "MIT",
   "type": "module",

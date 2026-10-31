@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-agent-team",
   "description": "Implicit-root Agent Teams roster, direct peer messaging, and shared task DAG",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "publishConfig": {
     "access": "public"
   },

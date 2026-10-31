@@ -129,6 +129,20 @@ export {
   type XPeachUpdatePreference,
 } from './update-channel.ts'
 export { candidateSsoBaseURLs, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
+export {
+  dispatchHostSystemNotification,
+  resetHostSystemNotificationCache,
+  type XPeachSystemNotificationKind,
+  type XPeachSystemNotificationOptions,
+  type XPeachSystemNotificationRequest,
+  type XPeachSystemNotificationResult,
+} from './system-notification.ts'
+import {
+  dispatchHostSystemNotification,
+  type XPeachSystemNotificationRequest,
+  type XPeachSystemNotificationResult,
+} from './system-notification.ts'
+
 
 declare module '@xpeach/xph-typert-protocol' {
   interface RemoteErrorDetailsMap {
@@ -3898,6 +3912,18 @@ export class XPeachAccount extends TypertRemoteService {
   Promise<{ keys: readonly string[] }> {
     return { keys: await this.api.adminRedemptionCreate(request.quota, request.count, request.name, signal) }
   }
+
+  /**
+   * Dispatch a native OS notification from the Host process on macOS, Windows, or Linux.
+   *
+   * @param request - notification title, subtitle, body, urgency, and deduplication identifier.
+   * @returns delivery outcome and platform identifier.
+   */
+  @Remote('sendSystemNotification')
+  async sendSystemNotificationOp(request: XPeachSystemNotificationRequest): Promise<XPeachSystemNotificationResult> {
+    return await dispatchHostSystemNotification(request)
+  }
+
 
   /** Persisted route choice ({ url, auto, at }), validated against known routes. */
   private readRouteFile(): { url?: string; auto?: boolean } {

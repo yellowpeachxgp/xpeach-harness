@@ -56,6 +56,50 @@ import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
 import { PaletteRow } from './PaletteRow.tsx'
 import { inferClientModelSpec, XPeachModelLabel } from './model-meta.tsx'
+import { XPeachNotificationOverlay } from './NotificationOverlay.tsx'
+import {
+  installTaskNotificationMonitor,
+  type NotificationMonitorContextLike,
+} from './notifications.ts'
+
+export {
+  clearSessionInteractionBanners,
+  dismissNotificationBanner,
+  dispatchTaskNotification,
+  formatApprovalNotification,
+  formatCompletionNotification,
+  formatErrorNotification,
+  formatNotificationDuration,
+  formatQuestionNotification,
+  formatToolDisplayName,
+  formatWorkspaceSessionSubtitle,
+  getActiveNotificationBanners,
+  installTaskNotificationMonitor,
+  openNotificationSession,
+  playNotificationChime,
+  readNotificationPreferences,
+  resetNotificationStateForTests,
+  subscribeNotificationBanners,
+  subscribeNotificationPreferences,
+  triggerTestSystemNotification,
+  writeNotificationPreferences,
+  type DispatchTaskNotificationOptions,
+  type FormatApprovalNotificationInput,
+  type FormatCompletionNotificationInput,
+  type FormatErrorNotificationInput,
+  type FormatQuestionNotificationInput,
+  type NotificationMonitorContextLike,
+  type NotificationQuestionItemLike,
+  type NotificationQuestionOptionLike,
+  type XPeachNotificationPreferences,
+  type XPeachTaskNotificationItem,
+  type XPeachTaskNotificationKind,
+  type XPeachTranslateFn,
+} from './notifications.ts'
+export {
+  XPeachNotificationOverlay,
+  type XPeachNotificationOverlayProps,
+} from './NotificationOverlay.tsx'
 
 declare module '@xpeach/xph-client-ui-slots' {
   interface SlotMap {
@@ -104,6 +148,15 @@ interface XPeachExtRemote {
     readonly channel?: XPeachReleaseChannel
     readonly force?: boolean
   }): Promise<RemoteOutcome<XPeachUpdateCheckResult>>
+  sendSystemNotification(request: {
+    readonly id: string
+    readonly kind: 'completed' | 'approval' | 'question' | 'plan-review' | 'error'
+    readonly title: string
+    readonly subtitle?: string | undefined
+    readonly body: string
+    readonly urgent?: boolean | undefined
+    readonly silent?: boolean | undefined
+  }): Promise<RemoteOutcome<{ readonly delivered: boolean; readonly platform: string; readonly reason?: string | undefined }>>
 }
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
@@ -693,6 +746,10 @@ function registerUi(ctx: Context): Array<() => void> {
       })
       return r.ok ? r.value : { error: r.error.message }
     },
+    sendSystemNotification: async (req) => {
+      const r = await extRemote.sendSystemNotification(req)
+      return r.ok ? r.value : { delivered: false, platform: 'unknown', reason: r.error.message }
+    },
   }
   const undo: Array<() => void> = []
   // Composer-dock session cost: live $ from the tokenUsage projection against
@@ -762,6 +819,20 @@ function registerUi(ctx: Context): Array<() => void> {
     { name: 'shell.overlay', id: 'xpeach.status', locale: NS, inject: () => ops }, XPeachStatusPill)))
   undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
     { name: 'shell.overlay', id: 'xpeach.bindgate', locale: NS, inject: () => ops }, XPeachOnboarding)))
+  undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
+    { name: 'shell.overlay', id: 'xpeach.notifications', locale: NS, inject: () => ops }, XPeachNotificationOverlay)))
+  const monitorCtx: NotificationMonitorContextLike = {
+    get: name => (ctx as { get: (key: string) => unknown }).get(name),
+    on: (event, listener) =>
+      (ctx as { on: (ev: string, cb: (...args: unknown[]) => void) => () => void }).on(event, listener),
+    locale: ctx.locale,
+    layout: ctx.layout,
+    remote: {
+      $on: (event, listener) =>
+        (ctx.remote.$on as (ev: string, cb: (...args: never[]) => void) => () => void)(event, listener),
+    },
+  }
+  undo.push(installTaskNotificationMonitor(monitorCtx, ops.sendSystemNotification))
   undo.push(ctx.slots.inject('shell.quota-notice', () => ctx.slots.register(
     {
       name: 'shell.quota-notice', locale: NS, priority: -10,

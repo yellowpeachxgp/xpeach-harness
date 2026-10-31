@@ -752,3 +752,10 @@ export type {
   XPeachUpdateCheckResult,
   XPeachUpdatePreference,
 } from './update-channel.ts'
+
+export type {
+  XPeachSystemNotificationKind,
+  XPeachSystemNotificationOptions,
+  XPeachSystemNotificationRequest,
+  XPeachSystemNotificationResult,
+} from './system-notification.ts'

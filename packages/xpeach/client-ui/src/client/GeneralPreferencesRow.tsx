@@ -2,6 +2,12 @@
 import { type JSX, useEffect, useState } from 'react'
 import { Button, Switch } from '@xpeach/xph-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@xpeach/xph-client-ui-slots'
+import {
+  readNotificationPreferences,
+  subscribeNotificationPreferences,
+  triggerTestSystemNotification,
+  writeNotificationPreferences,
+} from './notifications.ts'
 import type {
   XPeachNetworkSnapshot,
   XPeachOps,
@@ -226,6 +232,7 @@ export type GeneralPreferencesInjected = Pick<
   | 'updateChannelStatus'
   | 'setUpdateChannel'
   | 'checkUpdate'
+  | 'sendSystemNotification'
 >
 
 /** Composed props of {@link GeneralPreferencesRow}. */
@@ -256,6 +263,7 @@ export function GeneralPreferencesRow({
   updateChannelStatus,
   setUpdateChannel,
   checkUpdate,
+  sendSystemNotification,
 }: GeneralPreferencesRowProps): JSX.Element {
   const [tracking, setTrackingOn] = useState(true)
   const [trackingBusy, setTrackingBusy] = useState(false)
@@ -269,6 +277,12 @@ export function GeneralPreferencesRow({
   const [netBusy, setNetBusy] = useState(false)
   const [namespaces, setNamespaces] = useState<readonly XPeachSettingsNamespaceItem[]>([])
   const [modBusy, setModBusy] = useState<string | null>(null)
+  const [notifyPrefs, setNotifyPrefs] = useState(() => readNotificationPreferences())
+  const [testNotifySent, setTestNotifySent] = useState(false)
+
+  useEffect(() => subscribeNotificationPreferences(() => {
+    setNotifyPrefs(readNotificationPreferences())
+  }), [])
 
   useEffect(() => {
     let live = true
@@ -319,6 +333,43 @@ export function GeneralPreferencesRow({
         setUpdateChannel={setUpdateChannel}
         checkUpdate={checkUpdate}
       />
+
+      <div className={css.prefRow}>
+        <div className={css.prefRowText}>
+          <div className={css.prefTitle}>{t('prefs.notify.title')}</div>
+          <div className={css.prefDesc}>{t('prefs.notify.desc')}</div>
+        </div>
+        <div className={css.prefActionRow}>
+          <label className={css.notifySoundToggle}>
+            <input
+              type="checkbox"
+              checked={notifyPrefs.sound}
+              disabled={!notifyPrefs.enabled}
+              onChange={(e) => {
+                setNotifyPrefs(writeNotificationPreferences({ sound: e.target.checked }))
+              }}
+            />
+            <span>{t('prefs.notify.sound')}</span>
+          </label>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTestNotifySent(true)
+              void triggerTestSystemNotification(t, sendSystemNotification)
+              setTimeout(() => { setTestNotifySent(false) }, 1_800)
+            }}
+          >
+            {testNotifySent ? t('prefs.notify.testSent') : t('prefs.notify.testBtn')}
+          </Button>
+          <Switch
+            checked={notifyPrefs.enabled}
+            label={t('prefs.notify.title')}
+            onChange={(next) => {
+              setNotifyPrefs(writeNotificationPreferences({ enabled: next }))
+            }}
+          />
+        </div>
+      </div>
 
       <div className={css.prefRow}>
         <div className={css.prefRowText}>

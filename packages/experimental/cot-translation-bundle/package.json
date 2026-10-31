@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-cot-translation-bundle",
   "description": "Experimental machine translation of expanded reasoning",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"

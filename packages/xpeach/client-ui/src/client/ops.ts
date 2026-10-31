@@ -604,6 +604,16 @@ export interface XPeachOps {
     channel?: XPeachReleaseChannel
     force?: boolean
   }) => Promise<XPeachUpdateCheckResult | { error: string }>
+  /** Dispatch a native OS notification through the Host process when running outside the desktop shell. */
+  readonly sendSystemNotification?: (req: {
+    id: string
+    kind: 'completed' | 'approval' | 'question' | 'plan-review' | 'error'
+    title: string
+    subtitle?: string | undefined
+    body: string
+    urgent?: boolean | undefined
+    silent?: boolean | undefined
+  }) => Promise<{ delivered: boolean; platform: string; reason?: string | undefined }>
 }
 
 /** Admin-facing row aliases kept client-side (mirrors host types). */

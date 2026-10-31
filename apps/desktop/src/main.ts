@@ -30,11 +30,15 @@ import { resolveDesktopPaths } from './paths.ts'
 const XPEACH_PROFILE_NAME = 'xpeach-desktop'
 
 app.setName('XPeach Harness')
+if (process.platform === 'win32') {
+  app.setAppUserModelId?.('codes.xpeach.harness')
+}
 if (!process.env.XPH_HOME && !process.env.DSH_HOME) {
   process.env.XPH_HOME = join(homedir(), '.xph')
 }
 process.env.XPH_PRODUCT ??= '1'
 import { DesktopProjectManager } from './project-manager.ts'
+import { DesktopTaskNotificationManager, validateDesktopTaskNotificationPayload } from './task-notification.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
 import { installDesktopDirectoryPicker } from './directory-picker.ts'
@@ -982,6 +986,23 @@ async function main(): Promise<void> {
   if (process.platform === 'darwin' && existsSync(applicationIconPath)) {
     try { app.dock?.setIcon(nativeImage.createFromPath(applicationIconPath)) } catch (_error) { /* Headless Darwin omits Dock. */ }
   }
+  const taskNotifications = new DesktopTaskNotificationManager({
+    window: () => mainWindow,
+    focusWindow: () => { focusPrimaryWindow() },
+    onSelectSession: (sessionId) => {
+      if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(DESKTOP_IPC.taskNotificationClicked, sessionId)
+      }
+    },
+    ...(existsSync(applicationIconPath) ? { iconPath: applicationIconPath } : {}),
+  })
+  ipcMain.handle(DESKTOP_IPC.taskNotify, (event, rawPayload: unknown) => {
+    assertProductSender(event)
+    if (quitting) return false
+    const validated = validateDesktopTaskNotificationPayload(rawPayload)
+    return taskNotifications.notify(validated)
+  })
+  app.on('will-quit', () => { taskNotifications.dispose() })
   app.setAboutPanelOptions({
     applicationName: 'XPeach Harness',
     applicationVersion: app.getVersion(),
@@ -1152,6 +1173,7 @@ async function main(): Promise<void> {
   const createMainWindow = (): BrowserWindow => {
     const window = createWindow(appPreload, false, true)
     mainWindow = window
+    taskNotifications.attachWindow(window)
     browserGuests.bind(window, (guest, name) => shortcuts.attachGuest(window, guest, name))
     shortcuts.attach(window)
     window.on('focus', automaticCheck)

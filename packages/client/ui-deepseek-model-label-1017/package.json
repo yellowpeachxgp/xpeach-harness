@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-deepseek-model-label-1017",
   "description": "Temporary 1017 release badge for official DeepSeek Flash model labels",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "publishConfig": {
     "access": "public"
   },

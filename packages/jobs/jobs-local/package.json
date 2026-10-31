@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-jobs-local",
   "description": "Process-local implementation of the DeepSeek Harness background job registry seam",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-alpha",
   "publishConfig": {
     "access": "public"
   },
