@@ -234,9 +234,16 @@ jobs:
             echo "counter already at this version"
             exit 0
           fi
+          BRANCH=$(git symbolic-ref --quiet --short HEAD || true)
+          if [ -z "$BRANCH" ]; then
+            echo "detached HEAD (tag release); skipping counter commit"
+            exit 0
+          fi
           node scripts/version/bump.mjs "${{ needs.version.outputs.version }}"
           git -c user.name=yellowpeachxgp -c user.email=yellowpeachxgp@users.noreply.github.com commit -am "release: v${{ needs.version.outputs.version }}"
-          git push
+          if ! git push; then
+            git reset --hard HEAD~1
+          fi
       - name: Compose the changelog
         shell: bash
         run: |
