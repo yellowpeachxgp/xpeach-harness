@@ -51,7 +51,7 @@
     "@xpeach/xph-client-ui-settings": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-util-values": "workspace:*",
-    "react": "^18.2.0"
+    "react": "^19.3.0"
   },
   "files": [
     "locale/*.json",

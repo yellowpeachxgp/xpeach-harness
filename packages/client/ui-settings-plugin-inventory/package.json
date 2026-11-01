@@ -57,7 +57,7 @@
     "@xpeach/xph-package-manifest": "workspace:*",
     "@testing-library/react": "^16.3.3",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-agent-preset-registry": "workspace:*",

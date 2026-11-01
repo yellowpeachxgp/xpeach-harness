@@ -49,7 +49,7 @@
     "@xpeach/xph-client-test-runtime": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-settings": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-util-values": "workspace:*"
   },
   "files": [

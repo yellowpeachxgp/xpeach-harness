@@ -26,7 +26,7 @@
     "@xpeach/xph-client-store": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-util-code-language": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "clsx": "^2.0.0",
     "diff": "^9.0.0",
     "react-dom": "^18.2.0",

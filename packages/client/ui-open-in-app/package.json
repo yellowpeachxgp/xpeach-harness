@@ -75,7 +75,7 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-host-open-in-app": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-ui-deliverables": "workspace:*",
     "@xpeach/xph-native-command": "workspace:*",
     "@xpeach/xph-client-shortcuts": "workspace:*"

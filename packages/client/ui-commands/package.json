@@ -56,7 +56,7 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-commands": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-api-session-controller": "workspace:*",
     "@xpeach/xph-client-store": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
