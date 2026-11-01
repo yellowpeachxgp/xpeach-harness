@@ -63,7 +63,7 @@
     "@xpeach/xph-client-ui-tool": "workspace:*",
     "@xpeach/xph-util-values": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0"
+    "react": "^19.3.0"
   },
   "files": [
     "locale/*.json",

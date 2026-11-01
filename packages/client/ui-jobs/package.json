@@ -46,7 +46,7 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-jobs": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0"
   },
   "files": [

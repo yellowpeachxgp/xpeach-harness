@@ -68,7 +68,7 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-client-ui-primitives": "workspace:*",
     "@xpeach/xph-client-locale": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-cordis-plugin-include": "workspace:~",
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",

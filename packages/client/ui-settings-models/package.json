@@ -54,7 +54,7 @@
     "@xpeach/xph-client-ui-settings": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-util-values": "workspace:*",
     "@xpeach/xph-remote-mock": "workspace:*",

@@ -64,7 +64,7 @@
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-client-ui-session": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
     "@xpeach/xph-client-connection": "workspace:*",
     "@xpeach/xph-session": "workspace:*",

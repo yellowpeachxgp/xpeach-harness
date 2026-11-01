@@ -72,7 +72,7 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-remote-mock": "workspace:*",
     "clsx": "^2.0.0",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-settings": "workspace:*",
     "react-dom": "^18.2.0",
     "@xpeach/xph-client-shortcuts": "workspace:*"

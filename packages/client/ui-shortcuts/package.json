@@ -57,7 +57,7 @@
     "@xpeach/xph-client-ui-settings": "workspace:*",
     "@xpeach/xph-brand": "workspace:*",
     "clsx": "^2.1.1",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-test-runtime": "workspace:*"
   },
   "files": [

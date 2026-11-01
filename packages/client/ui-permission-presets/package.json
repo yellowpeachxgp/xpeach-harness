@@ -65,7 +65,7 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-permission-presets": "workspace:*",
     "clsx": "^2.0.0",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-client-ui-session": "workspace:*"
   },

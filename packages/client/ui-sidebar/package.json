@@ -60,7 +60,7 @@
     "@xpeach/xph-client-ui-session": "workspace:*",
     "@xpeach/xph-client-ui-workspace": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "clsx": "^2.0.0",
     "@xpeach/xph-client-shortcuts": "workspace:*",
     "@xpeach/xph-client-product-analytics": "workspace:*"

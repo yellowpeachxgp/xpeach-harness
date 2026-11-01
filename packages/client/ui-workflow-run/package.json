@@ -70,6 +70,6 @@
     "@xpeach/xph-tool-workflow": "workspace:*",
     "@xpeach/xph-workflow": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "react": "^18.2.0"
+    "react": "^19.3.0"
   }
 }

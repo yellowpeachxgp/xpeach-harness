@@ -77,7 +77,7 @@
     "@xpeach/xph-client-ui-renderer": "workspace:*",
     "@xpeach/xph-client-ui-settings": "workspace:*",
     "@xpeach/xph-client-ui-slots": "workspace:*",
-    "react": "^18.2.0",
+    "react": "^19.3.0",
     "react-dom": "^18.2.0",
     "@testing-library/react": "^16.3.3",
     "@xpeach/xph-session": "workspace:*",
