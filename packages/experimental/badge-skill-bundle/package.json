@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-badge-skill-bundle",
   "description": "Let agents add a “powered by dsh” badge to documents, pull requests, and other outputs.",
-  "version": "0.0.27-alpha",
+  "version": "0.0.28-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
