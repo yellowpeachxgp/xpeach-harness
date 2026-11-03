@@ -259,7 +259,9 @@ export class ThemeRuntime {
     if (id !== 'system' && !this.themes.some(t => t.id === id)) {
       throw new Error(`theme "${id}" is not registered`)
     }
-    const target = this.snapshot.active.colorScheme === 'dark' && this.themes.some(t => t.id === `${id}-dark`)
+    const target = this.preference !== `${id}-dark`
+      && this.snapshot.active.colorScheme === 'dark'
+      && this.themes.some(t => t.id === `${id}-dark`)
       ? `${id}-dark`
       : id
     if (this.preference === target) return

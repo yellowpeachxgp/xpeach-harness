@@ -177,10 +177,59 @@ export function compareXpeachVersions(a: string, b: string): -1 | 0 | 1 {
 interface CachedDesktopChannelEntry {
   readonly mtimeMs: number
   readonly size: number
-  readonly rawChannel: string
+  readonly rawChannel: string | undefined
+  readonly autoCheckUpdate: boolean
 }
 
 const desktopChannelCache = new Map<string, CachedDesktopChannelEntry>()
+
+function resolveXphHomeDir(envOrHome?: NodeJS.ProcessEnv | string): string {
+  if (typeof envOrHome === 'string') {
+    if (envOrHome.trim().length > 0) return envOrHome.trim()
+    return process.env.XPH_HOME ?? process.env.DSH_HOME ?? join(homedir(), '.xph')
+  }
+  const env = envOrHome ?? process.env
+  return env.XPH_HOME ?? env.DSH_HOME ?? join(homedir(), '.xph')
+}
+
+function readCachedDesktopPreference(envOrHome?: NodeJS.ProcessEnv | string): CachedDesktopChannelEntry | undefined {
+  const home = resolveXphHomeDir(envOrHome)
+  const file = join(home, 'xpeach.update-channel.json')
+  let stat: Stats | undefined
+  try {
+    stat = statSync(file, { throwIfNoEntry: false })
+  } catch (_err) {
+    stat = undefined
+  }
+  if (stat === undefined) {
+    desktopChannelCache.delete(file)
+    return undefined
+  }
+  const cached = desktopChannelCache.get(file)
+  if (cached !== undefined && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+    return cached
+  }
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      const record = parsed as Record<string, unknown>
+      const channel = record['channel']
+      const rawChannel = typeof channel === 'string' && channel.trim().length > 0 ? channel : undefined
+      const autoCheckUpdate = typeof record['autoCheckUpdate'] === 'boolean' ? record['autoCheckUpdate'] : true
+      const entry: CachedDesktopChannelEntry = {
+        mtimeMs: stat.mtimeMs,
+        size: stat.size,
+        rawChannel,
+        autoCheckUpdate,
+      }
+      desktopChannelCache.set(file, entry)
+      return entry
+    }
+  } catch (_err) {
+    // Fall back to environment or running version when preference file is unreadable.
+  }
+  return undefined
+}
 
 /**
  * Read the user's persisted XPeach update channel from `~/.xph/xpeach.update-channel.json`.
@@ -195,41 +244,23 @@ export function readXpeachUpdateChannel(
   xphHome?: string,
   fallbackVersion?: string,
 ): XPeachReleaseChannel {
-  const home = typeof xphHome === 'string' && xphHome.trim().length > 0
-    ? xphHome.trim()
-    : (process.env.XPH_HOME ?? process.env.DSH_HOME ?? join(homedir(), '.xph'))
-  const file = join(home, 'xpeach.update-channel.json')
-  let stat: Stats | undefined
-  try {
-    stat = statSync(file, { throwIfNoEntry: false })
-  } catch (_err) {
-    stat = undefined
-  }
-  if (stat !== undefined) {
-    const cached = desktopChannelCache.get(file)
-    if (cached !== undefined && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
-      return normalizeXpeachChannel(cached.rawChannel, fallbackVersion)
-    }
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        const channel = (parsed as Record<string, unknown>)['channel']
-        if (typeof channel === 'string' && channel.trim().length > 0) {
-          desktopChannelCache.set(file, {
-            mtimeMs: stat.mtimeMs,
-            size: stat.size,
-            rawChannel: channel,
-          })
-          return normalizeXpeachChannel(channel, fallbackVersion)
-        }
-      }
-    } catch (_err) {
-      // Fall back to environment or running version when preference file is unreadable.
-    }
-  } else {
-    desktopChannelCache.delete(file)
+  const entry = readCachedDesktopPreference(xphHome)
+  if (entry?.rawChannel !== undefined) {
+    return normalizeXpeachChannel(entry.rawChannel, fallbackVersion)
   }
   return normalizeXpeachChannel(process.env.XPEACH_UPDATE_CHANNEL, fallbackVersion)
+}
+
+/**
+ * Read the user's persisted `autoCheckUpdate` preference from `~/.xph/xpeach.update-channel.json`.
+ * @param env Optional process environment or `~/.xph` path override.
+ * @returns `false` when automatic update checks are disabled in `~/.xph/xpeach.update-channel.json`; `true` otherwise.
+ */
+export function readXpeachAutoCheckUpdate(
+  env: NodeJS.ProcessEnv | string = process.env,
+): boolean {
+  const entry = readCachedDesktopPreference(env)
+  return entry?.autoCheckUpdate ?? true
 }
 
 function hasUnsafeEntryLink(entryXml: string): boolean {
@@ -309,6 +340,32 @@ export function filterAtomFeedForChannel(
   eligible.sort((a, b) => compareXpeachVersions(b.version, a.version))
   const replacement = eligible.map(item => item.raw).join('\n  ')
   return xml.slice(0, startIndex) + replacement + xml.slice(endIndex)
+}
+
+/**
+ * Resolve the `electron-updater` channel string that matches the prerelease identifier
+ * of the top entry in a filtered Atom feed so `GitHubProvider` accepts `-least`, `-beta`,
+ * `-alpha`, and plain semver tags across cross-channel transitions.
+ * @param xml Filtered Atom XML document.
+ * @returns Prerelease identifier of the top entry (or `'beta'` for a plain semver tag), or `undefined` when no valid entry exists.
+ */
+export function resolveTopAtomEntryUpdaterChannel(xml: string): string | undefined {
+  if (typeof xml !== 'string' || !xml.includes('<entry')) return undefined
+  const entryRegex = /<entry\b[^>]*>[\s\S]*?<\/entry>/giu
+  for (const match of xml.matchAll(entryRegex)) {
+    const rawEntry = match[0]
+    if (hasUnsafeEntryLink(rawEntry)) continue
+    const tag = extractEntryTag(rawEntry)
+    if (tag === undefined) continue
+    const cleaned = tag.trim().replace(/^[vV]+/u, '')
+    const versionMatch = VERSION_PATTERN.exec(cleaned)
+    if (versionMatch === null) continue
+    const suffix = versionMatch[4]
+    if (suffix === undefined || suffix.length === 0) return 'beta'
+    const firstId = suffix.split('.')[0]
+    if (firstId !== undefined && firstId.length > 0) return firstId
+  }
+  return undefined
 }
 
 /** One installer asset returned by the GitHub Releases REST API. */

@@ -505,7 +505,7 @@ export function scanOnboarding(): XPeachOnboardingScan {
   const counts: Record<XPeachSourceId, number> = {
     deepseek: countFiles(p.deepseek, name => /^session\.v\d+\.jsonl(\.zstd)?$/.test(name)),
     claude: countFiles(p.claude, name => name.endsWith('.jsonl')),
-    codex: countFiles(p.codex, name => /^rollout-.*\.jsonl\.zst$/.test(name)),
+    codex: countFiles(p.codex, name => /^(?:rollout-.*|session-.*)\.jsonl(?:\.zst)?$/.test(name)),
     zcode: countFiles(p.zcode, name => name.endsWith('.json')),
     chatgpt: chatgptExports.reduce((sum, path) => sum + decodeChatgptExport(path).length, 0) + chatgptDbThreads,
     gemini: threadPaths('gemini').length,
@@ -587,10 +587,13 @@ function decodeClaude(path: string): ImportedThread | undefined {
   return { title: humanTitle(messages, 'Claude Code thread'), ...(cwd !== undefined ? { cwd } : {}), createdAt: sanitizeTimestamp(createdAt ?? Date.now()), messages }
 }
 
-/** Codex rollout: zstd JSONL with session_meta + response_item messages. */
+/** Codex rollout: plain or zstd JSONL with session_meta + response_item messages. */
 function decodeCodex(path: string): ImportedThread | undefined {
   let text: string
-  try { text = zstdDecompressSync(readFileSync(path)).toString('utf8') } catch (_err) { return undefined }
+  try {
+    const raw = readFileSync(path)
+    text = path.endsWith('.zst') ? zstdDecompressSync(raw).toString('utf8') : raw.toString('utf8')
+  } catch (_err) { return undefined }
   const messages: { role: 'user' | 'assistant'; text: string; time: number }[] = []
   let cwd: string | undefined
   let createdAt: number | undefined
@@ -1000,7 +1003,7 @@ function threadPaths(source: XPeachSourceId): string[] {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) { walk(path, depth + 1); continue }
       if (source === 'claude' && entry.name.endsWith('.jsonl')) out.push(path)
-      if (source === 'codex' && /^rollout-.*\.jsonl\.zst$/.test(entry.name)) out.push(path)
+      if (source === 'codex' && /^(?:rollout-.*|session-.*)\.jsonl(?:\.zst)?$/.test(entry.name)) out.push(path)
       if (source === 'zcode' && entry.name.endsWith('.json')) out.push(path)
     }
   }
@@ -1540,7 +1543,9 @@ export function importAssets(
   home_: string,
   profilePatch: string,
 ): XPeachAssetImportResult {
-  const scan = scanOnboarding()
+  const scannedSkills = selection.skills ? scanSkills() : []
+  const scannedPrompts = selection.prompts ? scanPrompts() : []
+  const scannedMcp = selection.mcp ? scanMcp() : []
   const errors: string[] = []
   let mcp = 0
   let skills = 0
@@ -1548,7 +1553,7 @@ export function importAssets(
   if (selection.skills) {
     const root = join(home_, 'skills')
     mkdirSync(root, { recursive: true })
-    for (const skill of scan.skills) {
+    for (const skill of scannedSkills) {
       const dest = join(root, skill.name)
       if (existsSync(dest)) continue
       try {
@@ -1564,7 +1569,7 @@ export function importAssets(
     const dest = join(home_, 'AGENTS.md')
     const existing = readText(dest)
     const parts: string[] = []
-    for (const prompt of scan.prompts) {
+    for (const prompt of scannedPrompts) {
       const marker = '<!-- imported from ' + prompt.path + ' -->'
       if (existing !== undefined && existing.includes(marker)) continue
       const text = readText(prompt.path)
@@ -1582,14 +1587,14 @@ export function importAssets(
       }
     }
   }
-  if (selection.mcp && scan.mcp.length > 0) {
+  if (selection.mcp && scannedMcp.length > 0) {
     try {
       const existingEntries = readMcpPatchEntries(profilePatch)
       const existingNames = new Set(existingEntries.map(e => e.serverName.toLowerCase()))
       const existingIds = new Set(existingEntries.map(e => e.id))
       const combined: XPeachMcpPatchEntry[] = [...existingEntries]
 
-      for (const server of scan.mcp) {
+      for (const server of scannedMcp) {
         const config = server.config
         const command = typeof config['command'] === 'string' && config['command'].trim().length > 0
           ? config['command'].trim()

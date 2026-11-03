@@ -248,29 +248,14 @@ function registerUi(ctx: Context): Array<() => void> {
       const described = await ctx.remote.settings.describe()
       if (!described.ok) return described.error.message
       const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
-      type ProviderCfg = { api?: string; apiKeyEnv?: string; baseUrl?: string; models?: { id: string }[] }
+      type ProviderCfg = { api?: string; apiKeyEnv?: string; baseURL?: string; models?: { id: string }[] }
       const providers = (view?.value as { providers?: Record<string, ProviderCfg> } | undefined)?.providers
-      const completions = 'xpeach-completions'
-      const xpeachApi = providers?.xpeach?.api
-      const key = /^swe-/i.test(id)
-        ? 'xpeach'
-        : xpeachApi === 'openai-completions'
-          ? 'xpeach'
-          : completions
-      const source = providers?.xpeach
+      const key = 'xpeach'
       for (const [pKey, pVal] of Object.entries(providers ?? {})) {
         if (pKey.startsWith('xpeach') && pVal.models?.some(m => m.id === id)) return null
       }
       type JsonV = null | boolean | number | string | JsonV[] | { [k: string]: JsonV }
       const opsList: { op: 'set'; path: string[]; value: JsonV }[] = []
-      if (key === completions && providers?.[completions] === undefined) {
-        const { models: _m, ...rest } = (source ?? {}) as Record<string, JsonV>
-        opsList.push({
-          op: 'set',
-          path: ['providers', completions],
-          value: { ...rest, api: 'openai-completions', defaultInput: ['text', 'image'], reasoning: 'high', models: [] },
-        })
-      }
       const existing = providers?.[key]?.models ?? []
       const spec = inferClientModelSpec(id)
       const entry = {
@@ -893,6 +878,10 @@ const PEACH_BRAND_OVERRIDES = {
  */
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const earlyUndo: Array<() => void> = []
+  ;(globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__ = true
+  earlyUndo.push(() => {
+    delete (globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__
+  })
   for (const definition of PALETTES) {
     for (const mode of ['light', 'dark'] as const) {
       const id = mode === 'light' ? definition.id : `${definition.id}-dark`
@@ -912,6 +901,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     inject: () => ({
       active: () => ctx.theme.getTheme().active.id,
       setTheme: (id: string) => { ctx.theme.setTheme(id) },
+      subscribe: (listener: () => void) => ctx.on('theme/change', () => { listener() }),
     }),
   }, PaletteRow)))
   earlyUndo.push(ctx.slots.inject('settings.general.item', () => ctx.slots.register({

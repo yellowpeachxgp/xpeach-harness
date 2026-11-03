@@ -115,7 +115,9 @@ interface DesktopNotificationsWindowBridge {
     readonly urgent?: boolean | undefined
     readonly silent?: boolean | undefined
   }) => Promise<{ readonly shown: boolean; readonly reason?: string | undefined }>
-  readonly subscribeClick: (listener: (payload: { readonly id: string; readonly sessionId: string }) => void) => () => void
+  readonly subscribeClick: (
+    listener: (payload: string | { readonly id?: string | undefined; readonly sessionId?: string | undefined }) => void,
+  ) => () => void
 }
 
 const PREF_ENABLED_KEY = 'xpeach.notifications.enabled'
@@ -566,8 +568,11 @@ export function formatErrorNotification(
 export function playNotificationChime(kind: XPeachTaskNotificationKind): void {
   try {
     if (typeof window === 'undefined') return
-    const AudioCtx = window.AudioContext
-      ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    const win = window as {
+      AudioContext?: typeof AudioContext
+      webkitAudioContext?: typeof AudioContext
+    }
+    const AudioCtx = win.AudioContext ?? win.webkitAudioContext
     if (typeof AudioCtx !== 'function') return
 
     const ctx = new AudioCtx()
@@ -656,10 +661,9 @@ export async function dispatchTaskNotification(
   const prefs = readNotificationPreferences()
   if (!prefs.enabled && !options.force) return
   if (!options.force && !rememberDeliveredId(item.id)) return
+  if (options.showInAppBanner === false && !options.force) return
 
-  if (options.showInAppBanner !== false) {
-    pushNotificationBanner(item)
-  }
+  pushNotificationBanner(item)
 
   const desktopBridge = getDesktopNotificationsBridge()
   if (desktopBridge !== undefined) {
@@ -675,7 +679,7 @@ export async function dispatchTaskNotification(
         subtitle: item.subtitle,
         body: item.body,
         urgent: item.urgent,
-        silent: !prefs.sound,
+        silent: true,
       })
       return
     } catch (_err) {
@@ -699,7 +703,7 @@ export async function dispatchTaskNotification(
           body: item.body,
           tag: item.id,
           requireInteraction: item.urgent,
-          silent: !prefs.sound,
+          silent: true,
         })
         browserNotif.onclick = () => {
           window.focus()
@@ -721,7 +725,7 @@ export async function dispatchTaskNotification(
       subtitle: item.subtitle,
       body: item.body,
       urgent: item.urgent,
-      silent: !prefs.sound,
+      silent: true,
     }).catch(() => {})
   }
 }
@@ -817,15 +821,23 @@ export function installTaskNotificationMonitor(
 
   const getSessionsService = (): {
     list: {
-      getSnapshot: () => { readonly byId: Readonly<Record<string, SessionSummaryEntryLike>> }
-      subscribe: (cb: () => void) => () => void
+      getSnapshot: () => {
+        readonly phase?: string | undefined
+        readonly byId: Readonly<Record<string, SessionSummaryEntryLike>>
+      }
+      subscribe?: ((cb: () => void) => () => void) | undefined
     }
+    subagentAddress?: ((id: string) => unknown) | undefined
   } | undefined =>
     ctx.get('sessions') as {
       list: {
-        getSnapshot: () => { readonly byId: Readonly<Record<string, SessionSummaryEntryLike>> }
-        subscribe: (cb: () => void) => () => void
+        getSnapshot: () => {
+          readonly phase?: string | undefined
+          readonly byId: Readonly<Record<string, SessionSummaryEntryLike>>
+        }
+        subscribe?: ((cb: () => void) => () => void) | undefined
       }
+      subagentAddress?: ((id: string) => unknown) | undefined
     } | undefined
 
   const getUiSessionService = (): {
@@ -864,7 +876,8 @@ export function installTaskNotificationMonitor(
   const desktopBridge = getDesktopNotificationsBridge()
   if (desktopBridge !== undefined) {
     undo.push(
-      desktopBridge.subscribeClick(({ sessionId }) => {
+      desktopBridge.subscribeClick((payload) => {
+        const sessionId = typeof payload === 'string' ? payload : payload.sessionId
         if (sessionId && sessionNavigator !== null) {
           sessionNavigator(sessionId)
         }
@@ -880,11 +893,15 @@ export function installTaskNotificationMonitor(
     isSubagent: boolean
     isMainViewActive: boolean
   } => {
-    const byId = getSessionsService()?.list.getSnapshot().byId
-    const summary = byId?.[sessionId]
+    const sessions = getSessionsService()
+    const snap = sessions?.list.getSnapshot()
+    const summary = snap?.byId[sessionId]
     const title = (summary?.displayTitle ?? summary?.title ?? undefined) || undefined
     const cwd = summary?.cwd ?? undefined
-    const isSubagent = summary?.origin === 'subagent'
+    const isSubagent =
+      summary?.origin === 'subagent'
+      || sessions?.subagentAddress?.(sessionId) !== undefined
+      || (summary === undefined && snap?.phase === 'ready')
     const isMainViewActive = (summary?.retainedBy?.mainView ?? 0) > 0
     return { title, cwd, isSubagent, isMainViewActive }
   }
@@ -900,6 +917,7 @@ export function installTaskNotificationMonitor(
   const lastPendingKeyBySession = new Map<string, string | undefined>()
   const recentErrorAtBySession = new Map<string, number>()
   let statusSubscribed = false
+  let sessionsListSubscribed = false
   let seededInitialStatus = false
 
   const syncFromUiSession = (): void => {
@@ -908,6 +926,10 @@ export function installTaskNotificationMonitor(
     const snapshot = uiSession.sessionStatus.getSnapshot()
 
     if (!seededInitialStatus) {
+      const listPhase = getSessionsService()?.list.getSnapshot().phase
+      if (listPhase === 'pending' && snapshot.size === 0) {
+        return
+      }
       seededInitialStatus = true
       for (const [sessionId, status] of snapshot.entries()) {
         runningBySession.set(sessionId, status.running)
@@ -924,7 +946,8 @@ export function installTaskNotificationMonitor(
 
     for (const [sessionId, status] of snapshot.entries()) {
       const meta = lookupSessionMeta(sessionId)
-      const prevRunning = runningBySession.get(sessionId) ?? false
+      const prev = runningBySession.get(sessionId)
+      const prevRunning = prev ?? false
       if (!prevRunning && status.running) {
         turnStartedAtBySession.set(sessionId, Date.now())
       }
@@ -942,40 +965,45 @@ export function installTaskNotificationMonitor(
         clearSessionInteractionBanners(sessionId)
       } else if (pending !== undefined && pendingSignature !== undefined && pendingSignature !== prevPendingSignature) {
         lastPendingKeyBySession.set(sessionId, pendingSignature)
-        const lookingAtSession = isUserLookingAtSession(meta.isMainViewActive)
-        if (pending.kind === 'approval') {
-          const displayReasonText =
-            pending.displayReason !== undefined
-              ? ctx.locale.resolveText(pending.displayReason)
-              : undefined
-          const item = formatApprovalNotification({
-            sessionId,
-            sessionTitle: meta.title,
-            cwd: meta.cwd,
-            key: pending.key,
-            toolName: pending.toolName ?? 'tool',
-            reason: pending.reason,
-            displayReasonText,
-            t,
-          })
-          void dispatchTaskNotification(item, {
-            showInAppBanner: !lookingAtSession,
-            sendHostNotification,
-          })
-        } else {
-          const item = formatQuestionNotification({
-            sessionId,
-            sessionTitle: meta.title,
-            cwd: meta.cwd,
-            key: pending.key,
-            kind: pending.kind,
-            questions: pending.questions ?? [],
-            t,
-          })
-          void dispatchTaskNotification(item, {
-            showInAppBanner: !lookingAtSession,
-            sendHostNotification,
-          })
+        const isLivePending =
+          status.running
+          || ((pending as { readonly hasWaterfall?: () => boolean }).hasWaterfall?.() === true && prev !== undefined)
+        if (!meta.isSubagent && isLivePending) {
+          const lookingAtSession = isUserLookingAtSession(meta.isMainViewActive)
+          if (pending.kind === 'approval') {
+            const displayReasonText =
+              pending.displayReason !== undefined
+                ? ctx.locale.resolveText(pending.displayReason)
+                : undefined
+            const item = formatApprovalNotification({
+              sessionId,
+              sessionTitle: meta.title,
+              cwd: meta.cwd,
+              key: pending.key,
+              toolName: pending.toolName ?? 'tool',
+              reason: pending.reason,
+              displayReasonText,
+              t,
+            })
+            void dispatchTaskNotification(item, {
+              showInAppBanner: !lookingAtSession,
+              sendHostNotification,
+            })
+          } else {
+            const item = formatQuestionNotification({
+              sessionId,
+              sessionTitle: meta.title,
+              cwd: meta.cwd,
+              key: pending.key,
+              kind: pending.kind,
+              questions: pending.questions ?? [],
+              t,
+            })
+            void dispatchTaskNotification(item, {
+              showInAppBanner: !lookingAtSession,
+              sendHostNotification,
+            })
+          }
         }
       }
 
@@ -1003,6 +1031,11 @@ export function installTaskNotificationMonitor(
   }
 
   const tryAttachUiSession = (): void => {
+    const sessions = getSessionsService()
+    if (!sessionsListSubscribed && typeof sessions?.list.subscribe === 'function') {
+      sessionsListSubscribed = true
+      undo.push(sessions.list.subscribe(syncFromUiSession))
+    }
     if (statusSubscribed) return
     const uiSession = getUiSessionService()
     if (uiSession === undefined) return
@@ -1021,7 +1054,7 @@ export function installTaskNotificationMonitor(
   )
 
   undo.push(
-    ctx.remote.$on('api-session/status', ((sessionId: string, running: boolean) => {
+    ctx.remote.$on('api-session/status', (sessionId: string, running: boolean) => {
       if (statusSubscribed) return
       const meta = lookupSessionMeta(sessionId)
       const prevRunning = runningBySession.get(sessionId) ?? false
@@ -1049,11 +1082,11 @@ export function installTaskNotificationMonitor(
           sendHostNotification,
         })
       }
-    }) as (...args: never[]) => void),
+    }),
   )
 
   undo.push(
-    ctx.remote.$on('api-session/error', ((sessionId: string, message: string) => {
+    ctx.remote.$on('api-session/error', (sessionId: string, message: string) => {
       recentErrorAtBySession.set(sessionId, Date.now())
       const meta = lookupSessionMeta(sessionId)
       if (meta.isSubagent) return
@@ -1069,7 +1102,7 @@ export function installTaskNotificationMonitor(
         showInAppBanner: !lookingAtSession,
         sendHostNotification,
       })
-    }) as (...args: never[]) => void),
+    }),
   )
 
   return () => {

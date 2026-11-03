@@ -511,19 +511,6 @@ export function GeneralPreferencesRow({
 
           <div className={css.prefRow}>
             <div className={css.prefRowText}>
-              <div className={css.prefTitle}>{t('modules.gateway.sessionLog.title')}</div>
-              <div className={css.prefDesc}>{t('modules.gateway.sessionLog.desc')}</div>
-            </div>
-            <Switch
-              checked={readNsBool('session-log-deepseek', 'enabled', true)}
-              disabled={modBusy === 'session-log-deepseek'}
-              label={t('modules.gateway.sessionLog.title')}
-              onChange={(next) => { toggleNsBool('session-log-deepseek', 'enabled', next) }}
-            />
-          </div>
-
-          <div className={css.prefRow}>
-            <div className={css.prefRowText}>
               <div className={css.prefTitle}>{t('modules.gateway.analytics.title')}</div>
               <div className={css.prefDesc}>{t('modules.gateway.analytics.desc')}</div>
             </div>

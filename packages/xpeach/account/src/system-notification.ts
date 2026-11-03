@@ -91,7 +91,7 @@ function sanitizeNotificationText(value: string | undefined, maxChars: number): 
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index)
     if (code === 0x0a || code === 0x09 || (code >= 0x20 && code !== 0x7f)) {
-      cleaned += value[index]
+      cleaned += value.charAt(index)
     }
   }
   const trimmed = cleaned.replace(/\s+/g, ' ').trim()
@@ -133,7 +133,7 @@ function defaultRunCommand(
       },
       (err) => {
         if (err) {
-          reject(err)
+          reject(err instanceof Error ? err : new Error('execFile failed'))
           return
         }
         resolve()

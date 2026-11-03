@@ -426,7 +426,7 @@ export function XPeachTab({
   // with the token catalog so mounted/known models keep their metadata.
   const allModelIds = useMemo(() => {
     const ids = new Set<string>([...priceMap.keys(), ...catalog.map(model => model.id)])
-    return [...ids].filter(id => isBrandSafe(id))
+    return [...ids]
   }, [priceMap, catalog])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()

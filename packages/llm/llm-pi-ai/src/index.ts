@@ -115,6 +115,24 @@ function registrationFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderPro
 }
 
 /**
+ * Per-route catalog and endpoint facts that do not alter route ownership or
+ * directory entries, but still require notifying `llm/adapters-updated`
+ * listeners when changed in place.
+ * @param profiles - the currently resolved provider profiles.
+ * @returns a value suitable for `deepEqual` comparison across updates.
+ */
+function catalogFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>): unknown {
+  return [...profiles.entries()]
+    .map(([provider, profile]) => ({
+      provider,
+      baseURL: profile.baseURL,
+      apiKeyEnv: profile.apiKeyEnv,
+      models: (profile.piProvider?.getModels() ?? []).map(model => model.id),
+    }))
+    .sort((left, right) => left.provider.localeCompare(right.provider))
+}
+
+/**
  * The configurable-provider directory: every installed catalog route, plus
  * every route the current profiles declare. A hand-declared route has no
  * catalog entry, so without this union it would have no settings address and
@@ -243,9 +261,9 @@ export function apply(ctx: Context, config: Config): void {
   // profiles appear, and leave with them.
   let directory: DirectoryRegistrationHandle | undefined
   let directoryFacts: unknown
-  const ensureDirectory = (): void => {
+  const ensureDirectory = (): boolean => {
     const entries = directoryEntries(profiles(), settingsNs)
-    if (deepEqualJson(entries, directoryFacts)) return
+    if (deepEqualJson(entries, directoryFacts)) return false
     // Atomic replace, never dispose-then-register: a route another adapter
     // family already declares (a profile keyed `deepseek-official`) would
     // otherwise leave this plugin's whole directory withdrawn and the Models
@@ -257,6 +275,7 @@ export function apply(ctx: Context, config: Config): void {
       directory.replace(entries)
     }
     directoryFacts = entries
+    return true
   }
   ensureDirectory()
   /** Host-owned request inputs for discovery of one configured route. */
@@ -287,34 +306,52 @@ export function apply(ctx: Context, config: Config): void {
   // settings section supplies profiles, and routes drop when it empties.
   let registration: AdapterRegistrationHandle | undefined
   let registeredFacts: unknown
-  const ensureRegistrationFacts = (): void => {
-    const facts = registrationFacts(profiles())
-    if (deepEqualJson(facts, registeredFacts)) return
+  let registeredCatalogFacts: unknown
+  const ensureRegistrationFacts = (): boolean => {
+    const current = profiles()
+    const facts = registrationFacts(current)
+    if (deepEqualJson(facts, registeredFacts)) return false
     // The registry captures the route set and each route's retry policy at
     // registration, so a change to either must re-register. The swap is
     // atomic (same adapter instance, validated before anything moves): a
     // conflicting route leaves the previous routes serving requests, and
     // `registeredFacts` only advances once the registry actually holds the
     // new set — so returning to a working configuration always re-applies.
-    const routes = [...profiles().keys()]
+    const routes = [...current.keys()]
     if (registration === undefined) {
       // Dormant bare mount: nothing is registered until a section supplies
       // profiles, and an empty section keeps it that way.
       if (routes.length === 0) {
         registeredFacts = facts
-        return
+        registeredCatalogFacts = catalogFacts(current)
+        return false
       }
       registration = ctx.llm.registerAdapter(routes, adapter)
     } else {
       registration.replace(routes)
     }
     registeredFacts = facts
+    registeredCatalogFacts = catalogFacts(current)
+    return true
+  }
+  const ensureCatalogFacts = (alreadyNotified: boolean): void => {
+    const current = profiles()
+    const catFacts = catalogFacts(current)
+    if (deepEqualJson(catFacts, registeredCatalogFacts)) return
+    registeredCatalogFacts = catFacts
+    if (!alreadyNotified && registration !== undefined) {
+      registration.replace([...current.keys()])
+    }
   }
   ensureRegistrationFacts()
+  ensureCatalogFacts(true)
 
   ctx.on('loader/volatile-update', () => {
-    try { ensureRegistrationFacts(); ensureDirectory() }
-    catch (error) {
+    try {
+      const registrationChanged = ensureRegistrationFacts()
+      const directoryChanged = ensureDirectory()
+      ensureCatalogFacts(registrationChanged || directoryChanged)
+    } catch (error) {
       ctx.logger.error('llm-pi-ai: configuration conflicts with an existing provider route')
       ctx.logger.error(error)
     }

@@ -31,7 +31,7 @@ const XPEACH_PROFILE_NAME = 'xpeach-desktop'
 
 app.setName('XPeach Harness')
 if (process.platform === 'win32') {
-  app.setAppUserModelId?.('codes.xpeach.harness')
+  app.setAppUserModelId('codes.xpeach.harness')
 }
 if (!process.env.XPH_HOME && !process.env.DSH_HOME) {
   process.env.XPH_HOME = join(homedir(), '.xph')
@@ -48,7 +48,7 @@ import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } fro
 import { readDeviceInfo } from './device-info.ts'
 import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
 import { claimDesktopSingleInstance } from './single-instance.ts'
-import { desktopUpdateChannel } from './update-channel.ts'
+import { desktopUpdateChannel, readXpeachAutoCheckUpdate } from './update-channel.ts'
 import { DesktopUpdateCoordinator } from './update-coordinator.ts'
 import { DesktopCommandManager } from './command-management.ts'
 import { serveWebDocument, authenticateWebHost, forwardWebRequest } from './web-document.ts'
@@ -819,7 +819,7 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.updatesStatus, (event) => {
     assertProductSender(event)
-    if (!quitting && updates.state.phase === 'idle') {
+    if (!quitting && updates.state.phase === 'idle' && readXpeachAutoCheckUpdate()) {
       void updateSchedule.check(false).catch((error: unknown) => { console.error(error) })
     }
     return presentDesktopUpdate(updates.state)
@@ -868,7 +868,11 @@ async function main(): Promise<void> {
       let progress: Promise<unknown> | undefined
       try {
         let state = updates.state
-        if (manual || state.phase === 'idle' || (state.phase === 'error' && state.failedOperation === 'check')) {
+        const shouldCheck = manual
+          || updates.hasSubscribedChannelChanged()
+          || state.phase === 'idle'
+          || (state.phase === 'error' && state.failedOperation === 'check')
+        if (shouldCheck) {
           controller = new AbortController()
           ordinaryDialogs.add(controller)
           const parent = currentDialogWindow()
@@ -971,7 +975,7 @@ async function main(): Promise<void> {
 
   const automaticCheck = (): void => {
     if (!quitting) void mandatoryPolicy?.check('foreground-or-resume').catch((error: unknown) => { console.error(error) })
-    if (!quitting) void updateSchedule.check().catch((error: unknown) => { console.error(error) })
+    if (!quitting && readXpeachAutoCheckUpdate()) void updateSchedule.check().catch((error: unknown) => { console.error(error) })
   }
   powerMonitor.on('resume', automaticCheck)
   app.on('will-quit', () => {
@@ -1061,7 +1065,7 @@ async function main(): Promise<void> {
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
     ...process.platform === 'darwin' || process.platform === 'win32'
       ? [{ label: currentDesktopLocale().messages.cliCommandMenu, click: () => { void commandManager.show() } }] : [],
-    ...process.platform === 'darwin' && existsSync(app.getAppPath())
+    ...process.platform === 'darwin' && !app.isPackaged && existsSync(app.getAppPath())
       ? [{ label: currentDesktopLocale().messages.macosPkgInstallerMenu, click: () => { void openMacosPkgInstaller() } }] : [],
     ...development ? [
       { type: 'separator' as const },
@@ -1161,6 +1165,9 @@ async function main(): Promise<void> {
     })
   }
 
+  const requestApplicationQuit = (): void => {
+    app.quit()
+  }
   const hideMainWindow = (window: BrowserWindow): void => {
     if (process.platform === 'darwin' && window.isFullScreen()) {
       // Hiding a fullscreen window leaves an empty black space; leave fullscreen first.
@@ -1177,11 +1184,12 @@ async function main(): Promise<void> {
     browserGuests.bind(window, (guest, name) => shortcuts.attachGuest(window, guest, name))
     shortcuts.attach(window)
     window.on('focus', automaticCheck)
-    // Closing hides: the page and the Host keep running, and the next show resumes the same document.
+    // Closing hides on macOS and Windows; Linux has no system tray or Dock activation, so closing quits.
     window.on('close', (event) => {
       if (quitting || shellInstallerOwnsQuit || sessionEnding) return
       event.preventDefault()
       if (updateDialog.isOpen) { updateDialog.focus(); return }
+      if (process.platform === 'linux') { requestApplicationQuit(); return }
       const hide = (): void => {
         if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) hideMainWindow(window)
       }
@@ -1445,16 +1453,16 @@ async function main(): Promise<void> {
     ? ('dshMandatoryUpdatePolicy' in manifest ? manifest.dshMandatoryUpdatePolicy : undefined)
     : developmentPolicy === undefined ? undefined : JSON.parse(developmentPolicy) as unknown
   const policyConfig = resolveDesktopPolicyConfig(policyInput, !app.isPackaged)
-  if (policyConfig !== undefined) {
+  if (policyConfig !== undefined && (process.platform === 'win32' || process.platform === 'darwin')) {
+    if (!['x64', 'arm64'].includes(process.arch)) throw new Error('desktop policy: unsupported platform')
     if (policyConfig.authentication === 'feishu-test') {
       policyAuth = new DesktopPolicyTestAuth(policyConfig.origin, policyConfig.allowedAuthOrigins, locale,
         () => mandatoryUI?.confirmationWindow ?? currentDialogWindow(),
         (event) => { console.info(`desktop policy authentication: ${event}`); updateJournal?.action(`policy-login-${event}`) })
     }
-    if (!['win32', 'darwin'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch)) throw new Error('desktop policy: unsupported platform')
     let wasBlocking = false
     mandatoryPolicy = new DesktopMandatoryUpdatePolicy(policyConfig, {
-      platform: process.platform as 'win32' | 'darwin', arch: process.arch as 'x64' | 'arm64',
+      platform: process.platform, arch: process.arch as 'x64' | 'arm64',
       channel: updateChannel,
       bundledDshVersion: app.isPackaged ? readDesktopRuntime(resources.dsh).release.version : app.getVersion(),
     }, (state) => {

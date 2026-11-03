@@ -10,6 +10,7 @@ import { configureMacosAdhocUpdater, isPackagedGitHubProvider } from './macos-ad
 import {
   compareXpeachVersions,
   isVersionEligibleForChannel,
+  readXpeachAutoCheckUpdate,
   readXpeachUpdateChannel,
   type XPeachReleaseChannel,
 } from './update-channel.ts'
@@ -51,6 +52,7 @@ export class DesktopUpdateCoordinator {
   private downloadOperation: Promise<DesktopUpdateState> | undefined
   private installOperation: Promise<DesktopUpdateState> | undefined
   private xpeachChannelOverride: XPeachReleaseChannel | undefined
+  private lastCheckedXpeachChannel: XPeachReleaseChannel | undefined
 
   private readonly onProgress = (progress: ProgressInfo): void => {
     if (this.downloadOperation === undefined || this.downloaded) return
@@ -89,8 +91,12 @@ export class DesktopUpdateCoordinator {
     private readonly channel: 'nightly' | 'latest' = 'nightly',
   ) {
     if (updater === autoUpdater) {
-      if (process.env.XPEACH_SILENT_UPDATE !== '0') {
-        setTimeout(() => { void this.check().catch(() => {}) }, 3_000).unref()
+      if (process.env.XPEACH_SILENT_UPDATE !== '0' && readXpeachAutoCheckUpdate()) {
+        setTimeout(() => {
+          if (readXpeachAutoCheckUpdate()) {
+            void this.check().catch(() => {})
+          }
+        }, 3_000).unref()
       }
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
@@ -99,18 +105,28 @@ export class DesktopUpdateCoordinator {
         Number(process.env.DSH_DESKTOP_UPDATE_HTTP_IDLE_TIMEOUT_MS ?? 60_000),
         (authInfo, callback) => { updater.emit('login', authInfo, callback) },
         () => this.resolveActiveXpeachChannel(this.currentVersion()),
+        (updaterChannel) => {
+          const allowDowngrade = this.updater.allowDowngrade
+          this.updater.channel = updaterChannel
+          this.updater.allowDowngrade = allowDowngrade
+        },
       )
       configureMacosAdhocUpdater(updater)
     }
     // XPeach ships with silent updates: download in the background and install on
     // quit; a user-initiated check can still surface progress in the UI.
-    const allowPrerelease = channel === 'nightly' || this.currentVersion().includes('-')
+    const packagedGitHub = isPackagedGitHubProvider()
+    const activeXpeachChannel = this.resolveActiveXpeachChannel(this.currentVersion())
+    const allowPrerelease = channel === 'nightly'
+      || this.currentVersion().includes('-')
+      || packagedGitHub
+      || activeXpeachChannel !== undefined
     this.updater.autoDownload = false
     this.updater.disableDifferentialDownload = true
     this.updater.autoInstallOnAppQuit = process.env.XPEACH_SILENT_UPDATE !== '0'
     // GitHubProvider treats a non-null updater.channel as a prerelease tag filter
     // (such as -latest), and AppUpdater.channel setter rejects null once set.
-    if (!(updater === autoUpdater && allowPrerelease && isPackagedGitHubProvider())) {
+    if (!(updater === autoUpdater && allowPrerelease && packagedGitHub)) {
       this.updater.channel = channel
     }
     this.updater.allowPrerelease = allowPrerelease
@@ -130,11 +146,37 @@ export class DesktopUpdateCoordinator {
    */
   setXpeachChannel(channel: XPeachReleaseChannel | undefined): void {
     this.xpeachChannelOverride = channel
+    if (channel !== undefined) {
+      this.updater.allowPrerelease = true
+    }
+  }
+
+  /**
+   * Read the currently subscribed XPeach release channel, or `undefined` when no XPeach channel applies.
+   * @returns Subscribed XPeach release channel (`'least' | 'beta' | 'alpha'`), or `undefined`.
+   */
+  readSubscribedUpdateChannel(): XPeachReleaseChannel | undefined {
+    return this.resolveActiveXpeachChannel(this.currentVersion())
+  }
+
+  /**
+   * Determine whether the subscribed XPeach release channel has changed since the last completed check.
+   * @returns `true` when a previous check recorded a channel and the current subscribed channel differs.
+   */
+  hasSubscribedChannelChanged(): boolean {
+    if (this.lastCheckedXpeachChannel === undefined) return false
+    const current = this.readSubscribedUpdateChannel()
+    return current !== undefined && current !== this.lastCheckedXpeachChannel
   }
 
   private resolveActiveXpeachChannel(running: string): XPeachReleaseChannel | undefined {
     if (this.xpeachChannelOverride !== undefined) return this.xpeachChannelOverride
-    if (this.updater === autoUpdater) {
+    const envChannel = process.env.XPEACH_UPDATE_CHANNEL?.trim()
+    if (
+      (envChannel !== undefined && envChannel.length > 0)
+      || this.updater === autoUpdater
+      || isPackagedGitHubProvider()
+    ) {
       return readXpeachUpdateChannel(undefined, running)
     }
     return undefined
@@ -150,7 +192,12 @@ export class DesktopUpdateCoordinator {
     // so the next quit applies it without asking.
     const silent = process.env.XPEACH_SILENT_UPDATE !== '0' && !manual
     this.assertLive()
-    if (this.downloadOperation !== undefined || this.installOperation !== undefined || this.downloaded) return this.current
+    if (this.downloadOperation !== undefined || this.installOperation !== undefined) return this.current
+    if (this.hasSubscribedChannelChanged()) {
+      this.downloaded = false
+      this.candidate = undefined
+    }
+    if (this.downloaded) return this.current
     if (!manual && this.current.phase === 'error' && this.current.failedOperation === 'download') return this.current
     this.checkOperation ??= Promise.resolve().then(() => this.doCheck())
       .finally(() => { this.checkOperation = undefined })
@@ -253,19 +300,26 @@ export class DesktopUpdateCoordinator {
       this.assertLive()
       if (!this.enabled()) throw new Error('desktop update: this application has no packaged update source')
       const running = this.currentVersion()
-      if (running.includes('-')) {
+      const packagedGitHub = isPackagedGitHubProvider()
+      const activeXpeachChannel = this.resolveActiveXpeachChannel(running)
+      this.lastCheckedXpeachChannel = activeXpeachChannel
+      if (running.includes('-') || packagedGitHub || activeXpeachChannel !== undefined) {
         this.updater.allowPrerelease = true
       }
       const result = await this.updater.checkForUpdates()
       if (result === null) throw new Error('desktop update: no check result was returned')
       const version = result.updateInfo.version
       if (valid(version) === null) throw new Error('desktop update: feed version is invalid')
-      // A stable channel refuses prereleases; a prerelease build follows the same
-      // feed so alpha and beta installs can still update themselves.
-      if (this.channel === 'latest' && version.includes('-') && !running.includes('-')) {
+      // A stable channel refuses prereleases; a prerelease build or XPeach GitHub channel follows its subscribed feed.
+      if (
+        this.channel === 'latest'
+        && version.includes('-')
+        && !running.includes('-')
+        && !packagedGitHub
+        && activeXpeachChannel === undefined
+      ) {
         throw new Error('desktop update: latest feed contains a prerelease')
       }
-      const activeXpeachChannel = this.resolveActiveXpeachChannel(running)
       if (activeXpeachChannel !== undefined) {
         if (!isVersionEligibleForChannel(version, activeXpeachChannel)) {
           this.candidate = undefined

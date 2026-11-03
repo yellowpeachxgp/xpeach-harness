@@ -56,7 +56,14 @@ export default defineConfig([
         plugins: [{
           name: 'desktop-brand-font',
           async generateBundle() {
-            for (const name of ['brand-font.css', 'montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
+            const rawCss = await readFile(new URL('../../packages/client/ui-theme/src/styles/brand-font.css', import.meta.url), 'utf8')
+            const montserratBlocks = rawCss.match(/@font-face\s*\{[^}]*font-family:\s*['"]Montserrat['"][^}]*\}/gu) ?? []
+            this.emitFile({
+              type: 'asset',
+              fileName: 'brand-font.css',
+              source: `${montserratBlocks.join('\n\n')}\n`,
+            })
+            for (const name of ['montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
               this.emitFile({
                 type: 'asset',
                 fileName: name,

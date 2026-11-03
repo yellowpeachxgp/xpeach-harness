@@ -1353,4 +1353,106 @@ describe('account state writes on a fresh install', () => {
     expect(cat.tokenGroups).toEqual(['SWE'])
     expect(adminTokenUpdate).toHaveBeenCalledTimes(1)
   })
+
+  it('reconciles a stale agent-default-model after syncing the model catalog and keeps SSO unbound if no relay key can be minted', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+
+    const settingsUpdates: Array<{ ns: string; patch: unknown }> = []
+    const savedSelections: Array<{ provider: string; model: string; reasoningEffort?: string }> = []
+    const settingsService = {
+      describe: () => ({ namespaces: [{ ns: 'llm-pi-ai', value: { providers: {} } }] }),
+      update: vi.fn(async (ns: string, patch: unknown) => {
+        settingsUpdates.push({ ns, patch })
+      }),
+    }
+    const agentDefaultModelService = {
+      currentSelection: () => ({ provider: 'xpeach', model: 'non-existent-model' }),
+      saveSelection: vi.fn(async (sel: { provider: string; model: string; reasoningEffort?: string }) => {
+        savedSelections.push(sel)
+      }),
+    }
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      keyFile,
+      keyVar: 'XPEACH_TEST_RECONCILE_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_RECONCILE_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_RECONCILE_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_RELAY_KEY',
+      baseUrl: 'https://fast.xpeach.codes',
+      timeoutMs: 15_000,
+      probingSlotKey: false,
+      enabledFamilies: [],
+      protocolPreference: 'openai-completions',
+      ssoApprovedCache: new Map(),
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        setBaseUrl: vi.fn(),
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+        models: vi.fn(async () => [{ id: 'swe-2-max' }, { id: 'kimi-k2.6' }]),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE'] },
+            { model_name: 'kimi-k2.6', enable_groups: ['SWE'] },
+          ],
+          groupRatio: { SWE: 0.22 },
+          usableGroup: { SWE: 'SWE Group' },
+        })),
+        userSelf: vi.fn(async () => ({
+          id: 42,
+          username: 'tester',
+          display_name: 'Tester',
+          quota: 10_000_000,
+          used_quota: 0,
+          group: 'SWE',
+        })),
+        adminTokenList: vi.fn(async () => []),
+        adminTokenCreate: vi.fn(async () => ({ id: 0, key: '', name: '' })),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: (name: string) => {
+          if (name === 'settings') return settingsService
+          if (name === 'agentDefaultModel') return agentDefaultModelService
+          return undefined
+        },
+      },
+    })
+
+    writeState(keyFile, 'sk-validRelayKeyForSync123456\n')
+    const runSyncModelCatalog = Reflect.get(XPeachAccount.prototype, 'runSyncModelCatalog') as (sig?: AbortSignal) => Promise<void>
+    await runSyncModelCatalog.call(fakeAccount, new AbortController().signal)
+
+    expect(savedSelections).toContainEqual({ provider: 'xpeach', model: 'swe-2-max' })
+
+    // Remove relay key and simulate an SSO bridge payload whose relay token is empty and cannot be minted
+    writeState(keyFile, '')
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_RECONCILE_RELAY_KEY')
+    const applySsoBridgePayload = Reflect.get(XPeachAccount.prototype, 'applySsoBridgePayload') as (
+      payload: unknown,
+      sig: AbortSignal,
+    ) => Promise<{ status: string; bound: boolean; message?: string }>
+    const ssoRes = await applySsoBridgePayload.call(
+      fakeAccount,
+      {
+        sessionToken: 'sess-only-token-123456',
+        user: { id: 42, username: 'tester', displayName: 'Tester', group: 'SWE' },
+        peach: { baseUrl: 'https://fast.xpeach.codes', relayApiKey: '' },
+      },
+      new AbortController().signal,
+    )
+    expect(ssoRes.status).toBe('error')
+    expect(ssoRes.bound).toBe(false)
+  })
 })

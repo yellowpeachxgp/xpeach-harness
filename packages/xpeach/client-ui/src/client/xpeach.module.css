@@ -65,7 +65,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  font-family: 'Montserrat', var(--dsw-alias-font-family, system-ui), sans-serif;
+  font-family: var(--dsw-font-family);
   line-height: 1;
   user-select: none;
 }
@@ -165,7 +165,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-meta);
   line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .consoleNavWrap {
   display: flex;
@@ -783,7 +783,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: 13px;
   font-weight: 500;
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -934,7 +934,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 }
 .codexInsightModel {
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: var(--xph-type-caption);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1167,7 +1167,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-body);
   font-weight: 500;
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .marketOwner {
   font-size: var(--xph-type-meta);
@@ -1222,7 +1222,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-secondary);
   font-size: var(--xph-type-meta);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .epChip {
   padding: 2px 8px;
@@ -1232,7 +1232,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: color-mix(in srgb, var(--xph-brand-blue) 12%, transparent);
   color: var(--xph-brand-blue);
   font-size: var(--xph-type-meta);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .healthOk {
   padding: 2px 7px;
@@ -1486,7 +1486,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 .logModel {
   font-weight: 500;
   font-size: var(--xph-type-caption);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   color: var(--dsw-alias-label-primary);
 }
 .logMeta {
@@ -1594,7 +1594,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 }
 .logModelCell {
   font-weight: 500;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 
 /* ─── Network & Route Failover Matrix ─── */
@@ -1616,7 +1616,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   margin: 4px 0 0;
   font-size: 15px;
   font-weight: 500;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   color: var(--dsw-alias-label-primary);
 }
 .networkAuto {
@@ -1679,7 +1679,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 }
 .networkHost {
   font-size: var(--xph-type-meta);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   color: var(--dsw-alias-label-tertiary);
 }
 .networkMetrics {
@@ -1763,7 +1763,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 .adminId {
   font-size: var(--xph-type-body);
   font-weight: 500;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   color: var(--dsw-alias-label-primary);
 }
 .adminKey {
@@ -1881,7 +1881,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-layer-1);
 }
 .optKey {
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: var(--xph-type-caption);
   color: var(--dsw-alias-label-primary);
   padding-top: 6px;
@@ -1889,7 +1889,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 .optArea {
   width: 100%;
   resize: vertical;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: var(--xph-type-caption);
   line-height: 18px;
   padding: 8px 10px;
@@ -1916,7 +1916,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-base);
   border: 0.5px solid var(--dsw-alias-border-l2);
   cursor: pointer;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .codeItem:hover {
   background: var(--dsw-alias-interactive-bg-hover);
@@ -2020,7 +2020,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border-radius: 999px;
   corner-shape: round;
   font-size: var(--xph-type-meta);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .modelChipOk {
   background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 13%, transparent);
@@ -2154,7 +2154,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-body);
   font-weight: 500;
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .ctrlBadge {
   padding: 2px 8px;
@@ -2229,7 +2229,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 .ctrlPath {
   font-size: var(--xph-type-meta);
   color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2270,7 +2270,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: var(--xph-type-caption);
   line-height: 1.6;
   resize: vertical;
@@ -2302,7 +2302,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 .ctrlCodeText {
   font-size: var(--xph-type-meta);
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2344,7 +2344,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-caption);
   font-weight: 500;
   color: var(--xph-brand-orange-strong);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .ctrlToolDesc {
   font-size: var(--xph-type-meta);
@@ -2396,7 +2396,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: var(--xph-type-caption);
   line-height: 1.55;
   resize: vertical;
@@ -2473,7 +2473,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 .installerPath {
   font-size: var(--xph-type-meta);
   color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2491,7 +2491,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   margin: 0;
   font-size: var(--xph-type-meta);
   line-height: 1.5;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   color: var(--dsw-alias-label-secondary);
   white-space: pre-wrap;
   word-break: break-all;
@@ -2666,7 +2666,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 }
 .maskLine {
   margin: -4px 0 6px;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: var(--xph-type-meta);
   color: var(--dsw-alias-label-tertiary);
 }
@@ -2677,7 +2677,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-secondary);
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 .freshTag {
   font-weight: 400;
@@ -2845,7 +2845,7 @@ body[data-ds-dark-theme] .mark img.markDark {
 }
 .costPopRoute {
   overflow-wrap: anywhere;
-  font-family: var(--dsh-font-family-code, monospace);
+  font-family: var(--ds-font-family-code);
 }
 
 /* Sidebar settings launcher + balance hover card */
@@ -3039,6 +3039,12 @@ body[data-ds-dark-theme] .mark img.markDark {
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
   box-shadow: var(--dsw-elevation-prominent);
 }
+.onbShell[data-standalone='true'] {
+  width: min(560px, 94vw);
+  height: auto;
+  max-height: 90vh;
+  grid-template-columns: 1fr;
+}
 .onbRail {
   display: flex;
   flex-direction: column;
@@ -3096,11 +3102,33 @@ body[data-ds-dark-theme] .mark img.markDark {
   color: var(--dsw-alias-label-secondary);
 }
 .onbMain {
+  position: relative;
   padding: 36px 40px 28px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   overflow: auto;
+}
+.onbCloseBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  corner-shape: round;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 16px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.onbCloseBtn:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 .onbHead h2 {
   margin: 0;
@@ -3648,7 +3676,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-layer-1);
   border: 0.5px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-secondary);
-  font-family: var(--dsw-alias-font-mono, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: 11px;
   font-weight: 500;
   line-height: 16px;
@@ -3724,7 +3752,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-base);
   border: 0.5px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsw-alias-font-mono, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: 10px;
   line-height: 16px;
 }
@@ -3804,7 +3832,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-secondary);
-  font-family: var(--dsw-alias-font-mono, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: 11px;
   line-height: 16px;
   white-space: pre-wrap;
@@ -4016,7 +4044,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: color-mix(in srgb, var(--xph-brand-orange, var(--dsw-alias-brand-primary)) 12%, var(--dsw-alias-bg-layer-2));
   border: 0.5px solid color-mix(in srgb, var(--xph-brand-orange, var(--dsw-alias-brand-primary)) 32%, var(--dsw-alias-border-l2));
   color: var(--xph-brand-orange-strong, var(--dsw-alias-brand-primary));
-  font-family: var(--dsh-font-family-code, var(--ds-font-family-code, monospace));
+  font-family: var(--ds-font-family-code);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -4050,7 +4078,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border-radius: 4px;
   background: color-mix(in srgb, var(--xph-brand-orange, var(--dsw-alias-brand-primary)) 12%, var(--dsw-alias-bg-layer-2));
   color: var(--xph-brand-orange-strong, var(--dsw-alias-brand-primary));
-  font-family: var(--dsh-font-family-code, var(--ds-font-family-code, monospace));
+  font-family: var(--ds-font-family-code);
   font-size: 10px;
   font-weight: 500;
   line-height: 1.5;
@@ -4098,7 +4126,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);
-  font-family: var(--dsw-alias-font-mono, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: 20px;
   font-weight: 500;
   line-height: 26px;

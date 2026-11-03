@@ -97,11 +97,11 @@ export class DesktopTaskNotificationManager {
    */
   attachWindow(window: BrowserWindow): void {
     if (this.boundWindow === window) return
-    if (this.boundWindow !== undefined && !this.boundWindow.isDestroyed?.()) {
-      this.boundWindow.off?.('focus', this.onWindowFocus)
+    if (this.boundWindow !== undefined && !this.boundWindow.isDestroyed()) {
+      this.boundWindow.off('focus', this.onWindowFocus)
     }
     this.boundWindow = window
-    window.on?.('focus', this.onWindowFocus)
+    window.on('focus', this.onWindowFocus)
   }
 
   /**
@@ -118,11 +118,11 @@ export class DesktopTaskNotificationManager {
     }
 
     const win = this.options.window()
-    if (win !== undefined && !win.isDestroyed?.()) {
+    if (win !== undefined && !win.isDestroyed()) {
       this.attachWindow(win)
     }
     const isWindowFocused =
-      win !== undefined && !win.isDestroyed?.() && Boolean(win.isVisible?.()) && Boolean(win.isFocused?.())
+      win !== undefined && !win.isDestroyed() && win.isVisible() && win.isFocused()
     const urgent = payload.urgent ?? (
       payload.kind === 'approval'
       || payload.kind === 'question'
@@ -136,7 +136,7 @@ export class DesktopTaskNotificationManager {
     }
 
     const ElectronNotification = (electron as { Notification?: typeof Notification }).Notification
-    if (ElectronNotification === undefined || !ElectronNotification.isSupported?.()) {
+    if (ElectronNotification === undefined || !ElectronNotification.isSupported()) {
       return !isWindowFocused
     }
 
@@ -180,17 +180,17 @@ export class DesktopTaskNotificationManager {
     this.unreadCount = 0
     const win = this.options.window() ?? this.boundWindow
     try {
-      if ((this.platform === 'win32' || this.platform === 'linux') && win !== undefined && !win.isDestroyed?.()) {
-        win.flashFrame?.(false)
+      if ((this.platform === 'win32' || this.platform === 'linux') && win !== undefined && !win.isDestroyed()) {
+        win.flashFrame(false)
       }
       if (this.platform === 'darwin') {
         if (this.bounceId !== undefined) {
-          electron.app?.dock?.cancelBounce(this.bounceId)
+          electron.app.dock?.cancelBounce(this.bounceId)
           this.bounceId = undefined
         }
-        electron.app?.dock?.setBadge('')
+        electron.app.dock?.setBadge('')
       }
-      if (this.platform === 'linux' && typeof electron.app?.setBadgeCount === 'function') {
+      if (this.platform === 'linux') {
         electron.app.setBadgeCount(0)
       }
     } catch (error) {
@@ -201,8 +201,8 @@ export class DesktopTaskNotificationManager {
   /** Dispose all active notifications and clear window attention before application quit. */
   dispose(): void {
     this.clearAttention()
-    if (this.boundWindow !== undefined && !this.boundWindow.isDestroyed?.()) {
-      this.boundWindow.off?.('focus', this.onWindowFocus)
+    if (this.boundWindow !== undefined && !this.boundWindow.isDestroyed()) {
+      this.boundWindow.off('focus', this.onWindowFocus)
     }
     this.boundWindow = undefined
     for (const notification of this.activeNotifications) {
@@ -217,25 +217,23 @@ export class DesktopTaskNotificationManager {
     try {
       if (this.platform === 'darwin') {
         if (this.bounceId !== undefined) {
-          electron.app?.dock?.cancelBounce(this.bounceId)
+          electron.app.dock?.cancelBounce(this.bounceId)
         }
-        this.bounceId = electron.app?.dock?.bounce(urgent ? 'critical' : 'informational')
-        electron.app?.dock?.setBadge(String(this.unreadCount))
+        this.bounceId = electron.app.dock?.bounce(urgent ? 'critical' : 'informational')
+        electron.app.dock?.setBadge(String(this.unreadCount))
         return
       }
       if (this.platform === 'win32') {
-        if (win !== undefined && !win.isDestroyed?.()) {
-          win.flashFrame?.(true)
+        if (win !== undefined && !win.isDestroyed()) {
+          win.flashFrame(true)
         }
         return
       }
       if (this.platform === 'linux') {
-        if (win !== undefined && !win.isDestroyed?.()) {
-          win.flashFrame?.(true)
+        if (win !== undefined && !win.isDestroyed()) {
+          win.flashFrame(true)
         }
-        if (typeof electron.app?.setBadgeCount === 'function') {
-          electron.app.setBadgeCount(this.unreadCount)
-        }
+        electron.app.setBadgeCount(this.unreadCount)
       }
     } catch (error) {
       console.warn('desktop task notification: attention unavailable', error)

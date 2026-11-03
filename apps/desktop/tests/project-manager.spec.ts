@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveDesktopPaths } from '../src/paths.ts'
-import { DesktopProjectManager } from '../src/project-manager.ts'
+import { DesktopProjectManager, installProductPlugins, XPEACH_PROFILE_BUNDLES } from '../src/project-manager.ts'
 import { readProfilePlugins } from '@xpeach/xph-app-boot'
 import { runtimeFixture } from './runtime-fixture.ts'
 
@@ -328,5 +328,28 @@ describe('desktop link-backend projections', () => {
     expect(existsSync(join(profile, '.dsh-module-fallback'))).toBe(false)
     expect(lstatSync(join(profile, 'node_modules', 'bridge'), { throwIfNoEntry: false })).toBeUndefined()
     expect(existsSync(join(target, 'package.json'))).toBe(true)
+  })
+
+  it('refreshes @xpeach product plugins when .installed-version is missing even if stale plugin directories exist', () => {
+    const root = temporaryRoot()
+    const profile = join(root, 'profile')
+    const runtime = join(root, 'runtime')
+    for (const name of XPEACH_PROFILE_BUNDLES) {
+      const staleDir = join(profile, 'node_modules', name, 'lib')
+      mkdirSync(staleDir, { recursive: true })
+      writeFileSync(join(staleDir, 'index.js'), '// stale pre-stamp bundle\n')
+
+      const freshDir = join(runtime, 'node_modules', name, 'lib')
+      mkdirSync(freshDir, { recursive: true })
+      writeFileSync(join(freshDir, 'index.js'), '// fresh upgraded bundle content\n')
+    }
+
+    installProductPlugins(profile, runtime)
+
+    for (const name of XPEACH_PROFILE_BUNDLES) {
+      expect(readFileSync(join(profile, 'node_modules', name, 'lib', 'index.js'), 'utf8'))
+        .toBe('// fresh upgraded bundle content\n')
+    }
+    expect(existsSync(join(profile, 'node_modules', '@xpeach', '.installed-version'))).toBe(true)
   })
 })

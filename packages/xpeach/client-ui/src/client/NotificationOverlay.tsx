@@ -103,7 +103,7 @@ export function XPeachNotificationOverlay(props: XPeachNotificationOverlayProps)
               type="button"
               className={styles.notifyCloseBtn}
               aria-label={t('notify.action.dismiss')}
-              onClick={() => dismissNotificationBanner(item.id)}
+              onClick={() => { dismissNotificationBanner(item.id) }}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 <path d="M3 3L9 9M9 3L3 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -122,7 +122,7 @@ export function XPeachNotificationOverlay(props: XPeachNotificationOverlayProps)
                 type="button"
                 className={styles.notifyPrimaryBtn}
                 data-kind={item.kind}
-                onClick={() => openNotificationSession(item)}
+                onClick={() => { openNotificationSession(item) }}
               >
                 <span>{item.actionLabel}</span>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -133,7 +133,7 @@ export function XPeachNotificationOverlay(props: XPeachNotificationOverlayProps)
             <button
               type="button"
               className={styles.notifySecondaryBtn}
-              onClick={() => dismissNotificationBanner(item.id)}
+              onClick={() => { dismissNotificationBanner(item.id) }}
             >
               {t('notify.action.dismiss')}
             </button>

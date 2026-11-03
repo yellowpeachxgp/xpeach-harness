@@ -317,12 +317,32 @@ interface ReconcileWorkspaceRegistry {
   create(rootPath: string): Promise<ReconcileWorkspaceEntity>
 }
 
+interface LiveSkillEntry {
+  readonly name: string
+  readonly description: string
+  readonly location?: string | undefined
+  readonly path?: string | undefined
+}
+
 interface LiveSkillService {
-  list(): readonly {
-    readonly name: string
-    readonly description: string
-    readonly location: string
-  }[]
+  list(): readonly LiveSkillEntry[]
+}
+
+interface LiveAgentDefaultModelService {
+  currentSelection(): {
+    readonly provider: string
+    readonly model: string
+    readonly reasoningEffort?: string | undefined
+  } | undefined
+  saveSelection(selection: {
+    readonly provider: string
+    readonly model: string
+    readonly reasoningEffort?: string | undefined
+  }): Promise<{
+    readonly provider: string
+    readonly model: string
+    readonly reasoningEffort?: string | undefined
+  }>
 }
 
 interface LiveToolsService {
@@ -1492,6 +1512,7 @@ export class XPeachAccount extends TypertRemoteService {
 
     for (const [key, provider] of Object.entries(existingProviders)) {
       if (!key.startsWith('xpeach')) continue
+      if (!Array.isArray(provider['models']) || provider['models'].length === 0) continue
       let providerChanged = false
       const nextProvider: Record<string, unknown> = { ...provider }
 
@@ -1631,6 +1652,9 @@ export class XPeachAccount extends TypertRemoteService {
           reasoningEfforts: caps.reasoningEfforts,
         }
       })
+      if (models.length === 0) {
+        return { ok: true, count: 0, groups: info.groups ?? [] }
+      }
       const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
       const openAIBase = siteRoot.endsWith('/v1') ? siteRoot : siteRoot + '/v1'
       const anthropicBase = siteRoot.replace(/\/v1$/u, '')
@@ -1664,10 +1688,56 @@ export class XPeachAccount extends TypertRemoteService {
         await settings.mutate('llm-pi-ai', stale.map(key => ({ op: 'unset', path: ['providers', key] })))
       }
       await settings.update('llm-pi-ai', { providers })
+      await this.reconcileDefaultModelSelection(providers)
       return { ok: true, count: models.length, groups: info.groups ?? [] }
     } catch (e) {
       return { ok: false, count: 0, groups: info.groups ?? [], error: e instanceof Error ? e.message.slice(0, 160) : String(e) }
     }
+  }
+
+  private async reconcileDefaultModelSelection(providers: Record<string, { models?: unknown }>): Promise<void> {
+    const defaultModelService = this.getOptionalService('agentDefaultModel')
+    if (defaultModelService === undefined) return
+    const providerEntries = Object.entries(providers)
+    if (providerEntries.length === 0) return
+    const current = defaultModelService.currentSelection()
+    const findModelInProvider = (provObj: { models?: unknown } | undefined, modelId: string): Record<string, unknown> | undefined => {
+      if (provObj === undefined) return undefined
+      const list = provObj.models
+      if (!Array.isArray(list)) return undefined
+      return list.find(
+        (m): m is Record<string, unknown> =>
+          typeof m === 'object' && m !== null && (m as { id?: unknown }).id === modelId,
+      )
+    }
+    if (current !== undefined) {
+      const isXpeachOrAccount = current.provider === 'deepseek-account' || current.provider.startsWith('xpeach')
+      if (!isXpeachOrAccount) return
+      const matchedModel = findModelInProvider(providers[current.provider], current.model)
+      if (matchedModel !== undefined) {
+        const efforts = matchedModel['reasoningEfforts']
+        const supportsEffort = current.reasoningEffort === undefined
+          || (typeof efforts === 'object' && efforts !== null && current.reasoningEffort in efforts)
+        if (supportsEffort) return
+        await defaultModelService.saveSelection({
+          provider: current.provider,
+          model: current.model,
+        }).catch(() => undefined)
+        return
+      }
+    }
+    const firstEntry = providerEntries[0]
+    if (firstEntry === undefined) return
+    const preferredProvider = 'xpeach' in providers ? 'xpeach' : firstEntry[0]
+    const rawPreferredModels = providers[preferredProvider]?.models
+    const preferredModels = (Array.isArray(rawPreferredModels) ? rawPreferredModels : [])
+      .filter((m): m is { id: string } => typeof m === 'object' && m !== null && typeof (m as { id?: unknown }).id === 'string' && ((m as { id: string }).id.length > 0))
+    const chosenModel = preferredModels.find(m => m.id === 'swe-2-max')?.id ?? preferredModels[0]?.id
+    if (chosenModel === undefined) return
+    await defaultModelService.saveSelection({
+      provider: preferredProvider,
+      model: chosenModel,
+    }).catch(() => undefined)
   }
 
   /**
@@ -1712,6 +1782,9 @@ export class XPeachAccount extends TypertRemoteService {
   /** Notify clients (and the forwarded-event allowlist) the key changed. */
   private notifyKeyChanged(): void {
     try { this.ctx.emit('credentials/reference-updated', this.apiKeyEnv) } catch (_err) { /* contained */ }
+    if (this.keyVar !== this.apiKeyEnv) {
+      try { this.ctx.emit('credentials/reference-updated', credentialRef(this.keyVar)) } catch (_err) { /* contained */ }
+    }
   }
 
   /**
@@ -1857,6 +1930,7 @@ export class XPeachAccount extends TypertRemoteService {
     this.markOnboardedAndClearSignOut()
     void this.ensureDesktopOnboardingCompleted().catch(() => {})
     this.notifyKeyChanged()
+    void this.syncModelCatalog(AbortSignal.timeout(this.timeoutMs)).catch(() => {})
     return { ok: true, message: 'xpeach: key slot added + active' }
   }
 
@@ -2808,17 +2882,36 @@ export class XPeachAccount extends TypertRemoteService {
             this.mirrorCredentialFile('xpeach.sso.json', ssoContent)
           } catch (_err) { /* best effort */ }
         }
+        if (typeof peach?.baseUrl === 'string' && peach.baseUrl.trim().length > 0) {
+          const normalizedBase = peach.baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/u, '')
+          if (normalizedBase.length > 0 && normalizedBase !== this.activeBaseURL) {
+            this.activeBaseURL = normalizedBase
+            ;(this.api as { setBaseURL?: (url: string) => void }).setBaseURL?.(normalizedBase)
+            void this.applyProviderBase().catch(() => {})
+          }
+        }
         const nextAccessToken = peach?.accessToken?.trim()
         if (nextAccessToken !== undefined && nextAccessToken.length > 0 && nextAccessToken !== this.resolveAdmin()) {
           this.persistAdmin(nextAccessToken)
         }
+        let keyChanged = false
         let nextApiKey = peach?.apiKey?.trim()
         if (nextApiKey !== undefined && nextApiKey.length > 0) {
           if (nextApiKey.match(/^(?:xpk|sk)-/u) === null) nextApiKey = 'sk-' + nextApiKey
           if (nextApiKey !== this.readKeyFile()) {
             this.persistKey(nextApiKey)
             this.notifyKeyChanged()
+            keyChanged = true
           }
+        } else if ((this.readKeyFile() ?? process.env[this.keyVar]?.trim()) === undefined && this.resolveAdmin() !== undefined) {
+          const minted = await this.mintKeyWithAccessToken(effectiveSignal).catch(() => ({ ok: false }))
+          if (minted.ok) {
+            this.notifyKeyChanged()
+            keyChanged = true
+          }
+        }
+        if (keyChanged || !this.catalogSynced) {
+          void this.syncModelCatalog(effectiveSignal).catch(() => {})
         }
         const username = peach?.username ?? sync.payload.sso?.user?.username ?? sso.user?.username ?? undefined
         const email = sync.payload.sso?.user?.email ?? sso.user?.email ?? undefined
@@ -2852,6 +2945,12 @@ export class XPeachAccount extends TypertRemoteService {
               revoked: true,
               error: 'Account has been disabled',
               message: 'Account has been disabled',
+            }
+          }
+          if ((this.readKeyFile() ?? process.env[this.keyVar]?.trim()) === undefined) {
+            const minted = await this.mintKeyWithAccessToken(effectiveSignal).catch(() => ({ ok: false }))
+            if (minted.ok) {
+              this.notifyKeyChanged()
             }
           }
           this.lastSsoVerifyAt = Date.now()
@@ -3004,8 +3103,20 @@ export class XPeachAccount extends TypertRemoteService {
           stdio: 'ignore',
           windowsHide: true,
         })
-      child.unref()
-      return true
+      return await new Promise<boolean>((resolvePromise) => {
+        let settled = false
+        const finish = (ok: boolean): void => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          child.unref()
+          resolvePromise(ok)
+        }
+        child.once('error', () => { finish(false) })
+        child.once('exit', (code) => { finish(code === 0 || code === null) })
+        const timer = setTimeout(() => { finish(true) }, 150)
+        timer.unref()
+      })
     } catch (_err) {
       return false
     }
@@ -3019,6 +3130,15 @@ export class XPeachAccount extends TypertRemoteService {
     const sso = payload.sso
     const username = peach?.username ?? sso?.user?.username ?? sso?.user?.name ?? undefined
     const email = sso?.user?.email ?? undefined
+
+    if (typeof peach?.baseUrl === 'string' && peach.baseUrl.trim().length > 0) {
+      const normalizedBase = peach.baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/u, '')
+      if (normalizedBase.length > 0 && normalizedBase !== this.activeBaseURL) {
+        this.activeBaseURL = normalizedBase
+        ;(this.api as { setBaseURL?: (url: string) => void }).setBaseURL?.(normalizedBase)
+        void this.applyProviderBase().catch(() => {})
+      }
+    }
 
     if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
       try {
@@ -3057,6 +3177,15 @@ export class XPeachAccount extends TypertRemoteService {
       const minted = await this.mintKeyWithAccessToken(signal)
       if (minted.ok) {
         preview = minted.preview
+      }
+    }
+
+    const boundRelayKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    if (boundRelayKey === undefined || boundRelayKey.length === 0) {
+      return {
+        status: 'error',
+        bound: false,
+        message: 'SSO 已授权，但未能获取或铸造可用的 API 密钥 (XPEACH_RELAY_KEY)，请重试。',
       }
     }
 
@@ -3157,11 +3286,13 @@ export class XPeachAccount extends TypertRemoteService {
         }
       }
       const applied = await this.applySsoBridgePayload(polled.payload, signal)
-      if (approvedCache.size >= 32) {
-        const oldestKey = approvedCache.keys().next().value
-        if (oldestKey !== undefined) approvedCache.delete(oldestKey)
+      if (applied.status === 'approved' && applied.bound === true) {
+        if (approvedCache.size >= 32) {
+          const oldestKey = approvedCache.keys().next().value
+          if (oldestKey !== undefined) approvedCache.delete(oldestKey)
+        }
+        approvedCache.set(deviceCode, applied)
       }
-      approvedCache.set(deviceCode, applied)
       return applied
     })().finally(() => {
       inFlightMap.delete(deviceCode)
@@ -3972,16 +4103,20 @@ export class XPeachAccount extends TypertRemoteService {
     const existing = readProviderMap(described)
     const xpeachKeys = Object.keys(existing).filter(key => key.startsWith('xpeach'))
     if (xpeachKeys.length === 0) return
-    const providers: Record<string, { baseURL: string }> = {}
+    const providers: Record<string, object> = {}
     let changed = false
     for (const key of xpeachKeys) {
-      const api = existing[key]?.['api']
+      const currentProvider = existing[key]
+      if (currentProvider === undefined) continue
+      const existingModels = currentProvider['models']
+      if (!Array.isArray(existingModels) || existingModels.length === 0) continue
+      const api = currentProvider['api']
       const isAnthropic = api === 'anthropic-messages' || key === 'xpeach-anthropic'
       const nextUrl = isAnthropic ? anthropicBase : openAIBase
-      if (existing[key]?.['baseURL'] !== nextUrl) changed = true
-      providers[key] = { baseURL: nextUrl }
+      if (currentProvider['baseURL'] !== nextUrl) changed = true
+      providers[key] = { ...currentProvider, baseURL: nextUrl }
     }
-    if (!changed) return
+    if (!changed || Object.keys(providers).length === 0) return
     await settings.update('llm-pi-ai', { providers })
   }
 
@@ -4400,17 +4535,21 @@ export class XPeachAccount extends TypertRemoteService {
     const ownResolved = resolve(this.ownHome())
     if (!ownResolved.startsWith(resolve(tmpdir()))) {
       readSkillFolder(join(homedir(), '.agents', 'skills'), 'agents', false)
+      readSkillFolder(join(process.cwd(), '.agents', 'skills'), 'project', false)
     }
 
-    const liveSkills = this.getOptionalService('skill')?.list() ?? []
+    const rawLiveSkills = (this.getOptionalService('skills') ?? this.getOptionalService('skill'))?.list()
+    const liveSkills: readonly LiveSkillEntry[] = Array.isArray(rawLiveSkills) ? rawLiveSkills : []
     for (const live of liveSkills) {
-      const resolvedLoc = resolve(live.location)
-      const resolvedDir = resolve(dirname(live.location))
+      const loc = live.location ?? live.path ?? ''
+      if (loc.length === 0) continue
+      const resolvedLoc = resolve(loc)
+      const resolvedDir = resolve(dirname(loc))
       if (seenPaths.has(resolvedLoc) || seenPaths.has(resolvedDir)) continue
-      if (!existsSync(live.location)) continue
+      if (!existsSync(loc)) continue
       try {
-        const raw = readFileSync(live.location, 'utf8')
-        const dirName = basename(dirname(live.location))
+        const raw = readFileSync(loc, 'utf8')
+        const dirName = basename(dirname(loc))
         const normalized = normalizeSkillMarkdown(raw, live.name || dirName)
         seenPaths.add(resolvedLoc)
         seenPaths.add(resolvedDir)
@@ -4420,7 +4559,7 @@ export class XPeachAccount extends TypertRemoteService {
           dirName,
           description: live.description || normalized.description,
           ...(normalized.whenToUse !== undefined ? { whenToUse: normalized.whenToUse } : {}),
-          path: live.location,
+          path: loc,
           source: 'project',
           enabled: true,
           valid: normalized.valid,
@@ -5025,7 +5164,8 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   private getOptionalService(name: 'tools'): LiveToolsService | undefined
-  private getOptionalService(name: 'skill'): LiveSkillService | undefined
+  private getOptionalService(name: 'skill' | 'skills'): LiveSkillService | undefined
+  private getOptionalService(name: 'agentDefaultModel'): LiveAgentDefaultModelService | undefined
   private getOptionalService(name: 'sessionPersistence'): ReconcileSessionPersistence | undefined
   private getOptionalService(name: 'sessionProjectionCache'): ReconcileProjectionCache | undefined
   private getOptionalService(name: 'workspaceRegistry'): ReconcileWorkspaceRegistry | undefined

@@ -297,6 +297,40 @@ it('allows prerelease installations on the latest channel to discover newer prer
   })
 })
 
+it('allows -least prerelease tags on an XPeach least channel and detects subscribed channel changes', async () => {
+  const prevChannel = process.env.XPEACH_UPDATE_CHANNEL
+  try {
+    process.env.XPEACH_UPDATE_CHANNEL = 'least'
+    const leastChannel = fixture('latest', '0.0.15')
+    leastChannel.checkForUpdates.mockResolvedValueOnce({
+      isUpdateAvailable: true,
+      updateInfo: { version: '0.0.16-least' },
+    })
+    expect(leastChannel.updater.allowPrerelease).toBe(true)
+    expect(await leastChannel.coordinator.check()).toEqual({
+      phase: 'available',
+      version: '0.0.16-least',
+    })
+    expect(leastChannel.coordinator.hasSubscribedChannelChanged()).toBe(false)
+
+    process.env.XPEACH_UPDATE_CHANNEL = 'alpha'
+    expect(leastChannel.coordinator.hasSubscribedChannelChanged()).toBe(true)
+
+    leastChannel.checkForUpdates.mockResolvedValueOnce({
+      isUpdateAvailable: true,
+      updateInfo: { version: '0.0.17-alpha' },
+    })
+    expect(await leastChannel.coordinator.check()).toEqual({
+      phase: 'available',
+      version: '0.0.17-alpha',
+    })
+    expect(leastChannel.coordinator.hasSubscribedChannelChanged()).toBe(false)
+  } finally {
+    if (prevChannel === undefined) delete process.env.XPEACH_UPDATE_CHANNEL
+    else process.env.XPEACH_UPDATE_CHANNEL = prevChannel
+  }
+})
+
 describe('macOS ad-hoc bundle updater', () => {
   it('resolves the outermost .app bundle from main or helper executable paths', () => {
     expect(resolveMacAppBundle('/Applications/XPeach Harness.app/Contents/MacOS/XPeach Harness'))

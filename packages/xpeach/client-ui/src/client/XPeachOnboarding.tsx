@@ -1,6 +1,7 @@
 /** First-run onboarding — a large, flat, step-by-step wizard: welcome, login,
  * pick conversation sources, pick extras, watch the import, done. */
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachOps, XPeachOnboardingScan, XPeachSsoDeviceStartResult } from './ops.ts'
@@ -84,7 +85,7 @@ export function XPeachOnboarding({
     return () => {
       loginModalListeners.delete(onOpenModal)
     }
-  })
+  }, [])
 
   useEffect(() => {
     const offExpired = subscribeSessionExpired?.(() => {
@@ -230,6 +231,19 @@ export function XPeachOnboarding({
     setStage('closed')
   }
 
+  const dismissModal = async (): Promise<void> => {
+    ;(globalThis as { __XPH_AUTH_GATE__?: boolean }).__XPH_AUTH_GATE__ = false
+    try {
+      localStorage.setItem('xpeach.onboarding.done', '1')
+    } catch (_storageUnavailable) {
+      // Storage access is optional when sandboxed.
+    }
+    setStandaloneLogin(false)
+    setSsoSession(null)
+    await onboardingComplete()
+    setStage('closed')
+  }
+
   const doImport = async (): Promise<void> => {
     setStage('importing')
     setError(null)
@@ -243,6 +257,8 @@ export function XPeachOnboarding({
           const r = await importConversations([id])
           if ('error' in r) throw new Error(r.error)
           setSummary(prev => ({ ...prev, threads: prev.threads + r.reduce((sum, item) => sum + item.imported, 0) }))
+          const srcErr = r.find(item => Boolean(item.error))?.error
+          if (srcErr) throw new Error(srcErr)
         },
       })
     }
@@ -252,6 +268,7 @@ export function XPeachOnboarding({
         const r = await importAssets({ mcp: false, skills: true, prompts: false })
         if ('error' in r) throw new Error(r.error)
         setSummary(prev => ({ ...prev, skills: prev.skills + r.skills }))
+        if (Array.isArray(r.errors) && r.errors.length > 0) throw new Error(r.errors.join('; '))
       },
     })
     if (assets.prompts) items.push({
@@ -260,6 +277,7 @@ export function XPeachOnboarding({
         const r = await importAssets({ mcp: false, skills: false, prompts: true })
         if ('error' in r) throw new Error(r.error)
         setSummary(prev => ({ ...prev, prompts: prev.prompts + r.prompts }))
+        if (Array.isArray(r.errors) && r.errors.length > 0) throw new Error(r.errors.join('; '))
       },
     })
     if (assets.mcp) items.push({
@@ -268,6 +286,7 @@ export function XPeachOnboarding({
         const r = await importAssets({ mcp: true, skills: false, prompts: false })
         if ('error' in r) throw new Error(r.error)
         setSummary(prev => ({ ...prev, mcp: prev.mcp + r.mcp }))
+        if (Array.isArray(r.errors) && r.errors.length > 0) throw new Error(r.errors.join('; '))
       },
     })
     setProgress(items.map(item => ({ id: item.id, label: item.label, status: 'pending' })))
@@ -303,11 +322,19 @@ export function XPeachOnboarding({
     </aside>
   )
 
-  return (
+  const modal = (
     <div className={css.onbBackdrop} data-gate={(stage === 'welcome' || stage === 'login' || authGateRequired()) ? 'true' : 'false'} role="dialog" aria-modal="true" aria-label={t('onb.welcomeTitle')}>
-      <div className={css.onbShell}>
-        {rail}
+      <div className={css.onbShell} data-standalone={standaloneLogin ? 'true' : 'false'}>
+        {!standaloneLogin && rail}
         <main className={css.onbMain}>
+          <button
+            type="button"
+            className={css.onbCloseBtn}
+            aria-label={t('onb.skipGuide')}
+            onClick={() => { void dismissModal() }}
+          >
+            ×
+          </button>
           {stage === 'welcome' && (
             <>
               <div className={css.onbHero}>
@@ -318,6 +345,8 @@ export function XPeachOnboarding({
                 </div>
               </div>
               <div className={css.onbFooter}>
+                <button type="button" className={css.onbGhost} onClick={() => { void dismissModal() }}>{t('onb.skipGuide')}</button>
+                <span className={css.onbSpacer} />
                 <button type="button" className={css.onbPrimary} onClick={() => { void goLoginOrSources() }}>{t('onb.start')}</button>
               </div>
             </>
@@ -379,13 +408,17 @@ export function XPeachOnboarding({
                   {error !== null && <p className={css.bindError}>{error}</p>}
                 </div>
               )}
-              {ssoSession !== null && (
-                <div className={css.onbFooter}>
+              <div className={css.onbFooter}>
+                {ssoSession !== null && (
                   <button type="button" className={css.onbGhost} onClick={() => { setSsoSession(null) }}>
                     {t('sso.cancel')}
                   </button>
-                </div>
-              )}
+                )}
+                <span className={css.onbSpacer} />
+                <button type="button" className={css.onbGhost} onClick={() => { void dismissModal() }}>
+                  {t('onb.loginLater')}
+                </button>
+              </div>
             </>
           )}
 
@@ -429,7 +462,7 @@ export function XPeachOnboarding({
                 {!hasAssets && (sourceList.length === 0 || scan === undefined
                   ? <button type="button" className={css.onbPrimary} disabled={scan === undefined} onClick={() => { setStage('extras') }}>{t('onb.next')}</button>
                   : picked.length === 0
-                    ? null
+                    ? <button type="button" className={css.onbPrimary} onClick={() => { void finish() }}>{t('onb.next')}</button>
                     : <button type="button" className={css.onbPrimary} onClick={() => { void doImport() }}>{t('onb.importNow')}</button>)}
               </div>
             </>
@@ -484,6 +517,7 @@ export function XPeachOnboarding({
                 <div><b>{summary.prompts}</b><span>{t('onboard.prompts')}</span></div>
                 <div><b>{summary.mcp}</b><span>{t('onboard.mcp')}</span></div>
               </div>
+              {error !== null && <p className={css.bindError}>{error}</p>}
               <div className={css.onbFooter}>
                 <span className={css.onbSpacer} />
                 <button type="button" className={css.onbPrimary} onClick={() => { setStage('closed') }}>{t('onb.doneStart')}</button>
@@ -516,6 +550,10 @@ export function XPeachOnboarding({
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined'
+    ? createPortal(modal, document.body)
+    : modal
 
   async function doSsoDevice(): Promise<void> {
     if (ssoDeviceStart === undefined) return

@@ -705,7 +705,7 @@ export class XPeachApi {
     }
     this.priceCache = {
       at: Date.now(),
-      entries: pricing?.entries ?? this.priceCache?.entries ?? [],
+      entries: (pricing?.entries !== undefined && pricing.entries.length > 0) ? pricing.entries : (this.priceCache?.entries ?? []),
       groupRatio: pricing?.groupRatio ?? this.priceCache?.groupRatio ?? {},
       groups: groups ?? this.priceCache?.groups ?? {},
     }
@@ -733,13 +733,12 @@ export class XPeachApi {
    */
   async adminPricing(signal: AbortSignal): Promise<XPeachPricingCatalog> {
     const key = this.currentAdmin()
-    if (key === undefined) {
-      throw new RemoteError('xpeach/missing-credential', 'xpeach: no site-management token; drop it at the profile xpeach.admin file', { ref: 'admin' })
-    }
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (key !== undefined) headers['Authorization'] = key
     let response: Response
     try {
       response = await fetch(this.baseURL + '/api/pricing', {
-        headers: { Authorization: key, Accept: 'application/json' },
+        headers,
         signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
       })
     } catch (cause) {
@@ -748,12 +747,22 @@ export class XPeachApi {
     }
     const body = await response.json().catch(() => undefined) as
       | {
+        message?: string
+        error?: string
         data?: readonly XPeachPricingEntry[]
         group_ratio?: Record<string, number>
         usable_group?: Record<string, string>
         auto_groups?: readonly string[]
       }
       | undefined
+    if (!response.ok) {
+      const msg = typeof body?.message === 'string'
+        ? body.message
+        : typeof body?.error === 'string'
+          ? body.error
+          : response.statusText
+      throw new RemoteError('xpeach/request-failed', 'xpeach: pricing fetch rejected: ' + msg, { status: response.status, message: msg })
+    }
     return {
       entries: body?.data ?? [],
       groupRatio: body?.group_ratio ?? {},

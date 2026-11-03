@@ -205,12 +205,12 @@ describe('dispatchTaskNotification & installTaskNotificationMonitor', () => {
 
     const statusListeners = new Set<() => void>()
     const openSession = vi.fn()
-    let clickSubscriber: ((payload: { id: string; sessionId: string }) => void) | undefined
+    let clickSubscriber: ((payload: string | { id: string; sessionId: string }) => void) | undefined
 
     ;(globalThis as Record<string, unknown>)['dshDesktop'] = {
       notifications: {
         notify: vi.fn().mockResolvedValue({ shown: true }),
-        subscribeClick: (cb: (payload: { id: string; sessionId: string }) => void) => {
+        subscribeClick: (cb: (payload: string | { id: string; sessionId: string }) => void) => {
           clickSubscriber = cb
           return () => {}
         },
@@ -312,7 +312,50 @@ describe('dispatchTaskNotification & installTaskNotificationMonitor', () => {
     clickSubscriber?.({ id: 'notif-os', sessionId: 'sess-1' })
     expect(openSession).toHaveBeenCalledTimes(2)
 
+    clickSubscriber?.('sess-1')
+    expect(openSession).toHaveBeenCalledTimes(3)
+
+    // 4. Browsing an old idle session with a historical unanswered question does not trigger a popup
+    statusMap.set('sess-old', {
+      running: false,
+      pendingInteraction: {
+        kind: 'question',
+        key: 'q-old',
+        questions: [{ id: 'q1', question: '旧会话遗留问题' }],
+      },
+    })
+    for (const listener of statusListeners) listener()
+    expect(getActiveNotificationBanners()).toHaveLength(0)
+
     expect(readNotificationPreferences()).toEqual({ enabled: true, sound: false })
     dispose()
+  })
+
+  it('suppresses native OS and Host notifications when showInAppBanner is false (active session)', async () => {
+    const hostNotify = vi.fn().mockResolvedValue({ delivered: true, platform: 'darwin' })
+    const desktopNotify = vi.fn().mockResolvedValue({ shown: true })
+    ;(globalThis as Record<string, unknown>)['dshDesktop'] = {
+      notifications: {
+        notify: desktopNotify,
+        subscribeClick: () => () => {},
+      },
+    }
+
+    const activeItem = formatCompletionNotification({
+      sessionId: 'sess-active',
+      sessionTitle: '当前前台会话',
+      cwd: '/workspace/xpeach-harness',
+      durationMs: 5_000,
+      t: tZh,
+    })
+
+    await dispatchTaskNotification(activeItem, {
+      showInAppBanner: false,
+      sendHostNotification: hostNotify,
+    })
+
+    expect(getActiveNotificationBanners()).toHaveLength(0)
+    expect(desktopNotify).not.toHaveBeenCalled()
+    expect(hostNotify).not.toHaveBeenCalled()
   })
 })

@@ -42,7 +42,6 @@ export function installDesktopShortcuts(
   let revision: ShortcutRevision | undefined
   let closeBinding: NormalizedBinding | null = null
   let editingInput: BrowserWindow['webContents'] | undefined
-  const scopedDesktop = platform === 'windows' || platform === 'macos'
   const disposers = new Set<() => void>()
   const guestInputs = new Map<WebContents, { window: BrowserWindow; reset(): void }>()
   const closeAccelerator = (): string | undefined => presentBinding(closeBinding, platform).aria
@@ -155,43 +154,39 @@ export function installDesktopShortcuts(
       if (recording || composing || frame === null) { held.clear(); consumed.clear(); return }
       let binding: NormalizedBinding = { code: input.code, modifiers }
       let priority = false
-      if (scopedDesktop) {
-        if (frame !== inputFrame || inputRevision !== revision) { held.clear(); inputFrame = frame; inputRevision = revision }
-        const modifierKey = /^(Control|Alt|Shift|Meta)(Left|Right)$/u.test(input.code)
-        if (input.type === 'keyUp') {
-          // A chord's first key reached the renderer, so its release must reach the same input handlers.
-          if (consumed.get(input.code) === 'press') event.preventDefault()
-          consumed.delete(input.code)
-          held.delete(input.code)
-          if (modifierKey) held.clear()
-          return
-        }
-        if (!input.isAutoRepeat) consumed.delete(input.code)
-        if (modifierKey) { held.clear(); return }
-        if (input.isAutoRepeat && consumed.has(input.code) && !match) { event.preventDefault(); return }
-        if (input.isAutoRepeat && !held.has(input.code) && !match) return
-        held.add(input.code)
-        const codes: [string, ...string[]] = [input.code, ...[...held].filter(value => value !== input.code)]
-        codes.sort()
-        const pair = { code: codes[0], ...(codes[1] === undefined ? {} : { secondCode: codes[1] }), modifiers }
-        priority = keys.has(key)
-        if (codes.length === 2 && keys.has(bindingKey(pair))) { binding = pair; priority = true }
+      if (frame !== inputFrame || inputRevision !== revision) { held.clear(); inputFrame = frame; inputRevision = revision }
+      const modifierKey = /^(Control|Alt|Shift|Meta)(Left|Right)$/u.test(input.code)
+      if (input.type === 'keyUp') {
+        // A chord's first key reached the renderer, so its release must reach the same input handlers.
+        if (consumed.get(input.code) === 'press') event.preventDefault()
+        consumed.delete(input.code)
+        held.delete(input.code)
+        if (modifierKey) held.clear()
+        return
       }
+      if (!input.isAutoRepeat) consumed.delete(input.code)
+      if (modifierKey) { held.clear(); return }
+      if (input.isAutoRepeat && consumed.has(input.code) && !match) { event.preventDefault(); return }
+      if (input.isAutoRepeat && !held.has(input.code) && !match) return
+      held.add(input.code)
+      const codes: [string, ...string[]] = [input.code, ...[...held].filter(value => value !== input.code)]
+      codes.sort()
+      const pair = { code: codes[0], ...(codes[1] === undefined ? {} : { secondCode: codes[1] }), modifiers }
+      priority = keys.has(key)
+      if (codes.length === 2 && keys.has(bindingKey(pair))) { binding = pair; priority = true }
       const main = guestName === undefined && frame === contents.mainFrame
       if (!priority && (main || !match)) return
       event.preventDefault()
       if (input.type !== 'keyDown') return
-      if (scopedDesktop) {
-        if (!input.isAutoRepeat) {
-          if (binding.secondCode !== undefined) {
-            consumed.set(binding.code, 'repeat')
-            consumed.set(binding.secondCode, 'repeat')
-          }
-          consumed.set(input.code, 'press')
+      if (!input.isAutoRepeat) {
+        if (binding.secondCode !== undefined) {
+          consumed.set(binding.code, 'repeat')
+          consumed.set(binding.secondCode, 'repeat')
         }
-        // Electron can omit both keyups after interception; completed presses cannot seed another chord.
-        held.clear()
+        consumed.set(input.code, 'press')
       }
+      // Electron can omit both keyups after interception; completed presses cannot seed another chord.
+      held.clear()
       let embedding = frame
       while (guestName === undefined && !main && embedding.parent !== null && embedding.parent !== contents.mainFrame) {
         embedding = embedding.parent

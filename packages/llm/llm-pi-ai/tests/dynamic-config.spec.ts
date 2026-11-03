@@ -314,4 +314,63 @@ describe('request-level dynamic profiles', () => {
     await configurations.get(ctx)!.update({ providers: { anthropic: {}, openai: {} } })
     expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(before)
   })
+
+  it('emits llm/adapters-updated when an existing route updates its model catalog in place', async () => {
+    const dir = await home()
+    await writeFile(
+      join(dir, '.credentials.yaml'),
+      'version: 1\nrefs:\n  XPEACH_RELAY_KEY: sk-test-relay\n',
+      { mode: 0o600 },
+    )
+    const ctx = await boot(dir, {
+      providers: {
+        xpeach: {
+          api: 'anthropic-messages',
+          apiKeyEnv: 'XPEACH_RELAY_KEY',
+          baseURL: 'https://fast.xpeach.codes/anthropic/v1',
+          models: [{
+            id: 'swe-2-max',
+            name: 'swe-2-max',
+            input: ['text'],
+            contextWindow: 128000,
+            maxTokens: 32000,
+          }],
+        },
+      },
+    })
+    let updates = 0
+    ctx.on('llm/adapters-updated', () => {
+      updates += 1
+    })
+
+    await configurations.get(ctx)!.update({
+      providers: {
+        xpeach: {
+          api: 'anthropic-messages',
+          apiKeyEnv: 'XPEACH_RELAY_KEY',
+          baseURL: 'https://fast.xpeach.codes/anthropic/v1',
+          models: [
+            {
+              id: 'swe-2-max',
+              name: 'swe-2-max',
+              input: ['text'],
+              contextWindow: 128000,
+              maxTokens: 32000,
+            },
+            {
+              id: 'swe-2',
+              name: 'swe-2',
+              input: ['text'],
+              contextWindow: 128000,
+              maxTokens: 32000,
+            },
+          ],
+        },
+      },
+    })
+
+    expect(updates).toBe(1)
+    const listed = await ctx.llm.listModels('xpeach')
+    expect(listed.map(m => m.id)).toEqual(['swe-2-max', 'swe-2'])
+  })
 })

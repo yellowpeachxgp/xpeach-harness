@@ -1,5 +1,5 @@
 /** Interactive font pack selector row in General Settings for switching bundled UI and code fonts. */
-import { type JSX, useEffect, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
 import { Button, Input } from '@xpeach/xph-client-ui-primitives'
 import type { PropsLocale } from '@xpeach/xph-client-ui-slots'
 import css from './xpeach.module.css'
@@ -182,12 +182,16 @@ export function FontPackRow({
 }: FontPackRowProps): JSX.Element {
   const [families, setFamilies] = useState<XPeachFontFamiliesSnapshot>(() => getFontFamilies())
   const [customDraft, setCustomDraft] = useState<string>(() => getFontFamilies().text)
+  const prevTextRef = useRef<string>(families.text)
 
   useEffect(() => {
     const sync = (): void => {
       const next = getFontFamilies()
       setFamilies(next)
-      setCustomDraft(next.text)
+      if (next.text !== prevTextRef.current) {
+        prevTextRef.current = next.text
+        setCustomDraft(next.text)
+      }
     }
     sync()
     if (subscribeThemeChange === undefined) return
@@ -196,20 +200,30 @@ export function FontPackRow({
 
   const selectUiPreset = (stack: string): void => {
     setFontFamily('text', stack)
-    setFamilies(prev => ({ ...prev, text: stack }))
-    setCustomDraft(stack)
+    const updated = getFontFamilies()
+    const resolvedText = updated.text !== families.text ? updated.text : stack
+    prevTextRef.current = resolvedText
+    setFamilies(prev => ({ ...prev, text: resolvedText }))
+    setCustomDraft(resolvedText)
   }
 
   const selectCodePreset = (stack: string): void => {
     setFontFamily('code', stack)
     setFontFamily('terminal', stack)
-    setFamilies(prev => ({ ...prev, code: stack, terminal: stack }))
+    const updated = getFontFamilies()
+    const resolvedCode = updated.code !== families.code ? updated.code : stack
+    const resolvedTerminal = updated.terminal !== families.terminal ? updated.terminal : stack
+    setFamilies(prev => ({ ...prev, code: resolvedCode, terminal: resolvedTerminal }))
   }
 
   const commitCustomTextFont = (): void => {
     const next = customDraft.trim()
     setFontFamily('text', next)
-    setFamilies(prev => ({ ...prev, text: next }))
+    const updated = getFontFamilies()
+    const resolvedText = updated.text !== families.text ? updated.text : next
+    prevTextRef.current = resolvedText
+    setFamilies(prev => ({ ...prev, text: resolvedText }))
+    setCustomDraft(resolvedText)
   }
 
   const activePreviewTextFont = families.text !== ''

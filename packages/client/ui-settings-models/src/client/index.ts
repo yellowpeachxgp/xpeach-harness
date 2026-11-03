@@ -97,8 +97,10 @@ export function apply(ctx: ClientContext): void {
     schema,
     t,
   })
+  const xpeachOwnsOnboarding = (): boolean =>
+    Boolean((globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__)
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
-    automatic: credentialOnboarding,
+    automatic: credentialOnboarding && !xpeachOwnsOnboarding(),
     track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
     controller,
     hooks: { models: controller.store },
@@ -144,7 +146,7 @@ export function apply(ctx: ClientContext): void {
       'settings.models.footer': { kind: 'list', scope: 'root' },
     },
   }, ModelsSection))
-  if (!('dshDesktop' in globalThis)) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
+  if (!('dshDesktop' in globalThis) && !xpeachOwnsOnboarding()) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'welcome-notice',
     order: -100,

@@ -351,12 +351,16 @@ async function resolveRequestedBuildVersion(
 }
 
 async function main(): Promise<void> {
-  const invocation = parseDesktopPackageInvocation(process.argv.slice(2))
+  const parsedInvocation = parseDesktopPackageInvocation(process.argv.slice(2))
+  const invocation: DesktopPackageInvocation = process.env.DSH_DESKTOP_UNSIGNED === '1' && !parsedInvocation.prepareOnly
+    ? { ...parsedInvocation, unsigned: true }
+    : parsedInvocation
   const { target } = invocation
   if (invocation.skipNotarization) {
     process.stdout.write('desktop package: skipping notarization and stapling; internal debugging only, not qualified for distribution or update publishing\n')
   }
-  const environment = target.platform === 'darwin' && invocation.unsigned
+  const dotenvName = target.platform === 'win32' ? '.env.windows' : target.platform === 'linux' ? '.env.linux' : '.env.macos'
+  const environment = invocation.unsigned && (target.platform === 'darwin' || !existsSync(join(APP_ROOT, dotenvName)))
     ? localMacOSPackageEnvironment()
     : loadDesktopPackageEnvironment(target.platform, process.env, APP_ROOT, {
       unsigned: invocation.unsigned, prepareOnly: invocation.prepareOnly,

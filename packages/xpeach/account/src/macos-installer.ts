@@ -351,6 +351,11 @@ function buildCliWrapperScript(
     'export XPH_HOME="${XPH_HOME:-$HOME/.xph}"',
     'export DSH_HOME="${DSH_HOME:-$XPH_HOME}"',
     'export XPH_PROFILE="${XPH_PROFILE:-xpeach}"',
+    'for APP_CANDIDATE in "/Applications/XPeach Harness.app" "$HOME/Applications/XPeach Harness.app"; do',
+    '  if [ -x "$APP_CANDIDATE/Contents/Resources/cli/xph" ]; then',
+    '    exec "$APP_CANDIDATE/Contents/Resources/cli/xph" "$@"',
+    '  fi',
+    'done',
     'REPO_ROOT="${XPEACH_REPO_ROOT:-$DEFAULT_REPO_ROOT}"',
     `if [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/${entryJs}" ] && command -v node >/dev/null 2>&1; then`,
     `  exec node "$REPO_ROOT/${entryJs}" "$@"`,
@@ -364,11 +369,61 @@ function buildCliWrapperScript(
   ].join('\n')
 }
 
+function isNativeElectronAppBundle(appBundleDir: string): boolean {
+  if (existsSync(join(appBundleDir, 'Contents', 'Frameworks', 'Electron Framework.framework'))) {
+    return true
+  }
+  const executablePath = join(appBundleDir, 'Contents', 'MacOS', 'XPeachHarness')
+  if (!existsSync(executablePath)) return false
+  try {
+    const header = readFileSync(executablePath).subarray(0, 4)
+    if (header.length === 4) {
+      const magic = header.readUInt32BE(0)
+      if (
+        magic === 0xfeedface ||
+        magic === 0xcefaedfe ||
+        magic === 0xfeedfacf ||
+        magic === 0xcffaedfe ||
+        magic === 0xcafebabe
+      ) {
+        return true
+      }
+    }
+  } catch (_err) { /* ignore unreadable executable */ }
+  return false
+}
+
+function findBuiltElectronAppBundle(repositoryRoot: string | undefined): string | undefined {
+  if (repositoryRoot === undefined || process.env.VITEST !== undefined) return undefined
+  const arch = process.arch === 'x64' ? 'mac-x64' : 'mac-arm64'
+  const candidates = [
+    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', arch, 'signed-artifacts', arch, APP_BUNDLE_NAME),
+    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', arch, 'unsigned-artifacts', arch, APP_BUNDLE_NAME),
+    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', 'mac-arm64', 'unsigned-artifacts', 'mac-arm64', APP_BUNDLE_NAME),
+    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', 'mac-x64', 'unsigned-artifacts', 'mac-x64', APP_BUNDLE_NAME),
+  ]
+  for (const candidate of candidates) {
+    if (isNativeElectronAppBundle(candidate)) {
+      return candidate
+    }
+  }
+  return undefined
+}
+
 function materializeAppBundle(
   appBundleDir: string,
   version: string,
   repositoryRoot: string | undefined,
 ): void {
+  if (isNativeElectronAppBundle(appBundleDir)) {
+    return
+  }
+  const builtBundle = findBuiltElectronAppBundle(repositoryRoot)
+  if (builtBundle !== undefined) {
+    mkdirSync(dirname(appBundleDir), { recursive: true })
+    cpSync(builtBundle, appBundleDir, { recursive: true, verbatimSymlinks: true })
+    return
+  }
   const contentsDir = join(appBundleDir, 'Contents')
   const macosDir = join(contentsDir, 'MacOS')
   const resourcesDir = join(contentsDir, 'Resources')
@@ -804,6 +859,9 @@ export async function buildMacosPkgInstaller(
         'if [ -f "$PROFILE_SRC" ] && [ ! -f "$HOME/.xph/profiles/xpeach/cordis.yml" ]; then',
         '  cp "$PROFILE_SRC" "$HOME/.xph/profiles/xpeach/cordis.yml" 2>/dev/null || true',
         'fi',
+        'if [ -f "$PROFILE_SRC" ] && [ ! -f "$HOME/.xph/profiles/xpeach/cordis.patch.yml" ]; then',
+        '  cp "$PROFILE_SRC" "$HOME/.xph/profiles/xpeach/cordis.patch.yml" 2>/dev/null || true',
+        'fi',
         `printf '{"version":"${paths.version}","installedAt":"%s","appPath":"%s/Applications/XPeach Harness.app","xphCliPath":"%s/.local/bin/xph"}\\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$HOME" "$HOME" > "$HOME/.xph/xpeach.install-receipt.json" 2>/dev/null || true`,
         'exit 0',
         '',
@@ -1018,14 +1076,20 @@ export async function runMacosInstallerAction(
   mkdirSync(join(paths.ownHome, 'sessions'), { recursive: true })
 
   const cordisYmlPath = join(profileDir, 'cordis.yml')
-  if (!existsSync(cordisYmlPath)) {
+  const cordisPatchYmlPath = join(profileDir, 'cordis.patch.yml')
+  if (!existsSync(cordisYmlPath) || !existsSync(cordisPatchYmlPath)) {
     const repoProfileYaml = paths.repositoryRoot !== undefined
       ? join(paths.repositoryRoot, 'apps', 'desktop', 'resources', 'xpeach.profile.yml')
       : undefined
     const profileContent = repoProfileYaml !== undefined && existsSync(repoProfileYaml)
       ? readFileSync(repoProfileYaml, 'utf8')
       : defaultProfileYaml()
-    writeFileSync(cordisYmlPath, profileContent, 'utf8')
+    if (!existsSync(cordisYmlPath)) {
+      writeFileSync(cordisYmlPath, profileContent, 'utf8')
+    }
+    if (!existsSync(cordisPatchYmlPath)) {
+      writeFileSync(cordisPatchYmlPath, profileContent, 'utf8')
+    }
   }
 
   const installedAt = new Date().toISOString()
@@ -1045,11 +1109,13 @@ export async function runMacosInstallerAction(
     'utf8',
   )
 
-  const appVersionOut = execFileSync(
-    join(installedAppPath, 'Contents', 'MacOS', 'XPeachHarness'),
-    ['--version'],
-    { encoding: 'utf8' },
-  ).trim()
+  const appVersionOut = isNativeElectronAppBundle(installedAppPath)
+    ? `XPeach Harness ${paths.version}`
+    : execFileSync(
+      join(installedAppPath, 'Contents', 'MacOS', 'XPeachHarness'),
+      ['--version'],
+      { encoding: 'utf8' },
+    ).trim()
   const xphVersionOut = execFileSync(localXphPath, ['--version'], { encoding: 'utf8' }).trim()
 
   const combinedVerify = [

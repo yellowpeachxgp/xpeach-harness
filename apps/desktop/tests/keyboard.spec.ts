@@ -316,7 +316,7 @@ it('routes embedded input once, follows rebindings, and guards native window clo
 
 it.each([
   ['browser.new', 'KeyT'], ['session.new', 'KeyN'],
-])('forwards Linux %s from embedded frames while leaving main-document input to the DOM', async (id, code) => {
+])('forwards Linux %s from main and embedded frames', async (id, code) => {
   const f = await fixture('linux')
   const initial = await f.call<ShortcutConfigSnapshot>(DESKTOP_IPC.shortcutsGet,
     [{ id, defaults: desktopDefaults({ code, modifiers: ['primary'] }) }])
@@ -325,9 +325,12 @@ it.each([
   const preventDefault = vi.fn()
   f.contents.send.mockClear()
   f.contents.emit('before-input-event', { preventDefault }, input)
-  expect(preventDefault).not.toHaveBeenCalled()
-  expect(f.contents.send).not.toHaveBeenCalled()
+  expect(preventDefault).toHaveBeenCalledOnce()
+  expect(f.contents.send).toHaveBeenCalledExactlyOnceWith(DESKTOP_IPC.shortcutsInput,
+    expect.objectContaining({ kind: 'keyboard', frameName: '', code, revision: initial.revision }))
+  f.contents.emit('before-input-event', { preventDefault }, { ...input, type: 'keyUp' })
 
+  preventDefault.mockClear(); f.contents.send.mockClear()
   Object.assign(f.contents, { focusedFrame: { name: 'browser', parent: f.frame } })
   f.contents.emit('before-input-event', { preventDefault }, input)
   expect(preventDefault).toHaveBeenCalledOnce()

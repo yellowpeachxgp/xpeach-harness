@@ -96,4 +96,41 @@ describe('XPeach bundled Font Pack selector', () => {
     expect(setFontFamily).toHaveBeenCalledWith('code', '')
     expect(setFontFamily).toHaveBeenCalledWith('terminal', '')
   })
+
+  it('preserves unsaved custom text draft when code font changes and adopts normalized text font on commit', () => {
+    let state: XPeachFontFamiliesSnapshot = { text: '', code: '', terminal: '' }
+    const listeners = new Set<() => void>()
+    const setFontFamily = vi.fn((role: XPeachFontRole, value: string) => {
+      const normalized = role === 'text' && value === 'Inter, sans-serif' ? '"Inter", sans-serif' : value
+      state = { ...state, [role]: normalized }
+      for (const listener of listeners) listener()
+    })
+
+    render(
+      <FontPackRow
+        getFontFamilies={() => state}
+        setFontFamily={setFontFamily}
+        subscribeThemeChange={(cb) => {
+          listeners.add(cb)
+          return () => { listeners.delete(cb) }
+        }}
+        t={translate}
+      />,
+    )
+
+    const customInput = screen.getByRole<HTMLInputElement>('textbox', { name: zh['fontPack.customLabel'] })
+    fireEvent.change(customInput, { target: { value: 'Inter, sans-serif' } })
+    expect(customInput.value).toBe('Inter, sans-serif')
+
+    // Changing code font triggers subscribeThemeChange without changing state.text; customDraft stays intact
+    const firaBtn = document.querySelector<HTMLButtonElement>('[data-code-font-preset="fira"]')!
+    fireEvent.click(firaBtn)
+    expect(customInput.value).toBe('Inter, sans-serif')
+
+    // Committing custom font normalizes and highlights the matching Inter preset card
+    fireEvent.click(screen.getByRole('button', { name: zh['fontPack.customApply'] }))
+    expect(customInput.value).toBe('"Inter", sans-serif')
+    const interCard = document.querySelector<HTMLButtonElement>('[data-font-preset="inter"]')!
+    expect(interCard.getAttribute('aria-pressed')).toBe('true')
+  })
 })

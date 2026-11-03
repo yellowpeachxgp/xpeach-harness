@@ -318,10 +318,13 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote
   async initializeDefaultModel(): Promise<void> {
-    const provider = 'deepseek-account'
     if (await hasProviderApiKey(this.ctx)) return
     const catalog = await buildModelCatalog(this.ctx)
-    const model = catalog.groups.find(group => group.id === provider)?.models[0]
+    const group = catalog.groups.find(item => item.id === 'deepseek-account')
+      ?? catalog.groups.find(item => item.id === 'xpeach')
+      ?? catalog.groups.find(item => item.id.startsWith('xpeach-'))
+    const provider = group?.id ?? 'deepseek-account'
+    const model = group?.models.find(item => item.id === 'swe-2-max') ?? group?.models[0]
     if (model === undefined) throw new RemoteError('session/provider-models-unavailable',
       `provider "${provider}" has no available models`, { provider })
     const selection = { provider, model: model.id,
