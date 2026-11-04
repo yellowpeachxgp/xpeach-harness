@@ -814,7 +814,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-app.pkg'),
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
     )
 
     // Component 2: CLI (xph)
@@ -877,7 +877,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-cli.pkg'),
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
     )
 
     // Component 3: Profile (~/.xph)
@@ -933,7 +933,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-profile.pkg'),
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
     )
 
     // Distribution & localized HTML resources
@@ -964,16 +964,31 @@ export async function buildMacosPkgInstaller(
         pkgsDir,
         paths.pkgPath,
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
     )
 
-    const payloadFilesOut = execFileSync('/usr/sbin/pkgutil', ['--payload-files', paths.pkgPath], {
+    const payloadFilesRaw = execFileSync('/usr/sbin/pkgutil', ['--payload-files', paths.pkgPath], {
       encoding: 'utf8',
+      maxBuffer: 128 * 1024 * 1024,
     }).trim()
+    const payloadLines = payloadFilesRaw.split('\n')
+    const payloadFilesOut = payloadLines.length <= 200
+      ? payloadFilesRaw
+      : [
+        ...payloadLines.slice(0, 80),
+        ...payloadLines.slice(80).filter(
+          line =>
+            line.includes('Contents/Info.plist') ||
+              line.includes('Contents/MacOS/') ||
+              line.includes('usr/local/share/xpeach-harness/'),
+        ),
+        `... (${String(payloadLines.length)} payload entries total)`,
+      ].join('\n')
     let volInfoOut = ''
     try {
       volInfoOut = execFileSync('/usr/sbin/installer', ['-pkg', paths.pkgPath, '-volinfo'], {
         encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
       }).trim()
     } catch (_err) { /* volinfo optional on restricted environments */ }
 
