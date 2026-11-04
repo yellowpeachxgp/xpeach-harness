@@ -24,6 +24,8 @@ import type {
   XPeachMcpSaveRequest,
   XPeachMcpSnapshot,
   XPeachMcpToggleRequest,
+  XPeachModelPerfDetail,
+  XPeachModelPerfSummary,
   XPeachOps,
   XPeachReleaseChannel,
   XPeachRulesSaveRequest,
@@ -56,7 +58,7 @@ import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
 import { PaletteRow } from './PaletteRow.tsx'
 import { FontPackRow } from './FontPackRow.tsx'
-import { inferClientModelSpec, XPeachModelLabel } from './model-meta.tsx'
+import { inferClientModelSpec, updateClientModelTelemetryCache, XPeachModelLabel } from './model-meta.tsx'
 import { XPeachNotificationOverlay } from './NotificationOverlay.tsx'
 import {
   installTaskNotificationMonitor,
@@ -170,6 +172,13 @@ interface XPeachExtRemote {
     readonly urgent?: boolean | undefined
     readonly silent?: boolean | undefined
   }): Promise<RemoteOutcome<{ readonly delivered: boolean; readonly platform: string; readonly reason?: string | undefined }>>
+  perfMetricsSummary(request: {
+    readonly hours?: number | undefined
+  }): Promise<RemoteOutcome<readonly XPeachModelPerfSummary[]>>
+  perfMetricsDetail(request: {
+    readonly model: string
+    readonly hours?: number | undefined
+  }): Promise<RemoteOutcome<XPeachModelPerfDetail>>
 }
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
@@ -748,8 +757,32 @@ function registerUi(ctx: Context): Array<() => void> {
       const r = await extRemote.sendSystemNotification(req)
       return r.ok ? r.value : { delivered: false, platform: 'unknown', reason: r.error.message }
     },
+    perfMetricsSummary: async (hours = 24) => {
+      const r = await extRemote.perfMetricsSummary({ hours })
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    perfMetricsDetail: async (model, hours = 24) => {
+      const r = await extRemote.perfMetricsDetail({ model, hours })
+      return r.ok ? r.value : { error: r.error.message }
+    },
   }
-  const undo: Array<() => void> = []
+  const warmModelTelemetry = (): void => {
+    void Promise.all([
+      ops.perfMetricsSummary?.(24),
+      ops.adminPricing(),
+      ops.siteCatalog(),
+    ]).then(([perfRes, priceRes, siteRes]) => {
+      updateClientModelTelemetryCache({
+        ...(Array.isArray(perfRes) ? { perf: perfRes } : {}),
+        ...(priceRes !== undefined && !('error' in priceRes) ? { pricing: priceRes } : {}),
+        ...(siteRes !== undefined && !('error' in siteRes) && siteRes.tokenGroups[0] !== undefined
+          ? { activeGroup: siteRes.tokenGroups[0] }
+          : {}),
+      })
+    }).catch(() => {})
+  }
+  warmModelTelemetry()
+  const undo: Array<() => void> = [ops.subscribeCredentialChange(warmModelTelemetry)]
   // Composer-dock session cost: live $ from the tokenUsage projection against
   // the rates our token actually pays (operator surface; needs the admin token).
   undo.push(ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(

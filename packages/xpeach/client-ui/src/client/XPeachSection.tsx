@@ -2,7 +2,7 @@
 import { type JSX, useEffect, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachModel } from '@xpeach/xph-account/types'
-import type { XPeachOps, XPeachSsoDeviceStartResult } from './ops.ts'
+import type { XPeachOps, XPeachSiteCatalog, XPeachSsoDeviceStartResult } from './ops.ts'
 import { Button, Switch } from '@xpeach/xph-client-ui-primitives'
 import { XPeachMark } from './brand.tsx'
 import { footerBridge } from './FooterAction.tsx'
@@ -29,12 +29,17 @@ export function XPeachSection({
   trackingState, setTracking, autoSyncModels, setAutoSyncModels, syncModels,
   protocolPreference, setProtocolPreference,
   families, setFamilies, recents,
+  siteCatalog, setGroups,
   updateChannelStatus, setUpdateChannel, checkUpdate,
 }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
   const [autoSync, setAutoSync] = useState(true)
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncCount, setSyncCount] = useState<number | null>(null)
+  const [siteCat, setSiteCat] = useState<XPeachSiteCatalog | undefined>(undefined)
+  const [groupSel, setGroupSel] = useState<string[]>([])
+  const [groupBusy, setGroupBusy] = useState(false)
+  const [groupMsg, setGroupMsg] = useState<string | null>(null)
   const [protocol, setProtocol] = useState<'compatible' | 'native' | 'auto'>('compatible')
   useEffect(() => { void trackingState().then(setTrackingOn) }, [trackingState])
   useEffect(() => {
@@ -67,6 +72,14 @@ export function XPeachSection({
     void models().then(setModelList)
     void modelMatch().then((m) => { if (Array.isArray(m)) setMatch(m) })
     void recents().then(setRecentModels)
+    if (siteCatalog !== undefined) {
+      void siteCatalog().then((c) => {
+        if (!('error' in c)) {
+          setSiteCat(c)
+          setGroupSel([...c.tokenGroups])
+        }
+      })
+    }
   }
   useEffect(() => {
     let live = true
@@ -219,6 +232,39 @@ export function XPeachSection({
               <span className={css.bindOk}>● {t('bind.bound')}{sessAs !== null && <span className={css.adminDim}> @{sessAs}</span>}</span>
               <Button variant="outline" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('launch.signOut')}</Button>
             </div>
+            {siteCat !== undefined && siteCat.groups.some(g => g.models > 0) && (
+              <div className={css.groupBar}>
+                <span className={css.groupPickLabel}>{t('market.tokenGroups')}</span>
+                {siteCat.groups.filter(g => g.models > 0).map((g) => {
+                  const on = groupSel.includes(g.name)
+                  return (
+                    <button key={g.name} type="button" className={on ? css.groupChipOn : css.groupPickChip}
+                      onClick={() => {
+                        if (!on && groupSel.length >= 16) { setGroupMsg(t('market.groupLimit')); return }
+                        setGroupSel(prev => on ? prev.filter(x => x !== g.name) : [...prev, g.name])
+                      }}>
+                      {g.name}<b className={css.groupPickRatio}>{g.models}</b>
+                      {groupSel[0] === g.name && <em className={css.groupNow}>·{t('market.groupNow')}</em>}
+                    </button>
+                  )
+                })}
+                <button type="button" className={css.probeBtnOn} disabled={groupBusy || groupSel.length === 0}
+                  onClick={() => {
+                    if (setGroups === undefined) return
+                    setGroupBusy(true); setGroupMsg(null)
+                    void setGroups([...groupSel]).then((r) => {
+                      setGroupBusy(false)
+                      if ('error' in r) { setGroupMsg(r.error); return }
+                      setGroupMsg(t('market.synced', { n: r.count }))
+                      refresh()
+                    })
+                  }}>
+                  {groupBusy ? t('market.syncing') : t('market.applyGroups')}
+                </button>
+                <span className={css.groupPickLabel}>{groupSel.length}/16</span>
+                {groupMsg !== null && <span className={css.groupPickLabel}>{groupMsg}</span>}
+              </div>
+            )}
             {bindError !== null && <p className={css.bindError}>{bindError}</p>}
           </>
         )}

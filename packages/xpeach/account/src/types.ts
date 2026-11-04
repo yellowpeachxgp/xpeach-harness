@@ -742,6 +742,48 @@ export interface XPeachSsoSessionStatus {
   readonly message?: string | undefined
 }
 
+/** Hourly success-rate sample from PeachAPI `/api/perf-metrics/summary`. */
+export interface XPeachSuccessRatePoint {
+  readonly ts: number
+  readonly success_rate: number
+}
+
+/** Per-model 24-hour performance summary from PeachAPI `/api/perf-metrics/summary`. */
+export interface XPeachModelPerfSummary {
+  readonly model_name: string
+  readonly avg_latency_ms: number
+  readonly success_rate: number
+  readonly avg_tps: number
+  readonly recent_success_series?: readonly XPeachSuccessRatePoint[] | undefined
+}
+
+/** Hourly per-group performance sample from PeachAPI `/api/perf-metrics`. */
+export interface XPeachPerfSeriesPoint {
+  readonly ts: number
+  readonly avg_ttft_ms: number
+  readonly avg_latency_ms: number
+  readonly success_rate: number
+  readonly avg_tps: number
+}
+
+/** Per-group performance aggregate and time series for one model from `/api/perf-metrics`. */
+export interface XPeachPerfGroupRow {
+  readonly group: string
+  readonly avg_ttft_ms: number
+  readonly avg_latency_ms: number
+  readonly success_rate: number
+  readonly avg_tps: number
+  readonly series: readonly XPeachPerfSeriesPoint[]
+}
+
+/** Full model performance detail across groups from PeachAPI `/api/perf-metrics`. */
+export interface XPeachModelPerfDetail {
+  readonly model_name: string
+  readonly hours?: number | undefined
+  readonly series_schema?: string | undefined
+  readonly groups: readonly XPeachPerfGroupRow[]
+}
+
 export type {
   ParsedXPeachVersion,
   XPeachCheckUpdateRequest,

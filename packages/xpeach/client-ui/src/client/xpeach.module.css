@@ -4559,6 +4559,432 @@ body[data-ds-dark-theme] .mark img.markDark {
   flex: 1;
 }
 
+/* Composer Model Picker Option Telemetry & Pricing */
+.composerModelOptionRow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.composerModelMain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.composerModelName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composerModelTelemetry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.composerPerfChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--dsw-alias-bg-layer-2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+}
+.composerPerfChip[data-grade="excellent"] {
+  color: #10b981;
+  background: color-mix(in srgb, #10b981 12%, transparent);
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
+}
+.composerPerfChip[data-grade="good"] {
+  color: #14b8a6;
+  background: color-mix(in srgb, #14b8a6 12%, transparent);
+  border-color: color-mix(in srgb, #14b8a6 28%, transparent);
+}
+.composerPerfChip[data-grade="warning"] {
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+}
+.composerPerfChip[data-grade="critical"] {
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  border-color: color-mix(in srgb, #ef4444 28%, transparent);
+}
+.composerPerfDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.composerPerfMetric {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--dsw-font-family-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-2);
+}
+.composerPriceChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--xph-brand-orange, #f97316);
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 11%, transparent);
+}
+
+/* Model Market 24h Performance Health Overview & Telemetry */
+.perfOverviewCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-radius: var(--dsw-radius-md, 10px);
+  background: var(--dsw-alias-bg-layer-2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+}
+.perfOverviewHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.perfOverviewTitleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.perfOverviewTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.perfOverviewSubtitle {
+  margin: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+.perfOverviewStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.perfStatCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+}
+.perfStatLabel {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+.perfStatValue {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sortBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+.sortPill,
+.sortPillOn {
+  appearance: none;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.sortPill:hover {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-border-l1);
+}
+.sortPillOn {
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 14%, transparent);
+  border-color: color-mix(in srgb, var(--xph-brand-orange, #f97316) 42%, transparent);
+  color: var(--xph-brand-orange, #f97316);
+  font-weight: 600;
+}
+
+.groupFilterBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+}
+.groupFilterChip,
+.groupFilterChipOn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  transition: all 120ms ease;
+}
+.groupFilterChip:hover {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-border-l1);
+}
+.groupFilterChipOn {
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 16%, transparent);
+  border-color: color-mix(in srgb, var(--xph-brand-orange, #f97316) 48%, transparent);
+  color: var(--xph-brand-orange, #f97316);
+  font-weight: 600;
+}
+
+.activeGroupBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 8%, var(--dsw-alias-bg-layer-2));
+  border: 0.5px solid color-mix(in srgb, var(--xph-brand-orange, #f97316) 32%, var(--dsw-alias-border-l2));
+}
+.activeGroupBannerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.activeGroupBannerTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.activeGroupBannerDesc {
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+}
+.activeGroupBannerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.modelPerfInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hourlyBars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+}
+.hourlyBar {
+  width: 2.5px;
+  height: 10px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--dsw-alias-label-tertiary) 35%, transparent);
+}
+.hourlyBar[data-grade="excellent"] {
+  background: #10b981;
+}
+.hourlyBar[data-grade="good"] {
+  background: #14b8a6;
+}
+.hourlyBar[data-grade="warning"] {
+  background: #f59e0b;
+}
+.hourlyBar[data-grade="critical"] {
+  background: #ef4444;
+}
+
+.perfRatePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+}
+.perfRatePill[data-grade="excellent"] {
+  color: #10b981;
+  background: color-mix(in srgb, #10b981 11%, transparent);
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
+}
+.perfRatePill[data-grade="good"] {
+  color: #14b8a6;
+  background: color-mix(in srgb, #14b8a6 11%, transparent);
+  border-color: color-mix(in srgb, #14b8a6 28%, transparent);
+}
+.perfRatePill[data-grade="warning"] {
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 11%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+}
+.perfRatePill[data-grade="critical"] {
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 11%, transparent);
+  border-color: color-mix(in srgb, #ef4444 28%, transparent);
+}
+.perfStatusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.perfMetricPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: var(--dsw-font-family-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+}
+.priceDetailPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--xph-brand-orange, #f97316);
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 10%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--xph-brand-orange, #f97316) 26%, transparent);
+}
+.priceDiscountBadge {
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 18%, transparent);
+}
+
+/* MarketDetail Per-Group Performance & Pricing Table */
+.perfGroupSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+.perfGroupHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.perfGroupTableWrap {
+  overflow-x: auto;
+  border-radius: var(--dsw-radius-sm, 8px);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+}
+.perfGroupTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+.perfGroupTable th {
+  padding: 7px 10px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-bg-layer-2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  white-space: nowrap;
+}
+.perfGroupTable td {
+  padding: 8px 10px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.perfGroupTable tr:last-child td {
+  border-bottom: none;
+}
+.perfGroupRowActive {
+  background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 7%, transparent);
+}
+.perfGroupNameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.perfGroupDesc {
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 @media (max-width: 680px) {
   .onbShell {
     grid-template-columns: 1fr;

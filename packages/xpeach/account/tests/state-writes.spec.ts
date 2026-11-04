@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { zstdDecompressSync } from 'node:zlib'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { chatgptDatabaseFiles } from '../src/chatgpt-db.ts'
+import { XPeachApi } from '../src/api.ts'
 import {
   importAssets,
   importConversations,
@@ -1503,5 +1504,206 @@ describe('account state writes on a fresh install', () => {
     )
     expect(ssoRes.status).toBe('error')
     expect(ssoRes.bound).toBe(false)
+  })
+
+  it('syncs token metadata in verifyAndSyncSsoSession without clobbering client-updated groups and matches active key in ensureTokenInfo', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+    const tokenFile = join(profile, 'xpeach.token')
+
+    writeState(keyFile, 'sk-activeRelayKey9999\n')
+    writeState(adminKeyFile, 'adm-accessToken9999\n')
+    writeState(ssoStateFile, JSON.stringify({
+      accessToken: 'sso-tok-9999',
+      expiresIn: 86400,
+      user: { id: '99', username: 'peachuser' },
+      boundAt: Date.now(),
+    }))
+
+    const adminTokenUpdate = vi.fn(async () => ({ success: true }))
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {
+        ssoBaseURL: 'https://sso.xpeach.codes',
+        ssoClientId: 'xpeach-harness',
+      },
+      keyFile,
+      keyVar: 'XPEACH_TEST_SSO_TOKEN_SYNC_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_SSO_TOKEN_SYNC_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_SSO_TOKEN_SYNC_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      activeBaseURL: 'https://fast.xpeach.codes',
+      timeoutMs: 15_000,
+      lastSsoVerifyAt: 0,
+      lastEnsureTokenInfoAt: 0,
+      catalogSynced: true,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+        ssoPeachcodeCredentials: vi.fn(async () => ({
+          status: 'ok',
+          payload: {
+            sso: { accessToken: 'sso-tok-9999', expiresIn: 86400, user: { id: '99', username: 'peachuser' } },
+            peachcode: {
+              userId: 99,
+              username: 'peachuser',
+              accessToken: 'adm-accessToken9999',
+              apiKey: 'sk-activeRelayKey9999',
+              tokenId: 7788,
+              tokenName: 'peachcode-default',
+              tokenGroups: ['SWE'],
+            },
+          },
+        })),
+        adminTokens: vi.fn(async () => ({
+          items: [
+            { id: 1001, name: 'other-custom', key: 'otherKey0000', status: 1, created_time: 200 },
+            { id: 7788, name: 'custom-named-key', key: 'activeRelayKey9999', status: 1, created_time: 100, group: 'DeepSeek Flash,SWE' },
+          ],
+          total: 2,
+        })),
+        adminTokenGet: vi.fn(async () => ({
+          id: 7788,
+          name: 'custom-named-key',
+          group: 'DeepSeek Flash,SWE',
+        })),
+        adminTokenUpdate,
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE', 'DeepSeek Flash'] },
+          ],
+          groupRatio: { SWE: 0.22, 'DeepSeek Flash': 1.0 },
+          usableGroup: { SWE: 'SWE Group', 'DeepSeek Flash': 'Flash Group' },
+        })),
+        models: vi.fn(async () => [{ id: 'swe-2-max' }]),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: () => undefined,
+      },
+    })
+
+    // 1. When xpeach.token does not exist yet, ensureTokenInfo matches by raw key value and parses comma-separated detail.group
+    const signal = new AbortController().signal
+    const cat = await fakeAccount.siteCatalogOp({}, signal)
+    expect(cat.tokenId).toBe(7788)
+    expect(cat.tokenGroups).toEqual(['DeepSeek Flash', 'SWE'])
+    expect(adminTokenUpdate).not.toHaveBeenCalled()
+
+    // 2. When verifyAndSyncSsoSession runs with the same tokenId (7788) and apiKey,
+    // it keeps client-selected groups ['DeepSeek Flash', 'SWE']
+    const verify = await fakeAccount.verifyAndSyncSsoSession(true, signal)
+    expect(verify.valid).toBe(true)
+    const savedInfo = JSON.parse(readFileSync(tokenFile, 'utf8')) as { id?: number; name?: string; groups?: string[] }
+    expect(savedInfo.id).toBe(7788)
+    expect(savedInfo.name).toBe('peachcode-default')
+    expect(savedInfo.groups).toEqual(['DeepSeek Flash', 'SWE'])
+
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_SSO_TOKEN_SYNC_RELAY_KEY')
+  })
+
+  it('merges /api/user/self/groups with /api/pricing and fetches 24h performance telemetry', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (url.endsWith('/api/user/self/groups')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            SWE: { desc: 'SWE 专属渠道', ratio: 0.22, models: ['swe-2-max'] },
+            'ELY | Spark': { desc: 'ELY 合作分组', ratio: 0.5, models: [] },
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.endsWith('/api/pricing')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: [
+            { model_name: 'swe-2-max', model_ratio: 1, completion_ratio: 2, enable_groups: ['SWE'] },
+            { model_name: 'swe-2-pro', model_ratio: 0.5, completion_ratio: 2, enable_groups: ['SWE', 'ELY | Spark'] },
+            { model_name: 'claude-sonnet-4-6', model_ratio: 1.5, completion_ratio: 5, enable_groups: ['Claude 渠道'] },
+          ],
+          group_ratio: { SWE: 0.22, 'ELY | Spark': 0.5, 'Claude 渠道': 0.8 },
+          usable_group: { SWE: 'SWE 专属渠道', 'ELY | Spark': 'ELY 合作分组', 'Claude 渠道': 'Claude 官方直连' },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/perf-metrics/summary')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            hours: 24,
+            models: [
+              {
+                model_name: 'swe-2-max',
+                avg_latency_ms: 820,
+                success_rate: 99.6,
+                avg_tps: 78.4,
+                recent_success_series: [{ ts: 1730000000, success_rate: 100 }],
+              },
+            ],
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/perf-metrics?model=swe-2-max')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            model_name: 'swe-2-max',
+            hours: 24,
+            series_schema: 'compact_v1',
+            groups: [
+              {
+                group: 'SWE',
+                avg_ttft_ms: 310,
+                avg_latency_ms: 820,
+                success_rate: 99.6,
+                avg_tps: 78.4,
+                series: [{ ts: 1730000000, avg_ttft_ms: 310, avg_latency_ms: 820, success_rate: 100, avg_tps: 78.4 }],
+              },
+            ],
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response('not found', { status: 404 })
+    })
+
+    try {
+      const api = new XPeachApi({
+        baseURL: 'https://fast.xpeach.codes',
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-test1234',
+        resolveAdmin: () => 'adm-token-xyz',
+        resolveCookie: () => undefined,
+      })
+      const signal = new AbortController().signal
+      const groups = await api.groups(signal)
+      expect(groups['SWE']?.models).toEqual(['swe-2-max', 'swe-2-pro'])
+      expect(groups['ELY | Spark']?.models).toEqual(['swe-2-pro'])
+      expect(groups['Claude 渠道']?.models).toEqual(['claude-sonnet-4-6'])
+      expect(groups['Claude 渠道']?.ratio).toBe(0.8)
+      expect(groups['Claude 渠道']?.desc).toBe('Claude 官方直连')
+
+      const perfSummary = await api.perfMetricsSummary(24, signal)
+      expect(perfSummary).toHaveLength(1)
+      expect(perfSummary[0]?.model_name).toBe('swe-2-max')
+      expect(perfSummary[0]?.avg_tps).toBe(78.4)
+      expect(perfSummary[0]?.success_rate).toBe(99.6)
+
+      const perfDetail = await api.perfMetricsDetail('swe-2-max', 24, signal)
+      expect(perfDetail.model_name).toBe('swe-2-max')
+      expect(perfDetail.groups).toHaveLength(1)
+      expect(perfDetail.groups[0]?.group).toBe('SWE')
+      expect(perfDetail.groups[0]?.avg_ttft_ms).toBe(310)
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 })

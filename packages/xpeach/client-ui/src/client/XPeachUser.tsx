@@ -3,7 +3,7 @@
  * Stripe/NowPayments pay shortcut — gated on XPeach SSO authentication.
  */
 import { type JSX, useCallback, useEffect, useState } from 'react'
-import type { XPeachOnboardingScan, XPeachOps, XPeachUserSelfRow } from './ops.ts'
+import type { XPeachOnboardingScan, XPeachOps, XPeachSiteCatalog, XPeachUserSelfRow } from './ops.ts'
 import type { XPeachTabProps } from './XPeachTab.tsx'
 import { MacosInstallerCard } from './XPeachProfile.tsx'
 import { SOURCE_META, openXPeachLoginModal } from './XPeachOnboarding.tsx'
@@ -108,6 +108,7 @@ export function XPeachUser({
   t, sessionBound, userSelf, userTopup, stripeAmount, stripePay,
   userSelfEdit, userAff, importDeepseek,
   onboardingScan, importConversations, macosInstallerStatus, macosInstallerAction,
+  siteCatalog, setGroups,
 }: {
   readonly t: XPeachTabProps['t']
   readonly sessionBound: XPeachOps['sessionBound']
@@ -127,8 +128,14 @@ export function XPeachUser({
   readonly importConversations?: XPeachOps['importConversations'] | undefined
   readonly macosInstallerStatus?: XPeachOps['macosInstallerStatus'] | undefined
   readonly macosInstallerAction?: XPeachOps['macosInstallerAction'] | undefined
+  readonly siteCatalog?: XPeachOps['siteCatalog'] | undefined
+  readonly setGroups?: XPeachOps['setGroups'] | undefined
 }): JSX.Element {
   const [me, setMe] = useState<XPeachUserSelfRow | { error: string } | undefined>(undefined)
+  const [siteCat, setSiteCat] = useState<XPeachSiteCatalog | undefined>(undefined)
+  const [groupSel, setGroupSel] = useState<string[]>([])
+  const [groupBusy, setGroupBusy] = useState(false)
+  const [groupMsg, setGroupMsg] = useState<string | null>(null)
   const [code, setCode] = useState('')
   const [codeBusy, setCodeBusy] = useState(false)
   const [codeMsg, setCodeMsg] = useState<string | null>(null)
@@ -146,7 +153,15 @@ export function XPeachUser({
   const reload = useCallback((): void => {
     void userSelf().then(setMe)
     void userAff().then(setAff)
-  }, [userSelf, userAff])
+    if (siteCatalog !== undefined) {
+      void siteCatalog().then((c) => {
+        if (!('error' in c)) {
+          setSiteCat(c)
+          setGroupSel([...c.tokenGroups])
+        }
+      })
+    }
+  }, [userSelf, userAff, siteCatalog])
 
   useEffect(() => {
     let live = true
@@ -236,6 +251,39 @@ export function XPeachUser({
             <div className={css.usageCell}><dt>{t('user.quota')}</dt><dd>{me.quota !== undefined ? fmtQuota(me.quota) : '—'}</dd></div>
             <div className={css.usageCell}><dt>{t('user.used')}</dt><dd>{me.used_quota !== undefined ? fmtQuota(me.used_quota) : '—'}</dd></div>
           </dl>
+        )}
+        {siteCat !== undefined && siteCat.groups.some(g => g.models > 0) && (
+          <div className={css.groupBar}>
+            <span className={css.groupPickLabel}>{t('market.tokenGroups')}</span>
+            {siteCat.groups.filter(g => g.models > 0).map((g) => {
+              const on = groupSel.includes(g.name)
+              return (
+                <button key={g.name} type="button" className={on ? css.groupChipOn : css.groupPickChip}
+                  onClick={() => {
+                    if (!on && groupSel.length >= 16) { setGroupMsg(t('market.groupLimit')); return }
+                    setGroupSel(prev => on ? prev.filter(x => x !== g.name) : [...prev, g.name])
+                  }}>
+                  {g.name}<b className={css.groupPickRatio}>{g.models}</b>
+                  {groupSel[0] === g.name && <em className={css.groupNow}>·{t('market.groupNow')}</em>}
+                </button>
+              )
+            })}
+            <button type="button" className={css.probeBtnOn} disabled={groupBusy || groupSel.length === 0}
+              onClick={() => {
+                if (setGroups === undefined) return
+                setGroupBusy(true); setGroupMsg(null)
+                void setGroups([...groupSel]).then((r) => {
+                  setGroupBusy(false)
+                  if ('error' in r) { setGroupMsg(r.error); return }
+                  setGroupMsg(t('market.synced', { n: r.count }))
+                  reload()
+                })
+              }}>
+              {groupBusy ? t('market.syncing') : t('market.applyGroups')}
+            </button>
+            <span className={css.groupPickLabel}>{groupSel.length}/16</span>
+            {groupMsg !== null && <span className={css.groupPickLabel}>{groupMsg}</span>}
+          </div>
         )}
         {editOpen && (
           <EditDrawer

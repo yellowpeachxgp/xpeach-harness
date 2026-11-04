@@ -98,6 +98,7 @@ import type {
   XPeachTokenPage, XPeachTokenUsage, XPeachTokenUsageRequest, XPeachTokensRequest, XPeachUserSelf,
   XPeachModelPricingChange, XPeachModelSyncResult, XPeachSiteCatalog, XPeachSelfLogPage,
   XPeachSelfLogStat, XPeachNetworkPoint, XPeachNetworkSnapshot, XPeachModelPricingSnapshot,
+  XPeachModelPerfDetail, XPeachModelPerfSummary,
   XPeachPlaygroundChunk,
 } from './types.ts'
 
@@ -954,6 +955,7 @@ export class XPeachAccount extends TypertRemoteService {
   private lastEnsureTokenInfoAt = 0
   private usageCache: { at: number; key: string; usage: XPeachTokenUsage } | undefined
   private usageInFlight: Promise<XPeachTokenUsage> | undefined
+  private perfSummaryCache: { at: number; hours: number; items: readonly XPeachModelPerfSummary[] } | undefined
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'xpeachAccount', { namespace: 'xpeach' })
@@ -1407,7 +1409,58 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Backfill and self-heal the token metadata: find the active xph-/dsh- token,
+   * Extract normalized group names from a token record (`groups` array or
+   * comma-separated `group` string).
+   */
+  private extractTokenGroups(detail: { readonly groups?: unknown; readonly group?: unknown }): string[] {
+    if (Array.isArray(detail.groups)) {
+      const fromArray = detail.groups
+        .filter((g): g is string => typeof g === 'string' && g.trim().length > 0)
+        .map(g => g.trim())
+      if (fromArray.length > 0) return fromArray
+    }
+    if (typeof detail.group === 'string' && detail.group.trim().length > 0) {
+      return detail.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
+    }
+    return []
+  }
+
+  /**
+   * Select the active relay token from a site token page: match by raw key value
+   * first, then by managed name prefix (`xph-`, `dsh-`, `sso-`, `peachcode`,
+   * `xpeach`), then fall back to the newest enabled token.
+   */
+  private selectMatchingAdminToken(
+    items: readonly XPeachAdminToken[],
+    activeRelayKey: string | undefined,
+    allowAnyFallback: boolean,
+  ): XPeachAdminToken | undefined {
+    const enabled = items
+      .filter(t => t.status === 1)
+      .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))
+    if (enabled.length === 0) return undefined
+    const normActive = activeRelayKey?.replace(/^(?:xpk|sk)-/u, '').trim()
+    if (normActive !== undefined && normActive.length > 0) {
+      const byKey = enabled.find((t) => {
+        if (typeof t.key !== 'string' || t.key.length === 0) return false
+        return t.key.replace(/^(?:xpk|sk)-/u, '').trim() === normActive
+      })
+      if (byKey !== undefined) return byKey
+    }
+    const byPrefix = enabled.find((t) => {
+      const lower = (t.name ?? '').toLowerCase()
+      return lower.startsWith('xph-')
+        || lower.startsWith('dsh-')
+        || lower.startsWith('sso-')
+        || lower.startsWith('peachcode')
+        || lower.startsWith('xpeach')
+    })
+    if (byPrefix !== undefined) return byPrefix
+    return allowAnyFallback ? enabled[0] : undefined
+  }
+
+  /**
+   * Backfill and self-heal the token metadata: find the active relay token,
    * prune any retired/unauthorized groups against the site's `usable_group` set,
    * and persist its id/name/groups.
    */
@@ -1423,21 +1476,25 @@ export class XPeachAccount extends TypertRemoteService {
     }
     let tokenId = info.id
     let tokenName = info.name
+    let matchedToken: XPeachAdminToken | undefined
     if (tokenId === undefined) {
       let page: XPeachAdminPage<XPeachAdminToken> | undefined
       try { page = await this.api.adminTokens(0, 100, signal) } catch (_err) { return info }
-      const live = page.items
-        .filter(t => t.status === 1 && ((t.name ?? '').startsWith('xph-') || (t.name ?? '').startsWith('dsh-') || (t.name ?? '').startsWith('sso-')))
-        .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
+      const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+      const live = this.selectMatchingAdminToken(page.items, activeKey, true)
       if (live === undefined) return info
+      matchedToken = live
       tokenId = live.id
       tokenName = live.name
     }
     let detail: Record<string, JsonValue> | undefined
     try { detail = await this.api.adminTokenGet(tokenId, signal) } catch (_err) { return info }
-    const rawGroups = Array.isArray(detail.groups)
-      ? detail.groups.filter((g): g is string => typeof g === 'string' && g.length > 0)
-      : []
+    const detailGroups = this.extractTokenGroups(detail)
+    const rawGroups = detailGroups.length > 0
+      ? detailGroups
+      : matchedToken !== undefined
+        ? this.extractTokenGroups(matchedToken)
+        : (info.groups ?? [])
     let groups = rawGroups
     try {
       const counts = await this.groupModelCounts(signal)
@@ -1465,14 +1522,27 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Model counts per site group, filtered to groups usable by the signed-in user. */
   private async groupModelCounts(signal: AbortSignal): Promise<Map<string, number>> {
-    const pricing = await this.api.adminPricing(signal)
-    const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
-    const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
+    const [pricing, groupCat] = await Promise.all([
+      this.api.adminPricing(signal).catch(() => undefined),
+      typeof this.api.groups === 'function' ? this.api.groups(signal).catch(() => undefined) : Promise.resolve(undefined),
+    ])
     const counts = new Map<string, number>()
-    for (const entry of pricing.entries) {
-      for (const group of entry.enable_groups ?? []) {
-        if (usableSet !== undefined && !usableSet.has(group)) continue
-        counts.set(group, (counts.get(group) ?? 0) + 1)
+    if (pricing !== undefined) {
+      const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
+      const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
+      for (const entry of pricing.entries) {
+        for (const group of entry.enable_groups ?? []) {
+          if (usableSet !== undefined && !usableSet.has(group) && !(groupCat !== undefined && group in groupCat)) continue
+          counts.set(group, (counts.get(group) ?? 0) + 1)
+        }
+      }
+    }
+    if (groupCat !== undefined) {
+      for (const [name, meta] of Object.entries(groupCat)) {
+        const len = Array.isArray(meta?.models) ? meta.models.length : 0
+        if (len > (counts.get(name) ?? 0)) {
+          counts.set(name, len)
+        }
       }
     }
     return counts
@@ -2009,6 +2079,10 @@ export class XPeachAccount extends TypertRemoteService {
     const slots = this.readSlots().filter(s => s.key !== key)
     slots.push({ name: request.name.trim() || `slot-${String(slots.length + 1)}`, key })
     this.writeSlots(slots)
+    if (prev !== key) {
+      this.lastEnsureTokenInfoAt = 0
+      try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
+    }
     this.markOnboardedAndClearSignOut()
     void this.ensureDesktopOnboardingCompleted().catch(() => {})
     this.notifyKeyChanged()
@@ -2027,7 +2101,12 @@ export class XPeachAccount extends TypertRemoteService {
     const slots = this.readSlots()
     const target = slots[request.index]
     if (target === undefined) return { ok: false, message: 'xpeach: slot index out of range' }
+    const prev = this.readKeyFile()
     this.persistKey(target.key)
+    if (prev !== target.key) {
+      this.lastEnsureTokenInfoAt = 0
+      try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
+    }
     this.notifyKeyChanged()
     void this.syncModelCatalog(AbortSignal.timeout(this.timeoutMs)).catch(() => {})
     return { ok: true, message: 'xpeach: switched to ' + target.name }
@@ -2331,6 +2410,47 @@ export class XPeachAccount extends TypertRemoteService {
   async groups(_request: Record<string, never>, signal: AbortSignal):
   Promise<Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }>> {
     return await this.api.groups(signal)
+  }
+
+  /**
+   * Fetch 24-hour performance telemetry summaries across all models from
+   * PeachAPI (`/api/perf-metrics/summary`), cached for 60 seconds.
+   *
+   * @param request - optional lookback window in hours (`default = 24`).
+   * @param signal - carrier cancellation.
+   * @returns list of model performance summaries.
+   */
+  @Remote('perfMetricsSummary')
+  async perfMetricsSummaryOp(
+    request: { readonly hours?: number | undefined },
+    signal: AbortSignal,
+  ): Promise<readonly XPeachModelPerfSummary[]> {
+    signal.throwIfAborted()
+    const hours = request.hours ?? 24
+    const cached = this.perfSummaryCache
+    if (cached !== undefined && cached.hours === hours && Date.now() - cached.at < 60_000) {
+      return cached.items
+    }
+    const items = await this.api.perfMetricsSummary(hours, signal)
+    this.perfSummaryCache = { at: Date.now(), hours, items }
+    return items
+  }
+
+  /**
+   * Fetch per-group 24-hour performance telemetry and hourly time series for one
+   * model from PeachAPI (`/api/perf-metrics`).
+   *
+   * @param request - target model name and optional lookback window in hours (`default = 24`).
+   * @param signal - carrier cancellation.
+   * @returns model performance detail grouped by channel group.
+   */
+  @Remote('perfMetricsDetail')
+  async perfMetricsDetailOp(
+    request: { readonly model: string; readonly hours?: number | undefined },
+    signal: AbortSignal,
+  ): Promise<XPeachModelPerfDetail> {
+    signal.throwIfAborted()
+    return await this.api.perfMetricsDetail(request.model, request.hours ?? 24, signal)
   }
 
   /**
@@ -3035,6 +3155,31 @@ export class XPeachAccount extends TypertRemoteService {
             keyChanged = true
           }
         }
+        const bridgeGroups = Array.isArray(peach?.tokenGroups)
+          ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.trim().length > 0).map(g => g.trim())
+          : typeof peach?.group === 'string' && peach.group.trim().length > 0
+            ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
+            : []
+        if (peach?.tokenId !== undefined || peach?.tokenName !== undefined || bridgeGroups.length > 0) {
+          const prevInfo = this.readTokenInfo()
+          const shouldSyncGroups = bridgeGroups.length > 0 && (
+            keyChanged
+            || (peach?.tokenId !== undefined && peach.tokenId !== prevInfo.id)
+            || !Array.isArray(prevInfo.groups)
+            || prevInfo.groups.length === 0
+          )
+          const nextInfo: { id?: number; name?: string; groups?: string[] } = {
+            ...(prevInfo.id !== undefined ? { id: prevInfo.id } : {}),
+            ...(prevInfo.name !== undefined ? { name: prevInfo.name } : {}),
+            ...(Array.isArray(prevInfo.groups) && prevInfo.groups.length > 0 ? { groups: prevInfo.groups } : {}),
+            ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
+            ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
+            ...(shouldSyncGroups ? { groups: bridgeGroups } : {}),
+          }
+          if (!deepEqualJson(prevInfo, nextInfo)) {
+            this.writeTokenInfo(nextInfo)
+          }
+        }
         if (keyChanged || !this.catalogSynced) {
           void this.syncModelCatalog(effectiveSignal).catch(() => {})
         }
@@ -3302,8 +3447,10 @@ export class XPeachAccount extends TypertRemoteService {
     if (apiKey !== undefined && apiKey.length > 0) {
       if (apiKey.match(/^(?:xpk|sk)-/u) === null) apiKey = 'sk-' + apiKey
       const bridgeGroups = Array.isArray(peach?.tokenGroups)
-        ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.length > 0)
-        : []
+        ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.trim().length > 0).map(g => g.trim())
+        : typeof peach?.group === 'string' && peach.group.trim().length > 0
+          ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
+          : []
       this.writeTokenInfo({
         ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
         ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
@@ -3549,9 +3696,8 @@ export class XPeachAccount extends TypertRemoteService {
       let id: number | undefined
       let name: string | undefined
       const page = await this.api.adminTokens(0, 100, signal)
-      const live = page.items
-        .filter(t => t.status === 1 && ((t.name ?? '').startsWith('xph-') || (t.name ?? '').startsWith('dsh-')))
-        .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
+      const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+      const live = this.selectMatchingAdminToken(page.items, activeKey, false)
       if (live !== undefined) {
         id = live.id
         name = live.name
@@ -3573,9 +3719,7 @@ export class XPeachAccount extends TypertRemoteService {
       }
       const counts = await this.groupModelCounts(signal)
       const detail = await this.api.adminTokenGet(id, signal)
-      const currentGroups = Array.isArray(detail.groups)
-        ? detail.groups.filter((g): g is string => typeof g === 'string' && g.length > 0)
-        : []
+      const currentGroups = this.extractTokenGroups(detail)
       const usable = currentGroups.some(g => (counts.get(g) ?? 0) > 0)
       if (!usable && defaults.length > 0) {
         await this.api.adminTokenUpdate({ ...detail, groups: defaults, group: defaults[0] ?? '' }, signal)
@@ -3765,8 +3909,9 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('siteCatalog')
   async siteCatalogOp(_request: XPeachSelfRequest, signal: AbortSignal): Promise<XPeachSiteCatalog> {
     signal.throwIfAborted()
-    const [pricing, info] = await Promise.all([
+    const [pricing, groupCat, info] = await Promise.all([
       this.api.adminPricing(signal),
+      typeof this.api.groups === 'function' ? this.api.groups(signal).catch(() => undefined) : Promise.resolve(undefined),
       this.ensureTokenInfo(signal),
     ])
     const list = await this.api.models(signal).catch(() => [])
@@ -3775,20 +3920,33 @@ export class XPeachAccount extends TypertRemoteService {
     const counts = new Map<string, number>()
     for (const entry of pricing.entries) {
       for (const group of entry.enable_groups ?? []) {
-        if (usableSet !== undefined && !usableSet.has(group)) continue
+        if (usableSet !== undefined && !usableSet.has(group) && !(groupCat !== undefined && group in groupCat)) continue
         counts.set(group, (counts.get(group) ?? 0) + 1)
+      }
+    }
+    if (groupCat !== undefined) {
+      for (const [name, meta] of Object.entries(groupCat)) {
+        const len = Array.isArray(meta?.models) ? meta.models.length : 0
+        if (len > (counts.get(name) ?? 0)) {
+          counts.set(name, len)
+        }
       }
     }
     const groups = [...counts.entries()]
       .filter(([name]) => name !== 'default' && name !== '管理员分组')
-      .map(([name, models]) => ({
-        name,
-        models,
-        ...(pricing.groupRatio[name] !== undefined ? { ratio: pricing.groupRatio[name] } : {}),
-        ...(pricing.usableGroup?.[name] !== undefined && pricing.usableGroup[name] !== ''
-          ? { desc: pricing.usableGroup[name] }
-          : {}),
-      }))
+      .map(([name, models]) => {
+        const catMeta = groupCat?.[name]
+        const rawRatio = pricing.groupRatio[name] ?? (typeof catMeta?.ratio === 'number' ? catMeta.ratio : typeof catMeta?.ratio === 'string' ? Number(catMeta.ratio) : undefined)
+        const desc = (pricing.usableGroup?.[name] !== undefined && pricing.usableGroup[name] !== '')
+          ? pricing.usableGroup[name]
+          : (typeof catMeta?.desc === 'string' && catMeta.desc !== '' ? catMeta.desc : undefined)
+        return {
+          name,
+          models,
+          ...(typeof rawRatio === 'number' && Number.isFinite(rawRatio) ? { ratio: rawRatio } : {}),
+          ...(desc !== undefined ? { desc } : {}),
+        }
+      })
       .sort((a, b) => b.models - a.models)
     return {
       groups,

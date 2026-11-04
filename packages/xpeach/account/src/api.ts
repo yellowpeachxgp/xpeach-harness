@@ -13,8 +13,9 @@ import { dirname } from 'node:path'
 import type {
   XPeachAdminLogEntry, XPeachAdminOverview, XPeachAdminPage, XPeachAdminToken,
   XPeachAdminUser, XPeachBillingRate, XPeachChannel, XPeachChatReply, XPeachChatRequest, XPeachHealthRow, XPeachModel,
-  XPeachModelPricingChange, XPeachModelPricingSnapshot,
-  XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption, XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
+  XPeachModelPerfDetail, XPeachModelPerfSummary, XPeachModelPricingChange, XPeachModelPricingSnapshot,
+  XPeachPerfGroupRow, XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption,
+  XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
   XPeachUserSelf, XPeachSelfLogPage, XPeachSelfLogStat,
   XPeachSsoBridgePayload, XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
 } from './types.ts'
@@ -411,14 +412,106 @@ export class XPeachApi {
     return this.keyGet('/api/log/token', signal)
   }
 
+  private async fetchRawGroupCatalog(signal: AbortSignal): Promise<GroupCatalog> {
+    if (this.currentAdmin() !== undefined || this.currentCookie() !== undefined) {
+      try {
+        const selfGroups = await this.authedGet<GroupCatalog>('/api/user/self/groups', signal)
+        if (selfGroups !== undefined && typeof selfGroups === 'object' && !Array.isArray(selfGroups)) {
+          return selfGroups
+        }
+      } catch (_err) {
+        if (signal.aborted) throw signal.reason
+      }
+    }
+    return await this.keyGet<GroupCatalog>('/api/user/groups', signal)
+  }
+
+  private mergeGroupCatalogWithPricing(
+    rawGroups: GroupCatalog | undefined,
+    pricing: XPeachPricingCatalog | undefined,
+  ): GroupCatalog {
+    const merged: Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }> = {}
+    const modelSets = new Map<string, Set<string>>()
+
+    for (const [groupName, meta] of Object.entries(rawGroups ?? {})) {
+      if (meta === undefined || typeof meta !== 'object') continue
+      const set = new Set<string>(
+        Array.isArray(meta.models)
+          ? meta.models.filter((m): m is string => typeof m === 'string' && m.length > 0)
+          : [],
+      )
+      modelSets.set(groupName, set)
+      merged[groupName] = {
+        ...(meta.desc !== undefined ? { desc: meta.desc } : {}),
+        ...(meta.ratio !== undefined ? { ratio: meta.ratio } : {}),
+        models: [...set],
+      }
+    }
+
+    if (pricing !== undefined) {
+      const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
+      const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
+      for (const entry of pricing.entries) {
+        if (typeof entry.model_name !== 'string' || entry.model_name.length === 0) continue
+        for (const groupName of entry.enable_groups ?? []) {
+          if (typeof groupName !== 'string' || groupName.length === 0) continue
+          if (usableSet !== undefined && !usableSet.has(groupName) && !(groupName in merged)) continue
+          let set = modelSets.get(groupName)
+          if (set === undefined) {
+            set = new Set<string>()
+            modelSets.set(groupName, set)
+          }
+          set.add(entry.model_name)
+        }
+      }
+      if (pricing.usableGroup !== undefined) {
+        for (const groupName of Object.keys(pricing.usableGroup)) {
+          if (groupName.length === 0) continue
+          if (!modelSets.has(groupName)) {
+            modelSets.set(groupName, new Set<string>())
+          }
+        }
+      }
+      for (const [groupName, set] of modelSets) {
+        const existing = merged[groupName]
+        const usableDesc = pricing.usableGroup?.[groupName]
+        const desc = existing?.desc ?? (usableDesc !== undefined && usableDesc !== '' ? usableDesc : undefined)
+        const ratio = existing?.ratio ?? pricing.groupRatio[groupName]
+        merged[groupName] = {
+          ...(desc !== undefined ? { desc } : {}),
+          ...(ratio !== undefined ? { ratio } : {}),
+          models: [...set],
+        }
+      }
+    }
+
+    return merged
+  }
+
   /**
-   * Site group catalog the token can see — `{ name → { desc, models, ratio } }`.
+   * Site group catalog the user/token can see — `{ name → { desc, models, ratio } }`.
+   * Queries `/api/user/self/groups` with the user's Access Token (falling back to
+   * `/api/user/groups`) and merges group-model memberships from `/api/pricing`
+   * so user-specific and partner groups always carry their complete `models` list.
    *
    * @param signal - request cancellation signal.
    * @returns group descriptors keyed by group name.
    */
-  groups(signal: AbortSignal): Promise<GroupCatalog> {
-    return this.keyGet('/api/user/groups', signal)
+  async groups(signal: AbortSignal): Promise<GroupCatalog> {
+    const [rawGroups, pricing] = await Promise.all([
+      this.fetchRawGroupCatalog(signal).catch((err: unknown) => {
+        if (signal.aborted) throw err
+        return undefined
+      }),
+      this.adminPricing(signal).catch((err: unknown) => {
+        if (signal.aborted) throw err
+        return undefined
+      }),
+    ])
+    if (rawGroups === undefined && pricing === undefined) {
+      return await this.fetchRawGroupCatalog(signal)
+    }
+    return this.mergeGroupCatalogWithPricing(rawGroups, pricing)
   }
 
   /**
@@ -695,19 +788,20 @@ export class XPeachApi {
     if (this.priceCache !== undefined && Date.now() - this.priceCache.at < XPeachApi.PRICE_TTL_MS && !force) {
       return { ...this.priceCache, stale: false }
     }
-    const [pricing, groups] = await Promise.all([
+    const [pricing, rawGroups] = await Promise.all([
       this.adminPricing(signal).catch(() => undefined),
-      this.groups(signal).catch(() => undefined),
+      this.fetchRawGroupCatalog(signal).catch(() => undefined),
     ])
-    if (pricing === undefined && groups === undefined) {
+    if (pricing === undefined && rawGroups === undefined) {
       if (this.priceCache !== undefined) return { ...this.priceCache, stale: true }
       throw new RemoteError('xpeach/request-failed', 'xpeach: price sync failed and no cache exists', { status: 0, message: 'sync failed' })
     }
+    const mergedGroups = this.mergeGroupCatalogWithPricing(rawGroups, pricing)
     this.priceCache = {
       at: Date.now(),
       entries: (pricing?.entries !== undefined && pricing.entries.length > 0) ? pricing.entries : (this.priceCache?.entries ?? []),
       groupRatio: pricing?.groupRatio ?? this.priceCache?.groupRatio ?? {},
-      groups: groups ?? this.priceCache?.groups ?? {},
+      groups: Object.keys(mergedGroups).length > 0 ? mergedGroups : (this.priceCache?.groups ?? {}),
     }
     this.savePriceCache()
     return { ...this.priceCache, stale: false }
@@ -733,14 +827,15 @@ export class XPeachApi {
    */
   async adminPricing(signal: AbortSignal): Promise<XPeachPricingCatalog> {
     const key = this.currentAdmin()
+    const cookie = this.currentCookie()
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (key !== undefined) headers['Authorization'] = key
+    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
     let response: Response
     try {
-      response = await fetch(this.baseURL + '/api/pricing', {
+      response = await this.send(this.baseURL + '/api/pricing', {
         headers,
-        signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
-      })
+      }, this.timeoutMs, signal)
     } catch (cause) {
       if (signal.aborted) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: pricing fetch failed: ' + String(cause), { status: 0, message: String(cause) })
@@ -768,6 +863,111 @@ export class XPeachApi {
       groupRatio: body?.group_ratio ?? {},
       ...(body?.usable_group !== undefined ? { usableGroup: body.usable_group } : {}),
       ...(Array.isArray(body?.auto_groups) ? { autoGroups: body.auto_groups } : {}),
+    }
+  }
+
+  /**
+   * Fetch 24-hour performance summaries across all models from PeachAPI's
+   * `/api/perf-metrics/summary`.
+   *
+   * @param hours - lookback window in hours (`1 <= hours <= 168`, default `24`).
+   * @param signal - request cancellation signal.
+   * @returns list of model performance summaries.
+   */
+  async perfMetricsSummary(hours: number, signal: AbortSignal): Promise<readonly XPeachModelPerfSummary[]> {
+    const safeHours = Math.max(1, Math.min(168, Math.floor(Number.isFinite(hours) ? hours : 24)))
+    const key = this.currentAdmin()
+    const cookie = this.currentCookie()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (key !== undefined) headers['Authorization'] = key
+    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
+    let response: Response
+    try {
+      response = await this.send(
+        `${this.baseURL}/api/perf-metrics/summary?hours=${String(safeHours)}`,
+        { headers },
+        this.timeoutMs,
+        signal,
+      )
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf summary fetch failed: ' + String(cause), { status: 0, message: String(cause) })
+    }
+    const body = await response.json().catch(() => undefined) as
+      | {
+        success?: boolean
+        message?: string
+        data?: { models?: readonly XPeachModelPerfSummary[] } | readonly XPeachModelPerfSummary[]
+        models?: readonly XPeachModelPerfSummary[]
+      }
+      | undefined
+    if (!response.ok || body?.success === false) {
+      const msg = typeof body?.message === 'string' ? body.message : response.statusText
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf summary rejected: ' + msg, { status: response.status, message: msg })
+    }
+    const data = body?.data
+    if (Array.isArray(data)) return data
+    if (data !== undefined && typeof data === 'object' && Array.isArray((data as { models?: unknown }).models)) {
+      return (data as { models: readonly XPeachModelPerfSummary[] }).models
+    }
+    if (Array.isArray(body?.models)) return body.models
+    return []
+  }
+
+  /**
+   * Fetch per-group 24-hour performance telemetry and hourly time series for one
+   * model from PeachAPI's `/api/perf-metrics`.
+   *
+   * @param model - target model identifier.
+   * @param hours - lookback window in hours (`1 <= hours <= 168`, default `24`).
+   * @param signal - request cancellation signal.
+   * @returns model performance detail grouped by channel group.
+   */
+  async perfMetricsDetail(model: string, hours: number, signal: AbortSignal): Promise<XPeachModelPerfDetail> {
+    const safeHours = Math.max(1, Math.min(168, Math.floor(Number.isFinite(hours) ? hours : 24)))
+    const key = this.currentAdmin()
+    const cookie = this.currentCookie()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (key !== undefined) headers['Authorization'] = key
+    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
+    let response: Response
+    try {
+      response = await this.send(
+        `${this.baseURL}/api/perf-metrics?model=${encodeURIComponent(model)}&hours=${String(safeHours)}`,
+        { headers },
+        this.timeoutMs,
+        signal,
+      )
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf detail fetch failed: ' + String(cause), { status: 0, message: String(cause) })
+    }
+    const body = await response.json().catch(() => undefined) as
+      | {
+        success?: boolean
+        message?: string
+        data?: {
+          model_name?: string
+          hours?: number
+          series_schema?: string
+          groups?: readonly XPeachPerfGroupRow[]
+        }
+        model_name?: string
+        hours?: number
+        series_schema?: string
+        groups?: readonly XPeachPerfGroupRow[]
+      }
+      | undefined
+    if (!response.ok || body?.success === false) {
+      const msg = typeof body?.message === 'string' ? body.message : response.statusText
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf detail rejected: ' + msg, { status: response.status, message: msg })
+    }
+    const payload = body?.data ?? body
+    return {
+      model_name: typeof payload?.model_name === 'string' && payload.model_name.length > 0 ? payload.model_name : model,
+      ...(typeof payload?.hours === 'number' ? { hours: payload.hours } : { hours: safeHours }),
+      ...(typeof payload?.series_schema === 'string' ? { series_schema: payload.series_schema } : {}),
+      groups: Array.isArray(payload?.groups) ? payload.groups : [],
     }
   }
 

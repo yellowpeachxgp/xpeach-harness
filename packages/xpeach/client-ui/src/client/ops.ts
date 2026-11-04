@@ -4,10 +4,15 @@ import type {
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
   XPeachModel,
+  XPeachModelPerfDetail,
+  XPeachModelPerfSummary,
+  XPeachPerfGroupRow,
+  XPeachPerfSeriesPoint,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
   XPeachSsoDeviceStartResult,
+  XPeachSuccessRatePoint,
   XPeachTokenLogEntry,
   XPeachTokenUsage,
 } from '@xpeach/xph-account/types'
@@ -16,10 +21,15 @@ export type {
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachModelPerfDetail,
+  XPeachModelPerfSummary,
+  XPeachPerfGroupRow,
+  XPeachPerfSeriesPoint,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
   XPeachSsoDeviceStartResult,
+  XPeachSuccessRatePoint,
 }
 
 /** One combined usage/log read outcome. */
@@ -614,6 +624,10 @@ export interface XPeachOps {
     urgent?: boolean | undefined
     silent?: boolean | undefined
   }) => Promise<{ delivered: boolean; platform: string; reason?: string | undefined }>
+  /** Fetch 24-hour performance telemetry summaries across all models from PeachAPI. */
+  readonly perfMetricsSummary?: (hours?: number) => Promise<readonly XPeachModelPerfSummary[] | { error: string }>
+  /** Fetch per-group 24-hour performance telemetry and hourly time series for one model from PeachAPI. */
+  readonly perfMetricsDetail?: (model: string, hours?: number) => Promise<XPeachModelPerfDetail | { error: string }>
 }
 
 /** Admin-facing row aliases kept client-side (mirrors host types). */
@@ -692,6 +706,8 @@ export interface XPeachBillingRate {
 export interface XPeachPricingCatalog {
   readonly entries: readonly XPeachPricingRow[]
   readonly groupRatio: Readonly<Record<string, number>>
+  readonly usableGroup?: Readonly<Record<string, string>> | undefined
+  readonly autoGroups?: readonly string[] | undefined
 }
 
 /** One measured health row for a probed model (optional fields mirror the remote face). */

@@ -1,7 +1,17 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { SlotCore, type PropsRenderSlots } from '@xpeach/xph-client-ui-slots'
-import { inferClientModelSpec, XPeachModelLabel } from '../src/client/model-meta.tsx'
+import {
+  buildHourlySuccessBars,
+  formatCompactModelPrice,
+  formatModelLatency,
+  formatModelTps,
+  formatSuccessRate,
+  gradeSuccessRate,
+  inferClientModelSpec,
+  updateClientModelTelemetryCache,
+  XPeachModelLabel,
+} from '../src/client/model-meta.tsx'
 
 describe('model-meta and XPeachModelLabel', () => {
   it('infers context window and capabilities for known model families', () => {
@@ -96,5 +106,57 @@ describe('model-meta and XPeachModelLabel', () => {
     disposeXPeach()
     disposeDefault()
     disposeRoot()
+  })
+
+  it('formats 24h telemetry and pricing and renders them in XPeachModelLabel when placement is option', () => {
+    expect(gradeSuccessRate(99.5)).toBe('excellent')
+    expect(gradeSuccessRate(96.0)).toBe('good')
+    expect(gradeSuccessRate(88.0)).toBe('warning')
+    expect(gradeSuccessRate(50.0)).toBe('critical')
+    expect(gradeSuccessRate(null)).toBe('unknown')
+
+    expect(formatModelTps(84.26)).toBe('84.3 t/s')
+    expect(formatModelLatency(740)).toBe('740ms')
+    expect(formatModelLatency(1420)).toBe('1.42s')
+    expect(formatSuccessRate(99.8)).toBe('99.8%')
+    expect(formatCompactModelPrice({ model_name: 'swe-2-max', model_ratio: 1, completion_ratio: 5 }, 0.22)).toBe('0.44→2.2🍑/M')
+
+    const bars = buildHourlySuccessBars([{ ts: Math.floor(Date.now() / 1000), success_rate: 99.9 }], 24)
+    expect(bars).toHaveLength(24)
+    expect(bars[23]?.grade).toBe('excellent')
+
+    updateClientModelTelemetryCache({
+      perf: [{
+        model_name: 'swe-2-max',
+        avg_latency_ms: 820,
+        success_rate: 99.6,
+        avg_tps: 78.4,
+      }],
+      pricing: {
+        entries: [{ model_name: 'swe-2-max', model_ratio: 1, completion_ratio: 5 }],
+        groupRatio: { SWE: 0.22 },
+      },
+      activeGroup: 'SWE',
+    })
+
+    const optionHtml = renderToStaticMarkup(
+      <XPeachModelLabel
+        model={{ id: 'swe-2-max', name: 'swe-2-max' }}
+        placement="option"
+      />,
+    )
+    expect(optionHtml).toContain('99.6%')
+    expect(optionHtml).toContain('78.4 t/s')
+    expect(optionHtml).toContain('820ms')
+    expect(optionHtml).toContain('0.44→2.2🍑/M')
+
+    const triggerHtml = renderToStaticMarkup(
+      <XPeachModelLabel
+        model={{ id: 'swe-2-max', name: 'swe-2-max' }}
+        placement="trigger"
+      />,
+    )
+    expect(triggerHtml).toContain('256K')
+    expect(triggerHtml).not.toContain('78.4 t/s')
   })
 })
