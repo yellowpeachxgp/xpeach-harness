@@ -47,17 +47,17 @@ export const UI_FONT_PRESETS: readonly XPeachUiFontPreset[] = Object.freeze([
   {
     id: 'pingfang',
     specimen: '苹方 Aa',
-    stack: '"PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    previewStack: '"PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    leadFamily: '"PingFang SC"',
+    stack: '"XPeach PingFang SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif',
+    previewStack: '"XPeach PingFang SC", "PingFang SC", sans-serif',
+    leadFamily: '"XPeach PingFang SC"',
     bundled: true,
   },
   {
     id: 'yahei',
     specimen: '雅黑 Aa',
-    stack: '"Microsoft YaHei", "Segoe UI", "PingFang SC", sans-serif',
+    stack: '"XPeach Microsoft YaHei", "Microsoft YaHei", "Segoe UI", "PingFang SC", sans-serif',
     previewStack: '"Microsoft YaHei", "Segoe UI", "PingFang SC", sans-serif',
-    leadFamily: '"Microsoft YaHei"',
+    leadFamily: '"XPeach Microsoft YaHei"',
     bundled: true,
   },
   {
@@ -151,6 +151,22 @@ export interface FontPackRowProps {
 }
 
 /**
+ * Normalize a font-family stack's leading family so both legacy (`"PingFang SC"`)
+ * and bundled alias (`"XPeach PingFang SC"`) stacks match their preset card.
+ * @param stack - Raw or normalized font-family stack.
+ * @returns Lowercased canonical leading family name without quotes or `xpeach ` prefix.
+ */
+export function normalizeFontStack(stack: string): string {
+  const firstSegment = stack.split(',')[0] ?? ''
+  return firstSegment
+    .trim()
+    .replace(/^["']|["']$/gu, '')
+    .trim()
+    .toLowerCase()
+    .replace(/^xpeach\s+/u, '')
+}
+
+/**
  * Determine whether a preset matches the currently persisted font-family stack.
  * @param currentStack - Normalized font-family string from the theme service.
  * @param preset - Candidate preset definition.
@@ -163,8 +179,8 @@ export function isFontPresetActive(
   const trimmed = currentStack.trim()
   if (preset.stack === '') return trimmed === ''
   if (trimmed === preset.stack) return true
-  const firstSegment = trimmed.split(',')[0]?.trim() ?? ''
-  return preset.leadFamily !== '' && firstSegment.toLowerCase() === preset.leadFamily.toLowerCase()
+  if (preset.leadFamily === '') return false
+  return normalizeFontStack(trimmed) === normalizeFontStack(preset.leadFamily)
 }
 
 /**

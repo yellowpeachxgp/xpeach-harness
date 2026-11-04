@@ -81,7 +81,7 @@
           - id: swe-2-max
             name: swe-2-max
             contextWindow: 262144
-            maxTokens: 65536
+            maxTokens: 32768
             input:
               - text
               - image

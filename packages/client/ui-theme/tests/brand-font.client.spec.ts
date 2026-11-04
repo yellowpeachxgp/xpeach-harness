@@ -22,8 +22,8 @@ describe('offline brand font', () => {
       const bin = readFileSync(new URL(`../src/styles/${file}`, import.meta.url))
       expect(bin.readUInt32BE(0)).toBe(0x774f4632)
     }
-    expect(css).toContain('font-family: \'PingFang SC\'')
-    expect(css).toContain('font-family: \'Microsoft YaHei\'')
+    expect(css).toContain('font-family: \'XPeach PingFang SC\'')
+    expect(css).toContain('font-family: \'XPeach Microsoft YaHei\'')
     expect(css).toContain('font-family: \'Inter\'')
     expect(css).toContain('font-family: \'Plus Jakarta Sans\'')
     expect(css).toContain('font-family: \'Lora\'')

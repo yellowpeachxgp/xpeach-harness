@@ -13,6 +13,7 @@ import {
   desktopUpdateChannel,
   filterAtomFeedForChannel,
   isVersionEligibleForChannel,
+  normalizeUpdateYamlAssetPrefixes,
   normalizeXpeachChannel,
   parseGitHubReleasesApiJson,
   parseXpeachVersion,
@@ -371,6 +372,12 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
       published_at: '2026-10-30T18:42:38Z',
       assets: [
         {
+          name: 'macos-xpeach-harness-0.0.25-beta-arm64-unsigned.pkg',
+          size: 350000000,
+          digest: 'sha256:9999999999999999999999999999999999999999999999999999999999999999',
+          browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.25-beta/macos-xpeach-harness-0.0.25-beta-arm64-unsigned.pkg',
+        },
+        {
           name: 'macos-xpeach-harness-0.0.25-beta-arm64-unsigned.dmg',
           size: 267599180,
           digest: 'sha256:81db8eac0f3e3354d6d5cf1ff2fd23a66b5e83e45cde45fc005e5ab5f1d23878',
@@ -403,7 +410,7 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
   const release = parsed[0]!
   expect(release.version).toBe('0.0.25-beta')
   expect(release.channel).toBe('beta')
-  expect(release.assets).toHaveLength(4)
+  expect(release.assets).toHaveLength(5)
 
   const atomForBeta = buildAtomFeedFromGitHubReleases(parsed, 'beta')
   expect(atomForBeta).toContain('releases/tag/v0.0.25-beta')
@@ -413,7 +420,23 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
 
   const macYaml = synthesizeUpdateYamlFromRelease(release, 'beta-mac.yml')
   expect(macYaml).toContain('path: "macos-xpeach-harness-0.0.25-beta-arm64-unsigned.zip"')
+  expect(macYaml).not.toContain('.pkg')
   expect(macYaml).toContain('sha2: d42ae7055ad8d4ce95aba311f7ea2bf27a5c8ac0e0f4714fd2dc9d92e15feb81')
+
+  const rawMacYml = [
+    'version: 0.0.28-alpha',
+    'files:',
+    '  - url: xpeach-harness-0.0.28-alpha-arm64-unsigned.zip',
+    '    sha512: abc123==',
+    '    size: 355613923',
+    'path: xpeach-harness-0.0.28-alpha-arm64-unsigned.zip',
+    'sha512: abc123==',
+    '',
+  ].join('\n')
+  const normalizedMacYml = normalizeUpdateYamlAssetPrefixes(rawMacYml, 'alpha-mac.yml')
+  expect(normalizedMacYml).toContain('url: macos-xpeach-harness-0.0.28-alpha-arm64-unsigned.zip')
+  expect(normalizedMacYml).toContain('path: macos-xpeach-harness-0.0.28-alpha-arm64-unsigned.zip')
+  expect(normalizedMacYml).toContain('sha512: abc123==')
 
   const winYaml = synthesizeUpdateYamlFromRelease(release, 'beta.yml')
   expect(winYaml).toContain('path: "windows-xpeach-harness-0.0.25-beta-x64-unsigned.exe"')

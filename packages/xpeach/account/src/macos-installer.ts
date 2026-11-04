@@ -51,6 +51,7 @@ export interface MacosInstallerOptions {
 
 interface ResolvedInstallerPaths {
   readonly repositoryRoot: string | undefined
+  readonly allowBuiltBundleLookup: boolean
   readonly version: string
   readonly homeDir: string
   readonly ownHome: string
@@ -64,6 +65,8 @@ interface ResolvedInstallerPaths {
 
 const DEFAULT_VERSION = '0.0.13-alpha'
 const APP_BUNDLE_NAME = 'XPeach Harness.app'
+const APP_BUNDLE_CANDIDATE_NAMES = ['XPeach Harness.app', 'xpeach-harness.app'] as const
+const APP_EXECUTABLE_CANDIDATE_NAMES = ['XPeachHarness', 'xpeach-harness', 'XPeach Harness'] as const
 
 function findRepositoryRoot(startDir: string): string | undefined {
   let current = resolve(startDir)
@@ -112,9 +115,9 @@ function isWritableDirectory(dirPath: string): boolean {
 }
 
 function isAppBundleInstalled(appBundlePath: string): boolean {
-  return (
-    existsSync(join(appBundlePath, 'Contents', 'Info.plist')) &&
-    isExecutableFile(join(appBundlePath, 'Contents', 'MacOS', 'XPeachHarness'))
+  if (!existsSync(join(appBundlePath, 'Contents', 'Info.plist'))) return false
+  return APP_EXECUTABLE_CANDIDATE_NAMES.some(exe =>
+    isExecutableFile(join(appBundlePath, 'Contents', 'MacOS', exe)),
   )
 }
 
@@ -122,6 +125,7 @@ function resolveInstallerPaths(options: MacosInstallerOptions = {}): ResolvedIns
   const repositoryRoot = options.repositoryRoot !== undefined
     ? resolve(options.repositoryRoot)
     : (findRepositoryRoot(process.cwd()) ?? findRepositoryRoot(import.meta.dirname))
+  const allowBuiltBundleLookup = options.repositoryRoot !== undefined || process.env.VITEST === undefined
   const version = options.version ?? readDesktopVersion(repositoryRoot)
   const homeDir = options.homeDir !== undefined ? resolve(options.homeDir) : homedir()
   const ownHome = options.ownHome !== undefined
@@ -154,6 +158,7 @@ function resolveInstallerPaths(options: MacosInstallerOptions = {}): ResolvedIns
   const receiptPath = join(ownHome, 'xpeach.install-receipt.json')
   return {
     repositoryRoot,
+    allowBuiltBundleLookup,
     version,
     homeDir,
     ownHome,
@@ -369,42 +374,86 @@ function buildCliWrapperScript(
   ].join('\n')
 }
 
-function isNativeElectronAppBundle(appBundleDir: string): boolean {
-  if (existsSync(join(appBundleDir, 'Contents', 'Frameworks', 'Electron Framework.framework'))) {
+/**
+ * Determine whether `appBundleDir` is a packaged native Electron `.app` bundle
+ * rather than a lightweight shell-script launcher stub.
+ *
+ * @param appBundleDir - Path to the candidate `.app` directory.
+ * @returns `true` when the bundle contains `Electron Framework.framework` and a valid macOS executable, or a Mach-O main executable.
+ */
+export function isNativeElectronAppBundle(appBundleDir: string): boolean {
+  const hasFramework = existsSync(
+    join(appBundleDir, 'Contents', 'Frameworks', 'Electron Framework.framework'),
+  )
+  const existingExecutables = APP_EXECUTABLE_CANDIDATE_NAMES
+    .map(name => join(appBundleDir, 'Contents', 'MacOS', name))
+    .filter(filePath => existsSync(filePath))
+  if (hasFramework && existingExecutables.length > 0) {
     return true
   }
-  const executablePath = join(appBundleDir, 'Contents', 'MacOS', 'XPeachHarness')
-  if (!existsSync(executablePath)) return false
-  try {
-    const header = readFileSync(executablePath).subarray(0, 4)
-    if (header.length === 4) {
-      const magic = header.readUInt32BE(0)
-      if (
-        magic === 0xfeedface ||
-        magic === 0xcefaedfe ||
-        magic === 0xfeedfacf ||
-        magic === 0xcffaedfe ||
-        magic === 0xcafebabe
-      ) {
-        return true
+  for (const executablePath of existingExecutables) {
+    try {
+      const header = readFileSync(executablePath).subarray(0, 4)
+      if (header.length === 4) {
+        const magic = header.readUInt32BE(0)
+        if (
+          magic === 0xfeedface ||
+          magic === 0xcefaedfe ||
+          magic === 0xfeedfacf ||
+          magic === 0xcffaedfe ||
+          magic === 0xcafebabe
+        ) {
+          return true
+        }
       }
-    }
-  } catch (_err) { /* ignore unreadable executable */ }
+    } catch (_err) { /* ignore unreadable executable */ }
+  }
   return false
 }
 
-function findBuiltElectronAppBundle(repositoryRoot: string | undefined): string | undefined {
-  if (repositoryRoot === undefined || process.env.VITEST !== undefined) return undefined
-  const arch = process.arch === 'x64' ? 'mac-x64' : 'mac-arm64'
-  const candidates = [
-    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', arch, 'signed-artifacts', arch, APP_BUNDLE_NAME),
-    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', arch, 'unsigned-artifacts', arch, APP_BUNDLE_NAME),
-    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', 'mac-arm64', 'unsigned-artifacts', 'mac-arm64', APP_BUNDLE_NAME),
-    join(repositoryRoot, 'apps', 'desktop', '.desktop-build', 'targets', 'mac-x64', 'unsigned-artifacts', 'mac-x64', APP_BUNDLE_NAME),
+/**
+ * Locate a built Electron `.app` bundle inside `apps/desktop/.desktop-build` under `repositoryRoot`.
+ *
+ * Searches signed and unsigned target output directories (`mac-arm64`, `mac-x64`, `mac`)
+ * for both `XPeach Harness.app` and `xpeach-harness.app`.
+ *
+ * @param repositoryRoot - Repository root path containing `apps/desktop`.
+ * @returns Absolute path to the first valid native Electron `.app` bundle, or `undefined` when none exists.
+ */
+export function findBuiltElectronAppBundle(repositoryRoot: string | undefined): string | undefined {
+  if (repositoryRoot === undefined) return undefined
+  const buildRoot = join(repositoryRoot, 'apps', 'desktop', '.desktop-build')
+  const preferredArch = process.arch === 'x64' ? 'mac-x64' : 'mac-arm64'
+  const secondaryArch = process.arch === 'x64' ? 'mac-arm64' : 'mac-x64'
+  const targetDirs = [preferredArch, secondaryArch, 'mac']
+  const artifactSubdirs = [
+    join('signed-artifacts', preferredArch),
+    join('signed-artifacts', secondaryArch),
+    join('signed-artifacts', 'mac'),
+    'signed-artifacts',
+    join('unsigned-artifacts', preferredArch),
+    join('unsigned-artifacts', secondaryArch),
+    join('unsigned-artifacts', 'mac'),
+    'unsigned-artifacts',
+    preferredArch,
+    secondaryArch,
+    'mac',
   ]
-  for (const candidate of candidates) {
-    if (isNativeElectronAppBundle(candidate)) {
-      return candidate
+  const candidateDirs: string[] = []
+  for (const targetDir of targetDirs) {
+    for (const sub of artifactSubdirs) {
+      candidateDirs.push(join(buildRoot, 'targets', targetDir, sub))
+    }
+  }
+  for (const sub of artifactSubdirs) {
+    candidateDirs.push(join(buildRoot, sub))
+  }
+  for (const dir of candidateDirs) {
+    for (const bundleName of APP_BUNDLE_CANDIDATE_NAMES) {
+      const candidate = join(dir, bundleName)
+      if (isNativeElectronAppBundle(candidate)) {
+        return candidate
+      }
     }
   }
   return undefined
@@ -414,11 +463,12 @@ function materializeAppBundle(
   appBundleDir: string,
   version: string,
   repositoryRoot: string | undefined,
+  allowBuiltBundleLookup = true,
 ): void {
   if (isNativeElectronAppBundle(appBundleDir)) {
     return
   }
-  const builtBundle = findBuiltElectronAppBundle(repositoryRoot)
+  const builtBundle = allowBuiltBundleLookup ? findBuiltElectronAppBundle(repositoryRoot) : undefined
   if (builtBundle !== undefined) {
     mkdirSync(dirname(appBundleDir), { recursive: true })
     cpSync(builtBundle, appBundleDir, { recursive: true, verbatimSymlinks: true })
@@ -680,7 +730,7 @@ export async function buildMacosPkgInstaller(
     const rootApp = join(stageDir, 'root-app')
     const scriptsApp = join(stageDir, 'scripts-app')
     const stagedAppBundle = join(rootApp, 'Applications', APP_BUNDLE_NAME)
-    materializeAppBundle(stagedAppBundle, paths.version, paths.repositoryRoot)
+    materializeAppBundle(stagedAppBundle, paths.version, paths.repositoryRoot, paths.allowBuiltBundleLookup)
     signAndRegisterAppBundle(stagedAppBundle)
 
     // Also stage shared CLI and profile copies under rootApp so flat `pkgutil --payload-files <product.pkg>`
@@ -1031,14 +1081,14 @@ export async function runMacosInstallerAction(
 
   // 'install-direct'
   const userAppBundle = join(paths.userApplicationsDir, APP_BUNDLE_NAME)
-  materializeAppBundle(userAppBundle, paths.version, paths.repositoryRoot)
+  materializeAppBundle(userAppBundle, paths.version, paths.repositoryRoot, paths.allowBuiltBundleLookup)
   signAndRegisterAppBundle(userAppBundle)
 
   let installedAppPath = userAppBundle
   if (paths.systemApplicationsDir !== undefined && isWritableDirectory(paths.systemApplicationsDir)) {
     const sysAppBundle = join(paths.systemApplicationsDir, APP_BUNDLE_NAME)
     try {
-      materializeAppBundle(sysAppBundle, paths.version, paths.repositoryRoot)
+      materializeAppBundle(sysAppBundle, paths.version, paths.repositoryRoot, paths.allowBuiltBundleLookup)
       signAndRegisterAppBundle(sysAppBundle)
       installedAppPath = sysAppBundle
     } catch (_err) { /* keep user Applications bundle */ }

@@ -931,13 +931,16 @@ export function resolveRouteModels(
     if (!Number.isInteger(contextWindow) || contextWindow <= 0) {
       invalid(provider, `model "${entry.id}" contextWindow must be a positive integer`)
     }
-    const maxTokens = entry.maxTokens ?? base?.maxTokens ?? request.defaultMaxTokens
-    if (!Number.isInteger(maxTokens) || maxTokens <= 0) {
+    const rawMaxTokens = entry.maxTokens ?? base?.maxTokens ?? request.defaultMaxTokens
+    if (!Number.isInteger(rawMaxTokens) || rawMaxTokens <= 0) {
       invalid(provider, `model "${entry.id}" maxTokens must be a positive integer`)
     }
+    const maxTokens = provider.startsWith('xpeach')
+      ? Math.min(rawMaxTokens, request.defaultMaxTokens)
+      : rawMaxTokens
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.
-    if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
+    if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, maxTokens)
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this

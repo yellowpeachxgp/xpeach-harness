@@ -94,7 +94,7 @@ function MarketDetail({ id, model, row, h, t, billingRate, groupCatalog, selGrou
       })()}
       <div className={css.detailMeta}>
         <span className={css.ctxBadge}>{t('market.detailCtx', { ctx: spec.badge, out: `${String(Math.round(spec.maxTokens / 1000))}K` })}</span>
-        {spec.supportsImage && <span className={css.capChip}>{t('market.detailModality')}</span>}
+        <span className={css.capChip}>{spec.vision ? t('market.detailModality') : t('market.detailModalityText')}</span>
         {(row?.supported_endpoint_types ?? []).map(ep => <span key={ep} className={css.epChip}>{ep}</span>)}
         {row?.tags !== undefined && row.tags !== '' && <span className={css.marketMeta}>{row.tags}</span>}
         {h !== undefined && (h.ok
@@ -275,6 +275,7 @@ export function XPeachTab({
     if (seg !== 'network') return
     loadNetwork()
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
       void networkStatus().then((r) => { if (!('error' in r)) setNetwork(r) })
     }, 10_000)
     return () => { clearInterval(timer) }
@@ -394,7 +395,10 @@ export function XPeachTab({
   useEffect(refresh, [load])
   useEffect(() => subscribeCredentialChange(refresh), [subscribeCredentialChange])
   useEffect(() => {
-    const id = setInterval(refresh, 60_000)
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      refresh()
+    }, 60_000)
     return () => { clearInterval(id) }
   }, [])
 
@@ -449,7 +453,10 @@ export function XPeachTab({
       if (err !== null) { setAdded(prev => ({ ...prev, [id]: err })); return }
       void mountedModels().then(setMounted)
       const selErr = selectModel === undefined ? null : await selectModel(sessionId, id)
-      setAdded(prev => ({ ...prev, [id]: selErr === null ? 'added' : selErr }))
+      setAdded(prev => ({
+        ...prev,
+        [id]: selErr === null ? 'added' : selErr === 'no active session' ? t('market.noActiveSession') : selErr,
+      }))
     })
   }
 
@@ -665,8 +672,8 @@ export function XPeachTab({
                     >
                       {spec.badge}
                     </span>
-                    {spec.supportsImage && <span className={css.capChip}>{t('market.capVision')}</span>}
-                    <span className={css.capChip}>{t('market.capReasoningHigh')}</span>
+                    {spec.vision && <span className={css.capChip}>{t('market.capVision')}</span>}
+                    {spec.reasoning && <span className={css.capChip}>{t('market.capReasoningHigh')}</span>}
                     {(() => { const gs = (m.groups ?? []).filter(g => isBrandSafe(g)); return <>
                       {gs.slice(0, 2).map(g => <span key={g} className={css.groupChip}>{g}</span>)}
                       {gs.length > 2 && <span className={css.groupChipMore} title={gs.join(', ')}>+{gs.length - 2}</span>}

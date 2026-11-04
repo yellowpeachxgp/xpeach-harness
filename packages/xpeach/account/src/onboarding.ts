@@ -4,7 +4,7 @@
  * Claude Code / Codex / zcode are decoded into native XPeach session logs
  * (v4 JSONL, concatenated zstd frames: one header frame + one event frame).
  */
-import { cpSync, type Dirent, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { closeSync, cpSync, type Dirent, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -948,10 +948,23 @@ function threadPaths(source: XPeachSourceId): string[] {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const transcript = join(p.antigravity, entry.name, '.system_generated', 'logs', 'transcript.jsonl')
-      if (!existsSync(transcript)) continue
-      const text = readText(transcript)
-      if (text !== undefined && text.includes('"USER_INPUT"')) {
-        out.push(transcript)
+      try {
+        const st = statSync(transcript)
+        if (!st.isFile() || st.size === 0) continue
+        const previewBytes = Math.min(st.size, 65_536)
+        const buf = Buffer.allocUnsafe(previewBytes)
+        const fd = openSync(transcript, 'r')
+        let bytesRead = 0
+        try {
+          bytesRead = readSync(fd, buf, 0, previewBytes, 0)
+        } finally {
+          closeSync(fd)
+        }
+        if (buf.subarray(0, bytesRead).toString('utf8').includes('"USER_INPUT"')) {
+          out.push(transcript)
+        }
+      } catch (_err) {
+        // Ignore unreadable or missing transcript files.
       }
     }
     return out

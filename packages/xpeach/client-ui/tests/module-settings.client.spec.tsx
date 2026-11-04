@@ -198,7 +198,9 @@ describe('ModuleSettingsSection & GeneralPreferencesRow', () => {
       </div>,
     )
 
-    expect(screen.getAllByText(zh['modules.subagent.modelSel.title']).length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText(zh['modules.subagent.modelSel.title'])).toHaveLength(1)
+    expect(screen.getByText(zh['prefs.updateChannel.title'])).toBeTruthy()
+    expect(screen.getByText(zh['prefs.notify.title'])).toBeTruthy()
   })
 
   it('enforces mandatory SSO login gate when unbound and hides manual sk/access_token inputs', async () => {

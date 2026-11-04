@@ -31,7 +31,9 @@ describe('XPeach bundled Font Pack selector', () => {
   it('matches active UI and code font presets by exact stack or leading family', () => {
     expect(isFontPresetActive('', UI_FONT_PRESETS[0]!)).toBe(true)
     expect(isFontPresetActive('"PingFang SC", sans-serif', UI_FONT_PRESETS[1]!)).toBe(true)
+    expect(isFontPresetActive('"XPeach PingFang SC", "PingFang SC", sans-serif', UI_FONT_PRESETS[1]!)).toBe(true)
     expect(isFontPresetActive('"Microsoft YaHei", sans-serif', UI_FONT_PRESETS[2]!)).toBe(true)
+    expect(isFontPresetActive('"XPeach Microsoft YaHei", "Microsoft YaHei", sans-serif', UI_FONT_PRESETS[2]!)).toBe(true)
     expect(isFontPresetActive('"Inter", sans-serif', UI_FONT_PRESETS[3]!)).toBe(true)
     expect(isFontPresetActive('"Plus Jakarta Sans", sans-serif', UI_FONT_PRESETS[4]!)).toBe(true)
     expect(isFontPresetActive('"Montserrat", sans-serif', UI_FONT_PRESETS[5]!)).toBe(true)

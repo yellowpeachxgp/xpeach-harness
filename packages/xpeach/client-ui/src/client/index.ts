@@ -105,6 +105,7 @@ export {
   CODE_FONT_PRESETS,
   FontPackRow,
   isFontPresetActive,
+  normalizeFontStack,
   UI_FONT_PRESETS,
   type FontPackRowProps,
   type XPeachCodeFontPreset,
@@ -833,9 +834,15 @@ function registerUi(ctx: Context): Array<() => void> {
   undo.push(ctx.slots.inject('shell.quota-notice', () => ctx.slots.register(
     {
       name: 'shell.quota-notice', locale: NS, priority: -10,
-      select: (owner): QuotaNoticeOwnerProps | null =>
-        (owner.code === 'ACCOUNT_QUOTA' ? owner : null),
+      select: (owner): QuotaNoticeOwnerProps | null => {
+        const code: string = owner.code
+        return code === 'ACCOUNT_QUOTA' || code === 'QUOTA' ? owner : null
+      },
     }, XPeachQuotaNotice)))
+  ;(globalThis as { __XPH_UPDATE_CHANNEL_OWNER__?: boolean }).__XPH_UPDATE_CHANNEL_OWNER__ = true
+  undo.push(() => {
+    delete (globalThis as { __XPH_UPDATE_CHANNEL_OWNER__?: boolean }).__XPH_UPDATE_CHANNEL_OWNER__
+  })
   undo.push(ctx.slots.inject('settings.general.item', () => ctx.slots.register(
     { name: 'settings.general.item', id: 'xpeach-general-preferences', order: 20, locale: NS, inject: () => ops },
     GeneralPreferencesRow)))

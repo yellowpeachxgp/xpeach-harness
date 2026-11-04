@@ -29,32 +29,36 @@ export const ROUTES: readonly XPeachRoute[] = [
 
 type XPeachRouteProbe = XPeachNetworkRoute
 
-const SAMPLES = 3
+const SAMPLES = 2
 
-/** Probe one route with three sequential requests. */
+/** Probe one route with up to two sequential requests. */
 async function probeRoute(route: XPeachRoute, key: string | undefined, timeoutMs: number): Promise<XPeachRouteProbe> {
   const path = key === undefined ? '/api/status' : '/v1/models'
   const headers: Record<string, string> = key === undefined ? { Accept: 'application/json' } : { Authorization: 'Bearer ' + key, Accept: 'application/json' }
   let okCount = 0
+  let attempts = 0
   const latencies: number[] = []
   for (let i = 0; i < SAMPLES; i += 1) {
+    attempts += 1
     const started = performance.now()
     try {
       const response = await fetch(route.url + path, { headers, signal: AbortSignal.timeout(timeoutMs) })
-      await response.text()
+      await response.body?.cancel().catch(() => {})
       if (response.ok) {
         okCount += 1
         latencies.push(performance.now() - started)
+        break
       }
     } catch (_err) { /* timeout or transport error counts as loss */ }
   }
   const sorted = [...latencies].sort((a, b) => a - b)
   const latencyMs = sorted.length === 0 ? undefined : Math.round(sorted[Math.floor(sorted.length / 2)] as number)
+  const totalSamples = Math.max(1, attempts)
   return {
     ...route,
     ...(latencyMs === undefined ? {} : { latencyMs }),
-    loss: (SAMPLES - okCount) / SAMPLES,
-    samples: SAMPLES,
+    loss: (totalSamples - okCount) / totalSamples,
+    samples: totalSamples,
     ok: okCount > 0,
   }
 }

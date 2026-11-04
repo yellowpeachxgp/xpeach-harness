@@ -141,7 +141,7 @@ describe('WebSearchCard', () => {
     expect(guide.getAttribute('rel')).toBe('noopener noreferrer')
     expect(guide.parentElement?.textContent).toBe(`${en.useSearchApiHint}${en.searchGuide}`)
     expect(`${zh.useSearchApiHint}${zh.searchGuide}`).toBe('默认关闭，搜索通过 Messages 接口完成。新版 Web 搜索 API 功能与计费详见网页搜索与抓取指南')
-    expect(zh.searchGuideUrl).toBe('https://api-docs.deepseek.com/zh-cn/guides/search')
+    expect(zh.searchGuideUrl).toBe('https://xpeach.codes/docs')
   })
 
   it('omits the switch while the Host serves no Search and Fetch API section', () => {

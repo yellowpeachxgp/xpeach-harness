@@ -532,7 +532,7 @@ export function synthesizeUpdateYamlFromRelease(
     if (asset.sha256 === undefined) return false
     const lower = asset.name.toLowerCase()
     if (lower.endsWith('.blockmap') || lower.endsWith('.yml')) return false
-    if (isMac) return lower.endsWith('.zip') || lower.endsWith('.dmg') || lower.endsWith('.pkg')
+    if (isMac) return lower.endsWith('.zip') || lower.endsWith('.dmg')
     if (isLinux) return lower.endsWith('.appimage')
     return lower.endsWith('.exe')
   })
@@ -568,4 +568,37 @@ export function synthesizeUpdateYamlFromRelease(
     `releaseDate: ${JSON.stringify(release.publishedAt)}`,
     '',
   ].join('\n')
+}
+
+/**
+ * Ensure `url:` and `path:` entries in a downloaded `latest*.yml` / `<channel>*.yml`
+ * descriptor carry the release platform prefix (`macos-`, `linux-`, `windows-`).
+ * @param yaml Raw `electron-updater` YAML descriptor content.
+ * @param channelFile Requested descriptor filename (for example `'latest-mac.yml'`, `'alpha.yml'`).
+ * @returns Normalized YAML descriptor with prefixed installer filenames.
+ */
+export function normalizeUpdateYamlAssetPrefixes(yaml: string, channelFile: string): string {
+  const lowerChannelFile = channelFile.toLowerCase()
+  const prefix = lowerChannelFile.endsWith('-mac.yml')
+    ? 'macos-'
+    : lowerChannelFile.includes('-linux')
+      ? 'linux-'
+      : 'windows-'
+  return yaml.replace(
+    /^(\s*(?:-\s*)?(?:url|path):\s*)(['"]?)([^'"\r\n]+)\2(\s*)$/gmu,
+    (_full, lead: string, quote: string, rawName: string, trail: string) => {
+      const trimmed = rawName.trim()
+      if (
+        trimmed.length === 0
+        || trimmed.startsWith('macos-')
+        || trimmed.startsWith('linux-')
+        || trimmed.startsWith('windows-')
+        || trimmed.startsWith('http://')
+        || trimmed.startsWith('https://')
+      ) {
+        return `${lead}${quote}${trimmed}${quote}${trail}`
+      }
+      return `${lead}${quote}${prefix}${trimmed}${quote}${trail}`
+    },
+  )
 }

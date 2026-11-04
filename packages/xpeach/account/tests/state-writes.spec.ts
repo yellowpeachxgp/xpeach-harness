@@ -1059,7 +1059,56 @@ describe('account state writes on a fresh install', () => {
     expect(nextSpy).not.toHaveBeenCalled()
     expect(chunks).toHaveLength(1)
     expect(chunks[0]?.['type']).toBe('finish')
-    expect((chunks[0]?.['error'] as { code?: string } | undefined)?.code).toBe('ACCOUNT_SIGN_IN_REQUIRED')
+    const finishReason = chunks[0]?.['reason'] as { kind?: string; failure?: { code?: string; message?: string } } | undefined
+    expect(finishReason?.kind).toBe('error')
+    expect(finishReason?.failure?.code).toBe('ACCOUNT_SIGN_IN_REQUIRED')
+    expect(finishReason?.failure?.message).toBeTruthy()
+  })
+
+  it('distinguishes 401 AUTH errors from 403 quota or channel errors in guardLlmStream', async () => {
+    const guardLlmStream = Reflect.get(XPeachAccount.prototype, 'guardLlmStream') as (
+      options: { readonly provider?: string },
+      next: () => AsyncGenerator<Record<string, unknown>, void, unknown>,
+    ) => AsyncGenerator<Record<string, unknown>, void, unknown>
+
+    const handleAuthRejectedMock = vi.fn().mockResolvedValue(undefined)
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      verifyAndSyncSsoSession: vi.fn().mockResolvedValue({ valid: true, status: 'ok' }),
+      isBound: vi.fn().mockReturnValue(true),
+      handleAuthRejected: handleAuthRejectedMock,
+    })
+
+    // 403 QUOTA_EXCEEDED or INVALID_REQUEST must NOT trigger handleAuthRejected
+    for await (const _chunk of guardLlmStream.call(fakeAccount, { provider: 'xpeach' }, async function* () {
+      yield {
+        type: 'finish',
+        reason: {
+          kind: 'error',
+          failure: {
+            code: 'QUOTA_EXCEEDED',
+            message: '403: 预扣费额度失败, 用户剩余额度 $0.000100 低于预扣费额度 $0.500000',
+          },
+        },
+      }
+    })) { /* drain */ }
+    expect(handleAuthRejectedMock).not.toHaveBeenCalled()
+
+    // 401 AUTH error MUST trigger handleAuthRejected(401)
+    for await (const _chunk of guardLlmStream.call(fakeAccount, { provider: 'xpeach' }, async function* () {
+      yield {
+        type: 'finish',
+        reason: {
+          kind: 'error',
+          failure: {
+            code: 'AUTH',
+            message: '401 Unauthorized: invalid api key',
+          },
+        },
+      }
+    })) { /* drain */ }
+    expect(handleAuthRejectedMock).toHaveBeenCalledTimes(1)
+    expect(handleAuthRejectedMock).toHaveBeenCalledWith(401)
   })
 
   it('persists credentials and onboarding state across restarts and sibling profiles until explicit sign-out', async () => {

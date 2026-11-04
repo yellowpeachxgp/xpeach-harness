@@ -42,6 +42,7 @@ export function PaletteRow({ active, setTheme, subscribe, t }: PaletteRowProps):
           // The light variant carries the plain id and the dark one the suffix,
           // so either counts as "this palette is active".
           const isActive = current === definition.id || current === `${definition.id}-dark`
+          const vars = isDark ? definition.dark : definition.light
           return (
             <button
               key={definition.id}
@@ -54,7 +55,7 @@ export function PaletteRow({ active, setTheme, subscribe, t }: PaletteRowProps):
                 setCurrent(active())
               }}
             >
-              <span className={css.paletteChip} style={{ background: definition.light['--dsw-alias-bg-base'], borderColor: definition.light['--dsw-alias-brand-primary'] }} />
+              <span className={css.paletteChip} style={{ background: vars['--dsw-alias-bg-base'], borderColor: vars['--dsw-alias-brand-primary'] }} />
               <span>{t(definition.label)}</span>
             </button>
           )

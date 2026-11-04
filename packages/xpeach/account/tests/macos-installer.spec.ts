@@ -14,6 +14,10 @@ import {
   runMacosInstallerAction,
   XPeachAccount,
 } from '../src/index.ts'
+import {
+  findBuiltElectronAppBundle,
+  isNativeElectronAppBundle,
+} from '../src/macos-installer.ts'
 
 const tempRoots: string[] = []
 
@@ -129,4 +133,40 @@ describe('macOS native .pkg guided installer and CLI/Desktop bundle deployment',
       }
     },
   )
+
+  it('locates built native Electron app bundles named xpeach-harness.app or XPeach Harness.app across target directories', () => {
+    const repoRoot = makeTempSandbox()
+    expect(findBuiltElectronAppBundle(undefined)).toBeUndefined()
+    expect(findBuiltElectronAppBundle(repoRoot)).toBeUndefined()
+
+    const unsignedArm64App = join(
+      repoRoot,
+      'apps',
+      'desktop',
+      '.desktop-build',
+      'targets',
+      'mac-arm64',
+      'unsigned-artifacts',
+      'mac-arm64',
+      'xpeach-harness.app',
+    )
+    mkdirSync(join(unsignedArm64App, 'Contents', 'Frameworks', 'Electron Framework.framework'), {
+      recursive: true,
+    })
+    mkdirSync(join(unsignedArm64App, 'Contents', 'MacOS'), { recursive: true })
+    writeFileSync(join(unsignedArm64App, 'Contents', 'Info.plist'), '<plist/>', 'utf8')
+    writeFileSync(join(unsignedArm64App, 'Contents', 'MacOS', 'xpeach-harness'), '#!/bin/sh\nexit 0\n', {
+      mode: 0o755,
+    })
+
+    expect(isNativeElectronAppBundle(unsignedArm64App)).toBe(true)
+    expect(findBuiltElectronAppBundle(repoRoot)).toBe(unsignedArm64App)
+
+    const stubApp = join(repoRoot, 'Stub.app')
+    mkdirSync(join(stubApp, 'Contents', 'MacOS'), { recursive: true })
+    writeFileSync(join(stubApp, 'Contents', 'MacOS', 'XPeachHarness'), '#!/bin/sh\nexit 0\n', {
+      mode: 0o755,
+    })
+    expect(isNativeElectronAppBundle(stubApp)).toBe(false)
+  })
 })

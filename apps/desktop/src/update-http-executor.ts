@@ -6,6 +6,7 @@ import {
   compareXpeachVersions,
   filterAtomFeedForChannel,
   isVersionEligibleForChannel,
+  normalizeUpdateYamlAssetPrefixes,
   parseGitHubReleasesApiJson,
   resolveTopAtomEntryUpdaterChannel,
   synthesizeUpdateYamlFromRelease,
@@ -95,6 +96,22 @@ export class DesktopUpdateHttpExecutor extends ElectronHttpExecutor {
       if (matchedRelease !== undefined) {
         const synthesized = synthesizeUpdateYamlFromRelease(matchedRelease, channelFile)
         if (synthesized !== null) return synthesized
+      }
+      try {
+        const upstreamYaml = await super.request(options, cancellationToken, data)
+        if (typeof upstreamYaml === 'string' && upstreamYaml.length > 0) {
+          return normalizeUpdateYamlAssetPrefixes(upstreamYaml, channelFile)
+        }
+      } catch (err) {
+        const fallbackFile = channelFile.replace(/^(?:alpha|beta|least)(?=(-mac|-linux)?\.yml$)/iu, 'latest')
+        if (fallbackFile !== channelFile) {
+          const fallbackPath = pathStr.replace(/[^/?#]+\.yml(?=\?|$)/u, encodeURIComponent(fallbackFile))
+          const fallbackYaml = await super.request({ ...options, path: fallbackPath }, cancellationToken, data)
+          if (typeof fallbackYaml === 'string' && fallbackYaml.length > 0) {
+            return normalizeUpdateYamlAssetPrefixes(fallbackYaml, fallbackFile)
+          }
+        }
+        throw err
       }
     }
 

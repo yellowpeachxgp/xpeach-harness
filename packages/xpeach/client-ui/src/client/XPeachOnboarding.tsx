@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachOps, XPeachOnboardingScan, XPeachSsoDeviceStartResult } from './ops.ts'
+import type { XPeachKey } from './locales.ts'
 import { XPeachMark as XPeachMarkInline } from './brand.tsx'
 import css from './xpeach.module.css'
 
@@ -40,14 +41,14 @@ function authGateRequired(): boolean {
 }
 
 /** Per-source presentation metadata for local conversation stores. */
-export const SOURCE_META: Record<string, { icon: string; key: string }> = {
-  deepseek: { icon: '◆', key: 'onb.src.deepseek' },
-  claude: { icon: '✳️', key: 'onb.src.claude' },
-  codex: { icon: '⬡', key: 'onb.src.codex' },
-  zcode: { icon: '⚡', key: 'onb.src.zcode' },
-  chatgpt: { icon: '💬', key: 'onb.src.chatgpt' },
-  gemini: { icon: '✦', key: 'onb.src.gemini' },
-  antigravity: { icon: '🚀', key: 'onb.src.antigravity' },
+export const SOURCE_META: Record<string, { icon: string; key: string; labelKey?: XPeachKey }> = {
+  deepseek: { icon: '◆', key: 'onb.src.deepseek', labelKey: 'onb.src.deepseekLabel' },
+  claude: { icon: '✳️', key: 'onb.src.claude', labelKey: 'onb.src.claudeLabel' },
+  codex: { icon: '⬡', key: 'onb.src.codex', labelKey: 'onb.src.codexLabel' },
+  zcode: { icon: '⚡', key: 'onb.src.zcode', labelKey: 'onb.src.zcodeLabel' },
+  chatgpt: { icon: '💬', key: 'onb.src.chatgpt', labelKey: 'onb.src.chatgptLabel' },
+  gemini: { icon: '✦', key: 'onb.src.gemini', labelKey: 'onb.src.geminiLabel' },
+  antigravity: { icon: '🚀', key: 'onb.src.antigravity', labelKey: 'onb.src.antigravityLabel' },
 }
 
 /**
@@ -442,7 +443,7 @@ export function XPeachOnboarding({
                         onClick={() => { setPicked(prev => on ? prev.filter(id => id !== source.id) : [...prev, source.id]) }}>
                         <span className={css.onbCardIcon}>{meta.icon}</span>
                         <span className={css.onbCardBody}>
-                          <span className={css.onbCardTitle}>{source.label}</span>
+                          <span className={css.onbCardTitle}>{meta.labelKey !== undefined ? t(meta.labelKey) : source.label}</span>
                           <span className={css.onbCardDesc}>{t(meta.key as never)}</span>
                           <span className={css.onbCardCount}>{t('onboard.threads', { n: String(source.threads) })}</span>
                         </span>

@@ -10,7 +10,6 @@ import { configureMacosAdhocUpdater, isPackagedGitHubProvider } from './macos-ad
 import {
   compareXpeachVersions,
   isVersionEligibleForChannel,
-  readXpeachAutoCheckUpdate,
   readXpeachUpdateChannel,
   type XPeachReleaseChannel,
 } from './update-channel.ts'
@@ -91,13 +90,6 @@ export class DesktopUpdateCoordinator {
     private readonly channel: 'nightly' | 'latest' = 'nightly',
   ) {
     if (updater === autoUpdater) {
-      if (process.env.XPEACH_SILENT_UPDATE !== '0' && readXpeachAutoCheckUpdate()) {
-        setTimeout(() => {
-          if (readXpeachAutoCheckUpdate()) {
-            void this.check().catch(() => {})
-          }
-        }, 3_000).unref()
-      }
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
       const transportOwner = updater as AppUpdater & { httpExecutor: DesktopUpdateHttpExecutor }

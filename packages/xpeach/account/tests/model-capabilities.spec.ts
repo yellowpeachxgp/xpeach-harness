@@ -11,16 +11,41 @@ import {
 } from '../src/index.ts'
 
 describe('catalogue capabilities', () => {
-  it('enables text and image input by default for chat models and excludes non-chat utility endpoints', () => {
+  it('enables text and image input by default for vision chat models and keeps text-only models text-only', () => {
     expect(modelInputs({ id: 'deepseek-v4-flash-vision' })).toEqual(['text', 'image'])
     expect(modelInputs({ id: 'gpt-5.4' })).toEqual(['text', 'image'])
     expect(modelInputs({ id: 'claude-opus-4-6' })).toEqual(['text', 'image'])
     expect(modelInputs({ id: 'swe-2-max' })).toEqual(['text', 'image'])
+    expect(modelInputs({ id: 'kimi-k2.5' })).toEqual(['text', 'image'])
+    expect(modelInputs({ id: 'glm-4.6v' })).toEqual(['text', 'image'])
     expect(modelInputs({ id: 'revision-model' })).toEqual(['text', 'image'])
+    // Known text-only chat/coding/reasoning models remain text-only.
+    expect(modelInputs({ id: 'deepseek-r1' })).toEqual(['text'])
+    expect(modelInputs({ id: 'deepseek-v3' })).toEqual(['text'])
+    expect(modelInputs({ id: 'deepseek-chat' })).toEqual(['text'])
+    expect(modelInputs({ id: 'deepseek-reasoner' })).toEqual(['text'])
+    expect(modelInputs({ id: 'qwen3-coder-plus' })).toEqual(['text'])
+    expect(modelInputs({ id: 'kimi-k2-0711' })).toEqual(['text'])
+    expect(modelInputs({ id: 'glm-4.5' })).toEqual(['text'])
+    expect(modelInputs({ id: 'glm-5' })).toEqual(['text'])
+    expect(modelInputs({ id: 'minimax-m2.5' })).toEqual(['text'])
     // Explicit non-chat utility endpoints remain text-only.
     expect(modelInputs({ id: 'text-embedding-3-large' })).toEqual(['text'])
     expect(modelInputs({ id: 'bge-reranker-v2-m3' })).toEqual(['text'])
     expect(modelInputs({ id: 'whisper-1' })).toEqual(['text'])
+  })
+
+  it('applies vendor-stripped rules and keeps built-in family rules ahead of registry defaults', () => {
+    const registry = parseModelMetadataRegistry({
+      version: 1,
+      defaults: { contextWindow: 128_000, maxTokens: 16_384, input: ['text', 'image'] },
+      rules: [
+        { pattern: '^swe-', contextWindow: 262_144, maxTokens: 65_536 },
+      ],
+    })
+    expect(modelContextWindow({ id: 'xpeach/swe-2-max' }, registry)).toBe(262_144)
+    expect(modelContextWindow({ id: 'gpt-5.4' }, registry)).toBe(400_000)
+    expect(modelContextWindow({ id: 'totally-unknown-custom-model' }, registry)).toBe(128_000)
   })
 
   it('resolves model context windows from upstream fields, synced metadata registry, and built-in family specs', () => {

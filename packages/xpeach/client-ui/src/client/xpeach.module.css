@@ -38,6 +38,13 @@
   --xph-showcase-muted: #71717a;
 }
 
+:global(body[data-ds-dark-theme]) {
+  --xph-brand-orange-strong: var(--dsw-alias-brand-primary, #ff9d7e);
+  --xph-showcase-bg: #1f1f24;
+  --xph-showcase-ink: #f4f4f5;
+  --xph-showcase-muted: #a1a1aa;
+}
+
 /* ─── Brand Wordmark & Theme-Aware Mark ─── */
 .mark {
   position: relative;
@@ -2516,7 +2523,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   border-radius: 999px;
   corner-shape: round;
   border: 0.5px solid var(--dsw-alias-border-l2);
-  background: color-mix(in srgb, var(--dsw-alias-bg-overlay, #fff) 84%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base))) 84%, transparent);
   backdrop-filter: blur(10px);
   font-size: var(--xph-type-caption);
   line-height: 1;
@@ -4550,6 +4557,22 @@ body[data-ds-dark-theme] .mark img.markDark {
 }
 .fontPackCustomInput {
   flex: 1;
+}
+
+@media (max-width: 680px) {
+  .onbShell {
+    grid-template-columns: 1fr;
+  }
+  .onbSummary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .optRow {
+    grid-template-columns: 1fr;
+  }
+  .fontPackCustomInputWrap {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 /* Focus-visible accessibility contract */

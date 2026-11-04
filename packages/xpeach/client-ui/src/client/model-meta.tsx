@@ -17,6 +17,10 @@ export interface ClientModelSpec {
   readonly badge: string
   /** Whether the model accepts image attachments alongside text. */
   readonly supportsImage: boolean
+  /** Whether the model supports multimodal vision inputs. */
+  readonly vision: boolean
+  /** Whether the model supports high-effort reasoning/thinking. */
+  readonly reasoning: boolean
 }
 
 function compactTokenBadge(tokens: number): string {
@@ -49,7 +53,12 @@ export function inferClientModelSpec(
 ): ClientModelSpec {
   const lower = id.trim().toLowerCase()
   const nonVisionRegex = /(?:^|[-_./])(embedding|embeddings|text-embedding|rerank|reranker|bge|whisper|tts|moderation)(?:$|[-_./])/u
-  const supportsImage = !nonVisionRegex.test(lower)
+  const textOnlyChatRegex = /(?:^|\/)(?:deepseek-(?:v3|r1|chat|reasoner|v4-pro|coder)|qwen3?-coder|qwq|kimi-k2)/u
+  const reasoningA = /(?:^|\/)(?:swe-|claude-(?:opus-4|sonnet-4|3-7)|gpt-[56]|codex|o[134](?:$|[-_.])|gemini-(?:2\.5|3))/u
+  const reasoningB =
+    /(?:^|\/)(?:deepseek-(?:r1|r2|reasoner|v4)|qwen3|qwq|glm-(?:5|4\.[567])|grok-(?:4|3-mini)|minimax-m2|kimi-k2-thinking)/u
+  const supportsImage = !nonVisionRegex.test(lower) && !textOnlyChatRegex.test(lower)
+  const reasoning = reasoningA.test(lower) || reasoningB.test(lower)
 
   let ctx = explicitContextWindow
   let maxOut = explicitMaxTokens
@@ -135,6 +144,8 @@ export function inferClientModelSpec(
     maxTokens: maxOut ?? 64_000,
     badge: compactTokenBadge(ctx),
     supportsImage,
+    vision: supportsImage,
+    reasoning,
   }
 }
 

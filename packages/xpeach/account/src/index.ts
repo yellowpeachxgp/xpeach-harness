@@ -15,6 +15,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -24,7 +25,7 @@ import { Context, Service } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@xpeach/xph-typert-protocol'
 import { credentialRef, type CredentialRef } from '@xpeach/xph-credentials'
-import type { JsonValue } from '@xpeach/xph-util-values'
+import { deepEqualJson, type JsonValue } from '@xpeach/xph-util-values'
 import { launchEnvironmentOf } from '@xpeach/xph-launch-environment'
 import { XPeachApi, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
 import {
@@ -948,6 +949,11 @@ export class XPeachAccount extends TypertRemoteService {
   private ssoVerifyPromise: Promise<XPeachSsoSessionStatus> | undefined
   private lastSsoVerifyAt = 0
   private probingSlotKey = false
+  private sharedCredentialsAdopted = false
+  private lastAccountSettingsSnapshot: ReturnType<typeof readAccountSettings> | undefined
+  private lastEnsureTokenInfoAt = 0
+  private usageCache: { at: number; key: string; usage: XPeachTokenUsage } | undefined
+  private usageInFlight: Promise<XPeachTokenUsage> | undefined
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'xpeachAccount', { namespace: 'xpeach' })
@@ -977,6 +983,7 @@ export class XPeachAccount extends TypertRemoteService {
     this.sessionKeyFile = resolveProfileFile(resolved.sessionKeyFile, 'xpeach.session')
     this.sessionKeyVar = resolved.sessionKeyVar
     this.adoptSharedCredentials()
+    this.sharedCredentialsAdopted = true
     const storedRoute = this.readRouteFile()
     this.activeBaseURL = (storedRoute.url ?? this.baseURL).replace(/\/+$/, '')
     this.networkAuto = storedRoute.auto ?? true
@@ -1006,7 +1013,21 @@ export class XPeachAccount extends TypertRemoteService {
     const registerEvent = this.ctx.on.bind(this.ctx) as (name: string, listener: (...args: never[]) => unknown) => () => boolean
     registerEvent('settings/document-updated', (ns: string) => {
       if (ns === 'xpeach-account' || ns === 'xpeach') {
-        void this.syncModelCatalog(AbortSignal.timeout(this.timeoutMs)).catch(() => {})
+        void (async () => {
+          const settings = this.ctx.get('settings') as { describe?: () => unknown } | undefined
+          if (settings?.describe !== undefined) {
+            const described = await settings.describe()
+            const nextSettings = readAccountSettings(described)
+            if (
+              this.lastAccountSettingsSnapshot !== undefined
+              && deepEqualJson(this.lastAccountSettingsSnapshot, nextSettings)
+            ) {
+              return
+            }
+            this.lastAccountSettingsSnapshot = nextSettings
+          }
+          await this.syncModelCatalog(AbortSignal.timeout(this.timeoutMs))
+        })().catch(() => {})
       }
     })
     registerEvent('llm/stream', (
@@ -1036,14 +1057,13 @@ export class XPeachAccount extends TypertRemoteService {
     })
     this.ctx.effect(() => {
       const timer = setInterval(() => { void this.api.pricingSync(false, AbortSignal.timeout(30_000)).catch(() => {}) }, 60_000)
-      const networkTimer = setInterval(() => { void this.probeNetwork().catch(() => {}) }, 30_000)
+      const networkTimer = setInterval(() => { void this.probeNetwork().catch(() => {}) }, 180_000)
       const ssoVerifyTimer = setInterval(() => {
         if (this.isBound()) {
           void this.verifyAndSyncSsoSession(false).catch(() => {})
         }
-      }, 20_000)
+      }, 120_000)
       const firstProbe = setTimeout(() => {
-        void this.upgradeStoredModels().catch(() => {})
         void this.probeNetwork().catch(() => {})
         if (this.isBound()) {
           void this.verifyAndSyncSsoSession(false).catch(() => {})
@@ -1232,7 +1252,10 @@ export class XPeachAccount extends TypertRemoteService {
    * explicit unbind never resurrects.
    */
   private bootstrapKey(): void {
-    this.adoptSharedCredentials()
+    if (!this.sharedCredentialsAdopted) {
+      this.adoptSharedCredentials()
+      this.sharedCredentialsAdopted = true
+    }
     let key = this.readKeyFile()
     if (key === undefined) {
       const slots = this.readSlots()
@@ -1306,6 +1329,11 @@ export class XPeachAccount extends TypertRemoteService {
    * @param body - Complete file contents.
    */
   private writeState(path: string, body: string): void {
+    if (existsSync(path)) {
+      try {
+        if (readFileSync(path, 'utf8') === body) return
+      } catch (_err) { /* proceed with atomic write */ }
+    }
     mkdirSync(dirname(path), { recursive: true })
     const tmpPath = `${path}.tmp.${String(process.pid)}`
     writeFileSync(tmpPath, body, { encoding: 'utf8', mode: 0o600 })
@@ -1375,6 +1403,7 @@ export class XPeachAccount extends TypertRemoteService {
     const serialized = JSON.stringify(info)
     this.writeState(this.tokenInfoFile(), serialized)
     this.mirrorCredentialFile('xpeach.token', serialized)
+    this.lastEnsureTokenInfoAt = Date.now()
   }
 
   /**
@@ -1384,6 +1413,14 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number; name?: string; groups?: string[] }> {
     const info = this.readTokenInfo()
+    if (
+      info.id !== undefined
+      && Array.isArray(info.groups)
+      && info.groups.length > 0
+      && Date.now() - this.lastEnsureTokenInfoAt < 300_000
+    ) {
+      return info
+    }
     let tokenId = info.id
     let tokenName = info.name
     if (tokenId === undefined) {
@@ -1450,8 +1487,8 @@ export class XPeachAccount extends TypertRemoteService {
    * the bound token exist; later calls are no-ops.
    */
   private syncCatalogOnce(): void {
-    void this.upgradeStoredModels().catch(() => undefined)
     if (this.catalogSyncPromise !== undefined || this.catalogSynced) return
+    void this.upgradeStoredModels().catch(() => undefined)
     const key = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
     if (key === undefined || key.length === 0) return
     void this.syncModelCatalog(new AbortController().signal)
@@ -1476,14 +1513,14 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
-  private async refreshModelMetadata(signal: AbortSignal): Promise<ModelMetadataRegistry | undefined> {
+  private async fetchAndCacheModelMetadata(signal: AbortSignal): Promise<ModelMetadataRegistry | undefined> {
     const url = unwrapConfigValue(this.liveConfig.modelMetadataUrl)?.trim()
       || 'https://raw.githubusercontent.com/yellowpeachxgp/xpeach-harness/main/resources/model-metadata.json'
     try {
       const res = await fetch(url, {
-        signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(3_000)]),
       })
-      if (!res.ok) return this.readModelMetadataCache()
+      if (!res.ok) return undefined
       const raw: unknown = await res.json()
       const registry = parseModelMetadataRegistry(raw)
       if (registry !== undefined) {
@@ -1493,7 +1530,24 @@ export class XPeachAccount extends TypertRemoteService {
     } catch (_err) {
       // Fall back to local cache and built-in model metadata rules.
     }
-    return this.readModelMetadataCache()
+    return undefined
+  }
+
+  private async refreshModelMetadata(signal: AbortSignal): Promise<ModelMetadataRegistry | undefined> {
+    const file = this.modelMetadataCacheFile()
+    const cached = this.readModelMetadataCache()
+    if (cached !== undefined) {
+      let ageMs = Number.POSITIVE_INFINITY
+      try {
+        ageMs = Date.now() - statSync(file).mtimeMs
+      } catch (_err) { /* treat unreadable mtime as stale */ }
+      if (ageMs < 30 * 60_000) {
+        return cached
+      }
+      void this.fetchAndCacheModelMetadata(signal).catch(() => {})
+      return cached
+    }
+    return (await this.fetchAndCacheModelMetadata(signal)) ?? this.readModelMetadataCache()
   }
 
   private async upgradeStoredModels(): Promise<void> {
@@ -1533,14 +1587,16 @@ export class XPeachAccount extends TypertRemoteService {
           const id = typeof modelObj['id'] === 'string' ? modelObj['id'] : ''
           if (id.length === 0) return entry
           const caps = modelCapabilities({ id }, metadata)
+          const targetMaxTokens = Math.min(caps.maxTokens, 32_768)
           const currentInput = Array.isArray(modelObj['input']) ? modelObj['input'] : []
-          const needsInputUpgrade = caps.input.some(mod => !currentInput.includes(mod))
+          const needsInputUpgrade = currentInput.length !== caps.input.length
+            || caps.input.some((mod, idx) => currentInput[idx] !== mod)
           const currentEfforts = modelObj['reasoningEfforts']
           const needsEffortsUpgrade = typeof currentEfforts !== 'object' || currentEfforts === null
           const currentCtx = typeof modelObj['contextWindow'] === 'number' ? modelObj['contextWindow'] : undefined
           const needsCtxUpgrade = currentCtx === undefined || (currentCtx === 262144 && caps.contextWindow !== 262144)
           const currentMax = typeof modelObj['maxTokens'] === 'number' ? modelObj['maxTokens'] : undefined
-          const needsMaxUpgrade = currentMax === undefined || (currentMax === 32768 && caps.maxTokens !== 32768)
+          const needsMaxUpgrade = currentMax === undefined || currentMax > 32_768 || (currentMax === 32768 && targetMaxTokens !== 32768)
 
           if (!needsInputUpgrade && !needsEffortsUpgrade && !needsCtxUpgrade && !needsMaxUpgrade) {
             return entry
@@ -1549,7 +1605,7 @@ export class XPeachAccount extends TypertRemoteService {
           return {
             ...modelObj,
             contextWindow: needsCtxUpgrade ? caps.contextWindow : currentCtx,
-            maxTokens: needsMaxUpgrade ? caps.maxTokens : currentMax,
+            maxTokens: needsMaxUpgrade ? targetMaxTokens : currentMax,
             input: needsInputUpgrade ? caps.input : currentInput,
             reasoningEfforts: needsEffortsUpgrade ? caps.reasoningEfforts : currentEfforts,
           }
@@ -1611,6 +1667,7 @@ export class XPeachAccount extends TypertRemoteService {
       if (settings?.update === undefined) return { ok: false, count: 0, groups: info.groups ?? [], error: 'settings service unavailable' }
       const described = await settings.describe?.()
       const liveAccountSettings = readAccountSettings(described)
+      this.lastAccountSettingsSnapshot = liveAccountSettings
       if (liveAccountSettings.timeoutMs !== undefined) {
         this.timeoutMs = liveAccountSettings.timeoutMs
       }
@@ -1647,7 +1704,7 @@ export class XPeachAccount extends TypertRemoteService {
           id: m.id,
           name: m.id,
           contextWindow: caps.contextWindow,
-          maxTokens: caps.maxTokens,
+          maxTokens: Math.min(caps.maxTokens, 32_768),
           input: caps.input,
           reasoningEfforts: caps.reasoningEfforts,
         }
@@ -1687,7 +1744,12 @@ export class XPeachAccount extends TypertRemoteService {
       if (stale.length > 0 && settings.mutate !== undefined) {
         await settings.mutate('llm-pi-ai', stale.map(key => ({ op: 'unset', path: ['providers', key] })))
       }
-      await settings.update('llm-pi-ai', { providers })
+      const providersChanged = stale.length > 0 || Object.entries(providers).some(
+        ([k, v]) => !deepEqualJson(existingProviders[k] ?? null, v),
+      )
+      if (providersChanged) {
+        await settings.update('llm-pi-ai', { providers })
+      }
       await this.reconcileDefaultModelSelection(providers)
       return { ok: true, count: models.length, groups: info.groups ?? [] }
     } catch (e) {
@@ -1787,6 +1849,48 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
+  private async cachedTokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
+    const cacheKey = `${this.readKeyFile() ?? process.env[this.keyVar]?.trim() ?? ''}|${this.resolveAdmin() ?? ''}`
+    if (this.usageCache !== undefined && this.usageCache.key === cacheKey && Date.now() - this.usageCache.at < 15_000) {
+      return this.usageCache.usage
+    }
+    if (this.usageInFlight !== undefined) {
+      return await this.usageInFlight
+    }
+    const run = (async (): Promise<XPeachTokenUsage> => {
+      const usage = await this.api.tokenUsage(signal)
+      if ((usage.unlimited_quota || usage.total_available < 0) && this.resolveAdmin() !== undefined) {
+        try {
+          const me = await this.api.userSelf(signal)
+          if (typeof me.quota === 'number' && Number.isFinite(me.quota)) {
+            const used = typeof me.used_quota === 'number' && Number.isFinite(me.used_quota)
+              ? me.used_quota
+              : Math.max(0, usage.total_used)
+            const avail = Math.max(0, me.quota)
+            const merged: XPeachTokenUsage = {
+              ...usage,
+              name: me.display_name || me.username || usage.name,
+              total_available: avail,
+              total_used: used,
+              total_granted: avail + used,
+              unlimited_quota: false,
+            }
+            this.usageCache = { at: Date.now(), key: cacheKey, usage: merged }
+            return merged
+          }
+        } catch (_err) {
+          // Fall back to raw token usage when personal profile lookup fails.
+        }
+      }
+      this.usageCache = { at: Date.now(), key: cacheKey, usage }
+      return usage
+    })().finally(() => {
+      this.usageInFlight = undefined
+    })
+    this.usageInFlight = run
+    return await run
+  }
+
   /**
    * Usage summary of the calling API token: name, granted/used quota, and the
    * model limits in force. Works with the relay sk- credential.
@@ -1797,29 +1901,7 @@ export class XPeachAccount extends TypertRemoteService {
    */
   @Remote('tokenUsage')
   async tokenUsage(_request: XPeachTokenUsageRequest, signal: AbortSignal): Promise<XPeachTokenUsage> {
-    const usage = await this.api.tokenUsage(signal)
-    if ((usage.unlimited_quota || usage.total_available < 0) && this.resolveAdmin() !== undefined) {
-      try {
-        const me = await this.api.userSelf(signal)
-        if (typeof me.quota === 'number' && Number.isFinite(me.quota)) {
-          const used = typeof me.used_quota === 'number' && Number.isFinite(me.used_quota)
-            ? me.used_quota
-            : Math.max(0, usage.total_used)
-          const avail = Math.max(0, me.quota)
-          return {
-            ...usage,
-            name: me.display_name || me.username || usage.name,
-            total_available: avail,
-            total_used: used,
-            total_granted: avail + used,
-            unlimited_quota: false,
-          }
-        }
-      } catch (_err) {
-        // Fall back to raw token usage when personal profile lookup fails.
-      }
-    }
-    return usage
+    return await this.cachedTokenUsage(signal)
   }
 
   /**
@@ -2545,9 +2627,41 @@ export class XPeachAccount extends TypertRemoteService {
     | { readonly available: false }
   > {
     if (!this.isBound()) return { available: false }
+    const cacheKey = `${this.readKeyFile() ?? process.env[this.keyVar]?.trim() ?? ''}|${this.resolveAdmin() ?? ''}`
+    if (
+      this.usageCache !== undefined
+      && this.usageCache.key === cacheKey
+      && Date.now() - this.usageCache.at < 15_000
+      && this.usageCache.usage.total_available >= 0
+      && !this.usageCache.usage.unlimited_quota
+    ) {
+      const usd = Math.max(0, this.usageCache.usage.total_available / 500_000).toFixed(2)
+      return {
+        available: true,
+        totalBalance: usd,
+        toppedUpBalance: usd,
+        grantedBalance: '0.00',
+        currency: 'USD',
+      }
+    }
     try {
       const me = await this.api.userSelf(signal)
-      const usd = Math.max(0, (me.quota ?? 0) / 500_000).toFixed(2)
+      const avail = Math.max(0, me.quota ?? 0)
+      const used = Math.max(0, me.used_quota ?? 0)
+      this.usageCache = {
+        at: Date.now(),
+        key: cacheKey,
+        usage: {
+          name: me.display_name || me.username || 'xpeach',
+          total_available: avail,
+          total_used: used,
+          total_granted: avail + used,
+          unlimited_quota: false,
+          expires_at: 0,
+          model_limits_enabled: false,
+        },
+      }
+      const usd = (avail / 500_000).toFixed(2)
       return {
         available: true,
         totalBalance: usd,
@@ -2557,7 +2671,7 @@ export class XPeachAccount extends TypertRemoteService {
       }
     } catch (_err) {
       try {
-        const usage = await this.api.tokenUsage(signal)
+        const usage = await this.cachedTokenUsage(signal)
         const usd = Math.max(0, usage.total_available / 500_000).toFixed(2)
         return {
           available: true,
@@ -2754,6 +2868,8 @@ export class XPeachAccount extends TypertRemoteService {
       this.api.setSessionKey(undefined)
       this.writeState(this.seededMarker(), '')
       this.lastSsoVerifyAt = 0
+      this.lastEnsureTokenInfoAt = 0
+      this.usageCache = undefined
 
       await this.revokeCredential()
       await this.clearModelCatalogFromSettings().catch(() => {})
@@ -2869,14 +2985,23 @@ export class XPeachAccount extends TypertRemoteService {
         const peach = sync.payload.peachcode
         const refreshedSso = sync.payload.sso
         const nextSsoToken = refreshedSso?.accessToken ?? sso.accessToken
-        if (nextSsoToken.length > 0) {
+        const nextExpiresIn = refreshedSso?.expiresIn ?? sso.expiresIn
+        const nextUser = refreshedSso?.user ?? sso.user
+        const nextPeachcodeUserId = peach?.userId ?? sso.peachcodeUserId
+        const ssoChanged = nextSsoToken !== sso.accessToken
+          || nextExpiresIn !== sso.expiresIn
+          || nextPeachcodeUserId !== sso.peachcodeUserId
+          || !deepEqualJson(nextUser ?? null, sso.user ?? null)
+        if (nextSsoToken.length > 0 && ssoChanged) {
           try {
             const ssoContent = JSON.stringify({
               accessToken: nextSsoToken,
-              expiresIn: refreshedSso?.expiresIn ?? sso.expiresIn,
-              user: refreshedSso?.user ?? sso.user,
-              peachcodeUserId: peach?.userId ?? sso.peachcodeUserId,
-              boundAt: Date.now(),
+              expiresIn: nextExpiresIn,
+              user: nextUser,
+              peachcodeUserId: nextPeachcodeUserId,
+              boundAt: refreshedSso?.accessToken !== undefined && refreshedSso.accessToken !== sso.accessToken
+                ? Date.now()
+                : (sso.boundAt ?? Date.now()),
             }, null, 2) + '\n'
             this.writeState(this.ssoStateFile, ssoContent)
             this.mirrorCredentialFile('xpeach.sso.json', ssoContent)
@@ -3025,21 +3150,34 @@ export class XPeachAccount extends TypertRemoteService {
       try { emitEvent('deepseek-account/session-expired') } catch (_err) { /* contained */ }
       yield {
         type: 'finish',
-        reason: 'error',
-        error: {
-          message: check.message ?? '您的 XPeach 账号未登录或已被停用，请先完成 SSO 登录授权。',
-          code: 'ACCOUNT_SIGN_IN_REQUIRED',
-          retryable: false,
+        reason: {
+          kind: 'error',
+          failure: {
+            message: check.message ?? '您的 XPeach 账号未登录或已被停用，请先完成 SSO 登录授权。',
+            code: 'ACCOUNT_SIGN_IN_REQUIRED',
+          },
         },
-        usage: { inputTokens: 0, outputTokens: 0 },
       }
       return
     }
     for await (const chunk of next(options)) {
-      if (chunk['type'] === 'finish' && chunk['reason'] === 'error') {
-        const errObj = chunk['error'] as { status?: number; message?: string } | undefined
-        if (errObj?.status === 401 || errObj?.status === 403) {
-          void this.handleAuthRejected(errObj.status)
+      if (chunk['type'] === 'finish') {
+        const reason = chunk['reason'] as
+          | { kind?: string; failure?: { code?: string; message?: string } }
+          | string
+          | null
+          | undefined
+        if (typeof reason === 'object' && reason !== null && reason.kind === 'error') {
+          const code = reason.failure?.code
+          const msg = reason.failure?.message ?? ''
+          if (code === 'AUTH' || /\b401\b/u.test(msg)) {
+            void this.handleAuthRejected(401)
+          }
+        } else if (reason === 'error') {
+          const errObj = chunk['error'] as { status?: number; code?: string; message?: string } | undefined
+          if (errObj?.status === 401 || errObj?.code === 'AUTH') {
+            void this.handleAuthRejected(401)
+          }
         }
       }
       yield chunk
@@ -5248,6 +5386,11 @@ const NON_VISION_MODEL_PATTERN = new RegExp(
   'iu',
 )
 
+const TEXT_ONLY_CHAT_MODEL_PATTERN = new RegExp(
+  '(?:^|/)(?:deepseek-(?:r1|v3|chat|reasoner|coder)|qwen3-coder|qwq-|kimi-k2-(?:0711|0905)|glm-(?:5|4\\.[567]|4-long)|minimax-m[12])(?:$|[-_.:])',
+  'iu',
+)
+
 const BUILTIN_MODEL_RULES: readonly { readonly regex: RegExp; readonly contextWindow: number; readonly maxTokens: number }[] = [
   // Explicit token-window suffixes in model IDs
   { regex: /(?:^|[-_.])2m(?:$|[-_.])/iu, contextWindow: 2_097_152, maxTokens: 65_536 },
@@ -5365,22 +5508,22 @@ function lookupRegistryEntry(id: string, registry?: ModelMetadataRegistry): Mode
     for (const rule of registry.rules) {
       if (typeof rule.pattern !== 'string' || rule.pattern.length === 0) continue
       try {
-        if (new RegExp(rule.pattern, 'iu').test(id)) return rule
+        const re = new RegExp(rule.pattern, 'iu')
+        if (re.test(id) || re.test(stripped)) return rule
       } catch (_err) {
         // Ignore malformed dynamic regex rules.
       }
     }
   }
-  return registry.defaults
+  return undefined
 }
 
 /**
  * Input modalities a catalogue entry accepts.
  *
- * All conversational models default to `['text', 'image']` so image attachments
- * and multimodal pastes work across every relay model out of the box; only
- * explicit non-chat utility endpoints (embeddings, rerankers, speech/audio) stay
- * text-only.
+ * Multimodal chat models advertise `['text', 'image']` while known text-only
+ * chat/coding/reasoning models and utility endpoints (embeddings, rerankers,
+ * speech/audio) stay `['text']`.
  * @param model - one catalogue entry.
  * @param registry - optional synced model metadata registry.
  * @returns the modalities the model accepts.
@@ -5398,6 +5541,12 @@ export function modelInputs(
   const matched = lookupRegistryEntry(model.id, registry)
   if (matched?.input !== undefined && matched.input.length > 0) {
     return [...matched.input]
+  }
+  if (TEXT_ONLY_CHAT_MODEL_PATTERN.test(model.id)) {
+    return ['text']
+  }
+  if (registry?.defaults?.input !== undefined && registry.defaults.input.length > 0) {
+    return [...registry.defaults.input]
   }
   return ['text', 'image']
 }
@@ -5435,6 +5584,9 @@ export function modelContextWindow(
       return rule.contextWindow
     }
   }
+  if (typeof registry?.defaults?.contextWindow === 'number' && registry.defaults.contextWindow >= 1024) {
+    return registry.defaults.contextWindow
+  }
   return 200_000
 }
 
@@ -5466,6 +5618,9 @@ export function modelMaxTokens(
     if (rule.regex.test(model.id)) {
       return rule.maxTokens
     }
+  }
+  if (typeof registry?.defaults?.maxTokens === 'number' && registry.defaults.maxTokens >= 512) {
+    return registry.defaults.maxTokens
   }
   return 64_000
 }
@@ -5527,7 +5682,7 @@ export function parseModelMetadataRegistry(raw: unknown): ModelMetadataRegistry 
   const obj = raw as Record<string, unknown>
   const modelsRaw = obj['models']
   const rulesRaw = obj['rules']
-  const defaultsRaw = obj['defaults']
+  const defaultsRaw = obj['defaults'] ?? obj['default']
   const models: Record<string, ModelMetadataEntry> = {}
   if (typeof modelsRaw === 'object' && modelsRaw !== null && !Array.isArray(modelsRaw)) {
     for (const [key, val] of Object.entries(modelsRaw as Record<string, unknown>)) {
@@ -5569,6 +5724,9 @@ export function parseModelMetadataRegistry(raw: unknown): ModelMetadataRegistry 
           : {}),
         ...(typeof (defaultsRaw as Record<string, unknown>)['maxTokens'] === 'number'
           ? { maxTokens: (defaultsRaw as Record<string, unknown>)['maxTokens'] as number }
+          : {}),
+        ...(Array.isArray((defaultsRaw as Record<string, unknown>)['input'])
+          ? { input: ((defaultsRaw as Record<string, unknown>)['input'] as unknown[]).filter((i): i is 'text' | 'image' => i === 'text' || i === 'image') }
           : {}),
       }
       : undefined

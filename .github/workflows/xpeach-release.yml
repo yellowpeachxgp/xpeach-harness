@@ -142,8 +142,13 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build host libraries
-        run: pnpm run build:lib:host
+      - name: Cache desktop runtime downloads
+        uses: actions/cache@v4
+        with:
+          path: apps/desktop/.desktop-build/downloads
+          key: desktop-runtime-downloads-${{ runner.os }}-${{ hashFiles('apps/desktop/scripts/prepare-primary-runtime.ts', 'package.json') }}
+          restore-keys: |
+            desktop-runtime-downloads-${{ runner.os }}-
       - name: Provide the packaging dotenv
         shell: bash
         run: |
@@ -159,8 +164,6 @@ jobs:
           EOF
           done
           ls -la apps/desktop/.env.*
-      - name: Build desktop app
-        run: pnpm run build:desktop
       - name: Package (macOS)
         if: matrix.target == 'mac-arm64'
         run: |
@@ -184,10 +187,11 @@ jobs:
                            apps/desktop/.desktop-build/targets/*/unsigned-artifacts/mac-arm64; do
             [ -d "$directory" ] || continue
             find "$directory" -maxdepth 1 -type f \
-              \( -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name 'latest*.yml' \) \
+              \( -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name 'latest*.yml' -o -name 'alpha*.yml' -o -name 'beta*.yml' -o -name 'least*.yml' \) \
               -exec cp {} out/ \;
           done
           PREFIX="${{ matrix.prefix }}"
+          VERSION="${{ needs.version.outputs.version }}"
           for file in out/*.dmg out/*.pkg out/*.zip out/*.exe out/*.AppImage; do
             [ -f "$file" ] || continue
             base=$(basename "$file")
@@ -196,6 +200,42 @@ jobs:
               *) mv "$file" "out/${PREFIX}-${base}" ;;
             esac
           done
+          PREFIX="$PREFIX" VERSION="$VERSION" node -e '
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const prefix = process.env.PREFIX + "-";
+            const version = process.env.VERSION || "";
+            const outDir = "out";
+            for (const name of fs.readdirSync(outDir)) {
+              if (!/^(?:latest|alpha|beta|least)(?:-[a-z0-9]+)?\.yml$/i.test(name)) continue;
+              const filePath = path.join(outDir, name);
+              const content = fs.readFileSync(filePath, "utf8");
+              const updated = content.replace(
+                /^(\s*(?:-\s*)?(?:url|path):\s*)([\x27"]?)([^\x27"\r\n]+)\2(\s*)$/gm,
+                (_m, lead, quote, val, trail) => {
+                  const trimmed = val.trim();
+                  if (!trimmed || trimmed.startsWith(prefix) || /^https?:\/\//i.test(trimmed)) {
+                    return `${lead}${quote}${trimmed}${quote}${trail}`;
+                  }
+                  return `${lead}${quote}${prefix}${trimmed}${quote}${trail}`;
+                }
+              );
+              fs.writeFileSync(filePath, updated, "utf8");
+            }
+            const channelMatch = /-(alpha|beta|least)(?:[.-]|$)/i.exec(version);
+            if (channelMatch) {
+              const ch = channelMatch[1].toLowerCase();
+              for (const suffix of ["-mac.yml", ".yml", "-linux.yml"]) {
+                const latestFile = path.join(outDir, `latest${suffix}`);
+                const channelFile = path.join(outDir, `${ch}${suffix}`);
+                if (fs.existsSync(latestFile)) {
+                  fs.copyFileSync(latestFile, channelFile);
+                } else if (fs.existsSync(channelFile)) {
+                  fs.copyFileSync(channelFile, latestFile);
+                }
+              }
+            }
+          '
           ls -la out
       - uses: actions/upload-artifact@v4
         with:

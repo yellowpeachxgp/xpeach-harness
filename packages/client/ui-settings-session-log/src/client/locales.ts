@@ -9,7 +9,7 @@ export const en = {
 /** Chinese preference copy. */
 export const zh: Record<keyof typeof en, string> = {
   title: '在使用官方模型 API 时上传 Session Log',
-  description: '帮助改进 中转站服务',
+  description: '帮助改进中转站服务。',
   saved: '设置已保存',
   failed: '无法保存设置',
 }

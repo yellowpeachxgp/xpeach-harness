@@ -92,8 +92,9 @@ function rejectElectronProfile(program: Command, profile: string): void {
 }
 
 /** CLI display name — 'xph' when launched through the XPeach entry. */
-const CLI_NAME = process.env.XPH_PRODUCT === '1' ? 'xph' : 'dsh'
-const PRODUCT_NAME = process.env.XPH_PRODUCT === '1' ? 'XPeach Harness' : 'DeepSeek Harness'
+export const CLI_NAME = process.env.XPH_PRODUCT === '1' ? 'xph' : 'dsh'
+/** Product display name — 'XPeach Harness' when launched through the XPeach entry. */
+export const PRODUCT_NAME = process.env.XPH_PRODUCT === '1' ? 'XPeach Harness' : 'DeepSeek Harness'
 const PROFILE_HOME_ENV = process.env.XPH_PRODUCT === '1' ? 'XPH_HOME' : 'DSH_HOME'
 
 /** The launcher's own help text; each app prints its own. */
@@ -174,7 +175,7 @@ export function parseDshArgs(argv: readonly string[], version: string, manageDes
     .allowUnknownOption()
     .passThroughOptions()
     .enablePositionalOptions()
-    .argument('[args...]', 'arguments for the booted profile\'s app (see: dsh --profile <name> --help)')
+    .argument('[args...]', `arguments for the booted profile's app (see: ${CLI_NAME} --profile <name> --help)`)
     .option('--profile <name>', `the profile under ${PROFILE_HOME_ENV}/profiles to boot`, selectProfile)
     .option('--from-default-profile <name>', 'replace a custom profile with a fresh copy of a shipped profile template')
     .option('--patch <path>', 'extra patch-list overlay applied after the profile layer (repeatable)', collect)
