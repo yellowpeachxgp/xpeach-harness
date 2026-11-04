@@ -185,13 +185,11 @@ export function createElectronBuilderConfig(
       // Prepared runtime files retain their signatures; PAK resources are sealed by their enclosing bundle.
       signIgnore: ['/Contents/Resources/app\\.asar\\.unpacked/dsh(?:/|$)', '/Contents/Resources/runtime/primary-runtime(?:/|$)', '\\.pak$'],
       notarize: !unsigned && !skipNotarization,
-      differentialPackage: false,
       target: unsigned ? ['dmg', 'zip'] : ['dmg', 'zip'],
     },
     dmg: {
       format: 'ULMO',
       sign: !unsigned,
-      differentialPackage: false,
       // Update info is required for the GitHub Releases feed (electron-updater).
       writeUpdateInfo: githubPublish,
     },

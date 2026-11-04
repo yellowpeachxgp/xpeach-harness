@@ -267,6 +267,16 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Verify installer artifacts exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          ARTIFACT_FILES=(artifacts/*)
+          if [ "${#ARTIFACT_FILES[@]}" -eq 0 ]; then
+            echo "::error::No installer artifacts found in artifacts/; refusing to bump counter or publish an empty release"
+            exit 1
+          fi
       - name: Commit the bumped counter
         continue-on-error: true
         env:
