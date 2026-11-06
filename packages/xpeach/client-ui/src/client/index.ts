@@ -258,15 +258,26 @@ function registerUi(ctx: Context): Array<() => void> {
       const described = await ctx.remote.settings.describe()
       if (!described.ok) return described.error.message
       const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
-      type ProviderCfg = { api?: string; apiKeyEnv?: string; baseURL?: string; models?: { id: string }[] }
+      type ProviderCfg = {
+        displayName?: string
+        api?: string
+        apiKeyEnv?: string
+        baseURL?: string
+        models?: { id: string }[]
+      }
       const providers = (view?.value as { providers?: Record<string, ProviderCfg> } | undefined)?.providers
-      const key = 'xpeach'
-      for (const [pKey, pVal] of Object.entries(providers ?? {})) {
-        if (pKey.startsWith('xpeach') && pVal.models?.some(m => m.id === id)) return null
+      const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(id.trim()) || /^claude$/iu.test(id.trim())
+      const key = isClaude ? 'xpeach-anthropic' : 'xpeach'
+      if (providers?.[key]?.models?.some(m => m.id === id) === true) {
+        return null
       }
       type JsonV = null | boolean | number | string | JsonV[] | { [k: string]: JsonV }
       const opsList: { op: 'set'; path: string[]; value: JsonV }[] = []
-      const existing = providers?.[key]?.models ?? []
+      if (isClaude && providers?.['xpeach']?.models?.some(m => m.id === id) === true) {
+        const filteredXpeach = (providers['xpeach'].models ?? []).filter(m => m.id !== id)
+        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach as JsonV })
+      }
+      const existing = (providers?.[key]?.models ?? []).filter(m => m.id !== id)
       const spec = inferClientModelSpec(id)
       const entry = {
         id,
@@ -275,6 +286,19 @@ function registerUi(ctx: Context): Array<() => void> {
         maxTokens: spec.maxTokens,
         input: spec.supportsImage ? ['text', 'image'] : ['text'],
         reasoningEfforts: { off: null, low: 'low', medium: 'medium', high: 'high' },
+      }
+      if (isClaude) {
+        const rawBase = providers?.['xpeach-anthropic']?.baseURL
+          ?? providers?.['xpeach']?.baseURL
+          ?? 'https://fast.xpeach.codes'
+        const anthropicBase = rawBase.replace(/\/+$/u, '').replace(/\/v1$/u, '')
+        const apiKeyEnv = providers?.['xpeach-anthropic']?.apiKeyEnv
+          ?? providers?.['xpeach']?.apiKeyEnv
+          ?? 'XPEACH_RELAY_KEY'
+        opsList.push({ op: 'set', path: ['providers', key, 'displayName'], value: '🍑Code anthropic-messages' })
+        opsList.push({ op: 'set', path: ['providers', key, 'api'], value: 'anthropic-messages' })
+        opsList.push({ op: 'set', path: ['providers', key, 'apiKeyEnv'], value: apiKeyEnv })
+        opsList.push({ op: 'set', path: ['providers', key, 'baseURL'], value: anthropicBase })
       }
       opsList.push({ op: 'set', path: ['providers', key, 'reasoning'], value: 'high' })
       opsList.push({ op: 'set', path: ['providers', key, 'defaultInput'], value: ['text', 'image'] })
@@ -809,24 +833,51 @@ function registerUi(ctx: Context): Array<() => void> {
       inject: (): XPeachOps => ({
         ...ops,
         selectModel: async (sessionId: string | undefined, model: string) => {
-          let targetId = sessionId as Parameters<typeof ctx.remote.session.selectModel>[0]['sessionId'] | undefined
-          if (targetId === undefined) {
-            const listed = await ctx.remote.session.list({})
-            if (!listed.ok) return listed.error.message
-            targetId = listed.value.items[0]?.sessionId
-          }
-          if (targetId === undefined) return 'no active session'
-          let provider = 'xpeach'
+          const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(model.trim()) || /^claude$/iu.test(model.trim())
+          let provider = isClaude ? 'xpeach-anthropic' : 'xpeach'
           const described = await ctx.remote.settings.describe()
+          let defaultModelRevision: number | undefined
           if (described.ok) {
+            defaultModelRevision = described.value.namespaces.find(ns => ns.ns === 'agent-default-model')?.revision
             const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
             const providers = (view?.value as { providers?: Record<string, { models?: { id: string }[] }> } | undefined)?.providers ?? {}
-            const matched = Object.entries(providers).find(([k, p]) => k.startsWith('xpeach') && p.models?.some(m => m.id === model))?.[0]
-            if (matched !== undefined) provider = matched
+            if (isClaude && providers['xpeach-anthropic']?.models?.some(m => m.id === model) === true) {
+              provider = 'xpeach-anthropic'
+            } else {
+              const matched = Object.entries(providers).find(([k, p]) => k.startsWith('xpeach') && p.models?.some(m => m.id === model))?.[0]
+              if (matched !== undefined) provider = matched
+            }
           }
           rememberModel(provider, model)
-          const result = await ctx.remote.session.selectModel({ sessionId: targetId, provider, model })
-          return result.ok ? null : result.error.message
+          await ctx.remote.settings.mutate(
+            'agent-default-model',
+            [{ op: 'set', path: ['defaultModel'], value: { provider, model } }],
+            defaultModelRevision,
+          ).catch(() => undefined)
+          type SessionIdParam = Parameters<typeof ctx.remote.session.selectModel>[0]['sessionId']
+          if (sessionId !== undefined) {
+            const result = await ctx.remote.session.selectModel({
+              sessionId: sessionId as SessionIdParam,
+              provider,
+              model,
+            })
+            return result.ok ? null : result.error.message
+          }
+          const listed = await ctx.remote.session.list({})
+          if (!listed.ok) return null
+          const targets = listed.value.items.slice(0, 5)
+          if (targets.length === 0) return null
+          const results = await Promise.all(
+            targets.map(item =>
+              ctx.remote.session.selectModel({
+                sessionId: item.sessionId,
+                provider,
+                model,
+              }),
+            ),
+          )
+          const firstResult = results[0]
+          return firstResult === undefined || firstResult.ok ? null : firstResult.error.message
         },
       }),
     }, XPeachConsolePage)))

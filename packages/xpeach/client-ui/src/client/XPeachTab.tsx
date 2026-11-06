@@ -486,17 +486,19 @@ export function XPeachTab({
   }, [seg])
   const applyGroup = (model: string, group: string): void => {
     if (model.length > 0) pickGroup(model, group)
-    const current = siteCat?.tokenGroups ?? groupSel
+    const current = groupSel.length > 0 ? groupSel : (siteCat?.tokenGroups ?? [])
     if (current[0] === group) { setGroupMsg(t('market.groupApplied')); return }
-    if (!current.includes(group) && current.length >= 16) { setGroupMsg(t('market.groupLimit')); return }
-    const nextGroups = [group, ...current.filter(g => g !== group)]
+    const nextGroups = [group, ...current.filter(g => g !== group)].slice(0, 16)
     setGroupSel(nextGroups)
+    setGroupBusy(true); setGroupMsg(null)
     updateClientModelTelemetryCache({ activeGroup: group })
     void setGroups(nextGroups).then((r) => {
+      setGroupBusy(false)
       if ('error' in r) { setGroupMsg(r.error); return }
       setGroupMsg(t('market.appliedGroup', { name: group }))
       loadCatalog()
       void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
+      void mountedModels().then(setMounted)
     })
   }
   const doSyncModels = (): void => {
@@ -505,6 +507,7 @@ export function XPeachTab({
       setGroupBusy(false)
       setGroupMsg('error' in r ? r.error : t('market.synced', { n: r.count }))
       void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
+      void mountedModels().then(setMounted)
     })
   }
   const [priceAt, setPriceAt] = useState<{ at: number; stale: boolean } | undefined>(undefined)
@@ -827,15 +830,40 @@ export function XPeachTab({
   const mountedSet = useMemo(() => new Set(mounted), [mounted])
   const joinModel = (id: string): void => {
     setAdded(prev => ({ ...prev, [id]: 'adding' }))
-    void addModel(id).then(async (err) => {
-      if (err !== null) { setAdded(prev => ({ ...prev, [id]: err })); return }
+    void (async () => {
+      const currentGroups = groupSel.length > 0 ? groupSel : (siteCat?.tokenGroups ?? [])
+      const currentPrimary = currentGroups[0]
+      const modelGroups = (mergedGroupIdx.get(id) ?? []).map(g => g.name)
+      const explicitGroup = activeGroup !== null && (modelGroups.length === 0 || modelGroups.includes(activeGroup))
+        ? activeGroup
+        : selGroup[id]
+      const needsPrimarySwitch = explicitGroup !== undefined
+        ? explicitGroup !== currentPrimary
+        : (currentPrimary !== undefined && modelGroups.length > 0 && !modelGroups.includes(currentPrimary))
+      const targetGroup = explicitGroup ?? (needsPrimarySwitch ? modelGroups[0] : undefined)
+      if (targetGroup !== undefined && targetGroup !== currentPrimary) {
+        const nextGroups = [targetGroup, ...currentGroups.filter(g => g !== targetGroup)].slice(0, 16)
+        setGroupSel(nextGroups)
+        updateClientModelTelemetryCache({ activeGroup: targetGroup })
+        const groupRes = await setGroups(nextGroups)
+        if (!('error' in groupRes)) {
+          setGroupMsg(t('market.appliedGroup', { name: targetGroup }))
+          loadCatalog()
+          void models().then((m) => { if (Array.isArray(m)) setCatalog(m) })
+        }
+      }
+      const err = await addModel(id)
+      if (err !== null) {
+        setAdded(prev => ({ ...prev, [id]: err }))
+        return
+      }
       void mountedModels().then(setMounted)
       const selErr = selectModel === undefined ? null : await selectModel(sessionId, id)
       setAdded(prev => ({
         ...prev,
         [id]: selErr === null ? 'added' : selErr === 'no active session' ? t('market.noActiveSession') : selErr,
       }))
-    })
+    })()
   }
 
   return (
@@ -1063,7 +1091,13 @@ export function XPeachTab({
                       key={g.name}
                       type="button"
                       className={isSelected ? css.groupFilterChipOn : css.groupFilterChip}
-                      onClick={() => { setActiveGroup(isSelected ? null : g.name) }}
+                      onClick={() => {
+                        const nextActive = isSelected ? null : g.name
+                        setActiveGroup(nextActive)
+                        if (nextActive !== null && !isPrimary && !groupBusy) {
+                          applyGroup('', nextActive)
+                        }
+                      }}
                     >
                       <span>{g.name}</span>
                       <b className={css.groupPickRatio}>{g.models}</b>
@@ -1125,7 +1159,9 @@ export function XPeachTab({
                     <button key={g.name} type="button" className={on ? css.groupChipOn : css.groupPickChip}
                       onClick={() => {
                         if (!on && groupSel.length >= 16) { setGroupMsg(t('market.groupLimit')); return }
-                        setGroupSel(prev => on ? prev.filter(x => x !== g.name) : [...prev, g.name])
+                        setGroupSel(prev => prev[0] === g.name
+                          ? prev.filter(x => x !== g.name)
+                          : [g.name, ...prev.filter(x => x !== g.name)])
                       }}>
                       {g.name}<b className={css.groupPickRatio}>{g.models}</b>
                       {groupSel[0] === g.name && <em className={css.groupNow}>·{t('market.groupNow')}</em>}
@@ -1148,7 +1184,13 @@ export function XPeachTab({
                   return (
                     <button key={group.name} type="button"
                       className={isSelected ? css.groupCardOn : css.groupCard}
-                      onClick={() => { setActiveGroup(isSelected ? null : group.name) }}>
+                      onClick={() => {
+                        const nextActive = isSelected ? null : group.name
+                        setActiveGroup(nextActive)
+                        if (nextActive !== null && !isPrimary && !groupBusy) {
+                          applyGroup('', nextActive)
+                        }
+                      }}>
                       <span className={css.groupCardName}>
                         {group.name}
                         {isPrimary && <em className={css.groupNow}> · {t('market.groupCard.activePrimary')}</em>}
@@ -1256,20 +1298,18 @@ export function XPeachTab({
                         )}
                       </span>
                     )}
-                    <div className={css.marketActs} onClick={(e) =>{  e.stopPropagation() }}>
+                    <div className={css.marketActs} onClick={(e) => { e.stopPropagation() }}>
                       <button type="button" className={css.marketBtn}
                         onClick={() => { setOpenPlay(openPlay === m.id ? null : m.id) }}>
                         {openPlay === m.id ? t('market.tryClose') : t('market.try')}
                       </button>
-                      {inLib
-                        ? null
-                        : st === 'added'
-                          ? <span className={css.marketIn}>✓ {t('market.addedSelected')}</span>
-                          : st === 'adding'
-                            ? <span className={css.marketMeta}>{t('market.adding')}</span>
-                            : typeof st === 'string' && st !== 'idle'
-                              ? <span className={css.bindError}>{st}</span>
-                              : <button type="button" className={css.marketBtn} onClick={() => { joinModel(m.id) }}>{t('market.join')}</button>}
+                      {st === 'added'
+                        ? <span className={css.marketIn}>✓ {t(inLib ? 'market.selected' : 'market.addedSelected')}</span>
+                        : st === 'adding'
+                          ? <span className={css.marketMeta}>{t('market.adding')}</span>
+                          : typeof st === 'string' && st !== 'idle'
+                            ? <span className={css.bindError}>{st}</span>
+                            : <button type="button" className={css.marketBtn} onClick={() => { joinModel(m.id) }}>{t(inLib ? 'market.select' : 'market.join')}</button>}
                     </div>
                   </div>
                   {expand === m.id && (

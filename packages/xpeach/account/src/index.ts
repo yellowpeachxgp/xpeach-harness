@@ -283,6 +283,7 @@ interface ReconcileSessionHeader {
 }
 
 interface ReconcileSessionSnapshot {
+  readonly id?: string
   readonly header: ReconcileSessionHeader
   readonly events?: readonly object[]
 }
@@ -305,6 +306,30 @@ interface ReconcileProjectionCache {
     inheritedEventCount?: number,
     events?: readonly object[],
   ): object | Promise<object>
+  get?(
+    sessionId: string,
+    name: string,
+  ): {
+    readonly pending?: {
+      readonly provider: string
+      readonly model: string
+      readonly reasoningEffort?: string | undefined
+    } | null | undefined
+    readonly lastUsed?: {
+      readonly provider: string
+      readonly model: string
+      readonly reasoningEffort?: string | undefined
+    } | null | undefined
+  } | undefined
+}
+
+interface LiveSessionControllerService {
+  selectModel(request: {
+    readonly sessionId: string
+    readonly provider: string
+    readonly model: string
+    readonly reasoningEffort?: string | null | undefined
+  }): Promise<unknown>
 }
 
 interface ReconcileWorkspaceEntity {
@@ -1634,6 +1659,10 @@ export class XPeachAccount extends TypertRemoteService {
     const updatedProviders: Record<string, object> = {}
     let changed = false
 
+    const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
+    const anthropicBase = siteRoot.replace(/\/v1$/u, '')
+    const migratedAnthropicModels: Record<string, unknown>[] = []
+
     for (const [key, provider] of Object.entries(existingProviders)) {
       if (!key.startsWith('xpeach')) continue
       if (!Array.isArray(provider['models']) || provider['models'].length === 0) continue
@@ -1651,11 +1680,18 @@ export class XPeachAccount extends TypertRemoteService {
       }
 
       if (Array.isArray(nextProvider['models'])) {
-        const nextModels = (nextProvider['models'] as unknown[]).map((entry) => {
-          if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return entry
+        const nextModels: unknown[] = []
+        for (const entry of nextProvider['models'] as unknown[]) {
+          if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+            nextModels.push(entry)
+            continue
+          }
           const modelObj = entry as Record<string, unknown>
           const id = typeof modelObj['id'] === 'string' ? modelObj['id'] : ''
-          if (id.length === 0) return entry
+          if (id.length === 0) {
+            nextModels.push(entry)
+            continue
+          }
           const caps = modelCapabilities({ id }, metadata)
           const targetMaxTokens = Math.min(caps.maxTokens, 32_768)
           const currentInput = Array.isArray(modelObj['input']) ? modelObj['input'] : []
@@ -1668,18 +1704,26 @@ export class XPeachAccount extends TypertRemoteService {
           const currentMax = typeof modelObj['maxTokens'] === 'number' ? modelObj['maxTokens'] : undefined
           const needsMaxUpgrade = currentMax === undefined || currentMax > 32_768 || (currentMax === 32768 && targetMaxTokens !== 32768)
 
-          if (!needsInputUpgrade && !needsEffortsUpgrade && !needsCtxUpgrade && !needsMaxUpgrade) {
-            return entry
+          const upgradedEntry = (!needsInputUpgrade && !needsEffortsUpgrade && !needsCtxUpgrade && !needsMaxUpgrade)
+            ? modelObj
+            : {
+              ...modelObj,
+              contextWindow: needsCtxUpgrade ? caps.contextWindow : currentCtx,
+              maxTokens: needsMaxUpgrade ? targetMaxTokens : currentMax,
+              input: needsInputUpgrade ? caps.input : currentInput,
+              reasoningEfforts: needsEffortsUpgrade ? caps.reasoningEfforts : currentEfforts,
+            }
+          if (upgradedEntry !== modelObj) {
+            providerChanged = true
           }
-          providerChanged = true
-          return {
-            ...modelObj,
-            contextWindow: needsCtxUpgrade ? caps.contextWindow : currentCtx,
-            maxTokens: needsMaxUpgrade ? targetMaxTokens : currentMax,
-            input: needsInputUpgrade ? caps.input : currentInput,
-            reasoningEfforts: needsEffortsUpgrade ? caps.reasoningEfforts : currentEfforts,
+
+          if (key === 'xpeach' && this.protocolPreference !== 'compatible' && isAnthropicClaudeModel(id)) {
+            migratedAnthropicModels.push(upgradedEntry)
+            providerChanged = true
+            continue
           }
-        })
+          nextModels.push(upgradedEntry)
+        }
         if (providerChanged) {
           nextProvider['models'] = nextModels
         }
@@ -1691,8 +1735,50 @@ export class XPeachAccount extends TypertRemoteService {
       }
     }
 
+    if (migratedAnthropicModels.length > 0) {
+      const existingAnthropic = (updatedProviders['xpeach-anthropic'] ?? existingProviders['xpeach-anthropic'] ?? {}) as Record<string, unknown>
+      const existingAnthropicModels = Array.isArray(existingAnthropic['models'])
+        ? [...(existingAnthropic['models'] as unknown[])]
+        : []
+      const seenIds = new Set<string>(
+        existingAnthropicModels
+          .map(m => (typeof m === 'object' && m !== null ? (m as { id?: unknown }).id : undefined))
+          .filter((id): id is string => typeof id === 'string'),
+      )
+      for (const m of migratedAnthropicModels) {
+        const id = typeof m['id'] === 'string' ? m['id'] : ''
+        if (id.length > 0 && !seenIds.has(id)) {
+          existingAnthropicModels.push(m)
+          seenIds.add(id)
+        }
+      }
+      const existingTracking = typeof existingAnthropic['conversationTracking'] === 'boolean'
+        ? existingAnthropic['conversationTracking']
+        : (typeof existingProviders['xpeach']?.['conversationTracking'] === 'boolean'
+          ? existingProviders['xpeach']['conversationTracking']
+          : unwrapConfigValue(this.liveConfig.conversationTracking))
+      updatedProviders['xpeach-anthropic'] = {
+        displayName: '🍑Code anthropic-messages',
+        apiKeyEnv: this.keyVar,
+        defaultInput: ['text', 'image'],
+        reasoning: 'high',
+        ...(existingTracking !== undefined ? { conversationTracking: existingTracking } : {}),
+        retryPolicy: { mode: 'normal', maxRetries: 2 },
+        ...existingAnthropic,
+        api: 'anthropic-messages',
+        baseURL: anthropicBase,
+        models: existingAnthropicModels,
+      }
+      changed = true
+    }
+
     if (changed) {
       await settings.update('llm-pi-ai', { providers: updatedProviders })
+      const mergedProviders: Record<string, { models?: unknown }> = {
+        ...(existingProviders as Record<string, { models?: unknown }>),
+        ...(updatedProviders as Record<string, { models?: unknown }>),
+      }
+      await this.reconcileDefaultModelSelection(mergedProviders)
     }
   }
 
@@ -1715,16 +1801,30 @@ export class XPeachAccount extends TypertRemoteService {
    * composer/settings pickers show the marketplace instead of a frozen list.
    * Deduplicates concurrent callers onto the in-flight sync promise.
    */
-  private async syncModelCatalog(signal: AbortSignal, manual = false): Promise<XPeachModelSyncResult> {
-    if (this.catalogSyncPromise !== undefined) return await this.catalogSyncPromise
-    const run = this.runSyncModelCatalog(signal, manual).finally(() => {
+  private async syncModelCatalog(
+    signal: AbortSignal,
+    manual = false,
+    options?: { readonly forceGroupSwitch?: boolean },
+  ): Promise<XPeachModelSyncResult> {
+    if (this.catalogSyncPromise !== undefined) {
+      if (options?.forceGroupSwitch === true) {
+        await this.catalogSyncPromise.catch(() => undefined)
+      } else {
+        return await this.catalogSyncPromise
+      }
+    }
+    const run = this.runSyncModelCatalog(signal, manual, options).finally(() => {
       if (this.catalogSyncPromise === run) this.catalogSyncPromise = undefined
     })
     this.catalogSyncPromise = run
     return await run
   }
 
-  private async runSyncModelCatalog(signal: AbortSignal, manual = false): Promise<XPeachModelSyncResult> {
+  private async runSyncModelCatalog(
+    signal: AbortSignal,
+    manual = false,
+    options?: { readonly forceGroupSwitch?: boolean },
+  ): Promise<XPeachModelSyncResult> {
     const info = await this.ensureTokenInfo(signal)
     try {
       const settings = this.ctx.get('settings') as
@@ -1748,10 +1848,120 @@ export class XPeachAccount extends TypertRemoteService {
       if (!manual && !autoSync) {
         return { ok: true, count: 0, groups: info.groups ?? [] }
       }
-      const [catalogue, metadata] = await Promise.all([
+      const [catalogue, groupCat, pricing, metadata] = await Promise.all([
         this.api.models(signal),
+        typeof this.api.groups === 'function'
+          ? this.api.groups(signal).catch(() => undefined)
+          : Promise.resolve(undefined),
+        typeof this.api.adminPricing === 'function'
+          ? this.api.adminPricing(signal).catch(() => undefined)
+          : Promise.resolve(undefined),
         this.refreshModelMetadata(signal),
       ])
+
+      const groupsByModel = new Map<string, Set<string>>()
+      const endpointsByModel = new Map<string, Set<string>>()
+      const ensureModelGroups = (modelId: string): Set<string> => {
+        let set = groupsByModel.get(modelId)
+        if (set === undefined) {
+          set = new Set<string>()
+          groupsByModel.set(modelId, set)
+        }
+        return set
+      }
+      const ensureModelEndpoints = (modelId: string): Set<string> => {
+        let set = endpointsByModel.get(modelId)
+        if (set === undefined) {
+          set = new Set<string>()
+          endpointsByModel.set(modelId, set)
+        }
+        return set
+      }
+
+      for (const m of catalogue) {
+        for (const g of m.groups ?? []) {
+          if (typeof g === 'string' && g.length > 0) ensureModelGroups(m.id).add(g)
+        }
+        for (const ep of m.supported_endpoint_types ?? []) {
+          if (typeof ep === 'string' && ep.length > 0) ensureModelEndpoints(m.id).add(ep)
+        }
+      }
+      if (groupCat !== undefined) {
+        for (const [gName, gInfo] of Object.entries(groupCat)) {
+          if (gName.length === 0) continue
+          for (const mId of gInfo.models ?? []) {
+            if (typeof mId === 'string' && mId.length > 0) ensureModelGroups(mId).add(gName)
+          }
+        }
+      }
+      if (pricing !== undefined) {
+        const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
+        const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
+        for (const entry of pricing.entries) {
+          if (typeof entry.model_name !== 'string' || entry.model_name.length === 0) continue
+          for (const gName of entry.enable_groups ?? []) {
+            if (typeof gName !== 'string' || gName.length === 0) continue
+            if (usableSet !== undefined && !usableSet.has(gName) && !(groupCat !== undefined && gName in groupCat)) continue
+            ensureModelGroups(entry.model_name).add(gName)
+          }
+          for (const ep of entry.supported_endpoint_types ?? []) {
+            if (typeof ep === 'string' && ep.length > 0) ensureModelEndpoints(entry.model_name).add(ep)
+          }
+        }
+      }
+
+      const tokenGroups = (info.groups ?? []).filter(g => typeof g === 'string' && g.length > 0)
+      const primaryGroup = tokenGroups[0]
+      const primaryGroupModels = new Set<string>()
+      const tokenGroupModels = new Set<string>()
+      if (tokenGroups.length > 0) {
+        for (const [modelId, mGroups] of groupsByModel.entries()) {
+          if (primaryGroup !== undefined && mGroups.has(primaryGroup)) {
+            primaryGroupModels.add(modelId)
+          }
+          for (const tg of tokenGroups) {
+            if (mGroups.has(tg)) {
+              tokenGroupModels.add(modelId)
+              break
+            }
+          }
+        }
+      }
+
+      const byId = new Map<string, XPeachModel>()
+      for (const m of catalogue) {
+        const mergedGroups = [...(groupsByModel.get(m.id) ?? m.groups ?? [])]
+        const mergedEndpoints = [...(endpointsByModel.get(m.id) ?? m.supported_endpoint_types ?? [])]
+        byId.set(m.id, {
+          ...m,
+          ...(mergedGroups.length > 0 ? { groups: mergedGroups } : {}),
+          ...(mergedEndpoints.length > 0 ? { supported_endpoint_types: mergedEndpoints } : {}),
+        })
+      }
+      for (const modelId of tokenGroupModels) {
+        if (!byId.has(modelId)) {
+          const mergedGroups = [...(groupsByModel.get(modelId) ?? [])]
+          const mergedEndpoints = [...(endpointsByModel.get(modelId) ?? [])]
+          byId.set(modelId, {
+            id: modelId,
+            ...(mergedGroups.length > 0 ? { groups: mergedGroups } : {}),
+            ...(mergedEndpoints.length > 0 ? { supported_endpoint_types: mergedEndpoints } : {}),
+          })
+        }
+      }
+
+      let mergedCatalogue = [...byId.values()]
+      if (tokenGroupModels.size > 0) {
+        mergedCatalogue = mergedCatalogue.filter((m) => {
+          const knownGroups = groupsByModel.get(m.id)
+          if (knownGroups === undefined || knownGroups.size === 0) return true
+          return tokenGroupModels.has(m.id)
+        })
+        if (primaryGroupModels.size > 0) {
+          mergedCatalogue.sort((a, b) => Number(primaryGroupModels.has(b.id)) - Number(primaryGroupModels.has(a.id)))
+        }
+      }
+
       const configuredPref = unwrapConfigValue(this.liveConfig.protocolPreference)
       if (liveAccountSettings.protocolPreference !== undefined) {
         this.protocolPreference = liveAccountSettings.protocolPreference
@@ -1766,8 +1976,8 @@ export class XPeachAccount extends TypertRemoteService {
       }
       const enabled = this.enabledFamilies
       const list = enabled.length === 0
-        ? catalogue
-        : catalogue.filter(model => (model.groups ?? []).some(group => enabled.includes(group)))
+        ? mergedCatalogue
+        : mergedCatalogue.filter(model => (model.groups ?? []).some(group => enabled.includes(group)))
       const models = list.map((m) => {
         const caps = modelCapabilities(m, metadata)
         return {
@@ -1790,7 +2000,16 @@ export class XPeachAccount extends TypertRemoteService {
       const existingProviders = readProviderMap(described)
       const providers: Record<string, object> = {}
       for (const model of models) {
-        const protocol = modelProtocol(list.find(m => m.id === model.id) ?? {}, this.protocolPreference)
+        const sourceEntry = list.find(m => m.id === model.id)
+        const protocol = modelProtocol(
+          {
+            id: model.id,
+            ...(sourceEntry?.supported_endpoint_types !== undefined
+              ? { supported_endpoint_types: sourceEntry.supported_endpoint_types }
+              : {}),
+          },
+          this.protocolPreference,
+        )
         const key = protocol === 'openai-completions' ? 'xpeach' : `xpeach-${protocol.replace(/-messages$/u, '')}`
         const existingTracking = liveAccountSettings.conversationTracking
           ?? (typeof existingProviders[key]?.['conversationTracking'] === 'boolean' ? existingProviders[key]['conversationTracking'] : undefined)
@@ -1820,19 +2039,26 @@ export class XPeachAccount extends TypertRemoteService {
       if (providersChanged) {
         await settings.update('llm-pi-ai', { providers })
       }
-      await this.reconcileDefaultModelSelection(providers)
+      await this.reconcileDefaultModelSelection(providers, {
+        primaryGroupModels,
+        forceGroupSwitch: options?.forceGroupSwitch === true,
+      })
       return { ok: true, count: models.length, groups: info.groups ?? [] }
     } catch (e) {
       return { ok: false, count: 0, groups: info.groups ?? [], error: e instanceof Error ? e.message.slice(0, 160) : String(e) }
     }
   }
 
-  private async reconcileDefaultModelSelection(providers: Record<string, { models?: unknown }>): Promise<void> {
-    const defaultModelService = this.getOptionalService('agentDefaultModel')
-    if (defaultModelService === undefined) return
+  private async reconcileDefaultModelSelection(
+    providers: Record<string, { models?: unknown }>,
+    options?: {
+      readonly primaryGroupModels?: ReadonlySet<string>
+      readonly forceGroupSwitch?: boolean
+    },
+  ): Promise<void> {
     const providerEntries = Object.entries(providers)
     if (providerEntries.length === 0) return
-    const current = defaultModelService.currentSelection()
+
     const findModelInProvider = (provObj: { models?: unknown } | undefined, modelId: string): Record<string, unknown> | undefined => {
       if (provObj === undefined) return undefined
       const list = provObj.models
@@ -1842,34 +2068,160 @@ export class XPeachAccount extends TypertRemoteService {
           typeof m === 'object' && m !== null && (m as { id?: unknown }).id === modelId,
       )
     }
-    if (current !== undefined) {
-      const isXpeachOrAccount = current.provider === 'deepseek-account' || current.provider.startsWith('xpeach')
-      if (!isXpeachOrAccount) return
-      const matchedModel = findModelInProvider(providers[current.provider], current.model)
-      if (matchedModel !== undefined) {
-        const efforts = matchedModel['reasoningEfforts']
-        const supportsEffort = current.reasoningEffort === undefined
-          || (typeof efforts === 'object' && efforts !== null && current.reasoningEffort in efforts)
-        if (supportsEffort) return
+
+    const findProviderForModel = (modelId: string): { provider: string; modelObj: Record<string, unknown> } | undefined => {
+      for (const [provKey, provObj] of providerEntries) {
+        if (!provKey.startsWith('xpeach')) continue
+        const found = findModelInProvider(provObj, modelId)
+        if (found !== undefined) return { provider: provKey, modelObj: found }
+      }
+      return undefined
+    }
+
+    const primarySet = options?.primaryGroupModels
+    const hasPrimaryScope = primarySet !== undefined && primarySet.size > 0
+    const forceSwitch = options?.forceGroupSwitch === true
+
+    const pickPreferredSelection = (): { provider: string; model: string } | undefined => {
+      const allXpeachModels: { provider: string; id: string }[] = []
+      const orderedKeys = ['xpeach', ...providerEntries.map(([k]) => k).filter(k => k !== 'xpeach' && k.startsWith('xpeach'))]
+      for (const key of orderedKeys) {
+        const rawList = providers[key]?.models
+        if (!Array.isArray(rawList)) continue
+        for (const item of rawList) {
+          if (typeof item === 'object' && item !== null && typeof (item as { id?: unknown }).id === 'string') {
+            const id = (item as { id: string }).id
+            if (id.length > 0) allXpeachModels.push({ provider: key, id })
+          }
+        }
+      }
+      if (allXpeachModels.length === 0) return undefined
+      const scoped = hasPrimaryScope
+        ? allXpeachModels.filter(m => primarySet.has(m.id))
+        : allXpeachModels
+      const pool = scoped.length > 0 ? scoped : allXpeachModels
+      const swe = pool.find(m => m.id === 'swe-2-max')
+      const chosen = swe ?? pool[0]
+      return chosen !== undefined ? { provider: chosen.provider, model: chosen.id } : undefined
+    }
+
+    const preferredSelection = pickPreferredSelection()
+    const defaultModelService = this.getOptionalService('agentDefaultModel')
+    if (defaultModelService !== undefined) {
+      const current = defaultModelService.currentSelection()
+      let reconciled = false
+      if (current !== undefined) {
+        const isXpeachOrAccount = current.provider === 'deepseek-account' || current.provider.startsWith('xpeach')
+        if (!isXpeachOrAccount) {
+          reconciled = true
+        } else if (!forceSwitch || !hasPrimaryScope || primarySet.has(current.model)) {
+          const directMatch = findModelInProvider(providers[current.provider], current.model)
+          const relocatedMatch = directMatch !== undefined
+            ? { provider: current.provider, modelObj: directMatch }
+            : findProviderForModel(current.model)
+          if (relocatedMatch !== undefined) {
+            const efforts = relocatedMatch.modelObj['reasoningEfforts']
+            const supportsEffort = current.reasoningEffort === undefined
+              || (typeof efforts === 'object' && efforts !== null && current.reasoningEffort in efforts)
+            if (relocatedMatch.provider !== current.provider || !supportsEffort) {
+              await defaultModelService.saveSelection({
+                provider: relocatedMatch.provider,
+                model: current.model,
+                ...(supportsEffort && current.reasoningEffort !== undefined
+                  ? { reasoningEffort: current.reasoningEffort }
+                  : {}),
+              }).catch(() => undefined)
+            }
+            reconciled = true
+          }
+        }
+      }
+      if (!reconciled && preferredSelection !== undefined) {
         await defaultModelService.saveSelection({
-          provider: current.provider,
-          model: current.model,
+          provider: preferredSelection.provider,
+          model: preferredSelection.model,
         }).catch(() => undefined)
-        return
       }
     }
-    const firstEntry = providerEntries[0]
-    if (firstEntry === undefined) return
-    const preferredProvider = 'xpeach' in providers ? 'xpeach' : firstEntry[0]
-    const rawPreferredModels = providers[preferredProvider]?.models
-    const preferredModels = (Array.isArray(rawPreferredModels) ? rawPreferredModels : [])
-      .filter((m): m is { id: string } => typeof m === 'object' && m !== null && typeof (m as { id?: unknown }).id === 'string' && ((m as { id: string }).id.length > 0))
-    const chosenModel = preferredModels.find(m => m.id === 'swe-2-max')?.id ?? preferredModels[0]?.id
-    if (chosenModel === undefined) return
-    await defaultModelService.saveSelection({
-      provider: preferredProvider,
-      model: chosenModel,
-    }).catch(() => undefined)
+
+    await this.reconcileActiveSessionModels(
+      providers,
+      findModelInProvider,
+      findProviderForModel,
+      preferredSelection,
+      primarySet,
+      forceSwitch,
+    )
+  }
+
+  private async reconcileActiveSessionModels(
+    providers: Record<string, { models?: unknown }>,
+    findModelInProvider: (provObj: { models?: unknown } | undefined, modelId: string) => Record<string, unknown> | undefined,
+    findProviderForModel: (modelId: string) => { provider: string; modelObj: Record<string, unknown> } | undefined,
+    preferredSelection: { provider: string; model: string } | undefined,
+    primaryGroupModels: ReadonlySet<string> | undefined,
+    forceGroupSwitch: boolean,
+  ): Promise<void> {
+    const sessionController = this.getOptionalService('sessionController')
+    const sessionPersistence = this.getOptionalService('sessionPersistence')
+    const projectionCache = this.getOptionalService('sessionProjectionCache')
+    if (sessionController === undefined || sessionPersistence === undefined) return
+    try {
+      const entries = (await sessionPersistence.list()).slice(0, 50)
+      const hasPrimaryScope = primaryGroupModels !== undefined && primaryGroupModels.size > 0
+      for (const entry of entries) {
+        const sessionId = typeof entry === 'string'
+          ? entry
+          : entry.header?.id ?? entry.id
+        if (typeof sessionId !== 'string' || sessionId.length === 0) continue
+        const proj = projectionCache?.get?.(sessionId, 'modelSelection')
+        const active = proj?.pending ?? proj?.lastUsed
+        if (active === undefined || active === null) {
+          if (forceGroupSwitch && preferredSelection !== undefined) {
+            await sessionController.selectModel({
+              sessionId,
+              provider: preferredSelection.provider,
+              model: preferredSelection.model,
+            }).catch(() => undefined)
+          }
+          continue
+        }
+        const isXpeachOrAccount = active.provider === 'deepseek-account' || active.provider.startsWith('xpeach')
+        if (!isXpeachOrAccount) continue
+
+        if (forceGroupSwitch && hasPrimaryScope && !primaryGroupModels.has(active.model)) {
+          if (preferredSelection !== undefined) {
+            await sessionController.selectModel({
+              sessionId,
+              provider: preferredSelection.provider,
+              model: preferredSelection.model,
+            }).catch(() => undefined)
+          }
+          continue
+        }
+
+        const directMatch = findModelInProvider(providers[active.provider], active.model)
+        if (directMatch !== undefined) continue
+
+        const relocated = findProviderForModel(active.model)
+        if (relocated !== undefined) {
+          await sessionController.selectModel({
+            sessionId,
+            provider: relocated.provider,
+            model: active.model,
+            ...(active.reasoningEffort !== undefined ? { reasoningEffort: active.reasoningEffort } : {}),
+          }).catch(() => undefined)
+        } else if (preferredSelection !== undefined) {
+          await sessionController.selectModel({
+            sessionId,
+            provider: preferredSelection.provider,
+            model: preferredSelection.model,
+          }).catch(() => undefined)
+        }
+      }
+    } catch (_err) {
+      // Best-effort session model reconciliation.
+    }
   }
 
   /**
@@ -3973,7 +4325,7 @@ export class XPeachAccount extends TypertRemoteService {
     const detail = await this.api.adminTokenGet(info.id, signal)
     await this.api.adminTokenUpdate({ ...detail, groups, group: groups[0] ?? '' }, signal)
     this.writeTokenInfo({ ...info, groups })
-    return await this.syncModelCatalog(signal, true)
+    return await this.syncModelCatalog(signal, true, { forceGroupSwitch: true })
   }
 
   /**
@@ -5462,6 +5814,7 @@ export class XPeachAccount extends TypertRemoteService {
   private getOptionalService(name: 'tools'): LiveToolsService | undefined
   private getOptionalService(name: 'skill' | 'skills'): LiveSkillService | undefined
   private getOptionalService(name: 'agentDefaultModel'): LiveAgentDefaultModelService | undefined
+  private getOptionalService(name: 'sessionController'): LiveSessionControllerService | undefined
   private getOptionalService(name: 'sessionPersistence'): ReconcileSessionPersistence | undefined
   private getOptionalService(name: 'sessionProjectionCache'): ReconcileProjectionCache | undefined
   private getOptionalService(name: 'workspaceRegistry'): ReconcileWorkspaceRegistry | undefined
@@ -5965,21 +6318,39 @@ export function readProviderKeys(described: unknown): string[] {
 export type ModelProtocolPreference = 'compatible' | 'native' | 'auto'
 
 /**
- * The wire protocol a catalogue entry speaks.
+ * Check whether a model identifier belongs to the Anthropic Claude family.
  *
- * `compatible` keeps every route on chat completions, which is the one wire a
- * relay is most likely to have channels for; `native` prefers the richest wire
- * the route advertises, which keeps Anthropic cache breakpoints and Responses
- * reasoning state but only works where the relay routes those endpoints.
+ * @param id - Model identifier to inspect.
+ * @returns `true` when the identifier names a Claude model.
+ */
+export function isAnthropicClaudeModel(id: string | undefined): boolean {
+  if (typeof id !== 'string') return false
+  const normalized = id.trim().toLowerCase()
+  return /(?:^|\/|[-_])claude[-_0-9]/u.test(normalized) || normalized === 'claude'
+}
+
+/**
+ * Pick the wire protocol for one `/v1/models` entry.
+ *
+ * Anthropic Claude models (`claude-*`) use `anthropic-messages` (`POST /v1/messages`)
+ * unless `preference === 'compatible'` and the route explicitly advertises only
+ * `'openai'` without `'anthropic'`.
+ *
  * @param model - one catalogue entry.
  * @param preference - which wire to favour when the route offers several.
  * @returns a protocol identifier the pi-ai adapter accepts.
  */
 export function modelProtocol(
-  model: { supported_endpoint_types?: readonly string[] },
+  model: { id?: string; supported_endpoint_types?: readonly string[] },
   preference: ModelProtocolPreference = 'compatible',
 ): 'openai-responses' | 'anthropic-messages' | 'openai-completions' {
   const offered = new Set(model.supported_endpoint_types ?? [])
+  if (isAnthropicClaudeModel(model.id)) {
+    if (preference === 'compatible' && offered.has('openai') && !offered.has('anthropic')) {
+      return 'openai-completions'
+    }
+    return 'anthropic-messages'
+  }
   if (preference === 'native') {
     if (offered.has('openai-response')) return 'openai-responses'
     if (offered.has('anthropic')) return 'anthropic-messages'

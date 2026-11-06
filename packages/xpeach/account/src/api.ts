@@ -556,6 +556,11 @@ export class XPeachApi {
     return this.adminGet('/api/token/?p=1&size=50', signal)
   }
 
+  private isAnthropicModel(model: string): boolean {
+    const trimmed = model.trim()
+    return /(?:^|\/|[-_])claude[-_0-9]/iu.test(trimmed) || /^claude$/iu.test(trimmed)
+  }
+
   /**
    * Execute a non-streamed chat completion against the relay.
    *
@@ -565,6 +570,56 @@ export class XPeachApi {
    */
   async chat(request: XPeachChatRequest, signal: AbortSignal): Promise<XPeachChatReply> {
     const started = Date.now()
+    if (this.isAnthropicModel(request.model)) {
+      const key = await this.resolveKey()
+      const url = this.baseURL + '/v1/messages'
+      let response: Response
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + key,
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'X-Conversation-ID': 'xpeach-console-playground',
+          },
+          body: JSON.stringify({
+            model: request.model,
+            messages: [{ role: 'user', content: request.prompt }],
+            stream: false,
+            max_tokens: request.maxTokens ?? 4096,
+          }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs * 3)]),
+        })
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
+      }
+      if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        const snippet = text.slice(0, 200)
+        throw new RemoteError(
+          'xpeach/request-failed',
+          `xpeach: /v1/messages rejected: ${String(response.status)} ${snippet}`,
+          { status: response.status, message: snippet },
+        )
+      }
+      const body = await response.json() as {
+        content?: { type?: string; text?: string }[]
+        choices?: { message?: { content?: string } }[]
+        usage?: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
+      }
+      const textContent = Array.isArray(body.content)
+        ? body.content.filter(b => b.type === 'text' && typeof b.text === 'string').map(b => b.text).join('')
+        : (body.choices?.[0]?.message?.content ?? '')
+      return {
+        content: textContent,
+        promptTokens: body.usage?.input_tokens ?? body.usage?.prompt_tokens ?? 0,
+        completionTokens: body.usage?.output_tokens ?? body.usage?.completion_tokens ?? 0,
+        latencyMs: Date.now() - started,
+      }
+    }
     const body = await this.keyPost<{
       choices?: { message?: { content?: string } }[]
       usage?: { prompt_tokens?: number; completion_tokens?: number }
@@ -593,22 +648,36 @@ export class XPeachApi {
   async chatStream(request: XPeachChatRequest, onDelta: (delta: string) => void, signal: AbortSignal): Promise<XPeachChatReply> {
     const started = Date.now()
     const key = await this.resolveKey()
-    const url = this.baseURL + '/v1/chat/completions'
+    const useAnthropic = this.isAnthropicModel(request.model)
+    const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
+    const url = this.baseURL + endpointPath
     let response: Response
     try {
       response = await fetch(url, {
         method: 'POST',
         headers: {
-          Authorization: 'Bearer ' + key, Accept: 'text/event-stream', 'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + key,
+          ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
+          Accept: 'text/event-stream',
+          'Content-Type': 'application/json',
           'X-Conversation-ID': 'xpeach-console-playground',
         },
-        body: JSON.stringify({
-          model: request.model,
-          messages: [{ role: 'user', content: request.prompt }],
-          stream: true,
-          stream_options: { include_usage: true },
-          max_tokens: request.maxTokens ?? 4096,
-        }),
+        body: JSON.stringify(
+          useAnthropic
+            ? {
+              model: request.model,
+              messages: [{ role: 'user', content: request.prompt }],
+              stream: true,
+              max_tokens: request.maxTokens ?? 4096,
+            }
+            : {
+              model: request.model,
+              messages: [{ role: 'user', content: request.prompt }],
+              stream: true,
+              stream_options: { include_usage: true },
+              max_tokens: request.maxTokens ?? 4096,
+            },
+        ),
         signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs * 3)]),
       })
     } catch (cause) {
@@ -620,7 +689,7 @@ export class XPeachApi {
       const snippet = text.slice(0, 200)
       throw new RemoteError(
         'xpeach/request-failed',
-        `xpeach: /v1/chat/completions rejected: ${String(response.status)} ${snippet}`,
+        `xpeach: ${endpointPath} rejected: ${String(response.status)} ${snippet}`,
         { status: response.status, message: snippet },
       )
     }
@@ -642,21 +711,29 @@ export class XPeachApi {
           if (!trimmed.startsWith('data:')) continue
           const data = trimmed.slice(5).trim()
           if (data === '[DONE]') continue
-          let parsed: { choices?: { delta?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } }
+          let parsed: {
+            type?: string
+            delta?: { type?: string; text?: string }
+            message?: { usage?: { input_tokens?: number; output_tokens?: number } }
+            choices?: { delta?: { content?: string } }[]
+            usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number }
+          }
           try {
-            parsed = JSON.parse(data) as {
-              choices?: { delta?: { content?: string } }[]
-              usage?: { prompt_tokens?: number; completion_tokens?: number }
-            }
+            parsed = JSON.parse(data) as typeof parsed
           } catch (_err) { continue }
           const delta = parsed.choices?.[0]?.delta?.content
+            ?? (parsed.type === 'content_block_delta' ? parsed.delta?.text : undefined)
           if (typeof delta === 'string' && delta.length > 0) {
             content += delta
             onDelta(delta)
           }
+          if (parsed.message?.usage) {
+            promptTokens = parsed.message.usage.input_tokens ?? promptTokens
+            completionTokens = parsed.message.usage.output_tokens ?? completionTokens
+          }
           if (parsed.usage) {
-            promptTokens = parsed.usage.prompt_tokens ?? promptTokens
-            completionTokens = parsed.usage.completion_tokens ?? completionTokens
+            promptTokens = parsed.usage.prompt_tokens ?? parsed.usage.input_tokens ?? promptTokens
+            completionTokens = parsed.usage.completion_tokens ?? parsed.usage.output_tokens ?? completionTokens
           }
         }
       }
@@ -678,11 +755,14 @@ export class XPeachApi {
     const started = Date.now()
     try {
       const key = await this.resolveKey()
-      const response = await fetch(this.baseURL + '/v1/chat/completions', {
+      const useAnthropic = this.isAnthropicModel(model)
+      const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
+      const response = await fetch(this.baseURL + endpointPath, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + key,
+          ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
           // A real tracking header keeps the probe out of the site's
           // probe-classifier path — bare requests 400 on missing tracking.
           'X-Conversation-ID': 'xpeach-health-probe',
@@ -1402,14 +1482,24 @@ export class XPeachApi {
   }
 
   /**
-   * Read one token row (access-token channel).
+   * Read one token row (access-token channel), falling back to the token list
+   * when single-item lookup is unsupported by the site version.
    *
    * @param id - token row identifier.
    * @param signal - request cancellation signal.
    * @returns token row fields.
    */
-  adminTokenGet(id: number, signal: AbortSignal): Promise<Record<string, JsonValue>> {
-    return this.adminGet<Record<string, JsonValue>>(`/api/token/${String(id)}`, signal)
+  async adminTokenGet(id: number, signal: AbortSignal): Promise<Record<string, JsonValue>> {
+    try {
+      return await this.adminGet<Record<string, JsonValue>>(`/api/token/${String(id)}`, signal)
+    } catch (err) {
+      const page = await this.adminTokens(0, 100, signal).catch(() => undefined)
+      const matched = page?.items.find(item => item.id === id)
+      if (matched !== undefined) {
+        return { ...matched } as Record<string, JsonValue>
+      }
+      throw err
+    }
   }
 
   /**

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_REASONING_EFFORTS,
   formatContextWindow,
+  isAnthropicClaudeModel,
   modelCapabilities,
   modelContextWindow,
   modelInputs,
@@ -135,6 +136,16 @@ describe('catalogue capabilities', () => {
     expect(modelProtocol({ supported_endpoint_types: ['anthropic'] })).toBe('anthropic-messages')
     expect(modelProtocol({ supported_endpoint_types: ['openai-response'] })).toBe('openai-responses')
     expect(modelProtocol({})).toBe('openai-completions')
+  })
+
+  it('routes Anthropic Claude model identifiers to anthropic-messages (/v1/messages)', () => {
+    expect(isAnthropicClaudeModel('claude-opus-4-6')).toBe(true)
+    expect(isAnthropicClaudeModel('anthropic/claude-sonnet-4-6')).toBe(true)
+    expect(isAnthropicClaudeModel('gpt-5.4')).toBe(false)
+    expect(modelProtocol({ id: 'claude-opus-4-6' }, 'auto')).toBe('anthropic-messages')
+    expect(modelProtocol({ id: 'claude-sonnet-4-6', supported_endpoint_types: ['anthropic', 'openai'] }, 'auto')).toBe('anthropic-messages')
+    expect(modelProtocol({ id: 'claude-haiku-4-5', supported_endpoint_types: ['anthropic', 'openai'] }, 'compatible')).toBe('anthropic-messages')
+    expect(modelProtocol({ id: 'claude-3-7-sonnet', supported_endpoint_types: ['openai'] }, 'compatible')).toBe('openai-completions')
   })
 
   it('reads the live provider keys so a stale write can be retired', () => {

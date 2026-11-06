@@ -293,10 +293,15 @@ export class PiAiAdapter extends LlmAdapter {
       ?? (profile.piProvider === undefined ? profile.catalogError : undefined)
     if (failure !== undefined) throw new LlmError(failure, 'INVALID_CONFIG')
     const resolved = snapshot.models.getModel(provider, model)
-    if (resolved === undefined) {
-      throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
+    if (resolved !== undefined) return resolved
+    if (provider.startsWith('xpeach')) {
+      for (const candidateProvider of snapshot.profiles.keys()) {
+        if (!candidateProvider.startsWith('xpeach') || candidateProvider === provider) continue
+        const fallback = snapshot.models.getModel(candidateProvider, model)
+        if (fallback !== undefined) return fallback
+      }
     }
-    return resolved
+    throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
   }
 
   override providerInfo(provider: string): LlmProviderInfo {

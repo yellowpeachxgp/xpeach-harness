@@ -1706,4 +1706,146 @@ describe('account state writes on a fresh install', () => {
       fetchSpy.mockRestore()
     }
   })
+
+  it('routes Claude models to /v1/messages and switches active session models when changing token groups', async () => {
+    const calledUrls: string[] = []
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      calledUrls.push(url)
+      if (url.endsWith('/v1/messages')) {
+        return new Response(JSON.stringify({
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'pong from anthropic messages' }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.endsWith('/v1/chat/completions')) {
+        return new Response(JSON.stringify({
+          id: 'chatcmpl_1',
+          choices: [{ message: { role: 'assistant', content: 'pong from openai completions' } }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response('not found', { status: 404 })
+    })
+
+    try {
+      const api = new XPeachApi({
+        baseURL: 'https://fast.xpeach.codes',
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-test1234',
+        resolveAdmin: () => undefined,
+        resolveCookie: () => undefined,
+      })
+      const signal = new AbortController().signal
+      const claudeReply = await api.chat({ model: 'claude-sonnet-4-6', prompt: 'hi' }, signal)
+      expect(claudeReply.content).toBe('pong from anthropic messages')
+      expect(calledUrls.some(u => u.endsWith('/v1/messages'))).toBe(true)
+
+      const sweReply = await api.chat({ model: 'swe-2-max', prompt: 'hi' }, signal)
+      expect(sweReply.content).toBe('pong from openai completions')
+      expect(calledUrls.some(u => u.endsWith('/v1/chat/completions'))).toBe(true)
+
+      const profile = freshProfile()
+      const tokenFile = join(profile, 'xpeach.token')
+      writeState(tokenFile, JSON.stringify({ id: 9, name: 'xph-auto', groups: ['SWE'] }))
+
+      let savedProviders: Record<string, { api?: string; baseURL?: string; models?: { id: string }[] }> = {}
+      let defaultSel = { provider: 'xpeach', model: 'swe-2-max' }
+      const selectModelCalls: { sessionId: string; provider: string; model: string }[] = []
+
+      const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
+      fakeAccount['tokenInfoFile'] = tokenFile
+      fakeAccount['keyVar'] = 'XPEACH_RELAY_KEY'
+      fakeAccount['protocolPreference'] = 'auto'
+      fakeAccount['enabledFamilies'] = []
+      fakeAccount['liveConfig'] = { autoSyncModels: true, protocolPreference: 'auto', enabledFamilies: [] }
+      fakeAccount['readModelMetadataCache'] = () => undefined
+      fakeAccount['refreshModelMetadata'] = async () => undefined
+      fakeAccount['ensureTokenInfo'] = async () => JSON.parse(readFileSync(tokenFile, 'utf8')) as { id: number; name: string; groups: string[] }
+      fakeAccount['writeTokenInfo'] = (info: object) => {
+        writeState(tokenFile, JSON.stringify(info))
+      }
+      fakeAccount['api'] = {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        adminTokenGet: vi.fn(async () => ({ id: 9, name: 'xph-auto', status: 1, groups: ['SWE'] })),
+        adminTokenUpdate: vi.fn(async () => {}),
+        models: vi.fn(async () => [
+          { id: 'swe-2-max', groups: ['SWE'], supported_endpoint_types: ['openai'] },
+          { id: 'claude-sonnet-4-6', groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
+        ]),
+        groups: vi.fn(async () => ({
+          SWE: { models: ['swe-2-max'], ratio: 0.22 },
+          'Claude 渠道': { models: ['claude-sonnet-4-6'], ratio: 0.8 },
+        })),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE'], supported_endpoint_types: ['openai'] },
+            { model_name: 'claude-sonnet-4-6', enable_groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
+          ],
+          groupRatio: { SWE: 0.22, 'Claude 渠道': 0.8 },
+          usableGroup: { SWE: 'SWE', 'Claude 渠道': 'Claude' },
+        })),
+      }
+      fakeAccount['ctx'] = {
+        get: (name: string) => {
+          if (name === 'settings') {
+            return {
+              describe: async () => ({ namespaces: [{ ns: 'llm-pi-ai', value: { providers: savedProviders } }] }),
+              update: async (_ns: string, patch: { providers?: typeof savedProviders }) => {
+                if (patch.providers !== undefined) savedProviders = patch.providers
+              },
+              mutate: async () => {},
+            }
+          }
+          if (name === 'agentDefaultModel') {
+            return {
+              currentSelection: () => defaultSel,
+              saveSelection: async (next: { provider: string; model: string }) => {
+                defaultSel = next
+                return next
+              },
+            }
+          }
+          if (name === 'sessionPersistence') {
+            return {
+              list: async () => [{ id: 'sess-1', createdAt: '2026-11-06T00:00:00Z', updatedAt: '2026-11-06T00:00:00Z' }],
+            }
+          }
+          if (name === 'sessionProjectionCache') {
+            return {
+              cachedSnapshot: () => undefined,
+              coldSnapshot: () => ({}),
+              get: () => ({ lastUsed: { provider: 'xpeach', model: 'swe-2-max' } }),
+            }
+          }
+          if (name === 'sessionController') {
+            return {
+              selectModel: async (req: { sessionId: string; provider: string; model: string }) => {
+                selectModelCalls.push(req)
+              },
+            }
+          }
+          return undefined
+        },
+      }
+
+      const setGroupsOp = Reflect.get(XPeachAccount.prototype, 'setGroupsOp') as (
+        req: { groups: string[] },
+        sig: AbortSignal,
+      ) => Promise<{ ok: boolean; count: number; groups: readonly string[] }>
+      const syncResult = await setGroupsOp.call(fakeAccount, { groups: ['Claude 渠道'] }, signal)
+      expect(syncResult.ok).toBe(true)
+      expect(syncResult.groups).toEqual(['Claude 渠道'])
+      expect(savedProviders['xpeach-anthropic']?.api).toBe('anthropic-messages')
+      expect(savedProviders['xpeach-anthropic']?.baseURL).toBe('https://fast.xpeach.codes')
+      expect(savedProviders['xpeach-anthropic']?.models?.map(m => m.id)).toEqual(['claude-sonnet-4-6'])
+      expect(defaultSel).toEqual({ provider: 'xpeach-anthropic', model: 'claude-sonnet-4-6' })
+      expect(selectModelCalls).toEqual([
+        { sessionId: 'sess-1', provider: 'xpeach-anthropic', model: 'claude-sonnet-4-6' },
+      ])
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
 })

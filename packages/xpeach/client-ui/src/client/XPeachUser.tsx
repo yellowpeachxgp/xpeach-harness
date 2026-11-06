@@ -261,7 +261,9 @@ export function XPeachUser({
                 <button key={g.name} type="button" className={on ? css.groupChipOn : css.groupPickChip}
                   onClick={() => {
                     if (!on && groupSel.length >= 16) { setGroupMsg(t('market.groupLimit')); return }
-                    setGroupSel(prev => on ? prev.filter(x => x !== g.name) : [...prev, g.name])
+                    setGroupSel(prev => prev[0] === g.name
+                      ? prev.filter(x => x !== g.name)
+                      : [g.name, ...prev.filter(x => x !== g.name)])
                   }}>
                   {g.name}<b className={css.groupPickRatio}>{g.models}</b>
                   {groupSel[0] === g.name && <em className={css.groupNow}>·{t('market.groupNow')}</em>}
