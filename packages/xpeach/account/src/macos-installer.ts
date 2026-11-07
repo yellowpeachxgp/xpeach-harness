@@ -27,6 +27,34 @@ import type {
   XPeachMacosInstallerStatus,
 } from './types.ts'
 
+/**
+ * Variables macOS packaging/installer tools may legitimately need. Everything
+ * else in `process.env` — API keys, tokens, `DSH_*`/`XPH_*` internals — must
+ * not reach `pkgbuild`/`productbuild`/`installer`: an ambient credential would
+ * travel into child output (diagnostics, embedded script contexts) it never
+ * needed to see.
+ */
+const PACKAGING_ENV_KEYS = [
+  'PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'USER', 'LOGNAME', 'SHELL',
+  'LANG', 'LC_ALL', 'LC_CTYPE', '__CF_USER_TEXT_ENCODING',
+  'XPC_SERVICE_NAME', 'SSH_AUTH_SOCK', 'SUDO_USER', 'SUDO_UID', 'SUDO_GID',
+] as const
+
+/**
+ * The scrubbed environment for OS packaging tool subprocesses: an explicit
+ * allowlist plus caller-supplied overrides.
+ * @param extra - additional variables the caller needs to set.
+ * @returns the merged environment.
+ */
+function packagingEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const key of PACKAGING_ENV_KEYS) {
+    const value = process.env[key]
+    if (value !== undefined) env[key] = value
+  }
+  return { ...env, ...extra }
+}
+
 /** Options for inspecting, building, or running the macOS `.pkg` installer. */
 export interface MacosInstallerOptions {
   /** Override for the repository root containing `apps/desktop`. */
@@ -814,7 +842,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-app.pkg'),
       ],
-      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     // Component 2: CLI (xph)
@@ -877,7 +905,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-cli.pkg'),
       ],
-      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     // Component 3: Profile (~/.xph)
@@ -933,7 +961,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-profile.pkg'),
       ],
-      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     // Distribution & localized HTML resources
@@ -964,7 +992,7 @@ export async function buildMacosPkgInstaller(
         pkgsDir,
         paths.pkgPath,
       ],
-      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     const payloadFilesRaw = execFileSync('/usr/sbin/pkgutil', ['--payload-files', paths.pkgPath], {

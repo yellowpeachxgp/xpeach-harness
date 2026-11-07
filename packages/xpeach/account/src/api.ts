@@ -1339,7 +1339,11 @@ export class XPeachApi {
     if (pw.chromium === undefined) throw new Error('playwright module shape unexpected: ' + Object.keys(mod as object).join(','))
     const os = await import('node:os')
     const path = await import('node:path')
-    const profileDir = path.join(os.tmpdir(), `xpeach-login-${String(Date.now())}`)
+    const { mkdtempSync } = await import('node:fs')
+    // mkdtempSync: random suffix + owner-only (0700) creation in one step — the
+    // login profile holds a harvested session cookie, so it must not sit in a
+    // directory another local user could predict or pre-create.
+    const profileDir = mkdtempSync(path.join(os.tmpdir(), 'xpeach-login-'))
     console.error('[xpeach-login] resolved playwright, launching headed chromium…')
     const context = await pw.chromium.launchPersistentContext(profileDir, { headless: false, args: ['--window-size=480,720'], timeout: 20000 })
     console.error('[xpeach-login] chromium up, goto login page')

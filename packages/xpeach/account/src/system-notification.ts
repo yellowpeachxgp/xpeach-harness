@@ -49,6 +49,33 @@ export interface XPeachSystemNotificationOptions {
 const MAX_RECENT_NOTIFICATION_IDS = 128
 const recentNotificationIds = new Set<string>()
 
+/**
+ * Variables `powershell.exe` needs to locate and load its WinRT toast stack.
+ * Everything else in `process.env` — API keys, tokens, `DSH_*`/`XPH_*`
+ * internals — must not reach the notification subprocess: the encoded script
+ * reads only `XPH_NOTIFY_TITLE`/`XPH_NOTIFY_BODY`.
+ */
+const NOTIFICATION_ENV_KEYS = [
+  'SystemRoot', 'SystemDrive', 'windir', 'PATH', 'PATHEXT', 'COMSPEC',
+  'TEMP', 'TMP', 'USERPROFILE', 'USERNAME', 'APPDATA', 'LOCALAPPDATA',
+  'HOMEDRIVE', 'HOMEPATH', 'NUMBER_OF_PROCESSORS', 'OS',
+] as const
+
+/**
+ * The scrubbed environment for notification subprocesses: an explicit
+ * allowlist plus caller-supplied variables.
+ * @param extra - additional variables the notification script reads.
+ * @returns the merged environment.
+ */
+function notificationEnv(extra: Record<string, string>): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const key of NOTIFICATION_ENV_KEYS) {
+    const value = process.env[key]
+    if (value !== undefined) env[key] = value
+  }
+  return { ...env, ...extra }
+}
+
 const MACOS_NOTIFICATION_SCRIPT = [
   'on run argv',
   '  set notifTitle to item 1 of argv',
@@ -210,11 +237,10 @@ export async function dispatchHostSystemNotification(
           '-EncodedCommand',
           WINDOWS_ENCODED_COMMAND,
         ],
-        {
-          ...process.env,
+        notificationEnv({
           XPH_NOTIFY_TITLE: combinedTitle,
           XPH_NOTIFY_BODY: body,
-        },
+        }),
       )
       return { delivered: true, platform }
     }
