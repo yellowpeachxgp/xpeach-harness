@@ -843,6 +843,7 @@
       "@xpeach/xph-compaction-image-offload/projection": ["./packages/compaction/compaction-image-offload/src/projection.ts"],
       "@xpeach/xph-session-format-catalog/message-projections": ["./packages/session/session-format-catalog/src/message-projections.ts"],
       "@xpeach/xph-native-command/types": ["./packages/util/native-command/src/types.ts"],
+      "@xpeach/xph-ptc-runtime-node/configuration": ["./packages/ptc-runtime/ptc-runtime-node/src/configuration.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@xpeach/xph-acp": ["./packages/acp/acp/src"],
       "@xpeach/xph-acp-app": ["./packages/bundle/acp-app/src"],

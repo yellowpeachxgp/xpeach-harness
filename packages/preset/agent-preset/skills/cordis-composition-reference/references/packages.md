@@ -336,7 +336,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-ptc-runtime-node` | yes | Node PTC execution with per-call sandboxed processes or in-memory REPL state |
+| `@xpeach/xph-ptc-runtime-node` | yes | Node PTC execution with async function, REPL and VM Script evaluators and optional retained state |
 
 ## sandbox
 

@@ -15,7 +15,7 @@ import type { Agent } from '@xpeach/xph-agent'
 import type { UserMessage } from '@xpeach/xph-session'
 import { assertNever, deepFreeze, snapshotJsonValue, type JsonValue } from '@xpeach/xph-util-values'
 import type { PromptSection, ToolProviderResult } from '@xpeach/xph-system-prompt'
-import type { PtcRuntime } from '@xpeach/xph-ptc-runtime'
+import type { PtcProgramFormat, PtcRuntime } from '@xpeach/xph-ptc-runtime'
 import type {} from '@xpeach/xph-sandbox-policy'
 // Type-only: makes `ctx.get('approval')` resolve to the ApprovalService
 // augmentation. The seam stays optional at runtime — see `serviceAsk`.
@@ -59,10 +59,10 @@ declare module '@xpeach/xph-llm' {
  */
 const PTC_ONLY_INSTRUCTION = `\`${RUN_CODE_NAME}\` is the only tool you can call directly — a tool call naming any other tool fails. Reach every tool the SDK declares below from inside the program.`
 
-const SDK_RENDERERS: Record<string, (schemas: ToolSdkSchema[], programFormat: 'function-body' | 'repl') => string> = {
+const SDK_RENDERERS: Record<string, (schemas: readonly ToolSdkSchema[], programFormat: PtcProgramFormat) => string> = {
   typescript: renderToolsSdk,
   python: renderToolsSdkPy,
-} satisfies Record<PtcSdkLanguage, (schemas: ToolSdkSchema[], programFormat: 'function-body' | 'repl') => string>
+} satisfies Record<PtcSdkLanguage, (schemas: readonly ToolSdkSchema[], programFormat: PtcProgramFormat) => string>
 
 export {
   defineTool,
