@@ -2795,7 +2795,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-session-log-export`
 
 - `inject`: `commands` · `connection`
-- `source`: [`packages/session-query/session-log-export/src/index.ts:46`](../packages/session-query/session-log-export/src/index.ts)
+- `source`: [`packages/session-query/session-log-export/src/index.ts:48`](../packages/session-query/session-log-export/src/index.ts)
 
 ```ts config-catalog
 /** Session-log archive policy. */

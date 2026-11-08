@@ -379,7 +379,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-session-log-export` | yes | Web Session-log export command and shared download dialog |
+| `@xpeach/xph-session-log-export` | yes | Web Session-log ZIP export and Session Markdown copy |
 | `@xpeach/xph-session-query-sqlite` | yes | Concrete ctx.sessionQuery backend with SQLite FTS5 search |
 
 ## settings

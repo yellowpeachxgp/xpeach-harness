@@ -11,6 +11,7 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| 会话复制为 Markdown（含原始日志路径，PR #6472） | `2a48671b83` | `session-log-export` 126 项单测通过；`session-persistence-jsonl` 765 项通过；host face tsc -b 通过 |
 
 ## 产品侧修复（非上游）
 
