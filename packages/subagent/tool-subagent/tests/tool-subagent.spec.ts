@@ -1,3 +1,5 @@
+import { ToolExecutionPipeline } from '@xpeach/xph-tools/pipeline'
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -109,13 +111,13 @@ describe('dsh-tool-subagent', () => {
 
   it('classifies delegations as concurrency-safe', async () => {
     const ctx = await setup({ provider: 'mock' })
-    expect(ctx.tools.executionMode({
+    expect(new ToolExecutionPipeline(ctx).executionMode({
       signal: testToolSignal,
       callId: ToolCallId('subagent-first'),
       name: 'subagent',
       arguments: { description: 'do work', prompt: 'Reply OK' },
     })).toEqual({ kind: 'parallel' })
-    expect(ctx.tools.executionMode({
+    expect(new ToolExecutionPipeline(ctx).executionMode({
       signal: testToolSignal,
       callId: ToolCallId('subagent-second'),
       name: 'subagent',
@@ -161,8 +163,8 @@ describe('dsh-tool-subagent', () => {
     expect(names).toEqual(['subagent', 'subagent_acp'])
 
     const parent = (await ctx.agents.create({ sessionId: SessionId('multi-provider-parent') })).agent
-    const viaSpawn = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c-spawn'), name: 'subagent', arguments: { description: 'd', prompt: 'p' }, agent: parent })
-    const viaAcp = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c-acp'), name: 'subagent_acp', arguments: { description: 'd', prompt: 'p' }, agent: parent })
+    const viaSpawn = await executeToolFixture(ctx, { signal: testToolSignal, callId: ToolCallId('c-spawn'), name: 'subagent', arguments: { description: 'd', prompt: 'p' }, agent: parent })
+    const viaAcp = await executeToolFixture(ctx, { signal: testToolSignal, callId: ToolCallId('c-acp'), name: 'subagent_acp', arguments: { description: 'd', prompt: 'p' }, agent: parent })
     expect(text(viaSpawn)).toMatch(/^started subagent /)
     expect(text(viaAcp)).toMatch(/^started subagent /)
   })
@@ -694,7 +696,7 @@ describe('dsh-tool-subagent local activation', () => {
 
   it('classifies local activations concurrency-safe', async () => {
     const { ctx } = await continuableSetup()
-    expect(ctx.tools.executionMode({
+    expect(new ToolExecutionPipeline(ctx).executionMode({
       signal: testToolSignal,
       callId: ToolCallId('subagent-continuable'),
       name: 'subagent',
@@ -778,7 +780,7 @@ describe('dsh-tool-subagent local activation', () => {
       maxDepth: 3,
     })
 
-    const execute = (callId: string, description: string, signal: AbortSignal) => ctx.tools.execute({
+    const execute = (callId: string, description: string, signal: AbortSignal) => executeToolFixture(ctx, {
       signal,
       callId: ToolCallId(callId),
       name: 'subagent_gated',

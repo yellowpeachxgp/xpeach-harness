@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-hooks-claude-code",
   "description": "Bridge plugin: run a Claude Code hooks.json / settings hook config on the DeepSeek Harness interception seams",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -58,6 +58,7 @@
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-fs-local": "workspace:*"
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -57,7 +59,7 @@ function text(result: { content: { type: string; text?: string }[] }): string {
 }
 
 function call(ctx: Context, owner: Agent | undefined, args: unknown) {
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     signal: new AbortController().signal,
     callId: ToolCallId(`str-replace-editor-${++callNumber}`),
     name: 'str_replace_editor',
@@ -76,13 +78,12 @@ async function setup(
   contexts.push(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   if (options.sandboxMode === undefined) {
     await ctx.plugin(LocalFileSystem, { cwd: root })
   } else {
-    // SandboxPolicy declares the registry as a required injection; mount it
-    // before the policy activates.
-    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicy, { mode: options.sandboxMode, workspaceRoot: root })
     await ctx.plugin(SandboxedFileSystem, { cwd: root })
   }
@@ -616,6 +617,8 @@ describe('tool-str-replace-editor', () => {
     contexts.push(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(SessionProjectionRegistry)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalFileSystem, { cwd: root })
     Object.defineProperty(ctx.fs, 'sandboxMode', { value: 'read-only' })

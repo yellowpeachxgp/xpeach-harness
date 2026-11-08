@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-ralph",
   "description": "Model-facing fresh-agent Ralph loop over the workflow and subagent seams",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -55,6 +55,8 @@
     "@xpeach/xph-workflow": "workspace:*",
     "@xpeach/xph-workflow-ptc": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

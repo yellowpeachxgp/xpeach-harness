@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-dsh",
   "description": "dsh CLI: profile launch, plugin management, and configuration inspection",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -106,7 +106,8 @@
     "@xpeach/xph-experimental-terminal-bundle": "workspace:*",
     "@xpeach/xph-experimental-session-search": "workspace:*",
     "@xpeach/xph-experimental-tool-worktree": "workspace:*",
-    "@xpeach/xph-experimental-plugin-market-bundle": "workspace:*"
+    "@xpeach/xph-experimental-plugin-market-bundle": "workspace:*",
+    "@xpeach/xph-experimental-forge-bundle": "workspace:*"
   },
   "devDependencies": {
     "@xpeach/xph-skill-badge": "workspace:*",
@@ -161,7 +162,8 @@
     "@types/ws": "8.18.1",
     "ajv": "^8.20.0",
     "execa": "^10.0.1",
-    "ws": "8.21.3"
+    "ws": "8.21.3",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "exports": {
     "./profile-boot": {
@@ -170,5 +172,8 @@
     },
     "./lib/*": "./lib/*",
     "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=24.9.0"
   }
 }

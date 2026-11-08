@@ -1,4 +1,3 @@
-import { ToolCallId, createUserMessage, expandAssistantStream } from '@xpeach/xph-llm'
 /**
  * Tests for the queue-aware `Agent.cancel()` primitive. The default clears
  * queued and steering work, while `keepInbox` preserves pending input for a
@@ -7,13 +6,16 @@ import { ToolCallId, createUserMessage, expandAssistantStream } from '@xpeach/xp
  * the cause each cancelled turn records.
  * @module dsh-agent-loop/tests/cancel
  */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import { ToolCallId, createUserMessage, expandAssistantStream } from '@xpeach/xph-llm'
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime from '@xpeach/xph-llm'
 import SessionStore, { Session, SessionId, SessionLogOffset, TurnEndReason } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture, TOOL_ABORTED_BEFORE_DISPATCH } from '@xpeach/xph-tools'
+import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { type Agent, type AgentCancelCause } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
@@ -30,6 +32,7 @@ async function harness(adapter: MockAdapter) {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -828,6 +831,7 @@ describe('Agent.cancel()', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)

@@ -80,6 +80,7 @@
     "@xpeach/xph-client-ui-approval": "workspace:*",
     "@xpeach/xph-client-ui-attachment": "workspace:*",
     "@xpeach/xph-client-ui-brand-official": "workspace:*",
+    "@xpeach/xph-message-quotes": "workspace:*",
     "@xpeach/xph-client-ui-chat": "workspace:*",
     "@xpeach/xph-client-ui-commands": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
@@ -88,6 +89,7 @@
     "@xpeach/xph-client-ui-deliverables": "workspace:*",
     "@xpeach/xph-client-ui-directory-picker-browse": "workspace:*",
     "@xpeach/xph-client-ui-directory-picker-native": "workspace:*",
+    "@xpeach/xph-client-ui-entry-customization": "workspace:*",
     "@xpeach/xph-client-ui-goal": "workspace:*",
     "@xpeach/xph-client-ui-input-trigger": "workspace:*",
     "@xpeach/xph-client-ui-jobs": "workspace:*",
@@ -190,7 +192,8 @@
     "@xpeach/xph-account": "workspace:*",
     "@xpeach/xph-client-ui": "workspace:*",
     "commander": "^15.0.0",
-    "open": "^11.0.2"
+    "open": "^11.0.2",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~",

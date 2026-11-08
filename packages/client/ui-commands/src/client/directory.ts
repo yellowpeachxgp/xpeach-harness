@@ -7,7 +7,7 @@
  */
 import type { CommandDescriptor } from '@xpeach/xph-commands/types'
 import type { SessionId } from '@xpeach/xph-session/types'
-import { resolveCommand } from './resolution.ts'
+import { resolveCommand } from '@xpeach/xph-commands/builtin'
 
 export type { CommandDescriptor } from '@xpeach/xph-commands/types'
 

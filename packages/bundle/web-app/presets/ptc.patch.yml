@@ -26,6 +26,9 @@
             disabled: !!js process.platform !== 'win32'
           - id: tool-fs
             name: '@xpeach/xph-tool-fs'
+            config:
+              # Set true to add the apply_patch tool beside edit.
+              applyPatch: false
           - id: tool-fs-search
             name: '@xpeach/xph-tool-fs-search'
             config:
@@ -120,10 +123,8 @@
             config:
               fetch: true
               searchTimeoutMs: 60000
-          - id: tool-presentation
-            name: '@xpeach/xph-agent-tool-presentation'
-            config:
-              mode: ptc
+          - id: tool-executor-ptc
+            name: '@xpeach/xph-tool-executor-ptc'
           - id: present
             name: '@xpeach/xph-tool-present'
           - id: tool-plugin-manager

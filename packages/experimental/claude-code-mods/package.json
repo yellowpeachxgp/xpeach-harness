@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-claude-code-mods",
   "description": "Experimental bridge: load Claude Code mods (hooks modules) and run their hook chains on DeepSeek Harness extension points",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -99,6 +99,8 @@
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-user-questions": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-session-persistence-jsonl": "workspace:*"
+    "@xpeach/xph-session-persistence-jsonl": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

@@ -1,3 +1,6 @@
+import { ToolExecutionPipeline } from '@xpeach/xph-tools/pipeline'
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import Loader from '@xpeach/xph-cordis-plugin-loader'
@@ -105,6 +108,7 @@ async function harness(config: toolGoal.Config = {}) {
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(ToolRuntime)
   ctx.sessionProjections.register(turnBoundaryProjectionDefinition)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(GoalService)
   const fiber = await ctx.plugin(toolGoal, config)
   const root = stubAgent(`goal-tool-root-${Math.random()}`, undefined, ctx)
@@ -120,7 +124,7 @@ async function execute(
   agent?: Agent,
   initiator: Agent | undefined = agent,
 ): Promise<ToolExecutionResult> {
-  const run = () => ctx.tools.execute({
+  const run = () => executeToolFixture(ctx, {
     signal: testToolSignal,
     callId: ToolCallId(`call-${Math.random()}`),
     name,
@@ -153,8 +157,9 @@ describe('goal tool registration and presentation', () => {
     const { ctx, fiber } = await harness({ blockedAfterConsecutiveRounds: 5 })
     expect(['create_goal', 'get_goal', 'update_goal'].map(name => ctx.tools.get(name)?.name))
       .toEqual(['create_goal', 'get_goal', 'update_goal'])
+    const pipeline = new ToolExecutionPipeline(ctx)
     for (const name of ['create_goal', 'get_goal', 'update_goal']) {
-      expect(ctx.tools.executionMode({ signal: testToolSignal, callId: ToolCallId(name), name, arguments: {} }))
+      expect(pipeline.executionMode({ signal: testToolSignal, callId: ToolCallId(name), name, arguments: {} }))
         .toEqual({ kind: 'exclusive' })
     }
     const section = (await ctx.systemPrompt.assemble()).sections.find(item => item.name === 'tool:goal')
@@ -205,6 +210,7 @@ describe('goal tool registration and presentation', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(GoalService)
     expect(() => {
       toolGoal.apply(ctx, { blockedAfterConsecutiveRounds: 1.5 })
@@ -219,6 +225,7 @@ describe('goal tool registration and presentation', () => {
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(GoalService)
     toolGoal.apply(ctx, {})
     const section = (await ctx.systemPrompt.assemble()).sections.find(item => item.name === 'tool:goal')
@@ -246,7 +253,7 @@ describe('goal tool execution authority', () => {
     expect(agentless.error?.info?.code).toBe('GOAL_TOOL_AGENT_REQUIRED')
 
     openTurn(root, { kind: 'user' })
-    const driverless = await ctx.tools.execute({
+    const driverless = await executeToolFixture(ctx, {
       signal: testToolSignal,
       callId: ToolCallId('call-driverless'),
       name: 'get_goal',

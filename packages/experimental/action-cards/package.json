@@ -1,0 +1,74 @@
+{
+  "name": "@xpeach/xph-action-cards",
+  "description": "Optional action cards below answers: one shared proposal tool, card state, user actions and status notices",
+  "version": "0.0.32-alpha",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/experimental/action-cards"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./types": {
+      "types": "./lib/types/types.d.ts",
+      "default": "./lib/types/types.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    }
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-typert-protocol": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-session": "workspace:*"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-typert-protocol": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-agent-loop": "workspace:*",
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-api-remote-access": "workspace:*",
+    "@xpeach/xph-sandbox-policy": "workspace:*",
+    "@xpeach/xph-skill": "workspace:*",
+    "@xpeach/xph-tool-skill": "workspace:*",
+    "@xpeach/xph-util-values": "workspace:*"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts"
+  ]
+}

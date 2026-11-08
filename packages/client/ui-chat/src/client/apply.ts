@@ -182,7 +182,7 @@ export function apply(ctx: Context): void {
     }, LinkOpeningRow))
   })
   const transcriptView = new TranscriptViewPolicy(chatSettings, 'dshDesktop' in globalThis ? 'standard' : DEFAULT_TRANSCRIPT_VIEW_MODE)
-  const presentation = derivePresentationPolicy(transcriptView.mode, transcriptView.collapseTiming)
+  const presentation = derivePresentationPolicy(transcriptView.mode, transcriptView.collapseTiming, transcriptView.foldedReplies)
   const performancePolicy = new PerformanceUsagePolicy(chatSettings)
   ctx.effect(() => () => { transcriptView.dispose(); performancePolicy.dispose() })
   const performanceUsage = performancePolicy.mode
@@ -209,17 +209,21 @@ export function apply(ctx: Context): void {
     order: 12,
     locale: NS,
     inject: (): TranscriptViewRowInjected => ({
-      hooks: { transcriptView: transcriptView.mode, collapseTiming: transcriptView.collapseTiming },
+      hooks: {
+        transcriptView: transcriptView.mode,
+        collapseTiming: transcriptView.collapseTiming,
+        foldedReplies: transcriptView.foldedReplies,
+      },
       setTranscriptView: (mode) => { transcriptView.setMode(mode) },
       setCollapseTiming: (timing) => { transcriptView.setCollapseTiming(timing) },
+      setFoldedReplies: (replies) => { transcriptView.setFoldedReplies(replies) },
     }),
   }, TranscriptViewRow))
 
-  const nodeSources = (binding: SessionBinding): ChatFlowDataInjected => {
+  const nodeSources = (binding: SessionBinding): Pick<ChatViewInjected, 'keyedHooks'> => {
     const chat = chatSource(binding)
     const conversation = ctx.uiConversation.binding(binding)
     return {
-      hooks: { presentation },
       keyedHooks: {
         chatNode: key => chat.getSnapshot().nodes.source(key),
         chatNodeBottom: key => chat.getSnapshot().nodes.bottomSource(key),
@@ -237,7 +241,7 @@ export function apply(ctx: Context): void {
     inject: (sessionId: SessionId): ChatFlowDataInjected => {
       const binding = ctx.sessions.binding(sessionId)
       if (binding === undefined) throw new Error(`ui-chat: unknown session "${sessionId}"`)
-      return nodeSources(binding)
+      return { ...nodeSources(binding), hooks: { presentation } }
     },
   }, ChatFlow))
 
@@ -250,6 +254,7 @@ export function apply(ctx: Context): void {
       locale: NS,
       children: {
         'conversation.chat.flow': { kind: 'single', scope: 'session', inject: CHAT_FLOW_INJECT },
+        'conversation.chat.text-interaction': { kind: 'keyed', scope: 'session' },
       },
       store: chatStore,
       inject: (sessionId: SessionId): ChatViewInjected => {
@@ -259,6 +264,8 @@ export function apply(ctx: Context): void {
         const chat = chatSource(binding)
         return {
           ...nodeSources(binding),
+          hooks: { presentation, interactionIds: ctx.uiConversation.interactions },
+          dispatchInteraction: gesture => ctx.uiConversation.interactions.dispatch(sessionId, gesture),
           fileMentions: (owner: TurnTailOwnerProps) => ctx.get('chatFileMentions')?.forClosing(owner, sessionId),
           // Files open in the right Sidebar, not in a desktop application: the
           // content stays in the product, beside the conversation that produced

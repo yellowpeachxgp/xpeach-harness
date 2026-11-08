@@ -13,6 +13,7 @@ import type {} from '@xpeach/xph-client-ui-settings/client'
 import type {} from '@xpeach/xph-client-ui-chat/client'
 import type {} from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-client-ui-sidebar-right/client'
+import type {} from '@xpeach/xph-client-ui-model-selection/client'
 import type { QuotaNoticeOwnerProps } from '@xpeach/xph-client-ui-chat/client'
 import xpeachRemote from '@xpeach/xph-account/remote'
 import type {
@@ -115,22 +116,6 @@ export {
   type XPeachFontRole,
   type XPeachUiFontPreset,
 } from './FontPackRow.tsx'
-
-declare module '@xpeach/xph-client-ui-slots' {
-  interface SlotMap {
-    'conversation.input.model.label': {
-      kind: 'single'
-      scope: 'session'
-      inline: true
-      owner: {
-        provider: { readonly id: string; readonly name: string }
-        model: { readonly id: string; readonly name: string }
-        placement: 'trigger' | 'menu' | 'option'
-        selected: boolean
-      }
-    }
-  }
-}
 
 type RemoteOutcome<T> =
   | { readonly ok: true; readonly value: T }
@@ -275,7 +260,7 @@ function registerUi(ctx: Context): Array<() => void> {
       const opsList: { op: 'set'; path: string[]; value: JsonV }[] = []
       if (isClaude && providers?.['xpeach']?.models?.some(m => m.id === id) === true) {
         const filteredXpeach = (providers['xpeach'].models ?? []).filter(m => m.id !== id)
-        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach as JsonV })
+        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach })
       }
       const existing = (providers?.[key]?.models ?? []).filter(m => m.id !== id)
       const spec = inferClientModelSpec(id)
@@ -798,8 +783,8 @@ function registerUi(ctx: Context): Array<() => void> {
     ]).then(([perfRes, priceRes, siteRes]) => {
       updateClientModelTelemetryCache({
         ...(Array.isArray(perfRes) ? { perf: perfRes } : {}),
-        ...(priceRes !== undefined && !('error' in priceRes) ? { pricing: priceRes } : {}),
-        ...(siteRes !== undefined && !('error' in siteRes) && siteRes.tokenGroups[0] !== undefined
+        ...(!('error' in priceRes) ? { pricing: priceRes } : {}),
+        ...(!('error' in siteRes) && siteRes.tokenGroups[0] !== undefined
           ? { activeGroup: siteRes.tokenGroups[0] }
           : {}),
       })

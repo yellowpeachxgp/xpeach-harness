@@ -8,6 +8,7 @@
  * @module @xpeach/xph-experimental-auto-review
  */
 
+import type {} from '@xpeach/xph-tool-executor-ptc/types'
 import type {} from '@xpeach/xph-working-directory'
 import type { Context } from '@xpeach/xph-cordis'
 import type { Agent } from '@xpeach/xph-agent'

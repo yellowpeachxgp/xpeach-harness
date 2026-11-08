@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-tool",
   "description": "Client Tool call-tree renderer and keyed per-tool presentation slot",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -77,7 +77,10 @@
     "clsx": "^2.0.0",
     "@xpeach/xph-ptc-runtime": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
-    "@xpeach/xph-user-questions": "workspace:*"
+    "@xpeach/xph-user-questions": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",

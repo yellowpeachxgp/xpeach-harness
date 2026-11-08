@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-checkpoint-policy",
   "description": "Semantic session durability checkpoints before model requests and tool side effects",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -48,6 +48,8 @@
     "@xpeach/xph-session-persistence-jsonl": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

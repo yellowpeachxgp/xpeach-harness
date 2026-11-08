@@ -1,0 +1,45 @@
+{
+  "name": "@xpeach/xph-experimental-forge",
+  "description": "Provider-neutral change request registry with shared status polling",
+  "version": "0.0.32-alpha",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./types": {
+      "types": "./lib/types/types.d.ts"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
+    "directory": "packages/experimental/forge"
+  },
+  "dependencies": {
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-brand": "workspace:*",
+    "@xpeach/xph-timeout": "workspace:*"
+  },
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~"
+  }
+}

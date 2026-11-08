@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-schedule",
   "description": "Host-wide durable reminders with shared management and original-Session delivery",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -58,7 +58,8 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-workspace": "workspace:*",
-    "@xpeach/xph-cordis": "workspace:~"
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-util-time": "workspace:*"
   },
   "dependencies": {
     "@xpeach/xph-schemastery": "workspace:~",
@@ -85,6 +86,8 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-workspace": "workspace:*",
-    "@xpeach/xph-cordis": "workspace:~"
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-util-time": "workspace:*"
   }
 }

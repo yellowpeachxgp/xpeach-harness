@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-working-directory",
   "description": "Session working directories with durable changes and model context",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -50,7 +50,8 @@
     "@xpeach/xph-agent-loop-testkit": "workspace:*",
     "@xpeach/xph-fs-local": "workspace:*",
     "@xpeach/xph-tool-working-directory": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "@xpeach/xph-schemastery": "workspace:~",

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-sdk-app",
   "description": "The dsh SDK profile bundle: stdio JSON-RPC serving and process lifecycle over dsh-base",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -41,7 +41,16 @@
     "@xpeach/xph-schemastery": "workspace:~",
     "commander": "^15.0.0",
     "@xpeach/xph-skill-office": "workspace:*",
-    "@xpeach/xph-tool-workspace-dependencies": "workspace:*"
+    "@xpeach/xph-tool-workspace-dependencies": "workspace:*",
+    "@xpeach/xph-client-connection": "workspace:*",
+    "@xpeach/xph-client-file-upload": "workspace:*",
+    "@xpeach/xph-workspace": "workspace:*",
+    "@xpeach/xph-schedule": "workspace:*",
+    "@xpeach/xph-time-context": "workspace:*",
+    "@xpeach/xph-tool-schedule": "workspace:*",
+    "@xpeach/xph-tool-ask-user": "workspace:*",
+    "@xpeach/xph-tool-present": "workspace:*",
+    "@xpeach/xph-file-reference-local": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~"

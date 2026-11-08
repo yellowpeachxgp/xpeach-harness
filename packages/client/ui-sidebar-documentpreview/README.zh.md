@@ -29,7 +29,7 @@ kind: "package-reference"
 ## 注册了什么
 
 - **类型** —— `ctx.sidebarRightTabs.register(...)`，id 为 `@deepseek-ai/dsh-client-ui-sidebar-documentpreview`（这个实现在 tab 系统中的身份，也是其正文注册所用的键），kind `text`，匹配完整文件资源地址的 pattern，档位 `fallback`。`canOpen` 只接受 Session 地址，其中路径可为相对或绝对路径；不认领裸 `absolute` 地址。在 `extension` 或 `builtin` 档以更窄 pattern（比如 `*.png`）注册的类型接走那些地址；其他受支持文件落到这里。整个地址就是内容身份，所以不同目录下同名的两个文件、或同一路径在两个会话之下，是两个 tab；解码后的 basename 是 tab 标题，keyed slot `sidebar.right.pane.tab.title` 会在标题前放置按扩展名选择的 `FileTypeIcon`。
-- **正文** —— keyed slot `sidebar.right.pane.tab`，键为类型的 id。固定头部在可用时显示 Host 的绝对路径，否则显示请求路径；共享的 [`PathLabel`](../ui-primitives/README.zh.md#component-catalog) 弱化目录颜色，以左侧渐隐保留被裁剪路径的尾部字符，并在悬停时展示完整值。有多个受支持的渲染器时才显示下拉菜单。仅文本兼容的源文件提供纯文本选项；只有一个渲染器时不显示查看器控件。已知的二进制容器后缀没有注册渲染器时，在路径头部下方显示文件类型图标和不支持预览的说明，并且不会发起读取。两个 Session 作用域的 list 子 slot 在文件元数据报出 Host 路径后把当前文件交给其他插件，owner prop 为 `absolutePath`：`sidebar.right.tab.document.actions` 在每个显示头部的状态里渲染在头部自有控件之后；`sidebar.right.tab.document.unpreviewable` 渲染在不支持预览的空态里，以及可读但本预览无法渲染的文件（`not-text`、`too-large`）的空态里，占据原本放重试的位置；载体或未分类的读取失败仍保留重试，不存在或非普通文件的路径只给说明。两者已发布的占位者都是 [`ui-open-in-app`](../ui-open-in-app/README.zh.md)。仅当所选渲染器声明 `wrap: true` 时显示换行开关；图标表示点击后切换到的模式，该偏好按 tab 保存，初始开启。重新载入仍在此头部，不放入 Sidebar 的 tab 条。自动刷新默认开启；独立开关暂时隐藏，状态、文案、样式与切换逻辑保留。正文贴合格的每条边，各渲染器自行提供内容留白，并可拥有内部滚动区。这与 Files tab 右侧预留 2px 滚动条间距的布局有意不同：Preview 使用格的完整宽度，使贴边 HTML 与代码滚动区终止于格的边缘。
+- **正文** —— keyed slot `sidebar.right.pane.tab`，键为类型的 id。固定头部在可用时显示 Host 的绝对路径，否则显示请求路径；共享的 [`PathLabel`](../ui-primitives/README.zh.md#component-catalog) 弱化目录颜色，以左侧渐隐保留被裁剪路径的尾部字符，并在悬停时展示完整值。有多个受支持的渲染器时才显示下拉菜单。仅文本兼容的源文件提供纯文本选项；只有一个渲染器时不显示查看器控件。已知的二进制容器后缀没有注册渲染器时，在路径头部下方显示文件类型图标和不支持预览的说明，并且不会发起读取。两个 Session 作用域的 list 子 slot 在文件元数据报出 Host 路径后把当前文件交给其他插件，owner prop 为 `absolutePath`：`sidebar.right.tab.document.actions` 在每个显示头部的状态里渲染在头部自有控件之后、导航栏开关之前，位置在各状态间相同，因此状态切换时不会重新挂载；`sidebar.right.tab.document.unpreviewable` 渲染在不支持预览的空态里，以及可读但本预览无法渲染的文件（`not-text`、`too-large`）的空态里，占据原本放重试的位置；载体或未分类的读取失败仍保留重试，不存在或非普通文件的路径只给说明。两者已发布的占位者都是 [`ui-open-in-app`](../ui-open-in-app/README.zh.md)。预览直接渲染 [`ui-sidebar-files`](../ui-sidebar-files/README.zh.md#the-navigator) 的 Session 作用域 Factory：`sidebar.files.navigator` 位于内容行的正文之后，传入 `{ useTabInfo, page: false, onOpen }`，其中 `onOpen(address)` 调用 `tab.actions.openResource(address, { replaceTab: true })`；`sidebar.files.navigator.toggle` 位于头部末端，传入 `{ useTabInfo }`。两者在停靠与浮动分栏中从加载到完成保持挂载；未注册的 Factory 不绘制内容。导航栏在内容行的定位框与层叠上下文内决定宽度，让正文变窄或覆盖正文，不遮挡浮窗缩放手柄。自行处理 Escape 的渲染器浮层需调用 `preventDefault()`，避免同时关闭导航栏。仅当所选渲染器声明 `wrap: true` 时显示换行开关；图标表示点击后切换到的模式，该偏好按 tab 保存，初始开启。重新载入仍在此头部，不放入 Sidebar 的 tab 条。自动刷新默认开启；独立开关暂时隐藏，状态、文案、样式与切换逻辑保留。正文贴合格的每条边，各渲染器自行提供内容留白，并可拥有内部滚动区。这与文件树右侧预留 2px 滚动条间距的布局有意不同：Preview 使用格的完整宽度，使贴边 HTML 与代码滚动区终止于格的边缘。
 - **共享加载与视图状态**，会话作用域、按 tab id 分桶。store 持有累计页或完整字节、读取与观察版本、待处理 Resource 变化、自动刷新状态、加载/失败状态、渲染器选择、滚动位置、换行和已响应的导航 revision。普通 inject face 调用 Remote 读取，并经声明的 store action 写入。重新载入和加载模式变化会淘汰旧请求；tab 的中止信号清理其状态。
 
 文档实现在 `ctx.documentPreviews.register({ id, extensions, binaryExtensions?, priority, title, loading, wrap? })` 注册元数据，并以相同 `id` 向 keyed、Session 作用域的子 slot `sidebar.right.tab.document` 注册正文。`binaryExtensions` 列出 `extensions` 中不可按文本阅读的后缀，这些后缀不提供纯文本选项。两处注册都由 effect 持有，通过 `ctx.slots.inject` 等待子 slot。正文接收 `resourceAddress`、`content`、`wrap`、`scrollportRef`、`addResource`、`setResources` 和标准 `useTabInfo`/`useResource` 钩子。依赖成员由 tab 持有的 `ResourceGroup` 管理；替换依赖始终保留根 Resource。内部滚动元素挂载 `scrollportRef`；卸载时恢复共享正文的滚动职责。注册表保留所有匹配备选：`extension`（默认）优先于 `builtin`，随后按更长的后缀、再按注册顺序排列。所选实现仍可用时，下拉选择保持不变。HTML、SVG 和未匹配的扩展名保留纯文本回退，与加载方式无关。
@@ -70,7 +70,7 @@ PNG、JPEG、GIF、WebP、BMP、ICO 和 SVG 通过 Blob URL 在 `<img>` 静态�
 <a id="excel-preview"></a>
 ## Excel 预览
 
-直接在浏览器中打开 `.xlsx`、`.xls`、`.csv` 和 `.tsv`，支持工作表标签、单元格选择、复制和只读公式栏。XLSX 保留字体、纯色填充、边框、数字格式、富文本、合并单元格、行列尺寸、隐藏行列及工作表，以及冻结标题。XLS 保留已保存的值、公式、数字格式、合并及可用的行列元数据；不支持字体、边框和冻结窗格。工作簿显示已保存的公式结果而不重新计算；缺少的结果保持为空，公式栏旁的紧凑提示会标记显示结果可能不完整或不准确的工作簿。工作簿视图填满预览面板，并随面板尺寸变化自动调整，无需重新加载工作表或选择状态。工作表标签从左侧边缘开始排列；标签溢出时可用触控板横向手势或左右按钮滚动，缩放控件独立占位。表格控件在应用的明暗两种主题下均保持浅色背景和深色文字。触控板的像素位移可同时平移表格的横纵两个方向，包括斜向平移，移动距离跟随手势；冻结标题保持固定。到达工作表边缘后反向移动，仍会保留下一次手势的位移。隐藏选区统计栏及无效的工作表菜单箭头。冻结标题在滚动时保持固定，不显示冻结分隔线和拖拽条。表格预览不调用 Office 转换服务。
+直接在浏览器中打开 `.xlsx`、`.xls`、`.csv` 和 `.tsv`，支持工作表标签、单元格选择、复制和只读公式栏。XLSX 保留字体、纯色填充、边框、数字格式、富文本、合并单元格、行列尺寸、隐藏行列及工作表，以及冻结标题。XLS 保留已保存的值、公式、数字格式、合并及可用的行列元数据；不支持字体、边框和冻结窗格。工作簿显示已保存的公式结果而不重新计算；缺少的结果保持为空，公式栏旁的紧凑提示会标记显示结果可能不完整或不准确的工作簿。该提示支持悬停查看，也可通过鼠标或触摸点击查看说明。工作簿视图填满预览面板，并随面板尺寸变化自动调整，无需重新加载工作表或选择状态。工作表标签从左侧边缘开始排列；标签溢出时可用触控板横向手势或左右按钮滚动，缩放控件独立占位。表格控件在应用的明暗两种主题下均保持浅色背景和深色文字。触控板的像素位移可同时平移表格的横纵两个方向，包括斜向平移，移动距离跟随手势；冻结标题保持固定。到达工作表边缘后反向移动，仍会保留下一次手势的位移。隐藏选区统计栏及无效的工作表菜单箭头。冻结标题在滚动时保持固定，不显示冻结分隔线和拖拽条。表格预览不调用 Office 转换服务。
 
 XLSX 预览在解析前从内存副本中移除 DrawingML 部件，并忽略工作表的绘图引用。原文件和工作表 XML 保持不变。表格上方的提示列出实际检测到但未展示的图表、图片、形状和条件格式，并建议使用系统应用打开工作簿。未检测到这些内容的文件不显示此提示；公式提示保持独立。
 
@@ -95,7 +95,7 @@ CSV 和 TSV 默认使用表格查看器，也可选择纯文本；CSV 还提供�
 
 将 `.doc`、`.docx`、`.ppt` 和 `.pptx` 打开为 PDF 预览，使用与 PDF 文件相同的加载状态、缩放控件、取消和文本选择能力。[Host 提供方](../../document/office-to-pdf/README.zh.md)负责本地转换，并为其他消费者保留电子表格转换 API。受支持的无效文件、转换失败和超时会显示本地化消息。缺少 Host 服务时显示配置引导。
 
-[Web bundle](../../bundle/web-app/README.zh.md) 以 `ui-sidebar-documentpreview` 挂载本包。通过该条目的 `office` 设置配置临时 Office 缓存；[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-client-ui-sidebar-documentpreview)定义可接受的值。设置注入到每个页面；修改 YAML 后重新加载浏览器页面。
+[Web bundle](../../bundle/web-app/README.zh.md) 以 `ui-sidebar-documentpreview` 挂载本包。通过该条目的 `office` 设置配置临时 Office 缓存；[配置目录](../../../docs/config-catalog.zh.md#xpeachxph-client-ui-sidebar-documentpreview)定义可接受的值。设置注入到每个页面；修改 YAML 后重新加载浏览器页面。
 
 | 字段 | 默认值 | 含义 |
 |---|---|---|
@@ -107,7 +107,7 @@ CSV 和 TSV 默认使用表格查看器，也可选择纯文本；CSV 还提供�
 
 后台请求为前台工作保留最后一个在途请求槽和读者槽；将任一限额设为一会拒绝后台读取。渲染器替换后会重新执行一次代次查询与授权检查。重试期间再次替换会显示本地化的繁忙提示。
 
-当前 Office 预览缺失字体时，文档工具栏的刷新按钮前显示黄色圆角三角形警告。悬停或键盘聚焦时显示缺失字体数量；点击后打开锚定字体列表。按 Escape、点击关闭或点击外部会关闭列表，警告图标和文档位置保持不变。重新加载会关闭旧详情；没有缺失字体的预览不显示警告。不保留已读或关闭提示的状态。
+当前 Office 预览缺失字体时，文档工具栏的刷新按钮前显示黄色圆角三角形警告。悬停或键盘聚焦时显示缺失字体数量；点击后打开锚定字体列表，列表跟随浏览器缩放、Visual Viewport 平移及尺寸变化，并在首次定位完成后接收焦点。按 Escape、点击关闭或点击外部会关闭列表，警告图标和文档位置保持不变。重新加载会关闭旧详情；没有缺失字体的预览不显示警告。不保留已读或关闭提示的状态。
 
 <details>
 <summary>Office 实现——点击展开</summary>

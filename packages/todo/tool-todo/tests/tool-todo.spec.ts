@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import Loader from '@xpeach/xph-cordis-plugin-loader'
@@ -31,6 +33,7 @@ async function setup(allowParallelInProgress: boolean): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(tool, { allowParallelInProgress })
   return ctx
@@ -39,7 +42,7 @@ async function setup(allowParallelInProgress: boolean): Promise<Context> {
 let callCounter = 0
 function callTodo(ctx: Context, args: unknown, over: { agent?: Agent | undefined } = {}) {
   const agent = 'agent' in over ? over.agent : agentWithSession()
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     signal: testToolSignal,
     callId: ToolCallId(`call-${++callCounter}`),
     name: 'todo_write',
@@ -215,6 +218,7 @@ describe('dsh-tool-todo', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(SessionProjectionRegistry)
     const fiber = await ctx.plugin(tool, { allowParallelInProgress: true })
     expect(ctx.tools.schemas().some(s => s.name === 'todo_write')).toBe(true)

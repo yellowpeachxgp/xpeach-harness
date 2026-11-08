@@ -223,8 +223,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.segOff:hover {
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .segOff:hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 .segOn {
   background: var(--dsw-alias-bg-base);
@@ -340,10 +342,12 @@ body[data-ds-dark-theme] .mark img.markDark {
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.iconButton:hover {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
-  border-color: var(--dsw-alias-border-l2);
+@media (hover: hover) {
+  .iconButton:hover {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+    border-color: var(--dsw-alias-border-l2);
+  }
 }
 
 .bindRow {
@@ -400,9 +404,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   opacity: 0.5;
   cursor: default;
 }
-.bindButton:not(:disabled):hover,
-.playRun:not(:disabled):hover {
-  background: var(--xph-brand-orange-strong);
+@media (hover: hover) {
+  .bindButton:not(:disabled):hover,
+  .playRun:not(:disabled):hover {
+    background: var(--xph-brand-orange-strong);
+  }
 }
 .bindButton:not(:disabled):active,
 .playRun:not(:disabled):active {
@@ -431,12 +437,14 @@ body[data-ds-dark-theme] .mark img.markDark {
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.bindGhost:hover:not(:disabled),
-.probeBtn:hover:not(:disabled),
-.exportBtn:hover:not(:disabled) {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
-  border-color: var(--dsw-alias-border-l1);
+@media (hover: hover) {
+  .bindGhost:hover:not(:disabled),
+  .probeBtn:hover:not(:disabled),
+  .exportBtn:hover:not(:disabled) {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+    border-color: var(--dsw-alias-border-l1);
+  }
 }
 .probeBtnOn {
   color: var(--xph-brand-orange-strong);
@@ -479,8 +487,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   color: var(--xph-brand-orange);
   text-decoration: none;
 }
-.bindHint a:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .bindHint a:hover {
+    text-decoration: underline;
+  }
 }
 .bindOk {
   color: var(--dsw-alias-state-success-primary);
@@ -545,11 +555,18 @@ body[data-ds-dark-theme] .mark img.markDark {
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.codexGhostBtn:hover,
 .codexGhostBtn[data-active='true'] {
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-interactive-bg-hover);
   border-color: var(--dsw-alias-border-l1);
+}
+
+@media (hover: hover) {
+  .codexGhostBtn:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l1);
+}
 }
 .codexHero {
   display: flex;
@@ -818,8 +835,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.codexModeOff:hover {
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .codexModeOff:hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 .codexModeOn {
   color: var(--dsw-alias-label-primary);
@@ -840,8 +859,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   border-radius: 2.5px;
   background: color-mix(in srgb, var(--dsw-alias-label-secondary) 11%, transparent);
 }
-.codexHeatCell:hover {
-  outline: 1px solid var(--xph-brand-orange);
+@media (hover: hover) {
+  .codexHeatCell:hover {
+    outline: 1px solid var(--xph-brand-orange);
+  }
 }
 .codexHeatCell[data-level='1'] {
   background: color-mix(in srgb, var(--xph-brand-orange) 28%, transparent);
@@ -892,11 +913,13 @@ body[data-ds-dark-theme] .mark img.markDark {
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.codexPluginTile:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .codexPluginTile:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
 }
 .codexPluginLabel {
   font-size: 10px;
@@ -974,9 +997,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.codexInstallerToggle:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l2);
+@media (hover: hover) {
+  .codexInstallerToggle:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l2);
+  }
 }
 
 /* ─── Model Market Studio ─── */
@@ -1068,9 +1093,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.groupCard:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+@media (hover: hover) {
+  .groupCard:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+  }
 }
 .groupCardOn {
   border-color: var(--xph-brand-orange);
@@ -1113,8 +1140,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.marketRow:hover {
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 38%, var(--dsw-alias-border-l1));
+@media (hover: hover) {
+  .marketRow:hover {
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 38%, var(--dsw-alias-border-l1));
+  }
 }
 .marketHead {
   display: flex;
@@ -1205,10 +1234,12 @@ body[data-ds-dark-theme] .mark img.markDark {
     border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.marketBtn:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l1);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .marketBtn:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l1);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .marketIn {
   padding: 2px 8px;
@@ -1361,9 +1392,11 @@ body[data-ds-dark-theme] .mark img.markDark {
     border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.groupPickChip:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l1);
+@media (hover: hover) {
+  .groupPickChip:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l1);
+  }
 }
 .groupChipOn {
   background: color-mix(in srgb, var(--xph-brand-orange) 14%, var(--dsw-alias-bg-base));
@@ -1457,8 +1490,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-secondary);
 }
-.logChip:hover {
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .logChip:hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 .logChipOn {
   background: color-mix(in srgb, var(--xph-brand-orange) 14%, var(--dsw-alias-bg-base));
@@ -1487,8 +1522,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   border-radius: var(--dsw-radius-md);
   transition: background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.logRowHead:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .logRowHead:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .logModel {
   font-weight: 500;
@@ -1562,9 +1599,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-secondary);
 }
-.logMore:hover {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .logMore:hover {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .logMoreMeta {
   font-size: var(--xph-type-meta);
@@ -1596,8 +1635,10 @@ body[data-ds-dark-theme] .mark img.markDark {
 .logTable tr:last-child td {
   border-bottom: none;
 }
-.logTable tr:hover td {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .logTable tr:hover td {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .logModelCell {
   font-weight: 500;
@@ -1657,9 +1698,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out),
     transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.networkCard:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+@media (hover: hover) {
+  .networkCard:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+  }
 }
 .networkCardOn {
   border-color: var(--xph-brand-orange);
@@ -1757,8 +1800,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 4px;
   transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.adminRow:hover {
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 38%, var(--dsw-alias-border-l1));
+@media (hover: hover) {
+  .adminRow:hover {
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 38%, var(--dsw-alias-border-l1));
+  }
 }
 .adminMain {
   display: flex;
@@ -1812,9 +1857,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-secondary);
 }
-.pagerBtn:hover:not(:disabled) {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .pagerBtn:hover:not(:disabled) {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .pagerBtn:disabled {
   opacity: 0.35;
@@ -1873,9 +1920,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
   margin-left: 4px;
 }
-.rowAct:hover {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .rowAct:hover {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .optRow {
   display: grid;
@@ -1925,8 +1974,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
   font-family: var(--ds-font-family-code);
 }
-.codeItem:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .codeItem:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 /* ─── Settings Section (XPeachSection.tsx) ─── */
@@ -2057,12 +2108,14 @@ body[data-ds-dark-theme] .mark img.markDark {
   text-decoration: none;
   font-family: inherit;
 }
-.siteLinks a:hover,
-.siteLinkBtn:hover {
-  color: var(--xph-brand-orange-strong);
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 40%, var(--dsw-alias-border-l1));
-  background: color-mix(in srgb, var(--xph-brand-orange) 10%, transparent);
-  text-decoration: none;
+@media (hover: hover) {
+  .siteLinks a:hover,
+  .siteLinkBtn:hover {
+    color: var(--xph-brand-orange-strong);
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 40%, var(--dsw-alias-border-l1));
+    background: color-mix(in srgb, var(--xph-brand-orange) 10%, transparent);
+    text-decoration: none;
+  }
 }
 .trackingRow {
   display: flex;
@@ -2145,8 +2198,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: var(--dsw-alias-bg-layer-1);
   transition: border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
-.ctrlCard:hover {
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 40%, var(--dsw-alias-border-l1));
+@media (hover: hover) {
+  .ctrlCard:hover {
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 40%, var(--dsw-alias-border-l1));
+  }
 }
 .ctrlCard[data-disabled='true'] {
   opacity: 0.72;
@@ -2258,8 +2313,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: transparent;
   color: var(--dsw-alias-state-error-primary);
 }
-.ctrlBtnDanger:hover {
-  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);
+@media (hover: hover) {
+  .ctrlBtnDanger:hover {
+    background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);
+  }
 }
 .ctrlRulesHead {
   display: flex;
@@ -2531,9 +2588,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   color: var(--dsw-alias-label-secondary);
   transition: border-color 0.18s, box-shadow 0.18s;
 }
-.statusPill:hover {
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 50%, var(--dsw-alias-border-l1));
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .statusPill:hover {
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 50%, var(--dsw-alias-border-l1));
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .statusPillOk {
   color: inherit;
@@ -2659,8 +2718,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-caption);
   text-decoration: none;
 }
-.pillLinks a:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .pillLinks a:hover {
+    text-decoration: underline;
+  }
 }
 .spark {
   display: block;
@@ -2704,8 +2765,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-size: var(--xph-type-caption);
   font-weight: 500;
 }
-.consoleLink:hover {
-  background: color-mix(in srgb, var(--xph-brand-orange) 20%, transparent);
+@media (hover: hover) {
+  .consoleLink:hover {
+    background: color-mix(in srgb, var(--xph-brand-orange) 20%, transparent);
+  }
 }
 .lowWarn {
   margin: 8px 0 0;
@@ -2775,8 +2838,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
-.costPill:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .costPill:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .costPill svg {
   width: 14px;
@@ -2877,8 +2942,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
   font: inherit;
 }
-.launchSettings:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .launchSettings:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .launchGear {
   display: inline-flex;
@@ -2920,8 +2987,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.launchBalance:hover {
-  border-color: var(--xph-brand-orange);
+@media (hover: hover) {
+  .launchBalance:hover {
+    border-color: var(--xph-brand-orange);
+  }
 }
 .launchPopBody {
   width: auto;
@@ -3133,9 +3202,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   place-items: center;
   cursor: pointer;
 }
-.onbCloseBtn:hover {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .onbCloseBtn:hover {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .onbHead h2 {
   margin: 0;
@@ -3166,9 +3237,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   text-align: left;
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
-.onbCard:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+@media (hover: hover) {
+  .onbCard:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--xph-brand-orange) 45%, var(--dsw-alias-border-l1));
+  }
 }
 .onbCard[data-on='true'] {
   border-color: var(--xph-brand-orange);
@@ -3256,8 +3329,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   background: transparent;
   color: var(--dsw-alias-label-primary);
 }
-.onbGhost:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .onbGhost:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .onbLoginCard {
   display: flex;
@@ -3505,9 +3580,11 @@ body[data-ds-dark-theme] .mark img.markDark {
 .pinOn {
   color: var(--dsw-alias-state-warn-primary);
 }
-.pinOff:hover {
-  opacity: 1;
-  color: var(--dsw-alias-label-secondary);
+@media (hover: hover) {
+  .pinOff:hover {
+    opacity: 1;
+    color: var(--dsw-alias-label-secondary);
+  }
 }
 
 .statusDotWrap {
@@ -3632,8 +3709,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: background 120ms ease, color 120ms ease;
 }
 
-.prefSegBtn:hover {
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .prefSegBtn:hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 
 .prefSegBtnOn {
@@ -3718,9 +3797,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: border-color 120ms ease, background 120ms ease;
 }
 
-.updateChannelCard:hover:not(:disabled) {
-  border-color: var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .updateChannelCard:hover:not(:disabled) {
+    border-color: var(--dsw-alias-border-l2);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .updateChannelCardOn {
@@ -3880,8 +3961,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
-.modFilterPill:hover {
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .modFilterPill:hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 
 .modFilterPillOn {
@@ -3999,9 +4082,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.modPresetChip:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l1);
+@media (hover: hover) {
+  .modPresetChip:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l1);
+  }
 }
 
 .modPresetChipOn {
@@ -4022,9 +4107,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
 }
 
-.modResetBtn:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l1);
+@media (hover: hover) {
+  .modResetBtn:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l1);
+  }
 }
 
 @media (max-width: 720px) {
@@ -4266,9 +4353,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   flex-shrink: 0;
   transition: color 120ms ease, background 120ms ease;
 }
-.notifyCloseBtn:hover {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .notifyCloseBtn:hover {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .notifyBodyWrap {
   display: flex;
@@ -4315,8 +4404,10 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 5px;
   transition: background 120ms ease, opacity 120ms ease;
 }
-.notifyPrimaryBtn:hover {
-  background: var(--xph-brand-orange-strong);
+@media (hover: hover) {
+  .notifyPrimaryBtn:hover {
+    background: var(--xph-brand-orange-strong);
+  }
 }
 .notifyPrimaryBtn[data-kind='completed'] {
   background: var(--xph-brand-green);
@@ -4340,9 +4431,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
   transition: color 120ms ease, background 120ms ease;
 }
-.notifySecondaryBtn:hover {
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .notifySecondaryBtn:hover {
+    color: var(--dsw-alias-label-primary);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .notifySoundToggle {
   display: inline-flex;
@@ -4410,9 +4503,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.fontPackCard:hover {
-  border-color: var(--dsw-alias-border-l3);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .fontPackCard:hover {
+    border-color: var(--dsw-alias-border-l3);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .fontPackCardOn {
   border-color: var(--xph-brand-orange);
@@ -4485,9 +4580,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.fontPackCodePill:hover {
-  border-color: var(--dsw-alias-border-l3);
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .fontPackCodePill:hover {
+    border-color: var(--dsw-alias-border-l3);
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 .fontPackCodePillOn {
   border-color: var(--xph-brand-orange);
@@ -4592,6 +4689,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 4px;
   padding: 1px 6px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -4623,6 +4721,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   width: 6px;
   height: 6px;
   border-radius: 999px;
+  corner-shape: round;
   background: currentColor;
   flex-shrink: 0;
 }
@@ -4726,6 +4825,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   appearance: none;
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 999px;
+  corner-shape: round;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 500;
@@ -4734,9 +4834,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   color: var(--dsw-alias-label-secondary);
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-.sortPill:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l1);
+@media (hover: hover) {
+  .sortPill:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l1);
+  }
 }
 .sortPillOn {
   background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 14%, transparent);
@@ -4763,6 +4865,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 5px;
   padding: 4px 10px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -4771,9 +4874,11 @@ body[data-ds-dark-theme] .mark img.markDark {
   color: var(--dsw-alias-label-secondary);
   transition: all 120ms ease;
 }
-.groupFilterChip:hover {
-  color: var(--dsw-alias-label-primary);
-  border-color: var(--dsw-alias-border-l1);
+@media (hover: hover) {
+  .groupFilterChip:hover {
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l1);
+  }
 }
 .groupFilterChipOn {
   background: color-mix(in srgb, var(--xph-brand-orange, #f97316) 16%, transparent);
@@ -4860,6 +4965,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 4px;
   padding: 2px 7px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -4891,6 +4997,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   width: 6px;
   height: 6px;
   border-radius: 999px;
+  corner-shape: round;
   background: currentColor;
   flex-shrink: 0;
 }

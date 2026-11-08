@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-time-context",
   "description": "Durable per-step context with the current time and elapsed time",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -38,7 +38,8 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-util-time": "workspace:*"
   },
   "devDependencies": {
     "@xpeach/xph-cordis": "workspace:~",
@@ -55,6 +56,8 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-subprocess-local": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-util-time": "workspace:*"
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-spill-policy",
   "description": "Token-budgeted tool-result retention with recoverable text and image paths",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -71,6 +71,9 @@
     "@xpeach/xph-attachment-local": "workspace:*",
     "@xpeach/xph-tool-fs": "workspace:*",
     "sharp": "0.35.5",
-    "@xpeach/xph-agent-loop-testkit": "workspace:*"
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   }
 }

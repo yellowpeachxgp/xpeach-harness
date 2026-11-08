@@ -7,6 +7,7 @@ export const zh = {
   'toggle.open': '打开侧边栏',
   'toggle.collapse': '收起侧边栏',
   'panels.label': '全局面板',
+  'navigation.label': '导航',
   'panels.more': '更多',
   'brand.localBuild': 'XPeach 本地构建',
 } satisfies Record<string, string>
@@ -21,6 +22,7 @@ export const en = {
   'toggle.open': 'Open sidebar',
   'toggle.collapse': 'Collapse sidebar',
   'panels.label': 'Global panels',
+  'navigation.label': 'Navigation',
   'panels.more': 'More',
   'brand.localBuild': 'XPeach Local Build',
 } satisfies Record<SidebarKey, string>

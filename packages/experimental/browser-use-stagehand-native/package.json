@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-browser-use-stagehand-native",
   "description": "Experimental Stagehand browser tools with separately configured native models",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -65,6 +65,8 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.13",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

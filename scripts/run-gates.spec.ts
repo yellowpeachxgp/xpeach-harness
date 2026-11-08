@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.stubEnv('DSH_WEB_SNAPSHOT_WORKERS', undefined)
   vi.stubEnv('DSH_COVERAGE_MAX_WORKERS', undefined)
   vi.stubEnv('DSH_COVERAGE_PARTITIONS', undefined)
+  vi.stubEnv('DSH_CLI_HELP_CONCURRENCY', undefined)
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -305,11 +306,19 @@ describe('gate graph validation', () => {
     expect(ids).toContain('public-repository-links')
   })
 
-  it('checks the complete CLI reference locally and in the static CI lane', () => {
-    for (const mode of ['doc-sync', 'ci-static'] as const) {
+  it.each([undefined, ''])('allocates one CLI help child inside each aggregate when its allowance is %j', (raw) => {
+    vi.stubEnv('DSH_CLI_HELP_CONCURRENCY', raw)
+    for (const mode of ['doc-sync', 'ci-static', 'ci-windows-observational-ready'] as const) {
       const gates = withPnpmEntrypoint(() => gatesForMode(mode))
-      expect(gates.find(gate => gate.id === 'cli-help')).toBeDefined()
+      expect(gates.find(gate => gate.id === 'cli-help')).toMatchObject({ env: { DSH_CLI_HELP_CONCURRENCY: '1' } })
+      expect(gates.filter(gate => gate.id !== 'cli-help').every(gate => gate.env?.DSH_CLI_HELP_CONCURRENCY === undefined)).toBe(true)
     }
+  })
+
+  it.each(['3', 'invalid'])('passes an explicit CLI help allowance %j to its owner', (raw) => {
+    vi.stubEnv('DSH_CLI_HELP_CONCURRENCY', raw)
+    const gates = withPnpmEntrypoint(() => gatesForMode('ci-windows-observational-ready'))
+    expect(gates.find(gate => gate.id === 'cli-help')).toMatchObject({ env: { DSH_CLI_HELP_CONCURRENCY: raw } })
   })
 
   it('keeps the concrete terminology policy in the documentation gate', () => {
@@ -856,7 +865,7 @@ describe('Typert contract preparation', () => {
 })
 
 describe('Node compatibility graph', () => {
-  it.each(['22.19.0', '24.9.0', '26.0.0'])('runs all source compatibility smokes serially on Node %s', (version) => {
+  it.each(['24.9.0', '24.19.0', '26.0.0'])('runs all source compatibility smokes serially on Node %s', (version) => {
     const subject = withNodeVersion(version, () =>
       withPnpmEntrypoint(() => gatesForMode('node-compat')))
 
@@ -871,6 +880,7 @@ describe('Node compatibility graph', () => {
         'packages/session/session-persistence-jsonl/tests/zstd.compat.spec.ts',
         'apps/cli/tests/source-launch.compat.spec.ts',
         'scripts/vitest-environment.compat.spec.ts',
+        'scripts/command-entrypoints.compat.spec.ts',
         'packages/boot/app-boot/tests/profile-resolution.spec.ts',
         'packages/boot/app-boot/tests/profile-resolution-service.spec.ts',
         'packages/boot/app-boot/tests/profile-resolution-worker-bootstrap.spec.ts',
@@ -888,8 +898,16 @@ describe('Node compatibility graph', () => {
     expect(subject.find(item => item.id === 'source-compat-smokes')?.env).toEqual({ VITEST_MAX_WORKERS: '1' })
   })
 
-  it.each([undefined, '1'])('builds the complete Node 22 artifacts once with skip-typecheck=%s', (skipTypecheck) => {
-    const subject = withNodeVersion('22.19.0', () =>
+  it.each(['24.19.0', '26.0.0'])('keeps Node %s compatibility source-only', (version) => {
+    const subject = withNodeVersion(version, () =>
+      withPnpmEntrypoint(() => gatesForMode('node-compat')))
+
+    expect(subject.map(item => item.id)).not.toContain('build')
+    expect(subject.map(item => item.id)).not.toContain('cli-lazy-search-startup-smoke')
+  })
+
+  it.each([undefined, '1'])('builds the complete Node 24.9 artifacts once with skip-typecheck=%s', (skipTypecheck) => {
+    const subject = withNodeVersion('24.9.0', () =>
       withEnv('DSH_NODE_COMPAT_SKIP_TYPECHECK', skipTypecheck, () =>
         withPnpmEntrypoint(() => gatesForMode('node-compat'))))
 
@@ -904,8 +922,8 @@ describe('Node compatibility graph', () => {
     })
   })
 
-  it.each(['passed', 'failed'] as const)('runs the Node 22 lazy-search smoke only after a passed build (%s)', async (buildStatus) => {
-    const subject = withNodeVersion('22.19.0', () =>
+  it.each(['passed', 'failed'] as const)('runs the Node 24.9 lazy-search smoke only after a passed build (%s)', async (buildStatus) => {
+    const subject = withNodeVersion('24.9.0', () =>
       withEnv('DSH_NODE_COMPAT_SKIP_TYPECHECK', '1', () =>
         withPnpmEntrypoint(() => gatesForMode('node-compat'))))
     let buildCompleted = false

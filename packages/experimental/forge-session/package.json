@@ -1,0 +1,87 @@
+{
+  "name": "@xpeach/xph-experimental-forge-session",
+  "description": "Binds change requests to the Session that created, pushed, or tracked them",
+  "version": "0.0.32-alpha",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./types": {
+      "types": "./lib/types/types.d.ts"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
+    "directory": "packages/experimental/forge-session"
+  },
+  "dependencies": {
+    "@xpeach/xph-timeout": "workspace:*",
+    "@xpeach/xph-util-values": "workspace:*",
+    "@xpeach/xph-schemastery": "workspace:~",
+    "shell-quote": "^1.12.0",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-experimental-forge": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-shell": "workspace:*",
+    "@xpeach/xph-shell-env": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-sandbox-policy": "workspace:*"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-cordis-plugin-include": "workspace:~",
+    "@xpeach/xph-cordis-plugin-loader": "workspace:~",
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-agent-loop": "workspace:*",
+    "@xpeach/xph-bash-local": "workspace:*",
+    "@xpeach/xph-experimental-forge": "workspace:*",
+    "@xpeach/xph-experimental-forge-github": "workspace:*",
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-shell-env": "workspace:*",
+    "@xpeach/xph-subprocess-local": "workspace:*",
+    "@xpeach/xph-system-prompt": "workspace:*",
+    "@xpeach/xph-tool-bash": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-shell": "workspace:*",
+    "@xpeach/xph-sandbox-policy": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@xpeach/xph-shell": {
+      "optional": true
+    },
+    "@xpeach/xph-shell-env": {
+      "optional": true
+    },
+    "@xpeach/xph-tools": {
+      "optional": true
+    },
+    "@xpeach/xph-sandbox-policy": {
+      "optional": true
+    }
+  }
+}

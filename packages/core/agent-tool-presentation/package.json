@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-tool-presentation",
-  "description": "Agent-plane presentation selector: composes one agent's tools as PTC mode or native tool calls",
-  "version": "0.0.32-alpha",
+  "description": "Deprecated tool presentation selector; use dsh-tool-executor-native or dsh-tool-executor-ptc directly",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -29,7 +29,9 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@xpeach/xph-schemastery": "workspace:~"
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-tools": "workspace:*",

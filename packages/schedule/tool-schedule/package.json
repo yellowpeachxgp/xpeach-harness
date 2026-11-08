@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-schedule",
   "description": "Model-facing reminder management tools (schedule_create, schedule_list, schedule_update, schedule_delete) over the Host ctx.schedule service",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -43,6 +43,7 @@
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }
