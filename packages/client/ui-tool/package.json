@@ -80,7 +80,9 @@
     "@xpeach/xph-user-questions": "workspace:*",
     "@xpeach/xph-tool-testkit": "workspace:*",
     "@xpeach/xph-tool-executor-native": "workspace:*",
-    "@xpeach/xph-tool-executor-ptc": "workspace:*"
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-fs-patch": "workspace:*",
+    "@xpeach/xph-api-session-controller": "workspace:*"
   },
   "files": [
     "locale/*.json",

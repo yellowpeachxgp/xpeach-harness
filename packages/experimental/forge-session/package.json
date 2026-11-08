@@ -68,7 +68,8 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-shell": "workspace:*",
-    "@xpeach/xph-sandbox-policy": "workspace:*"
+    "@xpeach/xph-sandbox-policy": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@xpeach/xph-shell": {

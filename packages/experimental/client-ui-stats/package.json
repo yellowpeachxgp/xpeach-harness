@@ -67,7 +67,8 @@
     "@xpeach/xph-compaction": "workspace:*",
     "@xpeach/xph-session-stats": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
-    "@xpeach/xph-user-approval": "workspace:*"
+    "@xpeach/xph-user-approval": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",

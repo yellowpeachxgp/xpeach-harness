@@ -72,7 +72,8 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-client-ui-chat": "workspace:*",
     "@xpeach/xph-client-ui-tool": "workspace:*",
-    "@xpeach/xph-tool-executor-native": "workspace:*"
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",

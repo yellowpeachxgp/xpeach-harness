@@ -56,7 +56,8 @@
     "@xpeach/xph-sandbox-policy": "workspace:*",
     "@xpeach/xph-skill": "workspace:*",
     "@xpeach/xph-tool-skill": "workspace:*",
-    "@xpeach/xph-util-values": "workspace:*"
+    "@xpeach/xph-util-values": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "zod": "4.4.3"

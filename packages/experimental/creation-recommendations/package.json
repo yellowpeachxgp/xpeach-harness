@@ -48,7 +48,8 @@
     "@xpeach/xph-subagent": "workspace:*",
     "@xpeach/xph-app-boot": "workspace:*",
     "@xpeach/xph-skill": "workspace:*",
-    "@xpeach/xph-sandbox-policy": "workspace:*"
+    "@xpeach/xph-sandbox-policy": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "yaml": "^2.9.0",

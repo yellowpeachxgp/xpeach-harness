@@ -59,7 +59,8 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-skill": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   },
   "dsh": {
     "bundle": {

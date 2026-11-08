@@ -63,6 +63,8 @@
     "@xpeach/xph-agent-loop": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-tool-fs": "workspace:*",
-    "@xpeach/xph-tool-str-replace-editor": "workspace:*"
+    "@xpeach/xph-tool-str-replace-editor": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

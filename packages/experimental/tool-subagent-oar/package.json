@@ -43,6 +43,7 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }
