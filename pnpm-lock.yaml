@@ -1493,6 +1493,9 @@ importers:
       '@xpeach/xph-deque':
         specifier: workspace:*
         version: link:../../util/deque
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
