@@ -117,8 +117,8 @@
 
 /* The Turn header has 16px clearance from its input and following content. */
 .flowItem[data-chat-flow-kind="turn-process"],
-.flowItem[data-turn-process-answer],
-:is(.column, :global([data-slot="conversation.chat.flow"])) > [data-chat-flow-kind="turn-process"] + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running) {
+:is(.column, :global([data-slot="conversation.chat.flow"])) > [data-chat-flow-kind="turn-process"]:not(:empty, :has(> [data-slot="conversation.chat.node"]:empty)) + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running):not(:has(> [data-slot="conversation.chat.node"] > [data-chat-steering-batch])),
+:is(.column, :global([data-slot="conversation.chat.flow"])) > [data-chat-flow-kind="turn-process"] + :not([hidden]):not(.flowItem:is(:empty, :has(> [data-slot="conversation.chat.node"]:empty))):not(.running):not([data-submission-echo], [data-pending-steering]):not(:has(> [data-slot="conversation.chat.node"] > [data-chat-steering-batch])) {
   --dsh-chat-flow-gap: 16px;
 }
 
