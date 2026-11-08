@@ -11,6 +11,11 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| Assistant 可见性缓存（#7532） | `4955eaa680` | ui-chat 单测通过 |
+| 静态客户端 bundle 生产模式（#7528） | `135423b457`, `812c9ec2aa`, `c0b48f8961`, `8077269375` | scripts/terminal-bash 单测通过 |
+| 入口名索引（#7518，含前置 `0ecc1dec41` manifest 重读） | `657d6a8129`, `8b1e5e7d88` | client-modules 66 项单测通过，tsc -b 干净 |
+| Web Search 凭据读取合并（#7419） | `72a84b24bd` | ui-settings-web-search 单测通过 |
+| llm-deepseek-account stdout 泄漏修复 | `54af8907ca`（仅源码行，跳过账号 e2e） | provider.spec 通过 |
 
 ## 产品侧修复（非上游）
 
