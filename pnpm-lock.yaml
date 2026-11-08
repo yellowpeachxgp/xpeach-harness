@@ -2049,15 +2049,24 @@ importers:
       '@xpeach/xph-atomic-write':
         specifier: workspace:*
         version: link:../../util/atomic-write
+      '@xpeach/xph-plugin-detail':
+        specifier: workspace:*
+        version: link:../../util/plugin-detail
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
       '@xpeach/xph-util-values':
         specifier: workspace:*
         version: link:../../util/values
       execa:
         specifier: ^10.0.1
         version: 10.0.1
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -2065,12 +2074,18 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@xpeach/xph-agent':
         specifier: workspace:*
         version: link:../../core/agent
       '@xpeach/xph-brand':
         specifier: workspace:*
         version: link:../../util/brand
+      '@xpeach/xph-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
@@ -2125,9 +2140,18 @@ importers:
       '@xpeach/xph-app-boot':
         specifier: workspace:*
         version: link:../app-boot
+      '@xpeach/xph-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@xpeach/xph-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
       '@xpeach/xph-package-manifest':
         specifier: workspace:*
         version: link:../../util/package-manifest
+      '@xpeach/xph-plugin-detail':
+        specifier: workspace:*
+        version: link:../../util/plugin-detail
       '@xpeach/xph-plugin-market-index':
         specifier: workspace:*
         version: link:../../util/plugin-market-index
@@ -2140,6 +2164,12 @@ importers:
       '@xpeach/xph-util-values':
         specifier: workspace:*
         version: link:../../util/values
+      execa:
+        specifier: ^10.0.1
+        version: 10.0.1
+      hosted-git-info:
+        specifier: ^9.0.3
+        version: 9.0.3
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0
@@ -2150,9 +2180,15 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@types/hosted-git-info':
+        specifier: ^3.0.5
+        version: 3.0.5
       '@types/semver':
         specifier: ^7.8.0
         version: 7.8.0
+      '@xpeach/xph-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
       '@xpeach/xph-config-editor':
         specifier: workspace:*
         version: link:../config-editor
@@ -2174,6 +2210,9 @@ importers:
       '@xpeach/xph-settings':
         specifier: workspace:*
         version: link:../../settings/settings
+      '@xpeach/xph-subprocess':
+        specifier: workspace:*
+        version: link:../../subprocess/subprocess
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
@@ -15204,6 +15243,12 @@ importers:
         version: link:../../../vendor/cordis
 
   packages/util/package-manifest:
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+
+  packages/util/plugin-detail:
     devDependencies:
       '@xpeach/xph-cordis':
         specifier: workspace:~

@@ -33,10 +33,11 @@ import type { ClientRemote } from '@xpeach/xph-api-gateway/client'
 
 export type { ClientRemote } from '@xpeach/xph-api-gateway/client'
 export type {
-  BundleInfo, BundleRowInfo, ChangeResult, IncompatiblePlugin, InspectOptions, InstallBundleOptions, InstallSpecKind, ManagementError,
-  PackageResult,
+  BundleDetail, BundleInfo, BundleRowInfo, ChangeResult, IncompatiblePlugin, InspectOptions, InstallBundleOptions, InstallSpecKind,
+  ManagementError, PackageResult,
   PluginChange, PluginEntryId, PluginInfo, PluginInspectProblem, PluginInstallCancellation, PluginInstallFailureKind,
   PluginInstallLogChunk, PluginInstallProgress, PluginInstallRequestId, PluginRegistries, PluginSpecInspection,
+  PluginUpdateProgress, PluginUpdateResult, PluginUpdateStep, PluginVersion, PluginVersionList, RegistryAttempt,
   ReadOnlyReason, Registry, RestartReason,
 } from '@xpeach/xph-plugin-manager/types'
 export type {} from '@xpeach/xph-plugin-manager/remote'
@@ -45,7 +46,7 @@ export type {} from '@xpeach/xph-client-ui-trajectory/remote'
 export type {} from '@xpeach/xph-plugin-market/remote'
 export type {
   MarketCompatibility, MarketIndexSummary, MarketInstallation, MarketInstallationStatus, MarketListingEntry, MarketListingVersion,
-  MarketQuery, MarketSearchResult, MarketSort,
+  MarketQuery, MarketSearchResult, MarketSort, PluginDetail, PluginDetailDocumentId, PluginDetailOrigin,
 } from '@xpeach/xph-plugin-market/types'
 export type { PluginInventorySnapshot } from '@xpeach/xph-host-plugin-inventory/types'
 export type {} from '@xpeach/xph-agent-preset-registry/remote'

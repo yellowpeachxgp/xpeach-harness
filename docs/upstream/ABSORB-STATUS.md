@@ -34,6 +34,25 @@
 | glob 前缀快路径 | #7045 `faa2619933` | tool-fs-search 174 项单测通过 |
 | agent-loop 系列起点前缀缓存 | #6986 `a677aca248` | system-prompt specs 37 项单测通过；持久化路径测试存在环境性失败（基线同样失败） |
 
+### 插件管理器批次（B7, port/plugin-mgr）
+
+| 项 | 提交 | 验证状态 |
+|---|---|---|
+| 插件版本更新 + 热更回滚 (#6174) | `82a5ae1744` | plugin-manager/ui-plugin-manager/plugin-detail 测试通过 |
+| 插件详情 README 管线 + 新包 plugin-detail (#6279) | `b702109a8c` | `@xpeach/xph-plugin-detail` 13 项单测通过 |
+| 详情页描述 (#7048) | `da3055de3e` | 10 个实验性 bundle locale 已更新 |
+| 标准模式插件管理 (#6795) | `edde4a0667` | tool-schemas/组合期望已对齐 |
+| 安装失败诊断 (#7463) | `6a994ee917` | 依赖未移植的 git-transport(#6943)已裁剪 |
+| 设置导航图标 (#7624) | `516ca64acb` | settings.section.icon slot 已接入 |
+| bundle 详情页预览 (#6605) | `c9eb8e9349` | BUNDLE_PREVIEWS 已迁移为 DETAIL.md |
+| 全部 bundle 详情文档 (#6623) | `8114a96ae4` | 10 个 bundle 获得 DETAIL.md/zh |
+| 启用不跳回已安装页 (#6594) | `8d00245b8e` | 组件测试通过 |
+| 市场生成跳过私有包 (#6513) | `87a5f371` | 生成器测试通过 |
+| 插件市场入主列表 (#6815) | `ce403d850c` | 期望输出已对齐 |
+| git dep allowBuilds (#6838) | `644eb3158e` | build-approval 测试通过 |
+
+跳过（成本/缺失前置）：#6564 sticky-header（依赖未移植的布局/工具提示改动）、#7012+#7018 unify lists（boot/official-bundles 包在本树不存在）。
+
 ## 产品侧修复（非上游）
 
 | 项 | 提交 |
