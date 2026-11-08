@@ -36,6 +36,17 @@ type AttentionSnapshot = Parameters<Parameters<SidebarRootComponentProps['useSes
 const noAttention: AttentionSnapshot = new Map()
 const useSessionStatus: SidebarRootComponentProps['useSessionStatus'] = selector => selector(noAttention)
 
+function makeHeaderProps(): HeaderLeadingControlsProps {
+  return {
+    useSessions: neverHook, useSessionStatus, useSessionRetainInfo: neverHook,
+    usePanelInfo, useResource, useWorkspaces: neverHook, ...allowAllAccess,
+    usePanels: selector => selector([]), useShortcuts: selector => selector([]),
+    useEntryPins: selector => selector([]), useEntryActions: selector => selector(false),
+    selectPanel: vi.fn(), setPinned: vi.fn(), toggleSidebar: vi.fn(),
+    startSession: vi.fn(), trackEntryClick: vi.fn(), t,
+  }
+}
+
 function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts = [], content }: {
   collapsed?: boolean
   width?: number
@@ -121,6 +132,7 @@ describe('SidebarRoot shell', () => {
     expect(screen.queryByRole('tooltip')).toBeNull()
     expect(Array.from(expanded.querySelectorAll('kbd'), key => key.textContent)).toEqual(['Ctrl', 'N'])
     cleanup()
+    document.documentElement.dataset.platform = 'darwin'
     render(<HeaderLeadingControls toggleSidebar={vi.fn()} startSession={vi.fn()} selectPanel={vi.fn()} trackEntryClick={vi.fn()} t={t}
       usePanelInfo={neverHook} useSessions={neverHook} useSessionStatus={neverHook}
       useSessionRetainInfo={neverHook} useResource={useResource} useWorkspaces={neverHook}
@@ -315,11 +327,14 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
 })
 
 it('wires the shell.leading controls to the shared sidebar actions', () => {
+  document.documentElement.dataset.platform = 'darwin'
   const toggleSidebar = vi.fn()
   const startSession = vi.fn()
   const trackEntryClick = vi.fn<HeaderLeadingControlsProps['trackEntryClick']>()
-  // This occupant only consumes its actions and locale, not Session hooks.
-  const props = { toggleSidebar, startSession, trackEntryClick, t, useShortcuts: select => select([{ id: 'sidebar.left.toggle' as ShortcutCommandId, label: 'Toggle sidebar', aliases: [], binding: null, modified: false, conflicts: [], issue: null, keys: ['⌘', 'B'], aria: 'Meta+B' }]) } as HeaderLeadingControlsProps
+  // This occupant only consumes its actions, the global access Hook, and locale, not Session hooks.
+  const props: HeaderLeadingControlsProps = { ...makeHeaderProps(), toggleSidebar, startSession, trackEntryClick,
+    useShortcuts: select => select([{ id: 'sidebar.left.toggle' as ShortcutCommandId, label: 'Toggle sidebar', aliases: [], binding: null, modified: false, conflicts: [], issue: null, keys: ['⌘', 'B'], aria: 'Meta+B' }]),
+  }
   render(<HeaderLeadingControls {...props} />)
   fireEvent.click(screen.getByRole('button', { name: en['toggle.open'] }))
   expect(toggleSidebar).toHaveBeenCalledOnce()
@@ -329,6 +344,14 @@ it('wires the shell.leading controls to the shared sidebar actions', () => {
   // The window-chrome New Session control reports a titlebar click before starting the Session.
   expect(trackEntryClick).toHaveBeenCalledExactlyOnceWith({ menu_name: 'new_session', position: 'titlebar' })
   expect(trackEntryClick.mock.invocationCallOrder[0]).toBeLessThan(startSession.mock.invocationCallOrder[0]!)
+})
+
+it.each([undefined, 'darwin', 'win32'] as const)('shows the collapsed-header New Session control only on Desktop (%s)', (platform) => {
+  if (platform !== undefined) document.documentElement.dataset.platform = platform
+  const props = makeHeaderProps()
+  render(<HeaderLeadingControls {...props} />)
+  expect(screen.getByRole('button', { name: en['toggle.open'] })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: en['session.new.label'] }) !== null).toBe(platform !== undefined)
 })
 
 describe('Windows caption New Session analytics', () => {
