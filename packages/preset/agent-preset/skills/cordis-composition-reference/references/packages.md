@@ -116,7 +116,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-client-ui-subagent` | no | Subagent conversation catalog, continuation routing UI, and '@' reference source |
 | `@xpeach/xph-client-ui-theme` | yes | Theme plugin: Host bootstrap for the pre-plugin palette; DOM-free ThemeRuntime for light/dark/system state; --dsw-* token styles and Appearance settings row |
 | `@xpeach/xph-client-ui-tool` | no | Client Tool call-tree renderer and keyed per-tool presentation slot |
-| `@xpeach/xph-client-ui-trajectory` | no | Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service) |
+| `@xpeach/xph-client-ui-trajectory` | yes | Trajectory event ledger and timing overview with live tool-result inspection |
 | `@xpeach/xph-client-ui-user-questions` | no | Web ask_user_question composer takeover and plan-review presentation UI |
 | `@xpeach/xph-client-ui-workflow-run` | no | Durable workflow-run Conversation Node and nested member disclosure for dsh web |
 | `@xpeach/xph-client-ui-workspace` | no | Workspace picker plugin: one WorkspacePicker registered into the sidebar and empty-state workspace slots |

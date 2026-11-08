@@ -98,6 +98,7 @@
     "@xpeach/xph-office-to-pdf": "workspace:*",
     "@xpeach/xph-api-account-controller": "workspace:*",
     "@xpeach/xph-deepseek-account": "workspace:*",
-    "@xpeach/xph-client-product-analytics": "workspace:*"
+    "@xpeach/xph-client-product-analytics": "workspace:*",
+    "@xpeach/xph-client-ui-trajectory": "workspace:*"
   }
 }
