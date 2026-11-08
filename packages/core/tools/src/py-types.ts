@@ -759,7 +759,7 @@ The available tools:`
  *   (the caller excludes `run_code` itself).
  * @returns the complete section text.
  */
-export function renderToolsSdkPy(schemas: ToolSdkSchema[]): string {
+export function renderToolsSdkPy(schemas: readonly ToolSdkSchema[]): string {
   const sorted = [...schemas].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
   const state: RenderState = { classes: [], usedClassNames: new Set(), nextClassCounter: new Map(), typing: new Set(['Protocol']) }
   // ONE ordered member stream, matching the documented lexicographic contract
