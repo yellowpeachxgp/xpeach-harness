@@ -1283,17 +1283,17 @@ describe('PluginManagerPage', () => {
   })
 
   it.each([
-    { locale: en, placeholder: 'for example dsh-plugin-whale-pet' },
-    { locale: zh, placeholder: '例如 dsh-plugin-whale-pet' },
+    { locale: en, placeholder: 'for example xph-plugin-whale-pet' },
+    { locale: zh, placeholder: '例如 xph-plugin-whale-pet' },
   ])('uses the package example in $placeholder and the install guide', ({ locale, placeholder }) => {
     const { actions, setLanguage } = renderTab({ install: { ...IDLE_INSTALL, open: true } })
     setLanguage(locale)
     expect(screen.getByPlaceholderText(placeholder)).toBeTruthy()
     expect(screen.getByText(locale.installUpgradeNotice)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: locale.installGuideToggle }))
-    expect(screen.getByText('dsh-plugin-whale-pet')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: locale.installGuideFillAria.replace('{example}', 'dsh-plugin-whale-pet') }))
-    expect(actions.editInstallSpec).toHaveBeenCalledExactlyOnceWith('dsh-plugin-whale-pet')
+    expect(screen.getByText('xph-plugin-whale-pet')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: locale.installGuideFillAria.replace('{example}', 'xph-plugin-whale-pet') }))
+    expect(actions.editInstallSpec).toHaveBeenCalledExactlyOnceWith('xph-plugin-whale-pet')
   })
 
   it.each([
@@ -2564,7 +2564,7 @@ describe('registry versions and updates', () => {
     open(navigation)
     expect(within(section()).getByText(title)).toBeTruthy()
     expect(within(detail()).queryByRole('button', { name: /^Update to / })).toBeNull()
-    if (title === en.versionsBlocked) expect(within(section()).getByText(`2.0.0 needs @xpeach/xph-dsh >=0.9.0; this DSH is ${runtime}`)).toBeTruthy()
+    if (title === en.versionsBlocked) expect(within(section()).getByText(`2.0.0 needs @xpeach/xph-dsh >=0.9.0; this XPeach Harness is ${runtime}`)).toBeTruthy()
   })
 
   it('reports a refused check with the registries asked and a retry', () => {
