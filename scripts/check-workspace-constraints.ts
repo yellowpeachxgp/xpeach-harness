@@ -201,8 +201,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // The CPython side ships as source .py files, published as-is rather than built.
   '@xpeach/xph-experimental-ptc-runtime-python': ['py/**/*.py'],
   '@xpeach/xph-experimental-speech-to-text-sensevoice': ['runtime/assets.json'],
-  // Node execution modes each launch a separately bundled bootstrap.
-  '@xpeach/xph-ptc-runtime-node': ['lib/process.js', 'lib/persistent-process.js'],
+  // Node profile configuration and process bootstraps have separate bundles.
+  '@xpeach/xph-ptc-runtime-node': ['lib/configuration.js', 'lib/process.js', 'lib/persistent-process.js'],
   // The Inspector owns a Worker and a mirrored frontend outside package export paths.
   '@xpeach/xph-experimental-inspector': ['lib/client.*.js', 'lib/worker.js', 'lib/devtools/**'],
   // Creator's composition guidance travels with the declaration package.
