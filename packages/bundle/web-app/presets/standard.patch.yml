@@ -27,8 +27,8 @@
           - id: tool-fs
             name: '@xpeach/xph-tool-fs'
             config:
-              # Set true to add the apply_patch tool beside edit.
-              applyPatch: false
+              # Set false to drop the apply_patch tool beside edit.
+              applyPatch: true
           - id: tool-fs-search
             name: '@xpeach/xph-tool-fs-search'
             config:
