@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-log-export",
   "description": "Web Session-log ZIP export and Session Markdown copy",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },

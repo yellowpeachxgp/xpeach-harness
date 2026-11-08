@@ -11,7 +11,13 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
-| 会话复制为 Markdown（含原始日志路径，PR #6472） | `2a48671b83` | `session-log-export` 126 项单测通过；`session-persistence-jsonl` 765 项通过；host face tsc -b 通过 |
+| 会话恢复修复簇（v0 subagent/descriptor v1/v2 迁移） | `dffda31215`, `e51cb3959f` (PR #7570) | session-format-v0-to-v1 + session-persistence-jsonl 873 项单测通过 |
+| 隐藏 system-prompt 卡片经 chatNode 重建 | `19956a1da9`, `ab627b91ce`, `b45eee4fca` (PR #7527) | ui-chat 84 项单测通过 |
+| Markdown 文件链接行号范围（`:24`/`:24-30`/`:24:5`） | `09d9f1152e`, `b1cb1f34e9`, `7ee39638b2`, `db2b8122f2`, `2e5ac1db66` (PR #7056) | ui-primitives 1739 项单测通过 |
+| 中键关闭标签页 | `9c5958b07b`, `3d746bc794` (PR #6820) | ui-dockkit + ui-sidebar-right 518 项单测通过 |
+| 会话搜索 id 匹配 + 标题 fallback 激活保留 | `cae21f2ab7`, `5e99b92884` (PR #6616), `ab7bd24b6` | session-title 86 项 + ui-workspace 552 项单测通过 |
+| 多选题推荐项预选 | `bf8d8494ba`, `07c3c10d2c`, `185eb56a2b` (PR #7407) | ui-user-questions 126 项单测通过 |
+| Web 预览 codemirror 懒加载提速 | `4b1d4c814e`, `39d973322b` (PR #6950) | webworker-runtime 987 项单测通过 |
 
 ## 产品侧修复（非上游）
 

@@ -40,7 +40,7 @@ This matrix shows which packages dispatch each harness-owned event and which pac
 | `cordis/request-run` | `emit` | [`packages/extensions/cordis-host-runner/src/types.ts:371`](../packages/extensions/cordis-host-runner/src/types.ts) | [`cordis-host-runner`](../packages/extensions/cordis-host-runner) (`emit`) | `remotes` |
 | `cordis/request-run-resolved` | `emit` | [`packages/extensions/cordis-host-runner/src/types.ts:377`](../packages/extensions/cordis-host-runner/src/types.ts) | [`cordis-host-runner`](../packages/extensions/cordis-host-runner) (`emit`) | `remotes` |
 | `credentials/record-updated` | `emit` | [`packages/credentials/credentials/src/types.ts:99`](../packages/credentials/credentials/src/types.ts) | [`credentials`](../packages/credentials/credentials) (`events.dispatch`) | [`authorization`](../packages/credentials/authorization), [`deepseek-account-platform`](../packages/credentials/deepseek-account-platform), `remotes` |
-| `credentials/reference-updated` | `emit` | [`packages/credentials/credentials/src/types.ts:87`](../packages/credentials/credentials/src/types.ts) | [`credentials`](../packages/credentials/credentials) (`events.dispatch`) | `remotes` |
+| `credentials/reference-updated` | `emit` | [`packages/credentials/credentials/src/types.ts:87`](../packages/credentials/credentials/src/types.ts) | [`account`](../packages/xpeach/account) (`emit`), [`credentials`](../packages/credentials/credentials) (`events.dispatch`) | `remotes` |
 | `deepseek-account/model-sign-in-required` | `emit` | [`packages/credentials/deepseek-account/src/types.ts:97`](../packages/credentials/deepseek-account/src/types.ts) | [`deepseek-account`](../packages/credentials/deepseek-account) (`emit`) | `remotes` |
 | `deepseek-account/session-expired` | `emit` | [`packages/credentials/deepseek-account/src/types.ts:93`](../packages/credentials/deepseek-account/src/types.ts) | [`deepseek-account-platform`](../packages/credentials/deepseek-account-platform) (`emit`) | `account-controller`, `remotes` |
 | `deepseek-account/signed-out` | `emit` | [`packages/credentials/deepseek-account/src/index.ts:12`](../packages/credentials/deepseek-account/src/index.ts) | [`deepseek-account-platform`](../packages/credentials/deepseek-account-platform) (`emit`) | [`deepseek-account`](../packages/credentials/deepseek-account) |
@@ -90,6 +90,7 @@ This matrix shows which packages dispatch each harness-owned event and which pac
 | `workflow/start` | `emit` | [`packages/workflow/workflow/src/index.ts:43`](../packages/workflow/workflow/src/index.ts) | [`workflow`](../packages/workflow/workflow) (`events.dispatch`) | - |
 | `workspace/session-activity` | `waterfall` | [`packages/workspace/workspace/src/index.ts:129`](../packages/workspace/workspace/src/index.ts) | [`workspace`](../packages/workspace/workspace) (`waterfall`) | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`schedule`](../packages/schedule/schedule), [`subagent`](../packages/subagent/subagent) |
 | `workspace/session-stop` | `parallel` | [`packages/workspace/workspace/src/index.ts:147`](../packages/workspace/workspace/src/index.ts) | [`workspace`](../packages/workspace/workspace) (`parallel`) | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`schedule`](../packages/schedule/schedule), [`subagent`](../packages/subagent/subagent) |
+| `xpeach/playground-chunk` | `emit` | [`packages/api/remotes/src/types.ts:30`](../packages/api/remotes/src/types.ts) | [`account`](../packages/xpeach/account) (`emit`) | `remotes` |
 <!-- END GENERATED event-producer-consumer:events -->
 
 ## Non-harness or undeclared event strings seen in package source
@@ -103,7 +104,7 @@ This matrix shows which packages dispatch each harness-owned event and which pac
 | `internal/service` | - | `gateway` |
 | `internal/status` | - | [`agent`](../packages/core/agent), `inspector`, `translator`, [`web`](../packages/web/web) |
 | `internal/update` | - | [`app-boot`](../packages/boot/app-boot) |
-| `loader/volatile-update` | - | [`cua`](../packages/experimental/cua), [`llm-deepseek`](../packages/llm/llm-deepseek), [`llm-pi-ai`](../packages/llm/llm-pi-ai), [`plugin-market`](../packages/boot/plugin-market), `product-analytics`, `speech-to-text` |
+| `loader/volatile-update` | - | [`cua`](../packages/experimental/cua), [`llm-deepseek`](../packages/llm/llm-deepseek), [`llm-deepseek-api-key`](../packages/llm/llm-deepseek-api-key), [`llm-pi-ai`](../packages/llm/llm-pi-ai), [`plugin-market`](../packages/boot/plugin-market), `product-analytics`, `speech-to-text` |
 | `slots/changed` | `ui-renderer` (`emit`) | - |
 <!-- END GENERATED event-producer-consumer:undeclared -->
 

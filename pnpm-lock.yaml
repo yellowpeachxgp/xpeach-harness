@@ -15500,6 +15500,9 @@ importers:
         specifier: workspace:*
         version: link:../../util/values
     devDependencies:
+      '@xpeach/xph-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
@@ -15533,6 +15536,9 @@ importers:
       '@xpeach/xph-client-ui-layout':
         specifier: workspace:*
         version: link:../../client/ui-layout
+      '@xpeach/xph-client-ui-model-selection':
+        specifier: workspace:*
+        version: link:../../client/ui-model-selection
       '@xpeach/xph-client-ui-primitives':
         specifier: workspace:*
         version: link:../../client/ui-primitives

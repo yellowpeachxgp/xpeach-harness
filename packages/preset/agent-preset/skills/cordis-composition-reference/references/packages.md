@@ -512,3 +512,10 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@xpeach/xph-workspace` | no | Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for the DeepSeek Harness |
+
+## xpeach
+
+| Package | Config | Description |
+|---|---|---|
+| `@xpeach/xph-account` | yes | XPeach (New API) account Remote: profile and token listing served to Harness clients |
+| `@xpeach/xph-client-ui` | no | XPeach 🍑Code face for the Web client: peach brand, quota pill, quota notice, and the settings account card |
