@@ -1406,6 +1406,9 @@ importers:
       '@xpeach/xph-client-ui-plugin-manager':
         specifier: workspace:*
         version: link:../../client/ui-plugin-manager
+      '@xpeach/xph-client-ui-trajectory':
+        specifier: workspace:*
+        version: link:../../client/ui-trajectory
       '@xpeach/xph-command-feedback':
         specifier: workspace:*
         version: link:../../feedback/command-feedback
@@ -6283,6 +6286,16 @@ importers:
         version: 18.3.1(react@18.3.1)
 
   packages/client/ui-trajectory:
+    dependencies:
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      '@xpeach/xph-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@tanstack/react-virtual':
         specifier: 3.14.10
@@ -6290,6 +6303,15 @@ importers:
       '@xpeach/xph-agent':
         specifier: workspace:*
         version: link:../../core/agent
+      '@xpeach/xph-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@xpeach/xph-api-gateway':
+        specifier: workspace:*
+        version: link:../../api/gateway
+      '@xpeach/xph-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
       '@xpeach/xph-api-session-controller':
         specifier: workspace:*
         version: link:../../api/session-controller
@@ -6338,6 +6360,9 @@ importers:
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
+      '@xpeach/xph-typert-registry':
+        specifier: workspace:*
+        version: link:../../typert/registry
       '@xpeach/xph-util-values':
         specifier: workspace:*
         version: link:../../util/values
