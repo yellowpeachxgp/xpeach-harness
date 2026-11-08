@@ -72,14 +72,12 @@ export function XPeachSection({
     void models().then(setModelList)
     void modelMatch().then((m) => { if (Array.isArray(m)) setMatch(m) })
     void recents().then(setRecentModels)
-    if (siteCatalog !== undefined) {
-      void siteCatalog().then((c) => {
-        if (!('error' in c)) {
-          setSiteCat(c)
-          setGroupSel([...c.tokenGroups])
-        }
-      })
-    }
+    void siteCatalog().then((c) => {
+      if (!('error' in c)) {
+        setSiteCat(c)
+        setGroupSel([...c.tokenGroups])
+      }
+    })
   }
   useEffect(() => {
     let live = true
@@ -252,7 +250,6 @@ export function XPeachSection({
                 })}
                 <button type="button" className={css.probeBtnOn} disabled={groupBusy || groupSel.length === 0}
                   onClick={() => {
-                    if (setGroups === undefined) return
                     setGroupBusy(true); setGroupMsg(null)
                     void setGroups([...groupSel]).then((r) => {
                       setGroupBusy(false)

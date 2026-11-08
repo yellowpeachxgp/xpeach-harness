@@ -415,9 +415,9 @@ export class XPeachApi {
   private async fetchRawGroupCatalog(signal: AbortSignal): Promise<GroupCatalog> {
     if (this.currentAdmin() !== undefined || this.currentCookie() !== undefined) {
       try {
-        const selfGroups = await this.authedGet<GroupCatalog>('/api/user/self/groups', signal)
+        const selfGroups: unknown = await this.authedGet<GroupCatalog>('/api/user/self/groups', signal)
         if (selfGroups !== undefined && typeof selfGroups === 'object' && !Array.isArray(selfGroups)) {
-          return selfGroups
+          return selfGroups as GroupCatalog
         }
       } catch (_err) {
         if (signal.aborted) throw signal.reason
@@ -434,7 +434,6 @@ export class XPeachApi {
     const modelSets = new Map<string, Set<string>>()
 
     for (const [groupName, meta] of Object.entries(rawGroups ?? {})) {
-      if (meta === undefined || typeof meta !== 'object') continue
       const set = new Set<string>(
         Array.isArray(meta.models)
           ? meta.models.filter((m): m is string => typeof m === 'string' && m.length > 0)
@@ -986,11 +985,12 @@ export class XPeachApi {
       throw new RemoteError('xpeach/request-failed', 'xpeach: perf summary rejected: ' + msg, { status: response.status, message: msg })
     }
     const data = body?.data
-    if (Array.isArray(data)) return data
+    if (Array.isArray(data)) return data as readonly XPeachModelPerfSummary[]
     if (data !== undefined && typeof data === 'object' && Array.isArray((data as { models?: unknown }).models)) {
       return (data as { models: readonly XPeachModelPerfSummary[] }).models
     }
-    if (Array.isArray(body?.models)) return body.models
+    const models = body?.models
+    if (Array.isArray(models)) return models as readonly XPeachModelPerfSummary[]
     return []
   }
 
@@ -1500,7 +1500,7 @@ export class XPeachApi {
       const page = await this.adminTokens(0, 100, signal).catch(() => undefined)
       const matched = page?.items.find(item => item.id === id)
       if (matched !== undefined) {
-        return { ...matched } as Record<string, JsonValue>
+        return { ...matched }
       }
       throw err
     }
