@@ -119,6 +119,9 @@ importers:
       '@xpeach/xph-skill-office':
         specifier: workspace:*
         version: link:packages/skill/skill-office
+      '@xpeach/xph-subagent-dsh-sdk':
+        specifier: workspace:*
+        version: link:packages/subagent/subagent-dsh-sdk
       '@xpeach/xph-tool-ralph':
         specifier: workspace:*
         version: link:packages/experimental/tool-ralph
@@ -2636,6 +2639,9 @@ importers:
       '@xpeach/xph-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@xpeach/xph-session-checkpoint-policy':
+        specifier: workspace:*
+        version: link:../../session/session-checkpoint-policy
       '@xpeach/xph-session-log-deepseek':
         specifier: workspace:*
         version: link:../../session/session-log-deepseek
