@@ -30,7 +30,7 @@ describe('CI workflow', () => {
     expect(compatibilityLimit).toBeGreaterThan(0)
     expect(compatibility.strategy).toMatchObject({
       'fail-fast': false,
-      matrix: { include: [{ node: '22.19' }, { node: '24.9' }, { node: 26 }] },
+      matrix: { include: [{ node: '24.9' }, { node: 26 }] },
     })
     expect(workflowJob(ci, 'all-checks-passed').needs).toContain('node-compat')
     const ordinaryJobs = Object.entries(ci.jobs)
@@ -1182,6 +1182,30 @@ describe('Python release workflows', () => {
     expect(JSON.stringify(installedRealApiWindows)).toContain('--scenario sdk-live --installed-wheel')
     expect(manylinuxSmoke).toMatchObject({ if: "runner.os == 'Linux'" })
     expect(JSON.stringify(manylinuxSmoke)).toContain('-e DSH_TELEMETRY_DISABLED')
+  })
+
+  it.each([
+    ['POSIX', 'posix', "runner.os != 'Windows'"],
+    ['Windows', 'windows', "runner.os == 'Windows'"],
+  ])('runs native command regressions through the installed %s wheels', (platform, suffix, condition) => {
+    const build = workflowJob(loadWorkflow('.github/workflows/build-exe-for-python-sdk.yml'), 'build')
+    if (!Array.isArray(build.steps)) throw new TypeError('Python wheel builder must define steps')
+    const steps = build.steps.filter(isRecord)
+    const installIndex = steps.findIndex(step => step.id === `smoke-venv-${suffix}`)
+    const testIndex = steps.findIndex(step => step.name === `Run installed-wheel native command tests (${platform})`)
+    expect(installIndex).toBeGreaterThanOrEqual(0)
+    expect(testIndex).toBeGreaterThan(installIndex)
+    const install = steps[installIndex]
+    const test = steps[testIndex]
+    expect(install?.run).toContain('pytest>=8.0')
+    expect(test).toMatchObject({ if: condition })
+    expect(test).not.toHaveProperty('continue-on-error')
+    expect(test?.run).toContain(`"\${{ steps.smoke-venv-${suffix}.outputs.python }}" -I`)
+    expect(test?.run).toContain('run_installed_commands.py')
+    if (platform === 'Windows') {
+      expect(test).toHaveProperty('shell', 'pwsh')
+      expect(test?.run).toContain('if ($LASTEXITCODE -ne 0) { throw')
+    }
   })
 
   it('uses the shared macOS deployment-target check in GitLab', () => {

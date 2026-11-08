@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-session-reference",
   "description": "Cross-session snapshot references and durable untrusted model context (ctx.sessionReferenceResolver)",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -97,6 +97,8 @@
     "@xpeach/xph-tool-fs": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

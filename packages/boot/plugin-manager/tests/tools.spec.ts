@@ -1,8 +1,10 @@
-import { setSandboxMode } from '@xpeach/xph-sandbox-policy'
 /** Agent controls use the same manager methods as the Web and bound inventory reads. */
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import { setSandboxMode } from '@xpeach/xph-sandbox-policy'
 import { Context } from '@xpeach/xph-cordis'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime from '@xpeach/xph-tools'
+import ToolRuntime, { type ToolExecutionResult } from '@xpeach/xph-tools'
 import { ToolCallId } from '@xpeach/xph-llm'
 import type { Agent } from '@xpeach/xph-agent'
 import SandboxPolicy from '@xpeach/xph-sandbox-policy'
@@ -14,7 +16,7 @@ import type PluginManager from '../src/index.ts'
 import type { BundleInfo } from '../src/types.ts'
 import * as tool from '../src/tools.ts'
 
-function resultText(result: Awaited<ReturnType<ToolRuntime['execute']>>): string {
+function resultText(result: ToolExecutionResult): string {
   if (typeof result.value !== 'string') throw new Error('Expected a serialized manager result')
   return result.value
 }
@@ -35,11 +37,12 @@ async function fixture(mode: 'read-only' | 'workspace-write' | 'danger-full-acce
   ctx.provide('pluginManager', manager as unknown as PluginManager)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(SessionProjections)
   await ctx.plugin(SandboxPolicy, { mode })
   if (approval !== undefined) await ctx.plugin(ApprovalService, { policy: approval })
   const fiber = await ctx.plugin(tool)
-  const call = (args: unknown, agent?: Agent, signal = new AbortController().signal) => ctx.tools.execute({ name: 'plugin_manager', arguments: args,
+  const call = (args: unknown, agent?: Agent, signal = new AbortController().signal) => executeToolFixture(ctx, { name: 'plugin_manager', arguments: args,
     ...agent === undefined ? {} : { agent },
     callId: ToolCallId('manager-call'), signal })
   return { ctx, manager, call, fiber }
@@ -86,7 +89,7 @@ it('exposes an absent Official bundle installation target without display metada
   const { manager, call } = await fixture()
   const offered: BundleInfo = {
     name: '@xpeach/xph-subagent-codex', official: true, availability: 'missing',
-    installed: false, enabled: false, optional: false, removable: false, rows: [], overrides: [],
+    installed: false, enabled: false, optional: false, removable: false, updatable: false, rows: [], overrides: [],
     installTarget: { spec: '@xpeach/xph-subagent-codex@1.2.3', version: '1.2.3' },
     meta: { title: 'Codex subagent' },
   }

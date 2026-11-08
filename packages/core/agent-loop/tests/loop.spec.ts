@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime, { createUserMessage, ToolCallId, LlmError, ReasoningEffortId, StreamChunk, expandAssistantStream } from '@xpeach/xph-llm'
@@ -5,7 +6,8 @@ import type { ContextFormed } from '@xpeach/xph-llm'
 import type { GenerateOptions } from '@xpeach/xph-llm'
 import SessionStore, { SessionId, TurnEndReason } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { type Agent, type AssistantStreamFrame } from '@xpeach/xph-agent'
 
 import AgentLoop from '@xpeach/xph-agent-loop'
@@ -35,6 +37,7 @@ async function harness(adapter: MockAdapter, persona = '') {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { personaPrefix: persona })
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -1917,6 +1920,7 @@ describe('agent loop', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, {
       agents: [{ id: SessionId('config-agent'), provider: 'mock', model: 'mock', reasoningEffort: effort }],
@@ -1945,6 +1949,7 @@ describe('agent loop', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, {
       agents: [{ id: SessionId('config-agent'), provider: 'mock', model: 'mock', cwd: '/work/project' }],

@@ -5,69 +5,69 @@
 /:
   en: 7c0f613105d4008a
   zh: c36c0cdff7e77576
-/xpeach-xph-client-ui-workspace:
-  en: 7f0ef54a497a2637
-  zh: a053cb33bd270cf8
-/xpeach-xph-client-ui-workspace/summary:
+/deepseek-ai-dsh-client-ui-workspace:
+  en: b286adf3aca51710
+  zh: 6122f6e7c8015197
+/deepseek-ai-dsh-client-ui-workspace/summary:
   en: 1a76ace6a18e3ab5
   zh: b274d1e98e133851
-/xpeach-xph-client-ui-workspace/table-of-contents:
+/deepseek-ai-dsh-client-ui-workspace/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
-/xpeach-xph-client-ui-workspace/use-this-package:
-  en: 54141355b199be8c
-  zh: d270d55135a31195
-/xpeach-xph-client-ui-workspace/use-this-package/reordering-and-view-options:
-  en: 8673afc1d72ad077
-  zh: 9fbb83a4029c5d10
-/xpeach-xph-client-ui-workspace/use-this-package/workspace-hierarchy:
-  en: cd8635fa6516441d
-  zh: c06e251fe3dd895b
-/xpeach-xph-client-ui-workspace/use-this-package/search:
-  en: d5860b8634689f80
-  zh: 0fc370b9d770030a
-/xpeach-xph-client-ui-workspace/use-this-package/managing-sessions:
-  en: 2ab76b5960b3c234
-  zh: 8076d05b2bab07e3
-/xpeach-xph-client-ui-workspace/use-this-package/pending-interactions:
+/deepseek-ai-dsh-client-ui-workspace/use-this-package:
+  en: d042b4b1dd7e7f56
+  zh: c12fa070ef5a02a4
+/deepseek-ai-dsh-client-ui-workspace/use-this-package/reordering-and-view-options:
+  en: 55054408b8593c70
+  zh: 9fdf9861a48abba3
+/deepseek-ai-dsh-client-ui-workspace/use-this-package/workspace-hierarchy:
+  en: 5e049b90c55eddb3
+  zh: e06dc8d0d25c013f
+/deepseek-ai-dsh-client-ui-workspace/use-this-package/search:
+  en: 29facc4eae028dae
+  zh: 754ebac4cc294e65
+/deepseek-ai-dsh-client-ui-workspace/use-this-package/managing-sessions:
+  en: e96b714aeb6dcd03
+  zh: 75b63aa2cafbb57a
+/deepseek-ai-dsh-client-ui-workspace/use-this-package/pending-interactions:
   en: 9fb88260380bf093
   zh: 3bace2b96ecd4a82
-/xpeach-xph-client-ui-workspace/use-this-package/active-schedule-markers:
-  en: 8d82539e4e4e890d
-  zh: 7b97a3927de90ea8
-/xpeach-xph-client-ui-workspace/understand-the-implementation:
-  en: 721d5a49fe231191
-  zh: 3ef1dd720219e00e
-/xpeach-xph-client-ui-workspace/understand-the-implementation/the-directory-flow-hole:
+/deepseek-ai-dsh-client-ui-workspace/use-this-package/active-schedule-markers:
+  en: 2168316f604893a5
+  zh: fe11347009339a9a
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation:
+  en: 3e17f5f0867bb1b4
+  zh: 8b012092767a7430
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation/the-directory-flow-hole:
   en: 868904dbfb5713f8
   zh: 225906bfef7398bf
-/xpeach-xph-client-ui-workspace/understand-the-implementation/session-row-actions:
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation/session-row-actions:
   en: 5bbba6e462faf3dc
   zh: 4734263208ee07c9
-/xpeach-xph-client-ui-workspace/understand-the-implementation/session-row-actions/packaged-client-plugin:
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation/session-row-actions/packaged-client-plugin:
   en: 36934671b80b11ae
   zh: 8e0aea6162e35e77
-/xpeach-xph-client-ui-workspace/understand-the-implementation/session-row-actions/dynamic-client-package:
-  en: 04736826e63e766e
-  zh: de229138da9bfe74
-/xpeach-xph-client-ui-workspace/understand-the-implementation/view-state:
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation/session-row-actions/dynamic-client-package:
+  en: ad4a333892f2fe92
+  zh: 3a670fd401f4d7a7
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation/view-state:
   en: 83031e7505fc228a
   zh: 03e17c9428fe29fd
-/xpeach-xph-client-ui-workspace/understand-the-implementation/hover-cards:
+/deepseek-ai-dsh-client-ui-workspace/understand-the-implementation/hover-cards:
   en: ea89ec5a3ee1f167
   zh: e11f350571bcfff7
-/xpeach-xph-client-ui-workspace/further-exploration:
+/deepseek-ai-dsh-client-ui-workspace/further-exploration:
   en: 2abbf27abbd71ba4
   zh: ace33fa2ea042357
-/xpeach-xph-client-ui-workspace/model-experience:
+/deepseek-ai-dsh-client-ui-workspace/model-experience:
   en: 3120df665299c634
   zh: 1d9f365d091d0d2a
-/xpeach-xph-client-ui-workspace/model-experience/kv-cache-effect:
+/deepseek-ai-dsh-client-ui-workspace/model-experience/kv-cache-effect:
   en: ca75c51c89c2c9b0
   zh: de54f3467ef3b9be
-/xpeach-xph-client-ui-workspace/known-limitations-and-deferred-work:
+/deepseek-ai-dsh-client-ui-workspace/known-limitations-and-deferred-work:
   en: 00d7b1ddda7390f5
   zh: 1e5a1055d1be4d1d
-/xpeach-xph-client-ui-workspace/known-limitations-and-deferred-work/dev-note:
+/deepseek-ai-dsh-client-ui-workspace/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

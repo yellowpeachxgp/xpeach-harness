@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-session-controller",
   "description": "Session Remote commands, cold reads, and live control transport",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -74,6 +74,7 @@
     "@xpeach/xph-brand": "workspace:*",
     "@xpeach/xph-deque": "workspace:*",
     "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-timeout": "workspace:*",
     "mime-types": "^3.0.2",
     "zod": "4.4.3"
   },

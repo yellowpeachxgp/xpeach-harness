@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-sdk-jsonrpc-server",
   "description": "Stdio JSON-RPC server plugin for out-of-process DeepSeek Harness SDK clients",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -34,6 +34,8 @@
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-attachment": "workspace:*",
+    "@xpeach/xph-commands": "workspace:*",
+    "@xpeach/xph-goal": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-llm-deepseek-api-key": "workspace:*",
     "@xpeach/xph-scope": "workspace:*",
@@ -49,14 +51,30 @@
     "@xpeach/xph-agent-loop": "workspace:*",
     "@xpeach/xph-agent-loop-testkit": "workspace:*",
     "@xpeach/xph-attachment": "workspace:*",
+    "@xpeach/xph-command-compact": "workspace:*",
+    "@xpeach/xph-command-goal": "workspace:*",
+    "@xpeach/xph-commands": "workspace:*",
+    "@xpeach/xph-compaction-basic": "workspace:*",
+    "@xpeach/xph-goal": "workspace:*",
+    "@xpeach/xph-goal-round-driver": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-llm-deepseek-api-key": "workspace:*",
+    "@xpeach/xph-permission-presets": "workspace:*",
+    "@xpeach/xph-plan-mode": "workspace:*",
+    "@xpeach/xph-sandbox-policy": "workspace:*",
+    "@xpeach/xph-schedule": "workspace:*",
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-sdk-protocol": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-session-persistence-jsonl": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-shell": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-token-meter": "workspace:*",
+    "@xpeach/xph-tool-goal": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-user-approval": "workspace:*",
+    "@xpeach/xph-user-questions": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*"
   }
 }

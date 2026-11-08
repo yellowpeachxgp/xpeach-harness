@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-loop",
   "description": "The concrete agent loop plugin for the DeepSeek Harness",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -56,6 +56,9 @@
     "@xpeach/xph-session-persistence-jsonl": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

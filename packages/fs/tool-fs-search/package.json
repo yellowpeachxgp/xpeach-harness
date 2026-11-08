@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-fs-search",
   "description": "Model-facing filesystem discovery tools (glob, grep) backed by the packaged ripgrep binary (@vscode/ripgrep)",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -58,6 +58,8 @@
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-agent-loop-testkit": "workspace:*"
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

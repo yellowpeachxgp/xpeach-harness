@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-session-query",
   "description": "Workspace-authorized model-facing session history search, trace, and event read tools",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -56,6 +56,8 @@
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-timeout": "workspace:*",
     "@xpeach/xph-tool-call-timeout-policy": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import type { Fiber } from '@xpeach/xph-cordis'
@@ -16,7 +17,8 @@ import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import type { SessionEvent, SessionEventMap } from '@xpeach/xph-session'
 import type { LlmRetryEventData } from '@xpeach/xph-llm-retry/types'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry from '@xpeach/xph-agent'
 import type { Agent, RequestErrorAction } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
@@ -111,6 +113,7 @@ async function harness(
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   beforeRetry?.(ctx)
   adapter.configureRetryPolicies(policies)

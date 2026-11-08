@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SessionLogOffset, SessionSeq, TOOL_OUTCOME_UNKNOWN, type SessionEvent } from '@xpeach/xph-session'
 import { createToolResultMessage, createUserMessage, ToolCallId, type ToolSchema } from '@xpeach/xph-llm'
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/types'
 import {
   applyUserQuestionEvent, foldUserQuestions, isTimedAskUserQuestionSchema, questionsOf, TIMED_WAIT_PARAMETER,
   userQuestionProjectionDefinition,

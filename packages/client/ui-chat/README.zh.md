@@ -10,7 +10,7 @@ kind: "package-reference"
 
 ## 概述
 
-使用本包可在浏览器中渲染已记录的 Session 对话，包括历史图片、本地化操作和滚动位置恢复。工作步骤展示模式控制思考预览与过程显隐，不隐藏最终答案；完全展开模式保持已完成轮次的过程行可见。本地 transcript（文本记录）与 steering（中途引导）提交会立即显示并保留在原区域，在权威会话记录到达时原子地消失，而排队中的提交始终不进入 Chat。本包不组装或修改模型请求。
+使用本包可在浏览器中渲染已记录的 Session 对话，包括历史图片、本地化操作和滚动位置恢复。工作步骤展示模式控制思考预览与过程显隐，不隐藏 Assistant 回复；完全展开模式保持已完成轮次的过程行可见。本地 transcript（文本记录）与 steering（中途引导）提交会立即显示并保留在原区域，在权威会话记录到达时原子地消失，而排队中的提交始终不进入 Chat。本包不组装或修改模型请求。
 
 文件提及提供方同时接收当前查看的会话 ID 与收尾轮次的属主信息，因此继承历史中的链接可以指向 fork 自身。
 
@@ -35,7 +35,7 @@ kind: "package-reference"
 
 已发送的普通文件附件保留草稿中的[文件卡片圆角](../../../docs/ui-radius.zh.md#radius-scale)。
 
-`ChatView` 通过节点列表外围既有的 `MarkdownDelegateProvider` 提供文件及 HTTP(S) 导航，直接传入 `requestOpenFile`、`openExternalLink` 和 `fileImages`。文件打开动作保留 Chat 的失败反馈与重试处理。Assistant Markdown 文件链接在消息落定后可于右侧栏打开，包括未修改文件的引用。相对路径基于当前查看的 Session 工作区解析；绝对路径仍使用同一 Session 的文件系统访问。`#L24` 和 `#L24-L30` 定位到指定起始行，并复用现有文件标签。文件缺失时显示预览错误状态。
+`ChatView` 通过节点列表外围既有的 `MarkdownDelegateProvider` 提供文件及 HTTP(S) 导航，直接传入 `requestOpenFile`、`openExternalLink` 和 `fileImages`。文件打开动作保留 Chat 的失败反馈与重试处理。Assistant Markdown 文件链接在消息落定后可于右侧栏打开，包括未修改文件的引用。相对路径基于当前查看的 Session 工作区解析；绝对路径仍使用同一 Session 的文件系统访问。[支持的 Markdown 行号引用](../ui-primitives/README.zh.md#rendering-agent-output)定位到指定起始行，并复用现有文件标签。文件缺失时显示预览错误状态。
 
 原生消息图片使用独立的用户与输出位置。`conversation.chat.user.content` Factory 声明 `conversation.chat.user.images`，由 `UserContent` 渲染；Assistant 节点注册声明 `conversation.chat.message.images`，由 `AssistantMarkdown` 渲染。两者通过显式 props 接收图片来源、授权 `loadImage` 和布局参数。官方 `MessageImages` 条目调用共享的 root 作用域 `conversation.images.content` Factory。每个位置均可独立替换，无需复制画廊实现。
 
@@ -53,6 +53,8 @@ Session 作用域的 `conversation.chat.user.content` Factory 只渲染用户内
 Chat 在所有工作步骤展示模式下都不显示系统提示词行、普通上下文注入和 `permission` 命令行。包含工具添加或移除记录的上下文仍然可见。该过滤不改变已记录的 Session 事件或 Trajectory 查看能力。非人工轮次触发仍作为独立通知显示，其他命令行仍保留在 Chat 中。
 
 Assistant 尝试结束且没有可见消息时，Chat 隐藏已发布的 Node，不移除其 key。同一 Step 的重试再次产生可见内容时，复用该 key。已加载窗口缺少 Step 起点时也遵循此规则。
+
+只有包含非空白字符的文本和推理块才计入 Assistant 的可见内容。流式追加复用每个块的可见状态；块替换和最终消息重新计算可见性，同时保留原始文本。
 
 <a id="command-and-failure-rows"></a>
 ## 指令与失败行
@@ -92,9 +94,9 @@ Assistant 尝试结束且没有可见消息时，Chat 隐藏已发布的 Node，
 
 Chat 末尾为进行中的 Turn 控制行，且该轮尚无可见输入时，第一条本地 transcript 回显显示在控制行前。其他回显保留在正文末尾。控制行与回显共用一个 keyed 列表，因此控制行到达时不会重新挂载回显。持久输入在同一次渲染中替换匹配的回显。
 
-工作步骤展示模式控制过程组显示与推理预览。简洁、标准、详细模式收起符合条件的已完成轮次，不隐藏最终答案；完全展开模式保留时长或状态抬头，但不支持收起，历史过程行直接显示。[业务规则明细](src/client/conversation-nodes/README.zh.md#display-modes) 统一说明模式表、组头行为、整轮折叠资格、时钟与开合重置。
+工作步骤展示模式控制过程组显示与推理预览。简洁、标准、详细模式收起符合条件的已完成轮次，保留所有 Assistant 回复可见，选「仅最终回答」时只保留最终答案；完全展开模式保留时长或状态抬头，但不支持收起，历史过程行直接显示。[业务规则明细](src/client/conversation-nodes/README.zh.md#display-modes) 统一说明模式表、组头行为、整轮折叠资格、时钟与开合重置。
 
-工作步骤展示下方的设置行提供[独立的收起时机设置](src/client/conversation-nodes/README.zh.md#collapse-timing)，通过相同的 Host profile 配置保存。
+工作步骤展示下方的设置行提供[独立的收起时机设置](src/client/conversation-nodes/README.zh.md#collapse-timing)和[「收起后显示的回复」设置](src/client/conversation-nodes/README.zh.md#folded-replies)（`ui-chat.foldedReplies`，完全展开模式下隐藏），二者都通过相同的 Host profile 配置保存。
 
 -----
 
@@ -111,7 +113,7 @@ Chat Builder 按节点发布 `bottomSource`：节点可见且属于已加载的�
 
 过程组使用稳定的 `div` 布局盒子、滚动正文及不限高的内容盒子，后者报告正文内部的内容增长。业务样式必须适配组内及组边界间距，处理隐藏或空成员以及回答前的间距特例。`conversation.chat.flow` 插槽添加一个 `display: contents` DOM 锚点；行选择器直接匹配该锚点，不重复匹配其正文容器祖先。运行状态与各行共享父级，使分隔线使用同一套可见兄弟节点规则。锚点自身不产生间距。CSS 变量不属于 Group Definition。
 
-运行中的分组标题、思考预览、工具与命令行、当前重试行以及底部运行状态使用共享的 [TextShimmer](../ui-primitives/README.zh.md#component-catalog)。每行的文字共用一道从左到右的高光，包括折叠的分组标题；图标和悬停箭头保留底色。工具和过程行之间相隔 6px；展开的分组标题与内容之间相隔 8px；Assistant 回复与相邻过程行之间相隔 12px；每轮完成／耗时控件周围保留 16px。隐藏行与空行（包括保留的空 slot 锚点）不产生间距。“深度求索”运行文字保留蓝色底色，并使用主题专用高光扫过文字。
+运行中的分组标题、思考预览、工具与命令行、当前重试行以及底部运行状态使用共享的 [TextShimmer](../ui-primitives/README.zh.md#component-catalog)。每行的文字共用一道从左到右的高光，包括折叠的分组标题；图标和悬停箭头保留底色。工具和过程行之间相隔 6px；展开的分组标题与内容之间相隔 8px；Assistant 回复与相邻过程行之间相隔 12px；每轮完成／耗时控件与其输入、以及紧随其后的可见行之间保留 16px。控件与回复之间隔着已收起的行时，回复保持 12px 回复间距，因此折叠不会改变它的间距。隐藏行与空行（包括保留的空 slot 锚点）不产生间距。“深度求索”运行文字保留蓝色底色，并使用主题专用高光扫过文字。
 
 运行状态显示一只鲸鱼，其 APNG 遮罩继承文字颜色。启用减少动态效果或强制颜色模式、或浏览器不支持 alpha 遮罩时，CSS 选择静态 SVG。构建将图片嵌入插件样式表；React 不通过 DOM 样式传递图片数据。
 
@@ -173,6 +175,10 @@ Chat 会在历史前插与 renderer 重新挂载时恢复语义锚点，并且�
 </details>
 
 -----
+
+Chat view 在标记了 `data-text-interaction-source` 的业务节点上检测选区和右键手势。选区两端必须定位到同一个来源容器。已展示的用户内容和已完成的 Assistant 文本或 reasoning 参与交互；Tool、注入上下文、流式或中断的 Assistant 文本以及 Markdown 控件不参与。
+
+`ctx.uiConversation.interactions` 将有效手势分发给插件注册项，并把对应组件交给 Chat view。操作展示位置在已有 Chat 列内绝对定位，限制在 composer seat 及其 dock 上方。外层容器保留组件的外描边与阴影，内部滚动由组件负责。选区滚出该可见范围时暂时隐藏操作，滚回后恢复。Chat 负责视口可见性、定位、外部指针按下、Escape、新选区、来源失效与卸载清理；主动关闭保留浏览器选区，布局变化不会重新打开操作。[Message quotes](../../session/message-quotes/README.zh.md) 负责引用的接管条件和插入。
 
 <a id="model-experience"></a>
 ## 模型体验

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-cordis",
   "description": "Read-only runtime API inspection for Harness plugin development",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -52,6 +52,7 @@
     "@xpeach/xph-cordis-host-runner": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-schemastery": "workspace:~"
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   }
 }

@@ -5,57 +5,57 @@
 /:
   en: 6da33cc935e210c4
   zh: 752948e68a6e2c32
-/xpeach-xph-client-ui-primitives:
-  en: 82de37d06b4a79e9
-  zh: 1c9ead1371f45dd4
-/xpeach-xph-client-ui-primitives/summary:
+/deepseek-ai-dsh-client-ui-primitives:
+  en: e39769cae26393b8
+  zh: 8743c8cf561fec35
+/deepseek-ai-dsh-client-ui-primitives/summary:
   en: a05472dce901d64f
   zh: 6747ad81824a5c0d
-/xpeach-xph-client-ui-primitives/table-of-contents:
+/deepseek-ai-dsh-client-ui-primitives/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
-/xpeach-xph-client-ui-primitives/use-this-package:
-  en: beec1ea02d0adc12
-  zh: 9a0fc5e0e4d78722
-/xpeach-xph-client-ui-primitives/use-this-package/component-catalog:
-  en: 711443ce91015536
-  zh: 4a34b600b0e88f1c
-/xpeach-xph-client-ui-primitives/use-this-package/controls-and-icons:
-  en: 8df38d4fbd8de92d
-  zh: 554e1915cbeec290
-/xpeach-xph-client-ui-primitives/use-this-package/rendering-agent-output:
-  en: 12fe9d9b1410edef
-  zh: f2dfdc01170d7cce
-/xpeach-xph-client-ui-primitives/use-this-package/localizing-copy:
+/deepseek-ai-dsh-client-ui-primitives/use-this-package:
+  en: 7bae72c97d0449f5
+  zh: 4589ecc2b216edc5
+/deepseek-ai-dsh-client-ui-primitives/use-this-package/component-catalog:
+  en: c804a44a782227cb
+  zh: 14b53da9bf298c5f
+/deepseek-ai-dsh-client-ui-primitives/use-this-package/controls-and-icons:
+  en: 09c61f61c560f8a2
+  zh: 895ac73add1199b8
+/deepseek-ai-dsh-client-ui-primitives/use-this-package/rendering-agent-output:
+  en: 0b9f06ba66875bc3
+  zh: db1b74646fd7fbcc
+/deepseek-ai-dsh-client-ui-primitives/use-this-package/localizing-copy:
   en: 4aef65dea11de083
   zh: abc22cd7c65cdf38
-/xpeach-xph-client-ui-primitives/understand-the-implementation:
-  en: d223f2e301758b0f
-  zh: 5d1bc5a5e5431dbf
-/xpeach-xph-client-ui-primitives/understand-the-implementation/source-map:
+/deepseek-ai-dsh-client-ui-primitives/understand-the-implementation:
+  en: 0b4082dbb778476f
+  zh: b6daaaf9de675b57
+/deepseek-ai-dsh-client-ui-primitives/understand-the-implementation/source-map:
   en: 44eb32370cbeafe8
   zh: 728009c66375c6bb
-/xpeach-xph-client-ui-primitives/understand-the-implementation/input-modality:
+/deepseek-ai-dsh-client-ui-primitives/understand-the-implementation/input-modality:
   en: cb61e1a37d6c27e5
   zh: 1f3fa79dd5ab2e45
-/xpeach-xph-client-ui-primitives/understand-the-implementation/streaming-markdown:
+/deepseek-ai-dsh-client-ui-primitives/understand-the-implementation/streaming-markdown:
   en: 8bbfa14c27f3bfd7
   zh: 88f7548ac3a114e1
-/xpeach-xph-client-ui-primitives/understand-the-implementation/geometry-and-overflow:
+/deepseek-ai-dsh-client-ui-primitives/understand-the-implementation/geometry-and-overflow:
   en: 45f4cd1ef96bb6d2
   zh: f264d25b780ad1dc
-/xpeach-xph-client-ui-primitives/further-exploration:
+/deepseek-ai-dsh-client-ui-primitives/further-exploration:
   en: e82b713cdb2f954b
   zh: a877f34b148f433f
-/xpeach-xph-client-ui-primitives/model-experience:
+/deepseek-ai-dsh-client-ui-primitives/model-experience:
   en: 3120df665299c634
   zh: 1d9f365d091d0d2a
-/xpeach-xph-client-ui-primitives/model-experience/kv-cache-effect:
+/deepseek-ai-dsh-client-ui-primitives/model-experience/kv-cache-effect:
   en: ca75c51c89c2c9b0
   zh: de54f3467ef3b9be
-/xpeach-xph-client-ui-primitives/known-limitations-and-deferred-work:
-  en: 22fc14aa3a224552
-  zh: aa6309e84ad8c2a3
-/xpeach-xph-client-ui-primitives/known-limitations-and-deferred-work/dev-note:
+/deepseek-ai-dsh-client-ui-primitives/known-limitations-and-deferred-work:
+  en: 8a0dba47f5a8615b
+  zh: d75d799dcf0ac57b
+/deepseek-ai-dsh-client-ui-primitives/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

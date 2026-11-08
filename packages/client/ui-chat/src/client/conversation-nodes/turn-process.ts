@@ -4,7 +4,7 @@ import type {
 } from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-llm-retry/types'
 import type { StreamChunk } from '@xpeach/xph-llm'
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/client'
 import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
 import type { AssistantChatData, ChatNode, FinalAssistantChatData } from '../contract/chat-nodes.ts'
 import {

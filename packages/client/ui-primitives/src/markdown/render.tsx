@@ -4,11 +4,11 @@
  * cache frozen blocks as React elements; the rendered DOM is pinned
  * byte-for-byte by `tests/fixtures/markdown-dom` and must not drift.
  *
- * External link and image destinations pass a protocol allowlist; settled
+ * External links reject executable and embedded-document protocols; settled
  * local file links use an explicit owner callback. Images additionally require
  * absolute HTTP(S), raw HTML renders as literal text (no HTML enters the
- * DOM), and KaTeX runs without trusted commands. Fragment-anchor URLs fail
- * the allowlist, so footnote references and back-references render as plain
+ * DOM), and KaTeX runs without trusted commands. Fragment-only URLs are not
+ * absolute, so footnote references and back-references render as plain
  * text rather than in-page links.
  *
  * Merge-extensible node unions fall through the documented default (render
@@ -24,7 +24,7 @@ import type {} from 'mdast-util-math'
 import { normalizeUri } from 'micromark-util-sanitize-uri'
 import type { CodeToolbarLabels } from '../CodeToolbar.tsx'
 import { CodeBlock } from './CodeBlock.tsx'
-import { parseFileLink } from './file-link.ts'
+import { isExplicitFilePath, parseFileLink } from './file-link.ts'
 import { renderTexToReact } from './katex.tsx'
 import { LinkIconMedium, classifyLinkPath } from '../LinkIcon.tsx'
 import { useMarkdownDelegate } from './MarkdownDelegate.tsx'
@@ -51,14 +51,16 @@ export interface MarkdownLabels {
 }
 
 function sanitizeUrl(url: string): string {
+  if (isExplicitFilePath(url)) return ''
   try {
     switch (new URL(url).protocol) {
-      case 'http:':
-      case 'https:':
-      case 'mailto:':
-        return url
-      default:
+      case 'javascript:':
+      case 'vbscript:':
+      case 'data:':
+      case 'blob:':
         return ''
+      default:
+        return url
     }
   } catch {
     // Relative and otherwise unparsable destinations are disallowed alongside
@@ -77,12 +79,17 @@ function remoteImageUrl(url: string): string | undefined {
   }
 }
 
-/** Rewritten images may use Web media protocols or the Desktop application's file route. */
+/** Authenticated Host media routes as the Desktop application addresses them. */
+const DESKTOP_MEDIA_ROUTES = [
+  'dsh-app://app/api/file?', 'dsh-app://app/api/plugin-market/detail-file?', 'dsh-app://app/api/plugin-manager/detail-file?',
+]
+
+/** Rewritten images may use Web media protocols or the Desktop application's media routes. */
 function vocabularyImageUrl(url: string): string | undefined {
   try {
     const protocol = new URL(url).protocol
     return protocol === 'http:' || protocol === 'https:' || protocol === 'blob:' || protocol === 'data:'
-      || url.startsWith('dsh-app://app/api/file?')
+      || DESKTOP_MEDIA_ROUTES.some(route => url.startsWith(route))
       ? url
       : undefined
   } catch {
@@ -193,6 +200,8 @@ export interface MarkdownRenderContext {
   readonly fileMentions: MarkdownFileMentions | undefined
   /** Local-path image vocabulary; absent wherever no rewriting owner exists. */
   readonly pathImages: MarkdownPathImages | undefined
+  /** Raw HTML renders nothing instead of literal text. */
+  readonly omitHtml: boolean
   /** Inside an anchor's children: interactive mentions must not nest there. */
   readonly inLink?: boolean
   /** Reference targets visible to this pass. */
@@ -331,8 +340,8 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       return <code key={key}>{value}</code>
     }
     case 'html':
-      // No HTML parser enters the pipeline: raw HTML stays literal text.
-      return node.value
+      // No HTML parser enters the pipeline: raw HTML is literal text, or nothing where the owner omits it.
+      return context.omitHtml ? null : node.value
     case 'code':
       return renderCode(node, key, context)
     case 'math':
@@ -538,7 +547,7 @@ function anchorWrapsOnlyImages(children: Md.PhrasingContent[]): boolean {
   return children.length > 0 && children.every(child => child.type === 'image' || child.type === 'imageReference')
 }
 
-/** Anchor over an already-authored href: allowlisted or unwrapped, with optional owner navigation for HTTP(S). */
+/** Anchor over a safe absolute href, with optional owner navigation for HTTP(S). */
 function renderSafeLink(href: string, children: ReactNode[], key: Key, glyph = true): ReactNode {
   const safeHref = sanitizeUrl(href)
   if (safeHref === '') return <Fragment key={key}>{children}</Fragment>
@@ -571,8 +580,9 @@ function MarkdownAnchor({ href, glyph, children }: {
 
 /** Local destinations use the scoped file delegate after settlement. */
 function renderAnchor(url: string, children: ReactNode[], key: Key, glyph = true, streaming = false): ReactNode {
-  const file = streaming ? undefined : parseFileLink(url)
+  const file = parseFileLink(url)
   if (file !== undefined) {
+    if (streaming) return <Fragment key={key}>{children}</Fragment>
     return <MarkdownFileLink key={key} file={file} glyph={glyph}>{children}</MarkdownFileLink>
   }
   return renderSafeLink(normalizeUri(url), children, key, glyph)
@@ -705,7 +715,7 @@ function renderFootnoteReference(
   const seen = context.footnoteCounts.get(id)
   if (seen === undefined) context.footnoteOrder.push(id)
   context.footnoteCounts.set(id, (seen ?? 0) + 1)
-  // The in-page anchor fails the protocol allowlist, so only the numbered
+  // The in-page anchor is not an absolute URL, so only the numbered
   // superscript renders (matching the replaced pipeline's unwrapped link).
   return <sup key={key}>{String(context.footnoteOrder.indexOf(id) + 1)}</sup>
 }

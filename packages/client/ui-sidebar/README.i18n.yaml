@@ -5,51 +5,51 @@
 /:
   en: 7884381c2c554eca
   zh: e6d7199a9bb2f0f8
-/xpeach-xph-client-ui-sidebar:
-  en: 7d135e7586a6a9e1
-  zh: 6c4601e534ff0e92
-/xpeach-xph-client-ui-sidebar/summary:
+/deepseek-ai-dsh-client-ui-sidebar:
+  en: e357f49fb1d1710e
+  zh: 2e61922b104f77eb
+/deepseek-ai-dsh-client-ui-sidebar/summary:
   en: af17f03561e5372b
   zh: 91a1b9f6c7a51025
-/xpeach-xph-client-ui-sidebar/table-of-contents:
+/deepseek-ai-dsh-client-ui-sidebar/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
-/xpeach-xph-client-ui-sidebar/use-this-package:
-  en: 20c9afaced856d66
-  zh: 5b1ccb02bbf08523
-/xpeach-xph-client-ui-sidebar/use-this-package/brand-and-new-session:
-  en: dc4cd867c0951031
-  zh: b16ef128b4657403
-/xpeach-xph-client-ui-sidebar/use-this-package/global-panel-entries:
+/deepseek-ai-dsh-client-ui-sidebar/use-this-package:
+  en: a970f0547496634f
+  zh: 36ef9a85b26e19f1
+/deepseek-ai-dsh-client-ui-sidebar/use-this-package/brand-and-new-session:
+  en: 44db2d448bc2ea6d
+  zh: cbb1143afb524d5b
+/deepseek-ai-dsh-client-ui-sidebar/use-this-package/global-panel-entries:
   en: 5d3300d3506254c5
   zh: 541ae1ee1e10b921
-/xpeach-xph-client-ui-sidebar/use-this-package/collapse-behavior:
-  en: 10381cbac96069a3
-  zh: c5849741a0be2f00
-/xpeach-xph-client-ui-sidebar/use-this-package/macos-desktop:
+/deepseek-ai-dsh-client-ui-sidebar/use-this-package/collapse-behavior:
+  en: 20e744360b4be2cc
+  zh: a90be7e8526bbb21
+/deepseek-ai-dsh-client-ui-sidebar/use-this-package/macos-desktop:
   en: 28e3639ed58492e0
   zh: 4896acd767287c8a
-/xpeach-xph-client-ui-sidebar/use-this-package/scrollbars:
+/deepseek-ai-dsh-client-ui-sidebar/use-this-package/scrollbars:
   en: d053b1ed0f4fd293
   zh: ff25a56541f57530
-/xpeach-xph-client-ui-sidebar/understand-the-implementation:
+/deepseek-ai-dsh-client-ui-sidebar/understand-the-implementation:
   en: 676cd4c309b4110d
   zh: 25d1bd0b2c7db645
-/xpeach-xph-client-ui-sidebar/understand-the-implementation/slot-discipline:
+/deepseek-ai-dsh-client-ui-sidebar/understand-the-implementation/slot-discipline:
   en: 6eefc5c45abe8a8f
   zh: 20b651e48a0ea903
-/xpeach-xph-client-ui-sidebar/further-exploration:
+/deepseek-ai-dsh-client-ui-sidebar/further-exploration:
   en: 5083bbf74e47bb67
   zh: 0236e569178756a2
-/xpeach-xph-client-ui-sidebar/model-experience:
+/deepseek-ai-dsh-client-ui-sidebar/model-experience:
   en: 3120df665299c634
   zh: 1d9f365d091d0d2a
-/xpeach-xph-client-ui-sidebar/model-experience/kv-cache-effect:
+/deepseek-ai-dsh-client-ui-sidebar/model-experience/kv-cache-effect:
   en: ca75c51c89c2c9b0
   zh: de54f3467ef3b9be
-/xpeach-xph-client-ui-sidebar/known-limitations-and-deferred-work:
+/deepseek-ai-dsh-client-ui-sidebar/known-limitations-and-deferred-work:
   en: 262db5b10dfb7d98
   zh: c1b5cf6aa58b054e
-/xpeach-xph-client-ui-sidebar/known-limitations-and-deferred-work/dev-note:
+/deepseek-ai-dsh-client-ui-sidebar/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

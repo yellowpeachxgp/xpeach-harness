@@ -1,5 +1,5 @@
 /** Indexed recorded todo predecessors for root and nested Tool calls. */
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/client'
 import type { Context } from '@xpeach/xph-cordis'
 import type {
   ConversationNodeDefinition, ConversationViewDefinition, ConversationViewNode, TodoItem,

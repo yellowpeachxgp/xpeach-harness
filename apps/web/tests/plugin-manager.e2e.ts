@@ -17,7 +17,7 @@ import {
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
 import {
-  ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, openSettings, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot,
+  ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, experimentalBundleDescription, openSettings, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot,
 } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/plugin-manager', import.meta.url))
@@ -659,11 +659,15 @@ describe('web e2e: plugin manager', () => {
     expect(await panel.locator('[data-plugin-group="basic"] [data-plugin-item]').count()).toBe(4)
     expect(await panel.locator('[data-plugin-package="@xpeach/xph-experimental-inspector"]').count()).toBe(0)
     expect(await panel.getByRole('switch', { name: '启用 语音输入', exact: true }).getAttribute('aria-checked')).toBe('false')
-    expect(await panel.getByRole('switch', { name: '启用 开发者工具', exact: true }).getAttribute('aria-checked')).toBe('false')
-    expect(await panel.getByText('查看调试会话原始数据、聊天消息分组数据，以及调试 NodeJS 后端', { exact: true }).count()).toBe(1)
+    expect(await panel.getByRole('switch', { name: '启用 自定义插件市场', exact: true }).getAttribute('aria-checked')).toBe('false')
+    expect(await panel.getByRole('switch', { name: '启用 开发者工具', exact: true }).count()).toBe(0)
     expect(await panel.getByText(/Cordis|Chrome DevTools/).count()).toBe(0)
     await panel.getByRole('button', { name: '更多', exact: true }).click()
     await panel.getByRole('heading', { name: '实验性插件', exact: true, level: 1 }).waitFor()
+    expect(await panel.getByText(experimentalBundleDescription('inspector-profile', 'zh'), { exact: true }).count()).toBe(1)
+    const bundles = await scaffold.ctx.pluginManager.listBundles()
+    expect(bundles.some(bundle => bundle.name === '@xpeach/xph-experimental-terminal-bundle')).toBe(true)
+    expect(await panel.getByRole('switch', { name: '启用 持久终端', exact: true }).count()).toBe(0)
     expect(await panel.locator('[data-plugin-group="more"] [data-plugin-package]').count())
       .toBe(OPTIONAL_BUNDLES.length + ON_DEMAND_BUNDLES.length)
     expect(await panel.getByText('实验性', { exact: true }).count())
@@ -772,13 +776,13 @@ describe('web e2e: plugin manager', () => {
     expect(tripwire.pageErrors).toEqual([])
   })
 
-  it('shows an optional feature preview before activation and leaves other plugin details unchanged', async () => {
+  it('shows a bundle detail document image before activation and leaves other plugin details unchanged', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-plugin-manager-preview'))
     const panel = await openPluginsPanel()
     await panel.getByRole('button', { name: '更多', exact: true }).click()
     await panel.getByRole('button', { name: '查看 DSH 徽章技能', exact: true }).click()
     const detail = panel.locator('[data-plugin-detail]')
-    const preview = detail.getByRole('img', { name: 'DSH 徽章技能功能预览', exact: true })
+    const preview = detail.locator('[data-detail-document]').getByRole('img', { name: 'DSH 徽章技能功能预览', exact: true })
     await preview.waitFor()
     await preview.evaluate(async (image: HTMLImageElement) => { await image.decode() })
     expect(await preview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(640)
@@ -798,7 +802,8 @@ describe('web e2e: plugin manager', () => {
     const chineseSource = await preview.getAttribute('src')
     try {
       await setLanguage('en')
-      const englishPreview = detail.getByRole('img', { name: 'DSH badge skill feature preview', exact: true })
+      const englishPreview = detail.locator('[data-detail-document]')
+        .getByRole('img', { name: 'DSH badge skill feature preview', exact: true })
       await englishPreview.waitFor()
       await englishPreview.evaluate(async (image: HTMLImageElement) => { await image.decode() })
       expect(await englishPreview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(640)
@@ -808,10 +813,12 @@ describe('web e2e: plugin manager', () => {
     }
     expect(await preview.getAttribute('src')).toBe(chineseSource)
     await panel.getByRole('button', { name: '返回 实验性插件', exact: true }).click()
-    await panel.getByRole('button', { name: '查看 智能体团队', exact: true }).click()
-    // Detail icons have alt=""; only feature previews expose an image role.
+    await panel.getByRole('button', { name: '返回插件', exact: true }).click()
+    await panel.getByRole('button', { name: '查看 @fixture/bundle', exact: true }).click()
+    // A bundle without meta.detail still shows its README; this one has no images.
+    await panel.locator('[data-detail-document] h1').waitFor()
     expect(await panel.getByRole('img').count()).toBe(0)
-    await panel.getByRole('button', { name: '返回 实验性插件', exact: true }).click()
+    await panel.getByRole('button', { name: '返回插件', exact: true }).click()
     expect(tripwire.pageErrors).toEqual([])
   })
 
@@ -827,6 +834,9 @@ describe('web e2e: plugin manager', () => {
     expect(await search.getByText('搜索工作区中的文件。', { exact: true }).count()).toBe(1)
     expect(await review.getByText('审查工作区中的改动。', { exact: true }).count()).toBe(1)
     await panel.getByText('Registry description for the fixture bundle.', { exact: true }).first().waitFor()
+    // The README detail document loads asynchronously after the description.
+    const readmeHeading = panel.locator('[data-detail-document]').getByRole('heading', { name: 'Fixture bundle', exact: true })
+    await readmeHeading.waitFor()
     expect([...scaffold.ctx.loader.entries()].some(entry => entry.options.name.startsWith('@fixture/bundle'))).toBe(false)
     await compareOrRefreshGolden(EXPORTS_EXPECTED, await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
       replacements: [[FIXTURE_PLUGINS, '{{fixtures}}']],
@@ -837,6 +847,7 @@ describe('web e2e: plugin manager', () => {
       expect(await review.getByText('@fixture/bundle/review', { exact: true }).count()).toBeGreaterThan(0)
       expect(await search.getByText('Search package introduction.', { exact: true }).count()).toBe(0)
       expect(await review.getByText('审查工作区中的改动。', { exact: true }).count()).toBe(0)
+      await readmeHeading.waitFor()
       await compareOrRefreshGolden(EXPORTS_EN_EXPECTED, await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
         replacements: [[FIXTURE_PLUGINS, '{{fixtures}}']],
       }), MODE)
@@ -855,7 +866,7 @@ describe('web e2e: plugin manager', () => {
     await panel.getByRole('button', { name: '查看 智能体团队', exact: true }).click()
     const packageName = panel.locator('[data-plugin-name]')
     expect(await packageName.textContent()).toBe('@xpeach/xph-experimental-agent-team-profile')
-    expect(await panel.getByText('启用团队协作、团队工具、成员列表和共享任务看板。').count()).toBe(1)
+    expect(await panel.getByText(experimentalBundleDescription('agent-team-profile', 'zh')).count()).toBe(1)
     const child = panel.locator('[data-plugin-row]', { hasText: 'tool-agent-team' })
     await child.getByText('团队工具', { exact: true }).waitFor()
     expect(await child.getByText('为智能体提供成员协调、消息通信和共享任务管理工具。', { exact: true }).count()).toBe(1)
@@ -863,7 +874,7 @@ describe('web e2e: plugin manager', () => {
       await setLanguage('en')
       await panel.getByRole('heading', { name: 'Agent Teams', exact: true }).waitFor()
       expect(await packageName.textContent()).toBe('@xpeach/xph-experimental-agent-team-profile')
-      expect(await panel.getByText('Enable team collaboration, team tools, the member roster, and the shared task board.').count()).toBe(1)
+      expect(await panel.getByText(experimentalBundleDescription('agent-team-profile', 'en')).count()).toBe(1)
       await child.getByText('Team Tools', { exact: true }).waitFor()
       expect(await child.getByText('Give agents tools to coordinate members, exchange messages, and manage shared tasks.', { exact: true }).count()).toBe(1)
       await panel.getByRole('button', { name: 'Back to plugins' }).click()

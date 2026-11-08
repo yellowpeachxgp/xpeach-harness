@@ -1,10 +1,12 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime, { type RequestMessage, createUserMessage, ToolCallId, LlmError, MessageSource, ProviderRequestId, StreamChunk  } from '@xpeach/xph-llm'
 import type { ContextFormed } from '@xpeach/xph-llm'
 import SessionStore, { Session, SessionEvent, SessionId, TurnEndReason, type UserMessage } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture, type PostToolDecision } from '@xpeach/xph-tools'
+import ToolRuntime, { type PostToolDecision } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
@@ -29,6 +31,7 @@ async function harness(adapter: MockAdapter) {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -578,6 +581,7 @@ describe('turn numbering continues across seeded sessions', () => {
     await ctx2.plugin(SessionProjectionRegistry)
     await ctx2.plugin(SystemPrompt)
     await ctx2.plugin(ToolRuntime)
+    await ctx2.plugin(NativeToolExecutor)
     await ctx2.plugin(AgentRegistry)
     await ctx2.plugin(AgentLoop, { agents: [] })
     ctx2.llm.registerAdapter(['mock'], second)
@@ -1294,6 +1298,7 @@ describe('disposal and cancellation during pre-step assembly', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)
@@ -1344,6 +1349,7 @@ describe('disposal and cancellation during pre-step assembly', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)
@@ -1394,6 +1400,7 @@ describe('disposal and cancellation during pre-step assembly', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)
@@ -1440,6 +1447,7 @@ describe('disposal and cancellation during pre-step assembly', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)
@@ -1488,6 +1496,7 @@ describe('disposal and cancellation during pre-step assembly', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)

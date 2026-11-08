@@ -62,6 +62,7 @@ async function listSubagentModels(
   if (request.model === undefined) {
     const models = (await llm.listModels(provider.id))
       .filter(model => allowedRoutes.some(route => route.model === model.id))
+    signal.throwIfAborted()
     return models.length === 0
       ? `(no advertised models for ${provider.id})`
       : models.map(model => modelLine(provider.id, model)).join('\n')

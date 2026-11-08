@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-conversation",
   "description": "Target-neutral Conversation assembly, shell, composer, queue, and view navigation",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -96,7 +96,8 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-settings": "workspace:*",
     "@xpeach/xph-client-shortcuts": "workspace:*",
-    "@xpeach/xph-client-product-analytics": "workspace:*"
+    "@xpeach/xph-client-product-analytics": "workspace:*",
+    "@xpeach/xph-message-quotes": "workspace:*"
   },
   "files": [
     "locale/*.json",

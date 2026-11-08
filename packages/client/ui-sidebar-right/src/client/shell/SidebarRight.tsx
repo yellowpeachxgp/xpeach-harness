@@ -8,7 +8,9 @@
  *
  * Docked content stays mounted while collapsed, translated off the frame's right
  * edge, so opening and closing are one gesture in both presentations: a slide
- * from and to that edge. Normal presentation moves the frame's tracks with
+ * from and to that edge. An item mounted by the opening, such as the first tab
+ * of an empty column, starts at that edge, so it joins the slide. Normal
+ * presentation moves the frame's tracks with
  * the panel. A fullscreen opening reserves its underlying track only after
  * the panel covers the frame, without animating those hidden columns.
  *
@@ -27,7 +29,7 @@
  * signal, actions — is read through the slot-owned useTabInfo hook. The Tab
  * domain follows each session's store commits, including sessions off screen.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import type { ShortcutCatalogEntry } from '@xpeach/xph-client-shortcuts/client'
 import { IconPanelLeftOutlineRegular, Tooltip } from '@xpeach/xph-client-ui-primitives'
@@ -41,13 +43,14 @@ import type { HalvesFit, LayoutState, PaneId } from '@xpeach/xph-client-ui-dockk
 import type { SessionId } from '@xpeach/xph-session/types'
 import { GUIDE_KIND, pageAddress } from '../contract/seed.ts'
 import { dockLabels } from '../labels.ts'
-import type { SidebarRightOpenTabOptions } from '../service.ts'
+import type { SidebarRightFlash, SidebarRightOpenTabOptions } from '../service.ts'
 import type { SidebarRightTabDefinition } from '../tab-registry.ts'
 import type { createSidebarRightStore, SurfaceState } from '../stores.ts'
 import { canCloseTab } from '../stores.ts'
 import type { TabOccurrence } from '../tab-domain.ts'
 import type { SidebarRightTabNavigation } from '../contract/slots.ts'
 import type { TabHookContext } from '../tab-info.ts'
+import { flashPane } from './flash.ts'
 import css from './SidebarRight.module.css'
 
 /** The store share the seat receives. */
@@ -106,6 +109,8 @@ export interface SidebarRightInjected {
   readonly hooks: {
     readonly shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
     readonly tabTypes: HostObservable<readonly SidebarRightTabDefinition[]>
+    /** This Session's latest request to make the pane holding a revealed tab glow. */
+    readonly flash: HostObservable<SidebarRightFlash | undefined>
   }
   readonly keyedHooks: {
     readonly tabNavigation: (key: string) => HostObservable<SidebarRightTabNavigation>
@@ -137,6 +142,7 @@ interface PanelProps {
   readonly useTabTypes: RightbarSeatProps['useTabTypes']
   readonly useTabNavigation: RightbarSeatProps['useTabNavigation']
   readonly useStore: Store['useStore']
+  readonly useFlash: RightbarSeatProps['useFlash']
   readonly occurrence: SidebarRightInjected['occurrence']
   readonly fullscreen: boolean
   readonly autoFullscreen: boolean
@@ -303,6 +309,28 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
   const { sessionId, surface, actions, t, renderSlot, openTab, width, reportRoom, fullscreen, panelRef } = panel
   const { expanded } = surface.layout
   const types = panel.useTabTypes(value => value)
+  const flash = panel.useFlash(value => value)
+  // Each request plays at most once, and only on screen: the request current
+  // when the panel mounts, or one arriving while its Session is hidden, is
+  // already past. Hiding the Session ends a glow in progress.
+  const played = useRef(flash?.serial)
+  // The glow is DOM-only: the docking kit owns the pane elements it marks.
+  useLayoutEffect(() => {
+    if (flash === undefined || flash.serial === played.current) return undefined
+    played.current = flash.serial
+    return panel.active ? flashPane(panelRef.current, flash) : undefined
+  }, [flash, panel.active, panelRef])
+  // True from the render that opens the on-screen panel until a transition in
+  // it ends, the panel closes, or it leaves the screen, which cancels the
+  // slide; the stylesheet starts items mounted meanwhile at the closed position.
+  const [opened, setOpened] = useState(expanded)
+  const [opening, setOpening] = useState(false)
+  if (opened !== expanded) {
+    setOpened(expanded)
+    setOpening(expanded && panel.active)
+  } else if (opening && !panel.active) {
+    setOpening(false)
+  }
   return (
     <div
       ref={panelRef}
@@ -312,6 +340,8 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
       data-sidebar-right-session={sessionId}
       data-sidebar-right-panel={fullscreen ? 'fullscreen' : 'push'}
       data-sidebar-right-open={expanded || undefined}
+      data-sidebar-right-opening={opening || undefined}
+      onTransitionEnd={opening ? () => { setOpening(false) } : undefined}
       // Dockkit hides individual docked hosts; floating descendants remain accessible.
       aria-hidden={(!expanded && surface.layout.floats.length === 0) || undefined}
     >
@@ -351,7 +381,8 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
  */
 export function RightbarSeat({
   sessionId, width, viewportWidth, canShow, useStore, actions, t, renderSlot, syncPresentation, measureRoom, reportAutoFullscreen,
-  openTab, closeTab, useTabTypes, useTabNavigation, occurrence, retainTab, active, useShortcuts, splitPane, toggleFullscreen,
+  openTab, closeTab, useTabTypes, useTabNavigation, occurrence, retainTab,
+  active, useShortcuts, splitPane, toggleFullscreen, useFlash,
 }: RightbarSeatProps): ReactNode {
   // One store instance per session, so this map holds this session's surface.
   const shortcuts = useShortcuts(entries => entries)
@@ -416,7 +447,8 @@ export function RightbarSeat({
 
   if (surface === undefined) return null
   const panel: PanelProps = {
-    sessionId, actions, t, renderSlot, surface, openTab, closeTab, useTabTypes, useTabNavigation, useStore, occurrence,
+    sessionId, actions, t, renderSlot, surface, openTab, closeTab, useTabTypes, useTabNavigation,
+    useStore, useFlash, occurrence,
     fullscreen, autoFullscreen, reportRoom, active, retainTab, shortcuts, splitPane, toggleFullscreen,
   }
   return <SidebarPanel {...panel} width={width} panelRef={panelRef} />

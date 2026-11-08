@@ -1,5 +1,6 @@
 /** A real Loader and AgentLoop exercise independently configured browser inference and durable screenshots. */
 
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -78,8 +79,10 @@ it('loads browser tools from cordis.yml, logs browser results, and admits the sc
     ['@xpeach/xph-llm', LlmRuntime],
     ['@xpeach/xph-session', SessionStore],
     ['@xpeach/xph-session-projection', SessionProjectionRegistry],
+
     ['@xpeach/xph-system-prompt', SystemPrompt],
     ['@xpeach/xph-tools', ToolRuntime],
+    ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
     ['@xpeach/xph-agent', AgentRegistry],
     ['@xpeach/xph-agent-loop', AgentLoop],
     ['@xpeach/xph-attachment-local', LocalAttachmentStore],

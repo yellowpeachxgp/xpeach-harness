@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-deepseek",
   "description": "DeepSeek Messages adapter",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -74,7 +74,9 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-credentials-local": "workspace:*",
     "@xpeach/xph-settings": "workspace:*",
-    "@xpeach/xph-deepseek-account": "workspace:*"
+    "@xpeach/xph-deepseek-account": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@xpeach/xph-cordis-plugin-loader": {

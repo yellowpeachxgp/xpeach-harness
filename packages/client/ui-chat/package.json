@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-chat",
   "description": "Chat Conversation target, node definitions, renderers, and details surface",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -31,6 +31,18 @@
       "inject": [
         "@xpeach/xph-api-session-controller",
         "@xpeach/xph-api-workspace-controller",
+        "@xpeach/xph-client-locale",
+        "@xpeach/xph-client-ui-conversation",
+        "@xpeach/xph-client-ui-input-trigger",
+        "@xpeach/xph-client-ui-layout",
+        "@xpeach/xph-client-ui-renderer",
+        "@xpeach/xph-client-ui-session",
+        "@xpeach/xph-client-ui-settings",
+        "@xpeach/xph-client-ui-sidebar-right",
+        "@xpeach/xph-client-ui-workspace",
+        "@xpeach/xph-api-session-controller",
+        "@xpeach/xph-api-workspace-controller",
+        "@xpeach/xph-client-connection",
         "@xpeach/xph-client-locale",
         "@xpeach/xph-client-ui-conversation",
         "@xpeach/xph-client-ui-input-trigger",
@@ -92,7 +104,9 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@xpeach/xph-settings": "workspace:*",
-    "@xpeach/xph-client-product-analytics": "workspace:*"
+    "@xpeach/xph-client-product-analytics": "workspace:*",
+    "@xpeach/xph-client-connection": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "dependencies": {
     "@xpeach/xph-schemastery": "workspace:~"

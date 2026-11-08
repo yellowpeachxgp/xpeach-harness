@@ -26,6 +26,9 @@
             disabled: !!js process.platform !== 'win32'
           - id: tool-fs
             name: '@xpeach/xph-tool-fs'
+            config:
+              # Set false to drop the apply_patch tool beside edit.
+              applyPatch: false
           - id: tool-fs-search
             name: '@xpeach/xph-tool-fs-search'
             config:
@@ -122,7 +125,7 @@
             name: '@xpeach/xph-tool-present'
           - id: tool-plugin-manager
             name: '@xpeach/xph-plugin-manager/tools'
-            disabled: true
+            disabled: !!js "!ctx.get('profileContext')"
           - id: tool-plugin-market
             name: '@xpeach/xph-plugin-market/tools'
             disabled: true
