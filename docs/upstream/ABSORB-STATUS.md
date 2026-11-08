@@ -11,6 +11,7 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| Skill 根目录隔离 + 不完整目录发布（PR #7214） | `cb046fde2c` + `ef0e2b346b`（merge `ae38375654`） | skill/skill-filesystem/tool-skill 共 110 项单测通过；skill-root-isolation 快照重放通过 |
 
 ## 产品侧修复（非上游）
 
