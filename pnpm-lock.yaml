@@ -12189,6 +12189,9 @@ importers:
       '@xpeach/xph-client-ui-conversation':
         specifier: workspace:*
         version: link:../../client/ui-conversation
+      '@xpeach/xph-client-ui-layout':
+        specifier: workspace:*
+        version: link:../../client/ui-layout
       '@xpeach/xph-client-ui-message-feedback':
         specifier: workspace:*
         version: link:../../client/ui-message-feedback
@@ -12222,6 +12225,9 @@ importers:
       '@xpeach/xph-session-query':
         specifier: workspace:*
         version: link:../session-query
+      '@xpeach/xph-session-title':
+        specifier: workspace:*
+        version: link:../../session/session-title
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -15566,6 +15572,9 @@ importers:
         specifier: workspace:*
         version: link:../../util/values
     devDependencies:
+      '@xpeach/xph-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
@@ -15599,6 +15608,9 @@ importers:
       '@xpeach/xph-client-ui-layout':
         specifier: workspace:*
         version: link:../../client/ui-layout
+      '@xpeach/xph-client-ui-model-selection':
+        specifier: workspace:*
+        version: link:../../client/ui-model-selection
       '@xpeach/xph-client-ui-primitives':
         specifier: workspace:*
         version: link:../../client/ui-primitives
