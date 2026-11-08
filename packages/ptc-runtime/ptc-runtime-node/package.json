@@ -45,7 +45,8 @@
   },
   "dependencies": {
     "@xpeach/xph-util-values": "workspace:*",
-    "@xpeach/xph-schemastery": "workspace:~"
+    "@xpeach/xph-schemastery": "workspace:~",
+    "birpc": "4.2.0"
   },
   "devDependencies": {
     "@xpeach/xph-cordis": "workspace:~",
