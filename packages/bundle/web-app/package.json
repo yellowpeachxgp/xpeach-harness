@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-web-app",
   "description": "The dsh browser-surface bundle: the web patch layer over dsh-base plus the runtime glue plugin (frontend dist serving, bash runtime variables, URL line)",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -80,6 +80,7 @@
     "@xpeach/xph-client-ui-approval": "workspace:*",
     "@xpeach/xph-client-ui-attachment": "workspace:*",
     "@xpeach/xph-client-ui-brand-official": "workspace:*",
+    "@xpeach/xph-message-quotes": "workspace:*",
     "@xpeach/xph-client-ui-chat": "workspace:*",
     "@xpeach/xph-client-ui-commands": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",

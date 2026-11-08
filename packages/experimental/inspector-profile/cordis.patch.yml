@@ -6,3 +6,5 @@
         captureFetch: true
     - id: session-inspector
       name: '@xpeach/xph-experimental-session-inspector'
+    - id: client-ui-stats
+      name: '@xpeach/xph-experimental-client-ui-stats'

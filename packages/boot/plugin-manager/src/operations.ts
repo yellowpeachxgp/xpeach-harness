@@ -459,6 +459,8 @@ export async function runProfilePnpm(
     if (result.failed && output.length === 0) {
       const diagnostic = result.shortMessage ?? 'pnpm failed'
       await log.write(diagnostic)
+      // The run printed nothing, so this diagnostic is the whole of its captured output; stream it as such.
+      options.onOutput?.(diagnostic, 'stderr')
       truncated = Buffer.byteLength(diagnostic) > options.outputBytes
       output = Buffer.from(diagnostic).subarray(0, options.outputBytes)
     }
@@ -583,6 +585,8 @@ export interface PackageViewOptions {
   timeoutMs: number
   /** The registry asked; null asks the one pnpm's own configuration names. */
   registry?: Registry
+  /** The manifest fields printed, as `pnpm view` names them; registry-only fields such as `versions`, `time`, and `dist-tags` included. */
+  fields: readonly string[]
 }
 
 /**
@@ -620,12 +624,12 @@ export function registryArguments(registry: Registry): string[] {
  * configured after it are the retry.
  * @param dir Profile directory.
  * @param spec One registry spec: a package name with an optional range.
- * @param options The registry, cancellation, and the time bound.
+ * @param options The fields printed, the registry, cancellation, and the time bound.
  * @returns pnpm's exit, output, and how the lookup ended.
  */
 export async function viewProfilePackage(dir: string, spec: string, options: PackageViewOptions): Promise<PackageViewResult> {
   const result = await execa(options.command ?? 'pnpm', [
-    ...options.args ?? [], 'view', spec, 'name', 'version', 'description', 'dsh', '--json',
+    ...options.args ?? [], 'view', spec, ...options.fields, '--json',
     ...registryArguments(options.registry ?? null), '--config.fetch-retries=0',
   ], {
     cwd: dir, env: { ...scrubbedParentEnv(), ...options.env }, extendEnv: false, reject: false, stdin: 'ignore',

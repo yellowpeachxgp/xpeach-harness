@@ -8,7 +8,7 @@
 | 项 | 值 |
 |---|---|
 | 上游仓库 | `https://github.com/deepseek-ai/deepseek-harness` |
-| 基线提交 | `687f282e8625c6b8d11ff58211a90524be2e4317` |
+| 基线提交 | `dsh-v0.2.1-rc.2`（上游发布标签） |
 | 基线说明 | `Merge pull request #6408 from deepseek-harness/worktree/release-dsh-0.2.1-rc.2` |
 | 记录时间 | 2026-10-22 |
 | 品牌化起点 | 本次全量品牌迁移之前 |
@@ -19,7 +19,7 @@
 上游 (deepseek-ai/deepseek-harness)
    │  git fetch origin
    ▼
-基线 687f282e ──────► 本仓库 main（XPeach 品牌化之后）
+基线 dsh-v0.2.1-rc.2 ──────► 本仓库 main（XPeach 品牌化之后）
    │                      │
    │  upstream:diff       │
    └──────────────────────┴─► 变更清单 → 人工挑选要吸收的模块
