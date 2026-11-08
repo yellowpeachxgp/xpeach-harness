@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-browser-use-chrome-devtools-mcp",
   "description": "Experimental per-Session Chromium browser tools through chrome-devtools-mcp",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },

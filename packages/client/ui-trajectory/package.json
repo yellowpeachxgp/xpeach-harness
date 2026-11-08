@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-trajectory",
   "description": "Trajectory event ledger and timing overview with live tool-result inspection",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },

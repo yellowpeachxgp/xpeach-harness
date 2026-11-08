@@ -28,7 +28,7 @@
 Usage: dsh [--profile] <name> [options] [app-args...]
        dsh plugin --profile <name> <pnpm-args...>
 
-dsh: boot a DeepSeek Harness profile — an ordered stack of plugin-bundle patch
+dsh: boot an DeepSeek Harness profile — an ordered stack of plugin-bundle patch
 layers under your own overrides.
 
 Arguments:
@@ -37,7 +37,7 @@ Arguments:
 
 Options:
   -V, --version                  output the version number
-  --profile <name>               the profile under $DSH_HOME/profiles to boot
+  --profile <name>               the profile under DSH_HOME/profiles to boot
   --from-default-profile <name>  replace a custom profile with a fresh copy of a
                                  shipped profile template
   --patch <path>                 extra patch-list overlay applied after the
@@ -167,7 +167,7 @@ Example:
 <a id="dsh-web"></a>
 ## `dsh web`
 
-调用方式: `dsh web --help`, `dsh --profile web --help`
+调用方式: `dsh web --help`, `dsh --profile web --help`, `dsh xpeach --help`, `dsh --profile xpeach --help`
 
 ```text
 Usage: dsh --profile web [options]
