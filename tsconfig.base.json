@@ -513,6 +513,8 @@
       "@xpeach/xph-client-ui/client": ["./packages/xpeach/client-ui/src/client/index.ts"],
       "@xpeach/xph-permission-presets/types": ["./packages/interaction/permission-presets/src/types.ts"],
       "@xpeach/xph-experimental-session-search": ["./packages/experimental/session-search/src/index.ts"],
+      "@xpeach/xph-experimental-subagent-oar": ["./packages/experimental/subagent-oar/src/index.ts"],
+      "@xpeach/xph-experimental-tool-subagent-oar": ["./packages/experimental/tool-subagent-oar/src/index.ts"],
       "@xpeach/xph-experimental-ralph-bundle": ["./packages/experimental/ralph-bundle/src/index.ts"],
       "@xpeach/xph-experimental-terminal-bundle": ["./packages/experimental/terminal-bundle/src/index.ts"],
       "@xpeach/xph-experimental-badge-skill-bundle": ["./packages/experimental/badge-skill-bundle/src/index.ts"],

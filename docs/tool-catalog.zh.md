@@ -2128,11 +2128,11 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
   "properties": {
     "provider": {
       "type": "string",
-      "description": "Registered LLM provider id."
+      "description": "Registered LLM provider id. Omit to list providers."
     },
     "model": {
       "type": "string",
-      "description": "Exact model id; requires provider."
+      "description": "Exact model id to inspect. Requires provider; omit to list that provider's advertised models."
     }
   }
 }

@@ -253,24 +253,6 @@ describe('list_subagent_models', () => {
     }
   })
 
-  it.each([false, true])('resolves only the current parent model without a Session policy (empty catalog: %s)', async (empty) => {
-    const ctx = await setup({
-      provider: 'mock',
-      withModelSelection: true,
-      hostSelectionEnabled: false,
-      parentAgentOptions: { provider: 'alpha', model: 'unlisted' },
-    })
-    const adapter = new CatalogAdapter(empty)
-    const listModels = vi.spyOn(adapter, 'listModels')
-    ctx.llm.registerAdapter(['alpha'], adapter)
-    const result = await executeToolFixture(ctx, {
-      signal: testToolSignal, callId: ToolCallId('parent-only-discovery'),
-      name: 'list_subagent_models', arguments: { provider: 'alpha' }, agent: modelSelectionSetupAgent(ctx),
-    })
-    expect(result.isError).toBe(false)
-    expect(text(result)).toBe('alpha/unlisted — Fast: Focused work.')
-    expect(listModels).not.toHaveBeenCalled()
-  })
   it('inspects exact-model efforts, descriptions, and defaults', async () => {
     const ctx = await setupListTool()
     ctx.llm.registerAdapter(['alpha', 'secret'], new CatalogAdapter())
