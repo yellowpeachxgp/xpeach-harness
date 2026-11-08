@@ -260,7 +260,7 @@ function registerUi(ctx: Context): Array<() => void> {
       const opsList: { op: 'set'; path: string[]; value: JsonV }[] = []
       if (isClaude && providers?.['xpeach']?.models?.some(m => m.id === id) === true) {
         const filteredXpeach = (providers['xpeach'].models ?? []).filter(m => m.id !== id)
-        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach as JsonV })
+        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach })
       }
       const existing = (providers?.[key]?.models ?? []).filter(m => m.id !== id)
       const spec = inferClientModelSpec(id)
@@ -783,8 +783,8 @@ function registerUi(ctx: Context): Array<() => void> {
     ]).then(([perfRes, priceRes, siteRes]) => {
       updateClientModelTelemetryCache({
         ...(Array.isArray(perfRes) ? { perf: perfRes } : {}),
-        ...(priceRes !== undefined && !('error' in priceRes) ? { pricing: priceRes } : {}),
-        ...(siteRes !== undefined && !('error' in siteRes) && siteRes.tokenGroups[0] !== undefined
+        ...(!('error' in priceRes) ? { pricing: priceRes } : {}),
+        ...(!('error' in siteRes) && siteRes.tokenGroups[0] !== undefined
           ? { activeGroup: siteRes.tokenGroups[0] }
           : {}),
       })

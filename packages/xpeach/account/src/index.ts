@@ -1565,7 +1565,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     if (groupCat !== undefined) {
       for (const [name, meta] of Object.entries(groupCat)) {
-        const len = Array.isArray(meta?.models) ? meta.models.length : 0
+        const len = Array.isArray(meta.models) ? meta.models.length : 0
         if (len > (counts.get(name) ?? 0)) {
           counts.set(name, len)
         }
@@ -2171,9 +2171,10 @@ export class XPeachAccount extends TypertRemoteService {
       const entries = (await sessionPersistence.list()).slice(0, 50)
       const hasPrimaryScope = primaryGroupModels !== undefined && primaryGroupModels.size > 0
       for (const entry of entries) {
+        // Listing rows may carry only a top-level id; snapshots carry header.id.
         const sessionId = typeof entry === 'string'
           ? entry
-          : entry.header?.id ?? entry.id
+          : (entry as Omit<ReconcileSessionSnapshot, 'header'> & { header?: ReconcileSessionHeader }).header?.id ?? entry.id
         if (typeof sessionId !== 'string' || sessionId.length === 0) continue
         const proj = projectionCache?.get?.(sessionId, 'modelSelection')
         const active = proj?.pending ?? proj?.lastUsed
@@ -4278,7 +4279,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     if (groupCat !== undefined) {
       for (const [name, meta] of Object.entries(groupCat)) {
-        const len = Array.isArray(meta?.models) ? meta.models.length : 0
+        const len = Array.isArray(meta.models) ? meta.models.length : 0
         if (len > (counts.get(name) ?? 0)) {
           counts.set(name, len)
         }
