@@ -3,13 +3,13 @@ description: "面向以子进程方式启动 DeepSeek Harness 运行时、并通
 kind: "package-library"
 ---
 
-# @xpeach/xph-sdk-client
+# @deepseek-ai/dsh-sdk-client
 
 [English](README.md) | 中文
 
 ## 概述
 
-`dsh-sdk-client` 让 TypeScript 程序通过 stdio JSON-RPC 启动并驱动完整的 DeepSeek Harness 运行时。使用 `DeepSeekHarness` 可打开会话、发送文本或图像提示词、收集事件与通知流，并在运行时进入 idle 后取得最后提交的助手响应；使用 `HarnessClient` 可直接发送协议请求和订阅通知。调用方可以提供 `dshBin`；否则客户端解析同版本的 `@xpeach/xph-dsh` 可执行文件。客户端跨多次运行持有子进程，公开类型化的传输与协议错误，并在 `close()` 或 `await using` 时回收进程。它适用于调用方能够选择运行时 profile 和启动设置的场景。
+`dsh-sdk-client` 让 TypeScript 程序通过 stdio JSON-RPC 启动并驱动完整的 DeepSeek Harness 运行时。使用 `DeepSeekHarness` 可打开会话、发送文本或图像提示词、收集事件与通知流，并在运行时进入 idle 后取得最后提交的助手响应；使用 `HarnessClient` 可直接发送协议请求和订阅通知。调用方可以提供 `dshBin`；否则客户端解析同版本的 `@deepseek-ai/dsh` 可执行文件。客户端跨多次运行持有子进程，公开类型化的传输与协议错误，并在 `close()` 或 `await using` 时回收进程。它适用于调用方能够选择运行时 profile 和启动设置的场景。
 
 ## 目录
 
@@ -25,17 +25,43 @@ kind: "package-library"
 <a id="use-this-package"></a>
 ## 使用本包
 
+当 TypeScript 代码需要从另一进程驱动完整 Harness 运行时、且你能显式指名运行时可执行文件时，使用本客户端。常用路径极简：用启动规格构造 `DeepSeekHarness`，运行提示词，然后关闭它，使子进程总能被回收。
+
+若由客户端处理审批，先调用 `harness.client.start()`，安装 `harness.client.onRequest(handler)`，再调用 `harness.start()`，并在 Harness 选项中设置 `approvalRequests: true`。处理器接收 `approval/request` 参数，返回 `{ outcome: "allowed-once" | "rejected" | "cancelled" }`；处理器拒绝时返回 JSON-RPC 错误，运行时拒绝放行该审批。替换客户端时需要为新实例安装处理器；已关闭的客户端不能重启。启用审批但未安装附加请求处理器时，服务端请求收到未知请求错误，审批以 `unavailable` 拒绝放行。未启用时保留现有审批应答链。请求字段与取消规则见[协议](../protocol/README.zh.md)。
+
+下面的终端接入示例会逐项询问一次性授权，不改变会话的权限模式。Node 部署的包操作需要可用的 pnpm；启动器提供的包管理器优先。
+
+```ts
+import { createInterface } from 'node:readline/promises'
+import { stdin, stdout } from 'node:process'
+import { DeepSeekHarness } from '@xpeach/xph-sdk-client'
+
+const terminal = createInterface({ input: stdin, output: stdout })
+try {
+  await using harness = new DeepSeekHarness({
+    dshHome: '/absolute/path/to/isolated-dsh-home', approvalRequests: true,
+  })
+  harness.client.start()
+  harness.client.onRequest(async (method, params) => {
+    if (method !== 'approval/request') throw new Error(`Unsupported request: ${method}`)
+    const answer = await terminal.question(`${JSON.stringify(params)}\nAllow once? [y/N] `)
+    return { outcome: answer.trim().toLowerCase() === 'y' ? 'allowed-once' : 'rejected' }
+  })
+  console.log((await harness.run('List the installed plugins.')).finalResponse)
+} finally {
+  terminal.close()
+}
+```
+
 `await harness.resumeSession(savedId)` 从配置的 `dshHome` 恢复持久化会话，并返回可调用 `run()` 的 `HarnessSession`。请保存原会话 id，并沿用其 home 和工作区。恢复会保留对话历史及其目录、修复最后一个被中断的轮次，且不发送新输入。会话缺失、不可读、不兼容或被占用时，请求失败且不创建替代会话。`session(id)` 仍是当前进程内会话的惰性句柄，不会请求持久化恢复。此 API 不恢复 shell、浏览器或其他外部进程。
 
 `HarnessSession.getWorkingDirectory()` 读取有效目录；`setWorkingDirectory(path)` 修改目录并返回校验后的绝对路径。两个方法都可创建未知 Session，而不启动模型轮次。相对路径以 Session 当前目录解析。起始目录元数据、权限与已有进程保持不变。`HarnessClient` 提供同名方法，并以 `sessionId` 作为首个参数。
-
-当 TypeScript 代码需要从另一进程驱动完整 Harness 运行时、且你能显式指名运行时可执行文件时，使用本客户端。常用路径极简：用启动规格构造 `DeepSeekHarness`，运行提示词，然后关闭它，使子进程总能被回收。
 
 ### 用 DeepSeekHarness 运行 agent 轮次
 
 ```ts
 import { DeepSeekHarness } from '@xpeach/xph-sdk-client'
-import { ReasoningEffortId } from '@xpeach/xph-llm'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
 await using harness = new DeepSeekHarness({
   profile: 'sdk',
@@ -124,10 +150,9 @@ console.log(result.finalResponse)
 
 这些限制说明本客户端何时不合适或需要特别注意。它们是当前包约束，不是与其他 SDK 客户端的对比或任务积压。
 
-- **无捆绑运行时解析**——客户端解析同版本 `@xpeach/xph-dsh` 包（或调用方提供的 `dshBin`）；打包可执行文件的发现留在 Python 侧，直到出现 TypeScript 发行版消费方。
+- **无捆绑运行时解析**——客户端解析同版本 `@deepseek-ai/dsh` 包（或调用方提供的 `dshBin`）；打包可执行文件的发现留在 Python 侧，直到出现 TypeScript 发行版消费方。
 - **无轮次中取消**——协议层没有提示词取消方法；放弃轮次意味着关闭运行时（见[协议限制](../protocol/README.zh.md#known-limitations-and-deferred-work)）。
 - **没有逐提示词结果**——低层 `prompt()` 只返回入队回执；高层 `run()` 负责从回执到 idle 的收集，放弃该过程意味着关闭运行时。
-- **客户端→服务端通知与服务端→客户端请求**在协议两端都未实现；传输层为未来审批流程保留了承载能力。
 
 <a id="dev-note"></a>
 ### 开发备注

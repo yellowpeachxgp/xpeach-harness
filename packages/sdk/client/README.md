@@ -3,13 +3,13 @@ description: "The TypeScript SDK client for callers that spawn a DeepSeek Harnes
 kind: "package-library"
 ---
 
-# @xpeach/xph-sdk-client
+# @deepseek-ai/dsh-sdk-client
 
 English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-sdk-client` lets TypeScript programs start and drive a complete DeepSeek Harness runtime over stdio JSON-RPC. Use `DeepSeekHarness` to open sessions, send text or image prompts, collect event and notification streams, and obtain the last committed assistant response when the runtime becomes idle; use `HarnessClient` for direct protocol requests and subscriptions. Callers may provide `dshBin`; otherwise the client resolves the same-version `@xpeach/xph-dsh` executable. The client owns the subprocess across runs, exposes typed transport and protocol failures, and reaps it on `close()` or `await using`. It is suitable when the caller can choose the runtime profile and launch settings.
+`dsh-sdk-client` lets TypeScript programs start and drive a complete DeepSeek Harness runtime over stdio JSON-RPC. Use `DeepSeekHarness` to open sessions, send text or image prompts, collect event and notification streams, and obtain the last committed assistant response when the runtime becomes idle; use `HarnessClient` for direct protocol requests and subscriptions. Callers may provide `dshBin`; otherwise the client resolves the same-version `@deepseek-ai/dsh` executable. The client owns the subprocess across runs, exposes typed transport and protocol failures, and reaps it on `close()` or `await using`. It is suitable when the caller can choose the runtime profile and launch settings.
 
 ## Table of Contents
 
@@ -25,17 +25,43 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
+Use this client when TypeScript code must drive a complete Harness runtime from another process and you can name the runtime executable explicitly. The common path is minimal: construct a `DeepSeekHarness` with a launch spec, run prompts, and close it so the child process is always reaped.
+
+For client-owned approvals, call `harness.client.start()`, install `harness.client.onRequest(handler)`, then call `harness.start()` with `approvalRequests: true` in the Harness options. The handler receives `approval/request` parameters and returns `{ outcome: "allowed-once" | "rejected" | "cancelled" }`; a rejected handler returns a JSON-RPC error and the runtime fails that approval closed. A replacement client needs its own handler; a closed client cannot restart. Enabling approvals without the additional-request handler returns an unknown-request error and fails approvals closed as `unavailable`. Without the opt-in, existing approval answerers remain in control. See the [wire protocol](../protocol/README.md) for request fields and cancellation.
+
+For example, this terminal embedding asks for each one-operation grant. It does not change the Session's permission mode. Node deployments need an available pnpm for package operations; a launcher-provided package manager takes precedence.
+
+```ts
+import { createInterface } from 'node:readline/promises'
+import { stdin, stdout } from 'node:process'
+import { DeepSeekHarness } from '@xpeach/xph-sdk-client'
+
+const terminal = createInterface({ input: stdin, output: stdout })
+try {
+  await using harness = new DeepSeekHarness({
+    dshHome: '/absolute/path/to/isolated-dsh-home', approvalRequests: true,
+  })
+  harness.client.start()
+  harness.client.onRequest(async (method, params) => {
+    if (method !== 'approval/request') throw new Error(`Unsupported request: ${method}`)
+    const answer = await terminal.question(`${JSON.stringify(params)}\nAllow once? [y/N] `)
+    return { outcome: answer.trim().toLowerCase() === 'y' ? 'allowed-once' : 'rejected' }
+  })
+  console.log((await harness.run('List the installed plugins.')).finalResponse)
+} finally {
+  terminal.close()
+}
+```
+
 `await harness.resumeSession(savedId)` restores a persisted session from the configured `dshHome` and returns a `HarnessSession` ready for `run()`. Save the original session id and reuse its home and workspace. Restoration preserves conversation history and its directory, repairs an interrupted final turn, and sends no new input. Missing, unreadable, incompatible, or occupied sessions reject without creating a replacement. `session(id)` remains a lazy handle for an in-process session; it does not request persisted restoration. Shell, browser, and other external processes are not restored by this API.
 
 `HarnessSession.getWorkingDirectory()` reads the effective directory; `setWorkingDirectory(path)` changes it and returns the validated absolute path. Either method creates an unknown Session without starting a model turn. Relative paths use the Session's current directory. Origin metadata, permissions, and existing processes remain unchanged. `HarnessClient` exposes the same methods with a leading `sessionId` argument.
-
-Use this client when TypeScript code must drive a complete Harness runtime from another process and you can name the runtime executable explicitly. The common path is minimal: construct a `DeepSeekHarness` with a launch spec, run prompts, and close it so the child process is always reaped.
 
 ### Running agent turns with DeepSeekHarness
 
 ```ts
 import { DeepSeekHarness } from '@xpeach/xph-sdk-client'
-import { ReasoningEffortId } from '@xpeach/xph-llm'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
 await using harness = new DeepSeekHarness({
   profile: 'sdk',
@@ -124,10 +150,9 @@ None in the client process. Profile, patch, provider, model, and history choices
 
 These limits define when the client is a poor fit or needs special care. They are current package constraints, not a comparison with other SDK clients or a task backlog.
 
-- **No bundled-runtime resolution** — the client resolves the same-version `@xpeach/xph-dsh` package (or a caller-provided `dshBin`); packaged-executable discovery stays Python-side until a TypeScript distribution consumer exists.
+- **No bundled-runtime resolution** — the client resolves the same-version `@deepseek-ai/dsh` package (or a caller-provided `dshBin`); packaged-executable discovery stays Python-side until a TypeScript distribution consumer exists.
 - **No mid-turn cancel** — the wire has no prompt-cancel method; abandoning a turn means closing the runtime (see the [protocol limitations](../protocol/README.md#known-limitations-and-deferred-work)).
 - **No per-prompt result** — low-level `prompt()` returns only an enqueue receipt; high-level `run()` owns receipt-to-idle collection, and abandoning it means closing the runtime.
-- **Client→server notifications and server→client requests are unimplemented** on both wire ends; the transport carries them for future approval flows.
 
 <a id="dev-note"></a>
 ### Dev Note
