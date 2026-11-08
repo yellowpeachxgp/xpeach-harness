@@ -13,6 +13,7 @@ import type {} from '@xpeach/xph-client-ui-settings/client'
 import type {} from '@xpeach/xph-client-ui-chat/client'
 import type {} from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-client-ui-sidebar-right/client'
+import type {} from '@xpeach/xph-client-ui-model-selection/client'
 import type { QuotaNoticeOwnerProps } from '@xpeach/xph-client-ui-chat/client'
 import xpeachRemote from '@xpeach/xph-account/remote'
 import type {
@@ -115,22 +116,6 @@ export {
   type XPeachFontRole,
   type XPeachUiFontPreset,
 } from './FontPackRow.tsx'
-
-declare module '@xpeach/xph-client-ui-slots' {
-  interface SlotMap {
-    'conversation.input.model.label': {
-      kind: 'single'
-      scope: 'session'
-      inline: true
-      owner: {
-        provider: { readonly id: string; readonly name: string }
-        model: { readonly id: string; readonly name: string }
-        placement: 'trigger' | 'menu' | 'option'
-        selected: boolean
-      }
-    }
-  }
-}
 
 type RemoteOutcome<T> =
   | { readonly ok: true; readonly value: T }

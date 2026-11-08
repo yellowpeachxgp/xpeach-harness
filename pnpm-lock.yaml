@@ -15530,6 +15530,9 @@ importers:
       '@xpeach/xph-client-ui-layout':
         specifier: workspace:*
         version: link:../../client/ui-layout
+      '@xpeach/xph-client-ui-model-selection':
+        specifier: workspace:*
+        version: link:../../client/ui-model-selection
       '@xpeach/xph-client-ui-primitives':
         specifier: workspace:*
         version: link:../../client/ui-primitives
