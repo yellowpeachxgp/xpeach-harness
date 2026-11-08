@@ -31,6 +31,7 @@ import TokenMeter from '@xpeach/xph-token-meter'
 // These Host-only adapters have no public Node export and are compiled into the benchmark worker.
 import { HistoryController } from '../../packages/api/session-controller/src/history/controller.ts'
 import { WebController } from '../../packages/api/session-controller/src/web/controller.ts'
+import { installModelSelectionProjection } from '../../packages/api/session-controller/src/model-selection-projection.ts'
 import { assertBuiltBenchmarkRuntime } from '../support/built-worker.ts'
 import { SYNTHETIC_SESSION_ID } from './session-open.constants.ts'
 

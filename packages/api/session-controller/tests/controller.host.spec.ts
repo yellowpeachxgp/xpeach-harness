@@ -33,14 +33,12 @@ describe('SessionController facade', () => {
     const partial: Partial<Agent> = { id: session.id, session, status: 'running', ctx }
     const agent = partial as Agent
     const entered = Promise.withResolvers<undefined>()
-    const gate = Promise.withResolvers<undefined>()
     const original = ctx.sessionProjections.register.bind(ctx.sessionProjections)
     let first = true
-    vi.spyOn(ctx.sessionProjections, 'register').mockImplementation(async (...args: Parameters<typeof original>) => {
+    vi.spyOn(ctx.sessionProjections, 'register').mockImplementation((...args: Parameters<typeof original>) => {
       if (first) {
         first = false
         entered.resolve(undefined)
-        await gate.promise
       }
       return original(...args)
     })
@@ -51,7 +49,6 @@ describe('SessionController facade', () => {
       agent,
       frame: { type: 'start', attemptId: LlmAttemptId('boot-attempt'), revision: 1, turn: 1, step: 1 },
     })
-    gate.resolve(undefined)
     const controller = await mounting
     const frames = controller.follow({
       address: { kind: 'session', sessionId: session.id }, assistantStream: true,
