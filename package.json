@@ -6,7 +6,7 @@
   "type": "module",
   "packageManager": "pnpm@11.28.5",
   "engines": {
-    "node": ">=24.9.0"
+    "node": "^22.19.0 || >=24.0.0"
   },
   "workspaces": [
     "vendor/*",
@@ -228,8 +228,6 @@
   "devDependencies": {
     "@xpeach/xph-hooks-claude-code": "workspace:*",
     "@xpeach/xph-hooks-codex": "workspace:*",
-    "@xpeach/xph-tool-executor-native": "workspace:*",
-    "@xpeach/xph-tool-executor-ptc": "workspace:*",
     "@xpeach/xph-tool-ralph": "workspace:*",
     "@xpeach/xph-tool-terminal": "workspace:*",
     "@xpeach/xph-agent": "workspace:*",
@@ -244,7 +242,6 @@
     "@xpeach/xph-cua": "workspace:*",
     "@xpeach/xph-experimental-claude-code-mods": "workspace:*",
     "@xpeach/xph-llm-replay": "workspace:*",
-    "@xpeach/xph-subagent-dsh-sdk": "workspace:*",
     "@xpeach/xph-mcp-client": "workspace:*",
     "@xpeach/xph-tool-session-query": "workspace:*",
     "@xpeach/xph-web-fetch-http": "workspace:*",
@@ -300,9 +297,10 @@
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-tool-worktree": "workspace:*",
-    "@xpeach/xph-experimental-subagent-oar": "workspace:*",
-    "@xpeach/xph-experimental-tool-subagent-oar": "workspace:*",
-    "@xpeach/xph-experimental-cua-macos": "workspace:*"
+    "@xpeach/xph-experimental-cua-macos": "workspace:*",
+    "@xpeach/xph-experimental-forge": "workspace:*",
+    "@xpeach/xph-experimental-forge-github": "workspace:*",
+    "@xpeach/xph-experimental-forge-session": "workspace:*"
   },
   "repository": {
     "type": "git",

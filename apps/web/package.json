@@ -70,7 +70,6 @@
     "@xpeach/xph-experimental-cot-translation-bundle": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-plugin-market-bundle": "workspace:*",
-    "@xpeach/xph-tool-testkit": "workspace:*"
-  },
-  "dependencies": {}
+    "@xpeach/xph-experimental-forge-bundle": "workspace:*"
+  }
 }

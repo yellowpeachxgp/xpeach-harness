@@ -200,10 +200,14 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-client-ui-claude-code-mods` | no | Web band above the prompt for Claude Code mods: draws each session's mod tree and sends button presses back to the bridge |
 | `@xpeach/xph-experimental-client-ui-stats` | no | Per-turn and per-step context, timing, cache, and tool-cost table contributed as an experimental conversation View |
 | `@xpeach/xph-experimental-client-ui-cot-translation` | yes | Optional machine translation of expanded reasoning, preserving original Session text |
+| `@xpeach/xph-experimental-client-ui-forge` | yes | Sidebar panel for a Session's change requests, with a worktree option for new Sessions and its Host Remote |
 | `@xpeach/xph-experimental-client-ui-voice-input` | no | Record speech and insert editable text into the conversation draft |
 | `@xpeach/xph-experimental-computer-use-cua-driver-mcp` | yes | Experimental computer use through an installed Cua Driver MCP executable |
 | `@xpeach/xph-experimental-computer-use-cua-driver-native` | no | Experimental computer-use provider embedding the Cua Driver native npm SDK |
 | `@xpeach/xph-experimental-cua-macos` | yes | macOS native provider for shared Computer Use application and window objects |
+| `@xpeach/xph-experimental-forge` | yes | Provider-neutral change request registry with shared status polling |
+| `@xpeach/xph-experimental-forge-github` | yes | GitHub provider for the experimental forge registry, read through the GitHub CLI on the host |
+| `@xpeach/xph-experimental-forge-session` | yes | Binds change requests to the Session that created, pushed, or tracked them |
 | `@xpeach/xph-experimental-inspector` | yes | Experimental cross-realm CDP hub for Host debugging and Client Runtime inspection |
 | `@xpeach/xph-experimental-ptc-runtime-python` | yes | CPython subprocess implementation of the DeepSeek Harness PTC execution seam |
 | `@xpeach/xph-experimental-session-inspector` | no | Experimental virtualized Session log and live Chat group/node inspectors |

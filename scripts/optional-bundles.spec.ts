@@ -140,6 +140,26 @@ describe('optional bundles', () => {
     }
   })
 
+  it('offers the forge panel as one disabled bundle with its registry, provider, bindings, panel, worktree tool, and isolated worktree service', () => {
+    const name = '@xpeach/xph-experimental-forge-bundle'
+    expect(OPTIONAL_BUNDLES).toContain(name)
+    for (const template of Object.values(PROFILE_TEMPLATES)) expect(template.bundles).not.toContain(name)
+    const rows = flattenRows(composeEntries([...shipped, bundle(name).patches]))
+    for (const moduleName of [
+      '@xpeach/xph-experimental-forge',
+      '@xpeach/xph-experimental-forge-github',
+      '@xpeach/xph-experimental-forge-session',
+      '@xpeach/xph-experimental-client-ui-forge',
+      '@xpeach/xph-experimental-tool-worktree',
+    ]) {
+      expect(flattenRows(composeEntries(shipped)).some(row => row.name === moduleName)).toBe(false)
+      expect(rows.filter(row => row.name === moduleName && row.disabled !== true)).toHaveLength(1)
+    }
+    expect(rows.filter(row => row.name === '@xpeach/xph-experimental-worktree' && row.disabled !== true)).toHaveLength(2)
+    const group = composeEntries([...shipped, bundle(name).patches]).find(row => row.id === 'optional-forge-panel')
+    expect(group?.isolate).toEqual({ worktrees: true })
+  })
+
   it('ships all five lightweight bundles without selecting them in a default template', () => {
     const defaults = Object.values(PROFILE_TEMPLATES).flatMap(template => template.bundles)
     for (const name of lightweight) {

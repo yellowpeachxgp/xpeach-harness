@@ -1,0 +1,126 @@
+{
+  "name": "@xpeach/xph-experimental-client-ui-forge",
+  "description": "Sidebar panel for a Session's change requests, with a worktree option for new Sessions and its Host Remote",
+  "version": "0.0.32-alpha",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
+    "directory": "packages/experimental/client-ui-forge"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./types": {
+      "types": "./lib/types/types.d.ts"
+    }
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@xpeach/xph-api-remotes",
+        "@xpeach/xph-client-locale",
+        "@xpeach/xph-client-ui-conversation",
+        "@xpeach/xph-client-ui-layout",
+        "@xpeach/xph-client-ui-sidebar-right",
+        "@xpeach/xph-client-ui-workspace"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-experimental-worktree": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-timeout": "workspace:*",
+    "@xpeach/xph-experimental-forge": "workspace:*",
+    "@xpeach/xph-fs": "workspace:*"
+  },
+  "dependencies": {
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-util-values": "workspace:*",
+    "diff": "^9.0.0",
+    "zod": "^4.4.3",
+    "@xpeach/xph-typert-protocol": "workspace:*",
+    "@xpeach/xph-storage-domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-api-remotes": "workspace:*",
+    "@xpeach/xph-api-session-controller": "workspace:*",
+    "@xpeach/xph-client-locale": "workspace:*",
+    "@xpeach/xph-client-store": "workspace:*",
+    "@xpeach/xph-client-test-runtime": "workspace:*",
+    "@xpeach/xph-client-ui-conversation": "workspace:*",
+    "@xpeach/xph-client-ui-layout": "workspace:*",
+    "@xpeach/xph-client-ui-primitives": "workspace:*",
+    "@xpeach/xph-client-ui-renderer": "workspace:*",
+    "@xpeach/xph-client-ui-session": "workspace:*",
+    "@xpeach/xph-client-ui-sidebar-right": "workspace:*",
+    "@xpeach/xph-client-ui-slots": "workspace:*",
+    "@xpeach/xph-client-ui-workspace": "workspace:*",
+    "@xpeach/xph-experimental-forge": "workspace:*",
+    "@xpeach/xph-experimental-forge-session": "workspace:*",
+    "@xpeach/xph-experimental-worktree": "workspace:*",
+    "@xpeach/xph-fs": "workspace:*",
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-sandbox": "workspace:*",
+    "@xpeach/xph-sandbox-local": "workspace:*",
+    "@xpeach/xph-sandbox-policy": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-subprocess": "workspace:*",
+    "@xpeach/xph-subprocess-local": "workspace:*",
+    "@xpeach/xph-system-prompt": "workspace:*",
+    "@xpeach/xph-util-workspace-path": "workspace:*",
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@testing-library/react": "^16.3.3",
+    "clsx": "^2.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@xpeach/xph-timeout": "workspace:*",
+    "@xpeach/xph-session-projection-cache": "workspace:*",
+    "@xpeach/xph-session-query": "workspace:*",
+    "@xpeach/xph-api-remote-access": "workspace:*"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts"
+  ]
+}
