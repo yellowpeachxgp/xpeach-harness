@@ -11,6 +11,12 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| 轨迹输入顺序修复 (#6649) | `27c1b4c56f` | ui-trajectory 212 项单测通过 |
+| 轨迹结果原始/渲染切换 (#7086) | `65032e4414` | ui-trajectory 241 项单测通过；host/client 双编译面、typert 产物、tsc 聚合全绿 |
+| 轨迹子调用折叠 (#7490) | `bcaa348038`（含 `c47d9a3868`） | ui-trajectory 258 项单测通过 |
+| 轨迹失败输出保留 (#7399) | `426c231f73` | ui-trajectory 272 项单测通过 |
+| run_code 语法高亮修复 (#7069) | `50157d0586` | code-program 45 项单测通过 |
+| Gemini 工具调用 thought-signature 回放 (#6537) | `29959ed1ab` | llm-pi-ai 420 项单测通过（语义移植到 pi-ai@1.1.0 补丁） |
 
 ## 产品侧修复（非上游）
 
