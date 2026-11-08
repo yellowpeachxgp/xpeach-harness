@@ -866,6 +866,10 @@ importers:
         version: 4.23.13
 
   apps/web:
+    dependencies:
+      '@xpeach/xph-message-quotes':
+        specifier: workspace:*
+        version: link:../../packages/session/message-quotes
     devDependencies:
       '@types/node':
         specifier: ^22.20.1
@@ -2979,6 +2983,9 @@ importers:
       '@xpeach/xph-message-feedback':
         specifier: workspace:*
         version: link:../../feedback/message-feedback
+      '@xpeach/xph-message-quotes':
+        specifier: workspace:*
+        version: link:../../session/message-quotes
       '@xpeach/xph-office-to-pdf':
         specifier: workspace:*
         version: link:../../document/office-to-pdf
@@ -3864,6 +3871,9 @@ importers:
       '@xpeach/xph-llm-retry':
         specifier: workspace:*
         version: link:../../llm/llm-retry
+      '@xpeach/xph-message-quotes':
+        specifier: workspace:*
+        version: link:../../session/message-quotes
       '@xpeach/xph-plan-mode':
         specifier: workspace:*
         version: link:../../plan/plan-mode
@@ -12321,6 +12331,42 @@ importers:
       '@xpeach/xph-session-query':
         specifier: workspace:*
         version: link:../session-query
+
+  packages/session/message-quotes:
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-chat':
+        specifier: workspace:*
+        version: link:../../client/ui-chat
+      '@xpeach/xph-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
 
   packages/session/session-checkpoint-policy:
     devDependencies:

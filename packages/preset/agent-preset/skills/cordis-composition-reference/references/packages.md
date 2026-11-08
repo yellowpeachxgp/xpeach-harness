@@ -363,6 +363,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@xpeach/xph-message-quotes` | no | Selected-text quotation and Markdown blockquote presentation |
 | `@xpeach/xph-session-checkpoint-policy` | no | Semantic session durability checkpoints before model requests and tool side effects |
 | `@xpeach/xph-session-log-deepseek` | yes | Incremental lossless session-log request extension for the official DeepSeek LLM API |
 | `@xpeach/xph-session-persistence-jsonl` | yes | JSONL durable session persistence backend for the DeepSeek Harness |

@@ -329,6 +329,9 @@
     - id: ui-approval
       name: '@xpeach/xph-client-ui-approval'
 
+    - id: message-quotes
+      name: '@xpeach/xph-message-quotes'
+
     - id: ui-chat
       name: '@xpeach/xph-client-ui-chat'
 
