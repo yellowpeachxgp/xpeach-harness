@@ -14,6 +14,9 @@ import type {} from '@xpeach/xph-client-locale/client'
 import type {} from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-client-ui-renderer/client'
 import type {} from '@xpeach/xph-client-ui-session/client'
+// Type-only: pulls the generated Remote API and ctx.remote merge through the Client assembly boundary.
+import type {} from '@xpeach/xph-api-remotes/client'
+import { createToolResultWatcher } from './watch-tool-result.ts'
 import { createTrajectoryDurationStore } from './duration-store.ts'
 import { createTrajectoryStringWrappingStore } from './string-wrapping-store.ts'
 import { en, NS, zh } from './locales.ts'
@@ -38,7 +41,7 @@ export type {
 } from './trajectory-contract.ts'
 
 /** Required services: the conversation slot, registries, ordinary Session paging, and the locale service. */
-export const inject = ['slots', 'sessions', 'uiSession', 'uiConversation', 'locale']
+export const inject = ['slots', 'sessions', 'uiSession', 'uiConversation', 'locale', 'remote', 'remote.toolResults']
 
 /**
  * Client plugin body: register the trajectory view tab. The registration
@@ -91,6 +94,9 @@ export function apply(ctx: Context): void {
       const trajectory = ctx.uiConversation.binding(sessionId).target('trajectory')
       return {
         hooks: { duration },
+        watchToolResult: createToolResultWatcher(ctx.remote, sessionId, (error) => {
+          ctx.logger.warn('live tool result unavailable: %s', error)
+        }),
         jsonStringWrapping: {
           getDefault: () => stringWrapping.getSnapshot(),
           setDefault: (value) => { stringWrapping.set(value) },

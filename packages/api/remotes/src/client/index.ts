@@ -14,6 +14,7 @@ import scheduleRemote from '@xpeach/xph-schedule/remote'
 import llmRemote from '@xpeach/xph-llm/remote'
 import dynamicRemote from '@xpeach/xph-cordis-host-runner/remote'
 import pluginManagerRemote from '@xpeach/xph-plugin-manager/remote'
+import toolResultsRemote from '@xpeach/xph-client-ui-trajectory/remote'
 import pluginRegistryProbeRemote from '@xpeach/xph-client-ui-plugin-manager/remote'
 import pluginMarketRemote from '@xpeach/xph-plugin-market/remote'
 import pluginInventoryRemote from '@xpeach/xph-host-plugin-inventory/remote'
@@ -40,6 +41,7 @@ export type {
 } from '@xpeach/xph-plugin-manager/types'
 export type {} from '@xpeach/xph-plugin-manager/remote'
 export type {} from '@xpeach/xph-client-ui-plugin-manager/remote'
+export type {} from '@xpeach/xph-client-ui-trajectory/remote'
 export type {} from '@xpeach/xph-plugin-market/remote'
 export type {
   MarketCompatibility, MarketIndexSummary, MarketInstallation, MarketInstallationStatus, MarketListingEntry, MarketListingVersion,
@@ -188,7 +190,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     for (const contribution of [
       productAnalyticsRemote, agentPresetsRemote, commandsRemote, settingsControllerRemote, accountRemote,
       goalsRemote, llmRemote, dynamicRemote, scheduleRemote,
-      pluginInventoryRemote, pluginManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote,
+      pluginInventoryRemote, pluginManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote, toolResultsRemote,
       messageFeedbackRemote, sessionFeedbackRemote,
       fileUploadsRemote, sessionReferencesRemote,
       permissionPresetsRemote, subagentsRemote, sessionRemote, jobRemote, workspaceRemote, workspaceFilesRemote, terminalRemote,
