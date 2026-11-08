@@ -1,0 +1,71 @@
+{
+  "name": "@xpeach/xph-creation-recommendations",
+  "description": "Create persistent removable interface plugins from explicit conversation needs",
+  "version": "0.0.32-alpha",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/experimental/creation-recommendations"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./types": {
+      "types": "./lib/types/types.d.ts",
+      "default": "./lib/types/types.js"
+    },
+    "./references/*.md": "./references/*.md",
+    "./skills/*.md": "./skills/*.md"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-skill": "workspace:*"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-plugin-manager": "workspace:*",
+    "@xpeach/xph-api-remote-access": "workspace:*",
+    "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-app-boot": "workspace:*",
+    "@xpeach/xph-skill": "workspace:*",
+    "@xpeach/xph-sandbox-policy": "workspace:*"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0",
+    "resolve.exports": "^2.0.3",
+    "zod": "4.4.3",
+    "@xpeach/xph-client-ui-creation-recommendations": "workspace:*",
+    "@xpeach/xph-action-cards": "workspace:*",
+    "@xpeach/xph-client-ui-action-cards": "workspace:*"
+  },
+  "files": [
+    "icon.svg",
+    "locale/*.json",
+    "lib/index.js",
+    "references/*.md",
+    "skills/*.md",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "icon": "./icon.svg"
+}

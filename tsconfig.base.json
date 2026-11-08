@@ -28,6 +28,23 @@
     // not declaration path aliases, keep each package/vendor source compiled
     // under its own tsconfig boundary.
     "paths": {
+      "@xpeach/xph-action-cards": ["./packages/experimental/action-cards/src/index.ts"],
+      "@xpeach/xph-action-cards/types": ["./packages/experimental/action-cards/src/types.ts"],
+      "@xpeach/xph-action-cards/typert": ["./packages/experimental/action-cards/lib/typert.host.d.ts"],
+      "@xpeach/xph-action-cards/remote": ["./packages/experimental/action-cards/lib/typert.remote-client.d.ts"],
+      "@xpeach/xph-client-ui-action-cards": ["./packages/experimental/client-ui-action-cards/src/index.ts"],
+      "@xpeach/xph-client-ui-action-cards/client": ["./packages/experimental/client-ui-action-cards/src/client/index.ts"],
+      "@xpeach/xph-creation-recommendations": ["./packages/experimental/creation-recommendations/src/index.ts"],
+      "@xpeach/xph-creation-recommendations/types": ["./packages/experimental/creation-recommendations/src/types.ts"],
+      "@xpeach/xph-client-ui-creation-recommendations": ["./packages/experimental/client-ui-creation-recommendations/src/index.ts"],
+      "@xpeach/xph-client-ui-creation-recommendations/client": ["./packages/experimental/client-ui-creation-recommendations/src/client/index.ts"],
+      "@xpeach/xph-plugin-recommendations": ["./packages/experimental/plugin-recommendations/src/index.ts"],
+      "@xpeach/xph-plugin-recommendations/types": ["./packages/experimental/plugin-recommendations/src/types.ts"],
+      "@xpeach/xph-plugin-recommendations/typert": ["./packages/experimental/plugin-recommendations/lib/typert.host.d.ts"],
+      "@xpeach/xph-plugin-recommendations/remote": ["./packages/experimental/plugin-recommendations/lib/typert.remote-client.d.ts"],
+      "@xpeach/xph-client-ui-plugin-recommendations": ["./packages/experimental/client-ui-plugin-recommendations/src/index.ts"],
+      "@xpeach/xph-client-ui-plugin-recommendations/client": ["./packages/experimental/client-ui-plugin-recommendations/src/client/index.ts"],
+      "@xpeach/xph-personalized-recommendations": ["./packages/experimental/personalized-recommendations/src"],
       "@xpeach/xph-api-account-controller/typert": ["./packages/api/account-controller/lib/typert.host.d.ts"],
       "@xpeach/xph-api-account-controller/remote": ["./packages/api/account-controller/lib/typert.remote-client.d.ts"],
       "@xpeach/xph-api-job-controller/typert": ["./packages/api/job-controller/lib/typert.host.d.ts"],
