@@ -2890,6 +2890,9 @@ importers:
       '@xpeach/xph-client-ui-directory-picker-native':
         specifier: workspace:*
         version: link:../../client/ui-directory-picker-native
+      '@xpeach/xph-client-ui-entry-customization':
+        specifier: workspace:*
+        version: link:../../client/ui-entry-customization
       '@xpeach/xph-client-ui-goal':
         specifier: workspace:*
         version: link:../../client/ui-goal
@@ -3527,6 +3530,9 @@ importers:
       '@xpeach/xph-client-locale':
         specifier: workspace:*
         version: link:../locale
+      '@xpeach/xph-client-product-analytics':
+        specifier: workspace:*
+        version: link:../product-analytics
       '@xpeach/xph-client-store':
         specifier: workspace:*
         version: link:../store
@@ -4222,6 +4228,57 @@ importers:
         version: link:../../../vendor/cordis
       clsx:
         specifier: ^2.0.0
+        version: 2.1.1
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
+  packages/client/ui-entry-customization:
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../locale
+      '@xpeach/xph-client-product-analytics':
+        specifier: workspace:*
+        version: link:../product-analytics
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../ui-conversation
+      '@xpeach/xph-client-ui-plugin-manager':
+        specifier: workspace:*
+        version: link:../ui-plugin-manager
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../ui-renderer
+      '@xpeach/xph-client-ui-sidebar':
+        specifier: workspace:*
+        version: link:../ui-sidebar
+      '@xpeach/xph-client-ui-sidebar-right':
+        specifier: workspace:*
+        version: link:../ui-sidebar-right
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../ui-slots
+      '@xpeach/xph-client-ui-workspace':
+        specifier: workspace:*
+        version: link:../ui-workspace
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      clsx:
+        specifier: ^2.1.1
         version: 2.1.1
       react:
         specifier: ^18.2.0
@@ -5319,6 +5376,9 @@ importers:
       '@xpeach/xph-client-modules':
         specifier: workspace:*
         version: link:../modules
+      '@xpeach/xph-client-product-analytics':
+        specifier: workspace:*
+        version: link:../product-analytics
       '@xpeach/xph-client-shortcuts':
         specifier: workspace:*
         version: link:../shortcuts
