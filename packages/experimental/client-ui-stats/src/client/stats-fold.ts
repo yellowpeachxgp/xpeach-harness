@@ -5,7 +5,7 @@ import type { ImageAttachmentRef } from '@xpeach/xph-attachment'
 import type { AssistantMessage, ContentBlock, StreamChunk, UserMessage } from '@xpeach/xph-llm'
 import { assistantStreamFirstTokenTime } from '@xpeach/xph-llm/assistant-stream'
 // Type-only: the PTC event members this fold reads.
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/types'
 import type {
   StatsCall, StatsStepMetrics, StatsStepState, StatsToolCount,
 } from './stats-contract.ts'

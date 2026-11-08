@@ -57,14 +57,13 @@ async function measure(): Promise<void> {
     for (let sample = 0; sample < SAMPLES; sample++) {
       const signal = AbortSignal.timeout(60_000)
       const start = performance.now()
-      const result = await ctx.tools.execute({
+      const batch = await ctx.tools.execute({
         agent,
         signal,
-        callId: ToolCallId(`glob-${sample}`),
-        name: 'glob',
-        arguments: { pattern: `${TARGET}/*.ts` },
+        calls: [{ type: 'tool-call', id: ToolCallId(`glob-${sample}`), name: 'glob', arguments: JSON.stringify({ pattern: `${TARGET}/*.ts` }) }],
       })
       const elapsed = performance.now() - start
+      const result = batch.results[0]?.result
       assert(result !== undefined && !result.isError, 'Native glob must complete successfully')
       assert.equal(signal.aborted, false)
       if (temporary) assert.deepEqual(result.value, { root: '.', paths: Array.from({ length: MATCHES }, (_, index) => join(TARGET, `file-${index}.ts`)) })

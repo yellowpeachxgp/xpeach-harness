@@ -1,6 +1,6 @@
 /**
- * Service Definition and drive registry for the session-projection capability seam: the merge-extensible client-view type
- * table, the `ProjectionDefinition` state-driven computation unit contract,
+ * Service Definition and drive registry for the session-projection capability seam: the merge-extensible state and client-view type
+ * tables, the `ProjectionDefinition` state-driven computation unit contract,
  * and the `ctx.sessionProjections` registry that DRIVES every registered unit
  * forward eagerly over committed session events. Domain host plugins
  * contribute pure folds and optional client views; the framework owns the
@@ -17,7 +17,7 @@
  * @module @xpeach/xph-session-projection
  */
 
-import { Context, FiberState, Service } from '@xpeach/xph-cordis'
+import { Context, Service } from '@xpeach/xph-cordis'
 import type { ZodType } from 'zod'
 import { SessionLogOffset, SessionSeq } from '@xpeach/xph-session'
 import type {
@@ -35,42 +35,19 @@ declare module '@xpeach/xph-cordis' {
 
 import type {
   SessionProjectionMap,
+  SessionProjectionStateMap,
   SessionProjectionViewValue,
 } from './types.ts'
 
 export type {
   SessionProjectionMap,
+  SessionProjectionStateMap,
   SessionProjectionSummaryExcluded,
   SessionProjectionSummaryExcludedKey,
   SessionProjectionSummaryValues,
   SessionProjectionViewValue,
   SessionProjectionViewValues,
 } from './types.ts'
-
-/** An effect-owned registration with a reader retained independently of registration. */
-export interface ProjectionHandle<S> {
-  /**
-   * Read the current state, including after unregistering, by folding new
-   * Session events with this handle's original unit. Do not mutate the live value.
-   * After the final release, a read also advances the released cell that
-   * `checkpoint(session)` serves, until the key registers again.
-   * @param session - Session whose committed events are folded.
-   * @returns the projection state at the Session's current cursor.
-   */
-  stateOf(session: Session): S
-  /**
-   * Create a reader for one exact Session without reading state or preparing it.
-   * The reader retains this unit after unregistration and owns no disposal.
-   * @param session - Session whose committed events the bound reader folds.
-   * @returns a synchronous callback with the same state and failures as `stateOf(session)`.
-   */
-  readerFor(session: Session): () => S
-  /**
-   * Unregister from global drives and snapshots without invalidating this reader.
-   * @returns a promise that resolves when this registration is released.
-   */
-  dispose(): Promise<void>
-}
 
 /**
  * One domain's state-driven computation unit: a pure synchronous fold plus
@@ -80,8 +57,17 @@ export interface ProjectionHandle<S> {
  * synchronous (an async unit would tear the carriers' consistency cut), and
  * `state` MUST be plain JSON (the persisted-cache precondition).
  */
-export interface ProjectionDefinition<K extends string, S> {
-  /** The projection key this unit owns. */
+export interface ProjectionHandle<S> {
+  (): void
+  dispose(): void
+  stateOf(session: Session): S
+}
+
+export interface ProjectionDefinition<
+  K extends string = Extract<keyof SessionProjectionStateMap, string>,
+  S = K extends keyof SessionProjectionStateMap ? SessionProjectionStateMap[K] : unknown,
+> {
+  /** The projection key this unit owns (its `SessionProjectionStateMap` entry). */
   key: K
   /** Validates persisted state before it seeds a fold. */
   stateSchema: ZodType<S>
@@ -124,10 +110,10 @@ export interface ProjectionDefinition<K extends string, S> {
     summary?: boolean
   } : never
   /**
-   * Non-negative persisted-cache invalidation version. Bump when state fields or fold
-   * semantics change, except for optional additions whose absence preserves historical
-   * meaning and whose old-checkpoint suffix replay matches full replay. Test that
-   * equivalence before retaining a version; schema acceptance alone is insufficient.
+   * Persisted-cache invalidation version: bump whenever the serialized state fields or the
+   * fold semantics change, so persisted `(sessionId, key, ver, seq, val)`
+   * rows from an older unit are discarded instead of being forward-applied
+   * into garbage. Non-negative integer.
    */
   stateVersion: number
 }
@@ -141,19 +127,6 @@ export type ProjectionChangeListener = (
   session: Session,
   key: Extract<keyof SessionProjectionMap, string>,
   value: unknown,
-  seq: SessionSeq,
-) => void
-
-/**
- * Event-level change-feed listener: one committed event changed the raw `view`
- * result of at least one client-visible unit by `Object.is` for one session.
- * `changes` holds one entry per such unit in registration order, each with the
- * unit's `key` and its schema-validated view as `val`; `seq` is the seq of the
- * causing event.
- */
-export type ProjectionEventChangeListener = (
-  session: Session,
-  changes: readonly { readonly key: Extract<keyof SessionProjectionMap, string>; readonly val: unknown }[],
   seq: SessionSeq,
 ) => void
 
@@ -235,10 +208,8 @@ interface UnitCell {
 }
 
 /**
- * One shared unit and its per-session cells. After the final release the entry
- * stays in the table as a released predecessor until its key registers again,
- * keeping its definition closures referenced; acquired readers retain it beyond
- * that replacement.
+ * One live registration: the unit plus its per-session cells (dropped whole
+ * once the last registrant releases it).
  *
  * `refs` exists because one unit definition already serves every session — the
  * cells are keyed by `Session` — while registrants are per-session:
@@ -250,11 +221,7 @@ interface UnitCell {
 interface Registration {
   readonly def: ErasedDefinition
   readonly cells: WeakMap<Session, UnitCell>
-  /**
-   * Live registrants sharing this unit. `0` marks a released predecessor: only
-   * `checkpoint()` reads its cells through the registry, while a retained handle
-   * read can still advance them.
-   */
+  /** Live registrants sharing this unit; the last one out removes the key. */
   refs: number
 }
 
@@ -271,22 +238,21 @@ function cursorBefore(offset: SessionLogOffset): SessionSeqCursor {
  * raw result changes by `Object.is`.
  * Cells build lazily — a unit registered after events flowed, or a session
  * older than the registry, folds `init` over the in-memory log on first
- * touch (event or read). Consumers declare `sessionProjections` as a required
- * injection, await registration during activation, and retain its ready handle.
- * Registrants sharing a key share one unit and are counted. The last release
- * removes the unit from live drives, restores, and client snapshots, while
- * checkpoints keep each Session's last cell of it until the key registers
- * again and the new unit refolds the log; retained handles still fold new
- * events on demand using the original unit.
+ * touch (event or read). Registration is an effect (disposer rides the
+ * calling fiber): an unloaded domain plugin's key disappears from snapshots
+ * and clients read it as capability absence. A host reader either declares
+ * `sessionProjections` in its plugin `inject` or fails explicitly when the
+ * registry or required key is absent. Contributors may preserve optional
+ * registration through `ctx.inject(['sessionProjections'], ...)`. Registrants sharing a key
+ * share one unit and are counted: the same tool package mounted in N agent
+ * presets registers N times, and the key survives until the last one
+ * unloads.
  */
 export class SessionProjectionRegistry extends Service {
   private readonly registrations = new Map<string, Registration>()
   /** Stable summary key set; dropped whenever the key table changes. */
   private summaryKeySet: ReadonlySet<Extract<keyof SessionProjectionMap, string>> | undefined
   private readonly listeners = new Set<ProjectionChangeListener>()
-  private readonly eventListeners = new Set<ProjectionEventChangeListener>()
-  /** Keys whose deprecated registry-level read has already been reported. */
-  private readonly deprecatedStateOfKeys = new Set<string>()
 
   /**
    * Create and install the registry as `ctx.sessionProjections`.
@@ -297,7 +263,6 @@ export class SessionProjectionRegistry extends Service {
     ctx.on('session/created', (session: Session) => {
       if (session.seq !== 0) return
       for (const registration of this.registrations.values()) {
-        if (registration.refs === 0) continue
         if (registration.cells.has(session)) continue
         registration.cells.set(session, {
           state: registration.def.init(session.header, session.inheritedEventCount),
@@ -312,74 +277,21 @@ export class SessionProjectionRegistry extends Service {
   }
 
   /**
-   * Register one domain's unit on the calling context's fiber. Fiber or handle
-   * disposal releases one reference; the final release removes live participation.
-   * Retained handles remain readable after release.
-   * Callers must await registration before publishing consumers; registration may perform asynchronous work.
+   * Register one domain's unit. The registration is an effect on the calling
+   * context's fiber: disposing the fiber (or calling the returned disposer)
+   * removes the key — and the unit's cached cells — from subsequent drives
+   * and snapshots.
    * @param definition - key, state schema, pure unit functions, and stateVersion.
-   * @returns an awaitable yielding a ready handle; the callable runtime value is deprecated.
+   * @returns the exact disposer that unregisters this unit.
    */
-  register<K extends keyof SessionProjectionMap, S>(
+  register<
+    K extends string,
+    S = K extends keyof SessionProjectionStateMap ? SessionProjectionStateMap[K] : unknown,
+  >(
     definition: Omit<ProjectionDefinition<K, S>, 'wire'> & {
-      wire: NonNullable<ProjectionDefinition<K, S>['wire']>
+      wire?: ProjectionDefinition<K, S>['wire']
     },
-  ): Promise<ProjectionHandle<S>>
-  /**
-   * Register one host-only unit. Its state is omitted from client snapshots
-   * and always checkpointed like every other unit.
-   * Callers must await registration before publishing consumers; registration may perform asynchronous work.
-   * @param definition - key, state schema, pure unit functions, and stateVersion.
-   * @returns an awaitable yielding a ready handle; the callable runtime value is deprecated.
-   */
-  register<K extends string, S>(
-    definition: ProjectionDefinition<K, S> & { key: Exclude<K, keyof SessionProjectionMap> },
-  ): Promise<ProjectionHandle<S>>
-  /** Legacy runtime behavior: [plugin compatibility](../README.md#deprecated-plugin-compatibility). */
-  register<K extends string, S>(
-    definition: ProjectionDefinition<K, S>,
-  ): Promise<ProjectionHandle<S>> {
-    const owner = this.ctx
-    // Replaced by the effect disposer unless registration fails before its effect exists.
-    let dispose: () => Promise<void> = () => Promise.resolve()
-    const ready = this.acquire(definition, (release) => { dispose = release })
-    let observed = false
-    // A legacy caller may never observe the result. Report its rejection instead of leaving an
-    // unhandled rejection once the current macrotask and its microtasks have had a chance to
-    // observe it; an owner that is no longer loading or active cannot use the handle, so its
-    // rejection is dropped.
-    void ready.catch((error: unknown) => {
-      setImmediate(() => {
-        if (observed) return
-        if (owner.fiber.state !== FiberState.LOADING && owner.fiber.state !== FiberState.ACTIVE) return
-        owner.logger.error(error)
-      })
-    })
-    const promise: Promise<ProjectionHandle<S>> = {
-      then(onFulfilled, onRejected) {
-        observed = true
-        return ready.then(onFulfilled, onRejected)
-      },
-      catch(onRejected) {
-        observed = true
-        return ready.catch(onRejected)
-      },
-      finally(onFinally) {
-        observed = true
-        return ready.finally(onFinally)
-      },
-      [Symbol.toStringTag]: 'Promise',
-    }
-    // Return the effect disposer itself, as the synchronous API did, so a composing effect adopts it.
-    // The assigned then() replaces the disposer's own awaitable disposal: awaiting yields the handle.
-    // The toStringTag completes the Promise members, so Object.prototype.toString reports a Promise.
-    return Object.assign(dispose, promise)
-  }
-
-  /** Install one unit; `onEffect` receives its release before the asynchronous handoff. */
-  private async acquire<K extends string, S>(
-    definition: ProjectionDefinition<K, S>,
-    onEffect: (release: () => Promise<void>) => void,
-  ): Promise<ProjectionHandle<S>> {
+  ): ProjectionHandle<S> & PromiseLike<ProjectionHandle<S>> {
     const wire = definition.wire as {
       viewSchema: ZodType
       view(state: S): unknown
@@ -402,13 +314,11 @@ export class SessionProjectionRegistry extends Service {
     if (!Number.isSafeInteger(definition.stateVersion) || definition.stateVersion < 0) {
       throw new Error(`session projection ${JSON.stringify(definition.key)} stateVersion must be a non-negative integer, got ${String(definition.stateVersion)}`)
     }
-    let registration!: Registration
-    const dispose = this.ctx.effect(() => {
+    const dispose = this.ctx.effect(function* (this: SessionProjectionRegistry) {
       const key = erased.key
       const existing = this.registrations.get(key)
-      if (existing === undefined || existing.refs === 0) {
-        registration = { def: erased, cells: new WeakMap(), refs: 1 }
-        this.registrations.set(key, registration)
+      if (existing === undefined) {
+        this.registrations.set(key, { def: erased, cells: new WeakMap(), refs: 1 })
         this.summaryKeySet = undefined
       } else {
         if (existing.def.stateVersion !== erased.stateVersion) {
@@ -418,50 +328,30 @@ export class SessionProjectionRegistry extends Service {
           throw new Error(`session projection key ${JSON.stringify(key)} is already registered with summary=${String(existing.def.wire?.summary)}; refusing to share it with summary=${String(erased.wire?.summary)}`)
         }
         existing.refs += 1
-        registration = existing
       }
-      return () => {
-        registration.refs -= 1
-        if (registration.refs === 0) {
+      yield () => {
+        const live = this.registrations.get(key)
+        /* v8 ignore next -- the disposer runs once per successful registration, so the entry it counted is still here */
+        if (live === undefined) return
+        live.refs -= 1
+        if (live.refs === 0) {
+          this.registrations.delete(key)
           this.summaryKeySet = undefined
         }
       }
-    }, 'sessionProjections.register()')
-    onEffect(dispose)
-    // Observe disposal during the asynchronous registration handoff before exposing a reader.
-    await Promise.resolve()
-    this.ctx.fiber.assertActive()
-    const handle: ProjectionHandle<S> = {
-      async dispose() {
-        await dispose()
+    }.bind(this), 'sessionProjections.register()')
+    const stateOf = (session: Session): S => this.stateOf(session, definition.key as keyof SessionProjectionStateMap) as unknown as S
+    const plainHandle: ProjectionHandle<S> = Object.assign(() => { void dispose() }, { dispose: () => { void dispose() }, stateOf })
+    return Object.assign(() => { void dispose() }, {
+      dispose: () => { void dispose() },
+      stateOf,
+      then<TResult1 = ProjectionHandle<S>, TResult2 = never>(
+        onfulfilled?: ((value: ProjectionHandle<S>) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        return Promise.resolve(plainHandle).then(onfulfilled, onrejected)
       },
-      stateOf: (session) => {
-        return this.cellFor(registration, session).state as S
-      },
-      readerFor: session => () => handle.stateOf(session),
-    }
-    return handle
-  }
-
-  /**
-   * Read a currently registered unit after materializing every registered
-   * unit at the Session cursor. Unrelated wire views are not produced.
-   * The returned state is live; do not mutate it. A released key has no value.
-   * The first read of each key logs one deprecation warning per registry.
-   * @param session - Session whose committed events are folded.
-   * @param key - key of the registered projection.
-   * @returns the current state, or `undefined` when the unit is not registered.
-   * @deprecated Use an awaited registration's `handle.stateOf(session)` or the owning domain service.
-   */
-  stateOf(session: Session, key: string): unknown {
-    if (!this.deprecatedStateOfKeys.has(key)) {
-      this.deprecatedStateOfKeys.add(key)
-      this.ctx.logger.warn(`sessionProjections.stateOf(session, ${JSON.stringify(key)}) is deprecated; read handle.stateOf(session) from an awaited registration, or use the owning domain service`)
-    }
-    const registration = this.registrations.get(key)
-    if (registration === undefined || registration.refs === 0) return undefined
-    this.materializeCells(session)
-    return this.cellFor(registration, session).state
+    })
   }
 
   /**
@@ -481,23 +371,21 @@ export class SessionProjectionRegistry extends Service {
   }
 
   /**
-   * Subscribe to the event-level change feed. The registration is an effect on
-   * the calling context's fiber. The listener runs synchronously inside the
-   * committed event's `session/event` handling, once after every unit has been
-   * driven and after every {@link onChanged} call for that event. If a unit or
-   * an {@link onChanged} listener throws during that drive, the listener still
-   * receives the changes made before the throw.
-   * @param listener - called once per committed event that changed at least one client-visible unit's raw view by `Object.is`.
-   * @returns the exact disposer that unsubscribes.
+   * Read one unit's current host state, folding only that unit's cell to the
+   * Session cursor. Unrelated units are neither folded nor advanced by this
+   * read, and unrelated wire views are not produced.
+   * The returned value is live; callers must not mutate it.
+   * @param session - the session whose state is read.
+   * @param key - the registered unit key.
+   * @returns current state, or `undefined` when the key is not registered.
    */
-  onEventChanged(listener: ProjectionEventChangeListener): () => void {
-    const dispose = this.ctx.effect(() => {
-      this.eventListeners.add(listener)
-      return () => {
-        this.eventListeners.delete(listener)
-      }
-    }, 'sessionProjections.onEventChanged()')
-    return () => void dispose()
+  stateOf<K extends keyof SessionProjectionStateMap>(
+    session: Session,
+    key: K,
+  ): SessionProjectionStateMap[K] | undefined {
+    const registration = this.registrations.get(key)
+    if (registration === undefined) return undefined
+    return this.cellFor(registration, session).state as SessionProjectionStateMap[K]
   }
 
   /**
@@ -518,7 +406,6 @@ export class SessionProjectionRegistry extends Service {
     const values: Record<string, unknown> = {}
     const selected = selectedKeys(keys)
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       if (registration.def.wire === undefined) continue
       if (selected !== undefined && !selected.has(registration.def.key)) continue
       const cell = this.cellFor(registration, session)
@@ -535,7 +422,7 @@ export class SessionProjectionRegistry extends Service {
    * @param keys - optional wire keys to view.
    * @returns the lowest common cached cut, or `undefined` when no wire cell exists.
    * @deprecated Returns only values another read already computed and may omit keys; never use it to decide behavior.
-   *   Use snapshot(session, keys) for complete values, or a retained handle for host state.
+   *   Use snapshot(session, keys) for complete values, or stateOf(session, key) for host state.
    */
   cachedSnapshot(
     session: Session,
@@ -545,7 +432,6 @@ export class SessionProjectionRegistry extends Service {
     let asOfSeq: SessionSeqCursor | undefined
     const selected = selectedKeys(keys)
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       if (registration.def.wire === undefined) continue
       if (selected !== undefined && !selected.has(registration.def.key)) continue
       const cell = registration.cells.get(session)
@@ -576,7 +462,6 @@ export class SessionProjectionRegistry extends Service {
   private deriveSummaryKeys(): ReadonlySet<Extract<keyof SessionProjectionMap, string>> {
     const keys = new Set<Extract<keyof SessionProjectionMap, string>>()
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       if (registration.def.wire === undefined || !registration.def.wire.summary) continue
       keys.add(registration.def.key as Extract<keyof SessionProjectionMap, string>)
     }
@@ -594,21 +479,13 @@ export class SessionProjectionRegistry extends Service {
    * mutable state, and a caller reaching the live reference could corrupt
    * every subsequent snapshot and frame through it (plain JSON by the unit
    * contract, so the clone is total).
-   * A released unit contributes the Session's last cell. The registry no
-   * longer advances that cell, while a retained handle read still advances it
-   * forward, so a writer running after a plugin unloads keeps that unit's
-   * latest state; a Session that has no cell of it gets no row. {@link restore}
-   * folds only live units, so its refreshed rows omit released units.
    * @param session - the session whose unit states are checkpointed.
-   * @returns one row per registered key, plus one per released key with a cell for this Session.
+   * @returns one row per registered key.
    */
   checkpoint(session: Session): ProjectionCheckpoint {
     const rows: ProjectionCheckpoint = {}
     for (const registration of this.registrations.values()) {
-      const cell = registration.refs === 0
-        ? registration.cells.get(session)
-        : this.cellFor(registration, session)
-      if (cell === undefined) continue
+      const cell = this.cellFor(registration, session)
       rows[registration.def.key] = {
         ver: registration.def.stateVersion,
         seq: cell.observedSeq,
@@ -631,13 +508,12 @@ export class SessionProjectionRegistry extends Service {
    * re-read.
    * @param checkpoint - persisted rows for one session (possibly stale or empty).
    * @returns the offset for the stored-log suffix read (`SessionHandle.read`),
-   *   or `undefined` when no live unit is registered (released predecessors do not count; no read needed —
+   *   or `undefined` when no unit is registered (no read needed —
    *   {@link restore} would serve empty values regardless).
    */
   restoreFloor(checkpoint: ProjectionCheckpoint): SessionLogOffset | undefined {
     let floor: number | undefined
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       const row = checkpoint[registration.def.key]
       const need = row !== undefined && row.ver === registration.def.stateVersion
         ? Math.max(row.seq + 1, 0)
@@ -665,7 +541,6 @@ export class SessionProjectionRegistry extends Service {
     const values: Record<string, unknown> = {}
     const selected = selectedKeys(keys)
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       const def = registration.def
       if (def.wire === undefined) continue
       if (selected !== undefined && !selected.has(def.key)) continue
@@ -705,8 +580,6 @@ export class SessionProjectionRegistry extends Service {
    * @returns the snapshot cut at the supplied log end (`asOfSeq` is the last
    *   supplied event's seq, `baseSeq - 1` for an empty tail) plus the
    *   refreshed checkpoint rows at that cut, ready for a durable write-back.
-   *   The rows cover live units only: a released unit has no cell for a log
-   *   folded without a live `Session`, so a write-back of them omits it.
    */
   restore(
     checkpoint: ProjectionCheckpoint,
@@ -721,7 +594,6 @@ export class SessionProjectionRegistry extends Service {
     const values: Record<string, unknown> = {}
     const refreshed: ProjectionCheckpoint = {}
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       const def = registration.def
       const row = checkpoint[def.key]
       const usable = row !== undefined
@@ -775,7 +647,6 @@ export class SessionProjectionRegistry extends Service {
     const endSeq: SessionSeqCursor = events.at(-1)?.seq ?? cursorBefore(baseSeq)
     let complete = true
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       const current = registration.cells.get(session)
       if (current?.observedSeq !== endSeq) {
         complete = false
@@ -785,7 +656,6 @@ export class SessionProjectionRegistry extends Service {
     if (complete) {
       const values: Record<string, unknown> = {}
       for (const registration of this.registrations.values()) {
-        if (registration.refs === 0) continue
         if (registration.def.wire === undefined) continue
         const current = registration.cells.get(session) as UnitCell
         values[registration.def.key] = this.viewCell(registration, current)
@@ -800,9 +670,7 @@ export class SessionProjectionRegistry extends Service {
       session.inheritedEventCount,
     )
     for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
       const row = restored.checkpoint[registration.def.key]
-      /* v8 ignore next -- restore() writes a row for every registration in the same synchronous pass. */
       if (row === undefined) continue
       const current = registration.cells.get(session)
       if (current !== undefined && current.observedSeq > row.seq) continue
@@ -813,14 +681,6 @@ export class SessionProjectionRegistry extends Service {
       })
     }
     return restored.snapshot
-  }
-
-  /** Materialize every registered unit cell at the Session's current cursor. */
-  private materializeCells(session: Session): void {
-    for (const registration of this.registrations.values()) {
-      if (registration.refs === 0) continue
-      this.cellFor(registration, session)
-    }
   }
 
   /** Fold one unit from init over `events`, producing a cell watermarked at the last folded event. */
@@ -864,7 +724,6 @@ export class SessionProjectionRegistry extends Service {
     for (let seq = cell.observedSeq + 1; seq <= throughSeq; seq++) {
       // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
       const event = session.eventAt(SessionSeq(seq))
-      /* v8 ignore next 3 -- throughSeq never exceeds the committed log, whose seqs are contiguous by the Session invariant. */
       if (event === undefined || event.seq !== seq) {
         throw new Error(`session projection ${JSON.stringify(def.key)} cannot advance across missing seq ${String(seq)}`)
       }
@@ -878,78 +737,59 @@ export class SessionProjectionRegistry extends Service {
     }
   }
 
-  /**
-   * Eager drive: pass one committed event through every unit; notify per-key
-   * listeners on each changed raw view reference, then event listeners once.
-   * When a unit or a per-key listener throws, event listeners still receive
-   * the changes collected before the throw, and the error then propagates.
-   */
+  /** Eager drive: pass one committed event through every unit; notify on changed raw view references. */
   private drive(session: Session, event: SessionEvent): void {
-    const observed = this.listeners.size > 0 || this.eventListeners.size > 0
-    const changes: { key: Extract<keyof SessionProjectionMap, string>; val: unknown }[] = []
-    try {
-      for (const registration of this.registrations.values()) {
-        if (registration.refs === 0) continue
-        let cell = registration.cells.get(session)
-        if (cell !== undefined && cell.observedSeq >= event.seq) continue
-        if (cell === undefined) {
-          // Late build mid-stream: fold history before this event (seq = log
-          // index, so the prefix slice is exact), then take the normal gate.
-          cell = this.buildCell(
-            registration.def,
-            session.header,
-            session.inheritedEventCount,
-            // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-            session.snapshotEvents(SessionLogOffset(0), SessionLogOffset(event.seq)),
-          )
-          registration.cells.set(session, cell)
-        } else {
-          this.advanceCell(
-            registration.def,
-            cell,
-            session,
-            event.seq === 0 ? -1 : SessionSeq(event.seq - 1),
-          )
-        }
-        const previousState = cell.state
-        const next = registration.def.apply(previousState, event)
-        const changed = !Object.is(next, previousState)
-        cell.state = next
-        cell.observedSeq = event.seq
-        const wire = registration.def.wire
-        if (changed && wire !== undefined) {
-          const views = cell.views
-          views[0] = views[1]
-          if (observed) {
-            views[1] = wire.view(next)
-            if (!Object.is(views[0], views[1])) {
-              const key = registration.def.key as Extract<keyof SessionProjectionMap, string>
-              const value = wire.viewSchema.parse(views[1])
-              changes.push({ key, val: value })
-              for (const listener of this.listeners) {
-                listener(session, key, value, event.seq)
-              }
+    for (const registration of this.registrations.values()) {
+      let cell = registration.cells.get(session)
+      if (cell !== undefined && cell.observedSeq >= event.seq) continue
+      if (cell === undefined) {
+        // Late build mid-stream: fold history before this event (seq = log
+        // index, so the prefix slice is exact), then take the normal gate.
+        cell = this.buildCell(
+          registration.def,
+          session.header,
+          session.inheritedEventCount,
+          // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
+          session.snapshotEvents(SessionLogOffset(0), SessionLogOffset(event.seq)),
+        )
+        registration.cells.set(session, cell)
+      } else {
+        this.advanceCell(
+          registration.def,
+          cell,
+          session,
+          event.seq === 0 ? -1 : SessionSeq(event.seq - 1),
+        )
+      }
+      const previousState = cell.state
+      const next = registration.def.apply(previousState, event)
+      const changed = !Object.is(next, previousState)
+      cell.state = next
+      cell.observedSeq = event.seq
+      const wire = registration.def.wire
+      if (changed && wire !== undefined) {
+        const views = cell.views
+        views[0] = views[1]
+        if (this.listeners.size > 0) {
+          views[1] = wire.view(next)
+          if (!Object.is(views[0], views[1])) {
+            const value = wire.viewSchema.parse(views[1])
+            for (const listener of this.listeners) {
+              listener(session, registration.def.key as Extract<keyof SessionProjectionMap, string>, value, event.seq)
             }
-          } else {
-            views[1] = undefined
           }
-        }
-        // An unchanged state keeps its current view as the valid comparison
-        // value for the next state change.
-      }
-    } finally {
-      if (changes.length > 0) {
-        for (const listener of this.eventListeners) {
-          listener(session, changes, event.seq)
+        } else {
+          views[1] = undefined
         }
       }
+      // An unchanged state keeps its current view as the valid comparison
+      // value for the next state change.
     }
   }
 
   /** Return one schema-validated wire value. */
   private viewCell(registration: Registration, cell: UnitCell): unknown {
     const wire = registration.def.wire
-    /* v8 ignore next -- every caller filters to units with wire before calling viewCell. */
     if (wire === undefined) throw new Error(`session projection ${JSON.stringify(registration.def.key)} has no wire view`)
     return wire.viewSchema.parse(wire.view(cell.state))
   }

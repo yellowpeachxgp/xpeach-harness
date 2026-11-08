@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { officialClientBuildEnvironment, writeClientBuildRecord } from '../client-build-environment.ts'
-import { ON_DEMAND_BUNDLES } from '../../packages/util/official-bundles/src/bundles.ts'
+import { ON_DEMAND_BUNDLES } from '../../packages/boot/app-boot/src/official-bundles.ts'
 import { releaseFamily, type ReleaseMember } from './families.ts'
 import { compareVersions, nextVendorVersion, planShared, reachesPayload } from './bump.ts'
 
@@ -49,7 +49,8 @@ describe('release families', () => {
     expect(members
       .filter(member => member.directory.startsWith('packages/experimental/'))
       .map(member => member.name)).toEqual([
-      '@xpeach/xph-action-cards',
+      '@xpeach/xph-experimental-agent-team-profile',
+      '@xpeach/xph-experimental-agent-team',
       '@xpeach/xph-experimental-api-speech-to-text',
       '@xpeach/xph-experimental-auto-review',
       '@xpeach/xph-experimental-badge-skill-bundle',
@@ -58,35 +59,22 @@ describe('release families', () => {
       '@xpeach/xph-experimental-browser-use-runtime',
       '@xpeach/xph-experimental-browser-use-stagehand-native',
       '@xpeach/xph-experimental-claude-code-mods',
-      '@xpeach/xph-client-ui-action-cards',
+      '@xpeach/xph-experimental-client-ui-agent-team',
       '@xpeach/xph-experimental-client-ui-claude-code-mods',
       '@xpeach/xph-experimental-client-ui-cot-translation',
-      '@xpeach/xph-client-ui-creation-recommendations',
-      '@xpeach/xph-experimental-client-ui-forge',
-      '@xpeach/xph-client-ui-plugin-recommendations',
       '@xpeach/xph-experimental-client-ui-stats',
       '@xpeach/xph-experimental-client-ui-voice-input',
       '@xpeach/xph-experimental-computer-use-cua-driver-mcp',
       '@xpeach/xph-experimental-computer-use-cua-driver-native',
       '@xpeach/xph-experimental-cot-translation-bundle',
-      '@xpeach/xph-creation-recommendations',
-      '@xpeach/xph-cua-bundle',
       '@xpeach/xph-experimental-cua-macos',
       '@xpeach/xph-cua',
-      '@xpeach/xph-experimental-forge-bundle',
-      '@xpeach/xph-experimental-forge-github',
-      '@xpeach/xph-experimental-forge-session',
-      '@xpeach/xph-experimental-forge',
       '@xpeach/xph-hook-protocol',
       '@xpeach/xph-hooks-claude-code',
       '@xpeach/xph-hooks-codex',
       '@xpeach/xph-experimental-inspector-profile',
       '@xpeach/xph-experimental-inspector',
-      '@xpeach/xph-experimental-liveshare-protocol',
-      '@xpeach/xph-experimental-liveshare',
-      '@xpeach/xph-personalized-recommendations',
       '@xpeach/xph-experimental-plugin-market-bundle',
-      '@xpeach/xph-plugin-recommendations',
       '@xpeach/xph-experimental-ptc-runtime-python',
       '@xpeach/xph-experimental-ralph-bundle',
       '@xpeach/xph-experimental-session-inspector',
@@ -98,6 +86,7 @@ describe('release families', () => {
       '@xpeach/xph-experimental-speech-to-text',
       '@xpeach/xph-experimental-subagent-oar',
       '@xpeach/xph-experimental-terminal-bundle',
+      '@xpeach/xph-experimental-tool-agent-team',
       '@xpeach/xph-tool-ralph',
       '@xpeach/xph-tool-session-query',
       '@xpeach/xph-experimental-tool-subagent-oar',
@@ -180,7 +169,7 @@ describe('release families', () => {
   it('names one tag for the whole dsh family and one per vendored package', () => {
     const dsh = releaseFamily('dsh')
     const vendor = releaseFamily('vendor')
-    const cli = member('apps/cli', '@deepseek-ai/dsh')
+    const cli = member('apps/cli', '@xpeach/xph-dsh')
     const cordis = { ...member('vendor/cordis', '@xpeach/xph-cordis'), version: '4.0.1' }
 
     expect(dsh.tagFor(cli)).toBe('dsh-v0.0.1')
@@ -205,7 +194,7 @@ describe('release families', () => {
 
   it('rejects a family whose members disagree on the shared version', () => {
     const dsh = releaseFamily('dsh')
-    const members = [member('apps/cli', '@deepseek-ai/dsh'), { ...member('apps/web', '@xpeach/xph-web-frontend'), version: '0.0.2' }]
+    const members = [member('apps/cli', '@xpeach/xph-dsh'), { ...member('apps/web', '@xpeach/xph-web-frontend'), version: '0.0.2' }]
 
     expect(() => { dsh.verifyVersions(members) }).toThrow(/must share one version/)
     expect(() => { dsh.verifyVersions([members[0]!]) }).not.toThrow()
@@ -257,27 +246,27 @@ describe('release families', () => {
   })
 
   it('publishes on-demand catalog members before dsh without adding installed dependencies', () => {
-    const dsh = member('apps/cli', '@deepseek-ai/dsh')
+    const dsh = member('apps/cli', '@xpeach/xph-dsh')
     const providers = ON_DEMAND_BUNDLES.map(name => member(`packages/subagent/${name}`, name))
     const plan = releaseFamily('dsh').publishOrder([dsh, ...providers])
-    expect(plan.order.map(entry => entry.name)).toEqual([...ON_DEMAND_BUNDLES.toSorted(), dsh.name])
+    expect(plan.order.map(entry => entry.name)).toEqual([...ON_DEMAND_BUNDLES, dsh.name])
     expect(dsh.manifest).toEqual({})
     expect(plan.droppedPeerEdges).toEqual([])
   })
 
   it('rejects an advertised provider missing from the public release family', () => {
-    expect(() => releaseFamily('dsh').publishOrder([member('apps/cli', '@deepseek-ai/dsh')]))
+    expect(() => releaseFamily('dsh').publishOrder([member('apps/cli', '@xpeach/xph-dsh')]))
       .toThrow('Official catalog prerequisite')
   })
 
   it('keeps catalog prerequisites ahead of a dsh peer declaration', () => {
-    const dsh = member('apps/cli', '@deepseek-ai/dsh')
+    const dsh = member('apps/cli', '@xpeach/xph-dsh')
     const providers = ON_DEMAND_BUNDLES.map(name => member(`packages/subagent/${name}`, name, {
-      peerDependencies: { '@deepseek-ai/dsh': 'workspace:*' },
+      peerDependencies: { '@xpeach/xph-dsh': 'workspace:*' },
     }))
     const plan = releaseFamily('dsh').publishOrder([dsh, ...providers])
-    expect(plan.order.map(entry => entry.name)).toEqual([...ON_DEMAND_BUNDLES.toSorted(), dsh.name])
-    expect(plan.droppedPeerEdges).toEqual(ON_DEMAND_BUNDLES.toSorted().map(name => ({ consumer: name, peer: dsh.name })))
+    expect(plan.order.map(entry => entry.name)).toEqual([...ON_DEMAND_BUNDLES, dsh.name])
+    expect(plan.droppedPeerEdges).toEqual(ON_DEMAND_BUNDLES.map(name => ({ consumer: name, peer: dsh.name })))
   })
 
   it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
@@ -294,11 +283,11 @@ describe('release families', () => {
   )
 
   it('checks packed identities and preserves independent vendor versions', () => {
-    const pkg = member('vendor/example', '@deepseek-ai/example')
+    const pkg = member('vendor/example', '@xpeach/xph-example')
     const family = releaseFamily('vendor')
     expect(() => { family.validatePackedManifest(pkg, { name: pkg.name, version: pkg.version, dependencies: { '@xpeach/xph-tools': '^4.0.0' } }) })
       .not.toThrow()
-    expect(() => { family.validatePackedManifest(pkg, { name: '@deepseek-ai/other', version: pkg.version }) }).toThrow('packed identity')
+    expect(() => { family.validatePackedManifest(pkg, { name: '@xpeach/xph-other', version: pkg.version }) }).toThrow('packed identity')
     expect(() => { family.validatePackedManifest(pkg, { name: pkg.name, version: '0.0.2' }) }).toThrow('packed identity')
   })
 
@@ -380,7 +369,7 @@ describe('release families', () => {
     // would order this, and the traversal drops the install edge instead. That
     // order would publish charlie before the alpha it installs, so it is refused
     // here rather than published.
-    expect(() => { dsh.publishOrder(members) }).toThrow(/no publish order honours @deepseek-ai\/dsh-charlie -> @deepseek-ai\/dsh-alpha/)
+    expect(() => { dsh.publishOrder(members) }).toThrow(/no publish order honours @xpeach\/xph-charlie -> @xpeach\/xph-alpha/)
   })
 
   it('ignores devDependencies when ordering', () => {
@@ -411,7 +400,7 @@ describe('release families', () => {
   })
 
   it('drives the installed entry only for the family that publishes one', () => {
-    expect(releaseFamily('dsh').installedEntry).toEqual({ packageName: '@deepseek-ai/dsh', binPath: 'lib/bin.js' })
+    expect(releaseFamily('dsh').installedEntry).toEqual({ packageName: '@xpeach/xph-dsh', binPath: 'lib/bin.js' })
     expect(releaseFamily('vendor').installedEntry).toBeUndefined()
   })
 

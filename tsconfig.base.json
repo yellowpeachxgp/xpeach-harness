@@ -28,6 +28,9 @@
     // not declaration path aliases, keep each package/vendor source compiled
     // under its own tsconfig boundary.
     "paths": {
+      "@xpeach/xph-tool-executor-ptc/src/*": ["./packages/core/tool-executor-ptc/src/*"],
+      "@xpeach/xph-client-ui-action-cards/src/*": ["./packages/experimental/client-ui-action-cards/src/*"],
+      "@xpeach/xph-message-quotes/src/*": ["./packages/session/message-quotes/src/*"],
       "@xpeach/xph-action-cards": ["./packages/experimental/action-cards/src/index.ts"],
       "@xpeach/xph-action-cards/types": ["./packages/experimental/action-cards/src/types.ts"],
       "@xpeach/xph-action-cards/typert": ["./packages/experimental/action-cards/lib/typert.host.d.ts"],
@@ -958,16 +961,16 @@
       "@xpeach/xph-lsp-stdio": ["./packages/lsp/lsp-stdio/src"],
       "@xpeach/xph-mcp-client": ["./packages/mcp/mcp-client/src"],
       "@xpeach/xph-mcp-resources": ["./packages/mcp/mcp-resources/src"],
-      "@xpeach/xph-message-quotes": ["./packages/session/message-quotes/src"],
       "@xpeach/xph-message-feedback": ["./packages/feedback/message-feedback/src"],
+      "@xpeach/xph-message-quotes": ["./packages/session/message-quotes/src"],
       "@xpeach/xph-native-command": ["./packages/util/native-command/src"],
       "@xpeach/xph-office-to-pdf": ["./packages/document/office-to-pdf/src"],
       "@xpeach/xph-output-retention": ["./packages/util/output-retention/src"],
       "@xpeach/xph-package-manifest": ["./packages/util/package-manifest/src"],
       "@xpeach/xph-permission-presets": ["./packages/interaction/permission-presets/src"],
       "@xpeach/xph-persona": ["./packages/preset/persona/src"],
-      "@xpeach/xph-plugin-detail": ["./packages/util/plugin-detail/src"],
       "@xpeach/xph-plan-mode": ["./packages/plan/plan-mode/src"],
+      "@xpeach/xph-plugin-detail": ["./packages/util/plugin-detail/src"],
       "@xpeach/xph-plugin-market": ["./packages/boot/plugin-market/src"],
       "@xpeach/xph-plugin-market-index": ["./packages/util/plugin-market-index/src"],
       "@xpeach/xph-plugin-package-inventory-deepseek": ["./packages/llm/plugin-package-inventory-deepseek/src"],

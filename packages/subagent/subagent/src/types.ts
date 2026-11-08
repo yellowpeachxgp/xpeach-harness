@@ -28,6 +28,8 @@ export function SubagentRunId(id: string): SubagentRunId {
 }
 
 /** One managed child execution and its result delivery policy. */
+export type FlatSubagentActivationSpec = Omit<SubagentActivationSpec, 'request'> & Omit<SubagentStartRequest, 'label' | 'signal'>
+
 export interface SubagentActivationSpec {
   /** Registered backend to use. */
   readonly provider: string

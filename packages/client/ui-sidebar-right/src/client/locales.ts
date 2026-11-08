@@ -89,6 +89,7 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  "tab.guide.more": "More actions",
   'command.close': '現在のページまたはウィンドウを閉じる',
   'command.refresh': '現在のページを更新',
   'command.noRefresh': 'このページは更新できません',
@@ -127,6 +128,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  "tab.guide.more": "More actions",
   'command.close': 'Cerrar la página o ventana actual',
   'command.refresh': 'Actualizar la página actual',
   'command.noRefresh': 'Esta página no se puede actualizar',
@@ -165,6 +167,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  "tab.guide.more": "More actions",
   'command.close': 'Fermer la page ou la fenêtre actuelle',
   'command.refresh': 'Actualiser la page actuelle',
   'command.noRefresh': 'Cette page ne peut pas être actualisée',
@@ -203,6 +206,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  "tab.guide.more": "More actions",
   'command.close': 'Aktuelle Seite oder Fenster schließen',
   'command.refresh': 'Aktuelle Seite aktualisieren',
   'command.noRefresh': 'Diese Seite kann nicht aktualisiert werden',
@@ -241,6 +245,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  "tab.guide.more": "More actions",
   'command.close': 'Закрыть текущую страницу или окно',
   'command.refresh': 'Обновить текущую страницу',
   'command.noRefresh': 'Эту страницу невозможно обновить',
@@ -279,6 +284,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  "tab.guide.more": "More actions",
   'command.close': 'Fechar a página ou janela atual',
   'command.refresh': 'Atualizar página atual',
   'command.noRefresh': 'Esta página não pode ser atualizada',

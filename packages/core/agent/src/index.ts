@@ -11,9 +11,9 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { isPromise } from 'node:util/types'
 import { scopeTarget } from '@xpeach/xph-scope'
 import type { Scoped } from '@xpeach/xph-scope'
-import type { SessionEvent, SessionId, SessionLogOffset } from '@xpeach/xph-session'
+import type { Session, SessionEvent, SessionId, SessionLogOffset } from '@xpeach/xph-session'
 import { installTurnArchiveAdmission } from './archive-admission.ts'
-import type { Agent } from './types.ts'
+import type { Agent, TurnBoundaryProjection } from './types.ts'
 import type { AgentOptions, SessionStartSource } from './runtime-types.ts'
 
 export * from './runtime-types.ts'
@@ -294,6 +294,15 @@ export class AgentRegistry extends Service {
    *   and inside an explicit clearing boundary.
    * @throws when this service instance has been disposed.
    */
+  /**
+   * Read the turn and step positions recorded in a Session.
+   * @param session - Session whose committed events are read.
+   * @returns the current turn and step positions; do not mutate the returned value.
+   */
+  turnBoundaryOf(session: Session): TurnBoundaryProjection {
+    return this.ctx.sessionProjections.stateOf(session, "turnBoundary")!
+  }
+
   currentInitiator(): Agent | undefined {
     this.assertInitiatorsReadable()
     return this.initiators.getStore()

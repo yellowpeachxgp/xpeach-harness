@@ -22,7 +22,7 @@ import FsLocal from '@xpeach/xph-fs-local'
 import WorkingDirectory from '@xpeach/xph-working-directory'
 import Access from '@xpeach/xph-api-remote-access'
 import * as ActionCards from '@xpeach/xph-action-cards'
-import type { SubagentActivation, SubagentActivationSpec } from '@xpeach/xph-subagent'
+import type { SubagentActivation, FlatSubagentActivationSpec } from '@xpeach/xph-subagent'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as Recommendations from '../src/index.ts'
 import { RESULT_TEXT, writeBundle } from './fixture.ts'
@@ -55,12 +55,12 @@ it.each(['portable-bundle', 'foreign-nested-row'] as const)('validates and insta
     startedBundles: loadProfileDirectory('test', dir, anchor).layers.map(layer => layer.packageName),
     overlays: [], telemetryDisabledEnv: undefined,
   }
-  const starts: SubagentActivationSpec[] = []
+  const starts: FlatSubagentActivationSpec[] = []
   const ctx = await boot('test', join(dir, 'cordis.yml'), readProfilePatches('test', profile), (ctx) => {
     owner = ctx
     ctx.provide('profileContext', profile)
     ctx.provide('appReady', { onReady: (listener) => { listener(); return () => {} } })
-    ctx.provide('subagents', { startActivation: async (spec: SubagentActivationSpec): Promise<SubagentActivation & { childId: SessionId }> => {
+    ctx.provide('subagents', { startActivation: async (spec: FlatSubagentActivationSpec): Promise<SubagentActivation & { childId: SessionId }> => {
       starts.push(spec)
       const instructions = JSON.parse(spec.prompt.find(block => block.type === 'text')!.text) as { packageName: string }
       await writeBundle(spec.cwd!, instructions.packageName)
@@ -73,7 +73,7 @@ it.each(['portable-bundle', 'foreign-nested-row'] as const)('validates and insta
         await rename(join(spec.cwd!, 'index.js'), join(spec.cwd!, 'runtime.mjs'))
         await symlink('./runtime.mjs', join(spec.cwd!, 'index.js'))
       }
-      return { childId: spec.childId!, name: 'agent-1', dispose: async () => {},
+      return { childId: spec.childId!, dispose: async () => {},
         result: Promise.resolve({ output: [], stopReason: 'completed', structured: { ready: true } }) }
     } })
     Object.assign(ctx.loader.builtins, { sessions: Sessions, projections: Projections, llm: Llm, prompt: SystemPrompt, tools: Tools,

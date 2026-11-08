@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type { Context } from '@xpeach/xph-cordis'
 import { createUserMessage } from '@xpeach/xph-llm'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import type {} from '@xpeach/xph-system-prompt'
 import type {} from '@xpeach/xph-tools'
 
@@ -14,9 +14,11 @@ export const inject = ['tools', 'systemPrompt']
  * prompt is unchanged, which must keep both prompt versions in the request.
  */
 export function apply(ctx: Context): void {
-  // This tree's tools.register has no 'when' gate (unported upstream feature);
-  // register and dispose reproduce the same availability window.
-  let removeTool: (() => void) | undefined
+  let active = false
+  ctx.tools.register(defineContentToolFixture({
+    name: 'snapshot_ping', description: 'Return pong once.', parameters: {},
+    async execute() { return [{ type: 'text', text: 'pong' }] },
+  }), { when: async () => active })
   let guidance = ''
   ctx.systemPrompt.section({ name: 'snapshot:series-start-guidance', order: 400, text: () => guidance })
   ctx.on('tools/post-execute', async (exec, result, next) => {
@@ -24,15 +26,9 @@ export function apply(ctx: Context): void {
     if (result.isError) return downstream
     if (exec.name === 'read' && guidance === '') {
       guidance = 'Snapshot guidance added after the first read: call snapshot_ping once, then reply DONE.'
-      removeTool = ctx.tools.register(defineContentToolFixture({
-        name: 'snapshot_ping', description: 'Return pong once.', parameters: {},
-        async execute() { return [{ type: 'text', text: 'pong' }] },
-      }))
+      active = true
     }
-    if (exec.name === 'snapshot_ping') {
-      removeTool?.()
-      removeTool = undefined
-    }
+    if (exec.name === 'snapshot_ping') active = false
     return downstream
   })
   let steps = 0

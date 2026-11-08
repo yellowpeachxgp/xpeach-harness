@@ -792,6 +792,10 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  "quote.remove": "Remove quote",
+  "session.moreViews": "More views",
+  "session.moreViewsCurrent": "More views ({view})",
+  "tool.title.applyPatch": "Patch {path}",
   'shortcut.newline': '改行',
   'shortcut.complementary': '補助のキュー / 実行中の指示変更を使用',
   'shortcut.slash': 'コマンドメニューを開く',
@@ -1177,6 +1181,10 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  "quote.remove": "Remove quote",
+  "session.moreViews": "More views",
+  "session.moreViewsCurrent": "More views ({view})",
+  "tool.title.applyPatch": "Patch {path}",
   'shortcut.newline': 'Nueva linea',
   'shortcut.complementary': 'Usar la acción alternativa de poner en cola o redirigir',
   'shortcut.slash': 'Abrir menú de comandos',
@@ -1564,6 +1572,10 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  "quote.remove": "Remove quote",
+  "session.moreViews": "More views",
+  "session.moreViewsCurrent": "More views ({view})",
+  "tool.title.applyPatch": "Patch {path}",
   'shortcut.newline': 'Nouvelle ligne',
   'shortcut.complementary': 'Utiliser l’action alternative de mise en attente ou de guidage',
   'shortcut.slash': 'Ouvrir le menu des commandes',
@@ -1951,6 +1963,10 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  "quote.remove": "Remove quote",
+  "session.moreViews": "More views",
+  "session.moreViewsCurrent": "More views ({view})",
+  "tool.title.applyPatch": "Patch {path}",
   'shortcut.newline': 'Neue Zeile',
   'shortcut.complementary': 'Die alternative Aktion zum Vormerken oder Lenken verwenden',
   'shortcut.slash': 'Befehlsmenü öffnen',
@@ -2338,6 +2354,10 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  "quote.remove": "Remove quote",
+  "session.moreViews": "More views",
+  "session.moreViewsCurrent": "More views ({view})",
+  "tool.title.applyPatch": "Patch {path}",
   'shortcut.newline': 'Новая линия',
   'shortcut.complementary': 'Использовать альтернативное действие: поставить в очередь или направить',
   'shortcut.slash': 'Открыть командное меню',
@@ -2725,6 +2745,10 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  "quote.remove": "Remove quote",
+  "session.moreViews": "More views",
+  "session.moreViewsCurrent": "More views ({view})",
+  "tool.title.applyPatch": "Patch {path}",
   'shortcut.newline': 'Nova linha',
   'shortcut.complementary': 'Usar a ação alternativa de enfileirar ou orientar',
   'shortcut.slash': 'Abrir menu de comando',

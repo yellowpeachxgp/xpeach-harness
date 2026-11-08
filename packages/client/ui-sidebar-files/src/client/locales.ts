@@ -73,6 +73,10 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  "entry.noViewer": "Cannot open files: the Document Preview plugin is disabled.",
+  "navigator.show": "Show file tree",
+  "navigator.hide": "Hide file tree",
+  "navigator.resize": "Resize file tree",
   'shortcut.noSession': '先にセッションを選択してください',
   'type.label': 'ファイル',
   'guide.title': 'ワークスペースのファイル',
@@ -94,6 +98,10 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  "entry.noViewer": "Cannot open files: the Document Preview plugin is disabled.",
+  "navigator.show": "Show file tree",
+  "navigator.hide": "Hide file tree",
+  "navigator.resize": "Resize file tree",
   'shortcut.noSession': 'Seleccione una sesión primero',
   'type.label': 'Archivos',
   'guide.title': 'Archivos de espacio de trabajo',
@@ -115,6 +123,10 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  "entry.noViewer": "Cannot open files: the Document Preview plugin is disabled.",
+  "navigator.show": "Show file tree",
+  "navigator.hide": "Hide file tree",
+  "navigator.resize": "Resize file tree",
   'shortcut.noSession': "Sélectionnez d'abord une session",
   'type.label': 'Fichiers',
   'guide.title': "Fichiers de l'espace de travail",
@@ -136,6 +148,10 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  "entry.noViewer": "Cannot open files: the Document Preview plugin is disabled.",
+  "navigator.show": "Show file tree",
+  "navigator.hide": "Hide file tree",
+  "navigator.resize": "Resize file tree",
   'shortcut.noSession': 'Wählen Sie zunächst eine Sitzung aus',
   'type.label': 'Dateien',
   'guide.title': 'Arbeitsbereichsdateien',
@@ -157,6 +173,10 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  "entry.noViewer": "Cannot open files: the Document Preview plugin is disabled.",
+  "navigator.show": "Show file tree",
+  "navigator.hide": "Hide file tree",
+  "navigator.resize": "Resize file tree",
   'shortcut.noSession': 'Сначала выберите сеанс',
   'type.label': 'Файлы',
   'guide.title': 'Файлы рабочей области',
@@ -178,6 +198,10 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  "entry.noViewer": "Cannot open files: the Document Preview plugin is disabled.",
+  "navigator.show": "Show file tree",
+  "navigator.hide": "Hide file tree",
+  "navigator.resize": "Resize file tree",
   'shortcut.noSession': 'Selecione uma sessão primeiro',
   'type.label': 'Arquivos',
   'guide.title': 'Arquivos do espaço de trabalho',

@@ -408,6 +408,10 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  "settings.foldedReplies.title": "Replies After Collapse",
+  "settings.foldedReplies.description": "Choose which assistant replies remain visible when intermediate work steps are collapsed.",
+  "settings.foldedReplies.all": "Keep all assistant text replies",
+  "settings.foldedReplies.final": "Show only the final answer",
   'message.stepProcess.thinking': 'リクエストを分析中',
   'message.stepProcess.read': 'ファイルを読み取り中',
   'message.stepProcess.readImage': '画像を読み取り中',
@@ -604,6 +608,10 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  "settings.foldedReplies.title": "Replies After Collapse",
+  "settings.foldedReplies.description": "Choose which assistant replies remain visible when intermediate work steps are collapsed.",
+  "settings.foldedReplies.all": "Keep all assistant text replies",
+  "settings.foldedReplies.final": "Show only the final answer",
   'message.stepProcess.thinking': 'Analizando la solicitud',
   'message.stepProcess.read': 'Leyendo archivos',
   'message.stepProcess.readImage': 'Leyendo imágenes',
@@ -801,6 +809,10 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  "settings.foldedReplies.title": "Replies After Collapse",
+  "settings.foldedReplies.description": "Choose which assistant replies remain visible when intermediate work steps are collapsed.",
+  "settings.foldedReplies.all": "Keep all assistant text replies",
+  "settings.foldedReplies.final": "Show only the final answer",
   'message.stepProcess.thinking': 'Analyser la demande',
   'message.stepProcess.read': 'Lecture de fichiers',
   'message.stepProcess.readImage': 'Lire des images',
@@ -998,6 +1010,10 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  "settings.foldedReplies.title": "Replies After Collapse",
+  "settings.foldedReplies.description": "Choose which assistant replies remain visible when intermediate work steps are collapsed.",
+  "settings.foldedReplies.all": "Keep all assistant text replies",
+  "settings.foldedReplies.final": "Show only the final answer",
   'message.stepProcess.thinking': 'Analyse der Anfrage',
   'message.stepProcess.read': 'Dateien lesen',
   'message.stepProcess.readImage': 'Bilder lesen',
@@ -1195,6 +1211,10 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  "settings.foldedReplies.title": "Replies After Collapse",
+  "settings.foldedReplies.description": "Choose which assistant replies remain visible when intermediate work steps are collapsed.",
+  "settings.foldedReplies.all": "Keep all assistant text replies",
+  "settings.foldedReplies.final": "Show only the final answer",
   'message.stepProcess.thinking': 'Анализ запроса',
   'message.stepProcess.read': 'Чтение файлов',
   'message.stepProcess.readImage': 'Чтение изображений',
@@ -1391,6 +1411,10 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  "settings.foldedReplies.title": "Replies After Collapse",
+  "settings.foldedReplies.description": "Choose which assistant replies remain visible when intermediate work steps are collapsed.",
+  "settings.foldedReplies.all": "Keep all assistant text replies",
+  "settings.foldedReplies.final": "Show only the final answer",
   'message.stepProcess.thinking': 'Analisando a solicitação',
   'message.stepProcess.read': 'Lendo arquivos',
   'message.stepProcess.readImage': 'Lendo imagens',

@@ -805,7 +805,7 @@ describe('dsh-tool-skill', () => {
       incomplete: true, entries: [{ name: 'stable-skill' }],
     })
     expect(JSON.stringify(catalogMessages(session)[1]?.data.content)).toContain('Some skills could not be checked')
-    const result = await ctx.tools.execute({
+    const result = await executeToolFixture(ctx, {
       signal: testToolSignal, callId: ToolCallId('partial-load'),
       name: 'skill', arguments: { name: 'stable-skill' }, agent,
     })

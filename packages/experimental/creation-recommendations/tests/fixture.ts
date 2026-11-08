@@ -13,7 +13,7 @@ import RemoteAccess from '@xpeach/xph-api-remote-access'
 import ActionCards from '@xpeach/xph-action-cards'
 import type { Agent } from '@xpeach/xph-agent'
 import type { BundleInfo, ChangeResult } from '@xpeach/xph-plugin-manager/types'
-import type { SubagentActivationSpec, SubagentResult } from '@xpeach/xph-subagent'
+import type { FlatSubagentActivationSpec, SubagentResult } from '@xpeach/xph-subagent'
 import * as CreationRecommendations from '../src/index.ts'
 import type { PageData } from '../src/types.ts'
 
@@ -69,9 +69,9 @@ export async function fixture(initial?: PageCardState) {
     }),
   }
   const result = Promise.withResolvers<SubagentResult>()
-  const entered = Promise.withResolvers<SubagentActivationSpec>()
+  const entered = Promise.withResolvers<FlatSubagentActivationSpec>()
   const dispose = vi.fn(async () => { result.resolve({ output: [], stopReason: 'aborted' }) })
-  const startActivation = vi.fn(async (spec: SubagentActivationSpec) => {
+  const startActivation = vi.fn(async (spec: FlatSubagentActivationSpec) => {
     entered.resolve(spec)
     return { childId: spec.childId!, result: result.promise, dispose }
   })

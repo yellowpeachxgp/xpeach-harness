@@ -6,6 +6,7 @@ import { createScope, type Scope } from '@xpeach/xph-scope'
 import { expect, it, vi } from 'vitest'
 import { FsError } from '@xpeach/xph-fs'
 import { PtcRuntime } from '@xpeach/xph-ptc-runtime'
+import { executeModelToolFixture, executeToolFixture } from '@xpeach/xph-tool-testkit'
 import type { PtcRunRequest, PtcRunSpec } from '@xpeach/xph-ptc-runtime'
 import { add, move, patch, remove, setup, update } from './patch/harness.ts'
 
@@ -15,7 +16,7 @@ const guidance = 'Prefer apply_patch over separate edit calls for changes across
 
 type Fixture = Awaited<ReturnType<typeof setup>>
 function call(t: Fixture, text: string) {
-  return t.ctx.tools.execute({ ...t.exec, arguments: { input: text } })
+  return executeToolFixture(t.ctx, { ...t.exec, arguments: { input: text } })
 }
 
 it('omits patch registration and guidance when disabled', async () => {
@@ -26,7 +27,7 @@ it('omits patch registration and guidance when disabled', async () => {
 
 it('registers patch guidance when enabled and removes tool and section on disposal', async () => {
   const t = await setup()
-  expect(t.ctx.tools.get('apply_patch')?.description).toBe('Create, update, delete, or move UTF-8 text files with one Codex-style patch; '
+  expect(t.ctx.tools.get('apply_patch')?.description).toBe('Create, update, delete, or move UTF-8 text files with one patch; '
     + 'prefer it over multiple edit calls when a change spans several files or separated regions.')
   const key = {}
   let scope!: Scope
@@ -147,7 +148,7 @@ it('advertises escalation only for a confining backend and throws the sandbox re
   const t = await setup({ mode: 'read-only' })
   expect(t.ctx.tools.get('apply_patch')?.parameters).toHaveProperty('properties.sandbox_permissions')
   // The provider denies the first commit; with nothing written, the tool rejects like a preflight refusal.
-  const result = await t.ctx.tools.execute({ signal: t.exec.signal, callId: t.exec.callId, name: 'apply_patch',
+  const result = await executeToolFixture(t.ctx, { signal: t.exec.signal, callId: t.exec.callId, name: 'apply_patch',
     arguments: { input: patch(add(resolve(t.workspace, 'a')), add(resolve(t.workspace, 'b'))) } })
   expect(result.error?.info).toEqual({ name: 'FsError', code: 'FS_SANDBOX_DENIED' })
   expect(result.content).toEqual([{ type: 'text', text: `Error: Patch rejected before any change (1 problems):\n- operation 1 (add ${resolve(t.workspace, 'a')}, patch line 2): [sandbox: file access denied under read-only mode]\n[sandbox: escalation available — retry this exact operation once with sandbox_permissions (the narrowest wider mode that suffices) + justification; the approval prompt asks the user]` }])
@@ -176,7 +177,7 @@ it('dispatches native and PTC patch calls with identical values', async () => {
   const native = await call(t, runtime.patch)
   if (native.isError) throw new Error('expected native success')
   await t.file('a', 'old\n')
-  const ptc = await p.ctx.tools.execute({
+  const ptc = await executeModelToolFixture(p.ctx, {
     signal: p.exec.signal, callId: p.exec.callId, agent: { ctx: p.ctx, session: { header: { cwd: t.workspace }, append() {} } } as never,
     name: 'run_code', arguments: { code: 'return await tools.apply_patch({patch})', description: 'Apply the fixture patch' },
   })

@@ -6,6 +6,7 @@
   },
   "include": ["src"],
   "references": [
+    { "path": "../../core/tool-executor-ptc" },
     { "path": "../../../vendor/cordis" },
     { "path": "../../api/session-controller/tsconfig.client.json" },
     { "path": "../../attachment/attachment" },

@@ -12,6 +12,8 @@ import SessionStore, { SessionId } from '@xpeach/xph-session'
 import LocalSubprocessRuntime from '@xpeach/xph-subprocess-local'
 import SystemPrompt from '@xpeach/xph-system-prompt'
 import * as ToolFs from '@xpeach/xph-tool-fs'
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import ToolRuntime from '@xpeach/xph-tools'
 import * as captures from '../src/capture.ts'
 import * as WorkspaceChanges from '../src/index.ts'
@@ -47,6 +49,7 @@ async function boot(environment: string) {
   provideWorkingDirectoryFixture(ctx, cwd)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(LocalFileSystem, { cwd })
   await ctx.plugin(FsPolicy)
   await ctx.plugin(ToolFs, { applyPatch: true })
@@ -65,7 +68,7 @@ async function boot(environment: string) {
         source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }),
     }, { surfaceOp: 'append' })
     const source = session.append('tool/call', { turn: 1, step: 1, callId, name, arguments: serialized })
-    const result = await ctx.tools.execute({ signal, callId, name, arguments: args,
+    const result = await executeToolFixture(ctx, { signal, callId, name, arguments: args,
       // The fixture provides current-directory resolution for this Session.
       agent: { session } as never })
     session.append('tool/result', { turn: 1, step: 1,

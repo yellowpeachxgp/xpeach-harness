@@ -4,7 +4,7 @@ import type { ToolCallBlock, ToolCallId } from '@xpeach/xph-llm'
 import type { Agent } from '@xpeach/xph-agent'
 import type { UserMessage } from '@xpeach/xph-session'
 import type { PromptSection, ToolProviderResult } from '@xpeach/xph-system-prompt'
-import type { ToolDefinition, ToolExecutionResult } from './contracts.ts'
+import type { ResolvedToolSet, ToolDefinition, ToolExecutionResult } from './contracts.ts'
 
 /** Model-call schemas produced by an executor. */
 export type ToolModelInput = Pick<ToolProviderResult, 'schemas' | 'knownNames'>
@@ -30,6 +30,11 @@ export interface ToolBatchInput {
    * Undefined for standalone calls outside an Agent, such as a service invocation.
    */
   readonly agent?: Agent
+  /**
+   * Step admission for every call in the batch, including program subcalls.
+   * Undefined admits only unconditional registrations.
+   */
+  readonly toolSet?: ResolvedToolSet
   /**
    * Committed model step receiving root call/result events; requires `agent`.
    * Undefined when `agent` is absent or for calls outside a model response, such
