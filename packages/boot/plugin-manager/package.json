@@ -64,6 +64,7 @@
     "@xpeach/xph-atomic-write": "workspace:*",
     "@xpeach/xph-schemastery": "workspace:~",
     "execa": "^10.0.1",
+    "semver": "^7.8.5",
     "yaml": "^2.9.0",
     "zod": "4.4.3",
     "@xpeach/xph-util-values": "workspace:*"
@@ -91,6 +92,7 @@
   },
   "devDependencies": {
     "chokidar": "^4.0.3",
+    "@types/semver": "^7.8.0",
     "@xpeach/xph-package-manifest": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",
