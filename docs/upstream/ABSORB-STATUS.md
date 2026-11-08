@@ -19,6 +19,21 @@
 | 多选题推荐项预选 | `bf8d8494ba`, `07c3c10d2c`, `185eb56a2b` (PR #7407) | ui-user-questions 126 项单测通过 |
 | Web 预览 codemirror 懒加载提速 | `4b1d4c814e`, `39d973322b` (PR #6950) | webworker-runtime 987 项单测通过 |
 
+## 运行时修复批次（port/fixes-runtime）
+
+| 项 | 上游 | 验证状态 |
+|---|---|---|
+| ACP stdout 诊断泄漏（MCP 资源列表） | #7168 `cb7f0878e4`、#7179 `f425304f7b`、#7202 `10551d0e4e` | mcp 147 项单测通过；账号侧部分按 skip-list 丢弃 |
+| pi-ai 图片数量上限自动卸载 | #7606 `f77e9a2757` | llm-pi-ai 422 项单测通过 |
+| pi-ai system-reminder 保留 | #6606 `185a9d63dd` | 同上（与 #7606 同提交） |
+| 模型切换前压缩 | #6345 `09b389cf55` | compaction 247 项单测通过 |
+| persistent-bash 输入改写 | #6756 `cd9ee0ee4c` | tool-bash-persistent 27 项单测通过 |
+| file-upload resolver dispose | #6567 `854043a205` | session-controller upload spec 22 项单测通过 |
+| shiki Go 回溯 | #7004 `ce333bc5ea` | go-highlighting spec 2 项单测通过 |
+| web-fetch charset 容错 | #7322 `cf38ed3205` | web 426 项单测通过 |
+| glob 前缀快路径 | #7045 `faa2619933` | tool-fs-search 174 项单测通过 |
+| agent-loop 系列起点前缀缓存 | #6986 `a677aca248` | system-prompt specs 37 项单测通过；持久化路径测试存在环境性失败（基线同样失败） |
+
 ## 产品侧修复（非上游）
 
 | 项 | 提交 |

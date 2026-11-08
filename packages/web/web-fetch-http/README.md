@@ -63,9 +63,11 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 
 The provider keeps requests anonymous and bounded: it accepts only `http:` and `https:` URLs without embedded credentials and rejects URLs over 2,048 characters. It resolves each hostname once, rejects the complete result if any IPv4 or IPv6 address is not public unicast, and pins the connection to that validated set. IPv6 checks discover the active DNS64 prefix and reject translations to non-public IPv4. Each same-origin redirect repeats resolution and pinning; cross-origin redirects fail and require a fresh call. The provider also enforces byte, character, hop, and time caps, rejects unsupported content types, and sends an explicit product `User-Agent`.
 
+A malformed comma- or whitespace-joined charset declaration containing a UTF-8 label (such as `charset=utf-8,gbk`) is decoded strictly as UTF-8. Recovery rejects invalid UTF-8 without trying another encoding. When the byte cap cuts a character, recovery omits the incomplete suffix and returns `truncated: true`; a complete response using recovery must pass the EOF check. Valid single-label declarations retain ordinary replacement decoding.
+
 ### Failures and recovery
 
-Failures throw `WebError` with a machine-routable code: `WEB_INVALID_URL`, `WEB_BLOCKED_URL`, `WEB_FETCH_TOO_LARGE`, `WEB_FETCH_TIMEOUT`, `WEB_REDIRECT_BLOCKED`, `WEB_UNSUPPORTED_CONTENT_TYPE`, `WEB_ABORTED`, or `WEB_PROVIDER_ERROR`. Direct callers can route on the code; the model-facing `web_fetch` tool surfaces the failure text to the model under its own error wrapper.
+Failures throw `WebError` with a machine-routable code: `WEB_INVALID_URL`, `WEB_BLOCKED_URL`, `WEB_FETCH_TOO_LARGE`, `WEB_FETCH_TIMEOUT`, `WEB_REDIRECT_BLOCKED`, `WEB_UNSUPPORTED_CONTENT_TYPE`, `WEB_ABORTED`, or `WEB_PROVIDER_ERROR`. `WEB_UNSUPPORTED_CONTENT_TYPE` covers unsupported media types, unsupported charset declarations, and invalid UTF-8 during malformed-declaration recovery. Direct callers can route on the code; the model-facing `web_fetch` tool surfaces the failure text to the model under its own error wrapper.
 
 -----
 
@@ -95,7 +97,7 @@ The package is built on one separation and one layered timeout:
 
 ### Read path
 
-A fetch validates the URL, resolves the hostname once, rejects the complete answer set when any address is not public, and pins the connection to the accepted addresses. It repeats that check for each same-origin redirect; a cross-origin redirect or non-public target fails before response bytes are accepted. The final response is classified by `Content-Type`, decoded from its declared charset, and read under the byte cap; the decoded text is then truncated to the character cap.
+A fetch validates the URL, resolves the hostname once, rejects the complete answer set when any address is not public, and pins the connection to the accepted addresses. It repeats that check for each same-origin redirect; a cross-origin redirect or non-public target fails before response bytes are accepted. The final response is classified by `Content-Type`, decoded from its declared charset (malformed declarations containing UTF-8 use strict UTF-8 recovery), and read under the byte cap; the decoded text is then truncated to the character cap.
 
 </details>
 
@@ -132,7 +134,8 @@ No direct invalidation; the named consumer owns any request-prefix changes.
 These limits define when the provider is unsafe or a poor fit. They are current package constraints.
 
 - **Only textual content decodes** — html/xhtml and `text/*` plus JSON/XML families; a missing `Content-Type` or any binary type throws `WEB_UNSUPPORTED_CONTENT_TYPE`, and text-extractable PDF decoding is named deferred work.
-- **Charset comes only from the `Content-Type` header** (UTF-8 default) — an HTML `<meta charset>` declaration is ignored, and a declared-but-unrecognized charset label throws rather than falling back.
+- **Charset comes only from the `Content-Type` header** (UTF-8 default) — an HTML `<meta charset>` declaration is ignored, and unsupported declarations without a UTF-8 label throw.
+- **UTF-8 recovery is a preference, not encoding detection** — bytes can be valid as both UTF-8 and another encoding, even in a long response. Recovery chooses UTF-8 in that case; malformed declarations without a UTF-8 label remain unsupported.
 
 <a id="dev-note"></a>
 ### Dev Note
