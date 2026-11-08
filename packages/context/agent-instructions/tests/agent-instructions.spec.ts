@@ -12,7 +12,7 @@ import SessionStore, { SessionId, SessionSeq, type SessionEvent, type SurfaceInt
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import AgentRegistry, { agentEvents, type Agent } from '@xpeach/xph-agent'
 import AgentLoop, { turnBoundaryProjectionDefinition } from '@xpeach/xph-agent-loop'
-import { FileSystem, FsTargetKey, FsVersion } from '@xpeach/xph-fs'
+import { FileSystem, FsError, FsTargetKey, FsVersion } from '@xpeach/xph-fs'
 import type {
   FsDirEntry,
   FsEditOutcome,
@@ -118,6 +118,10 @@ function pinAgentsHome(home: string): void {
 }
 
 class RecordingFileSystem extends FileSystem {
+  override async patchText(): Promise<never> { throw new FsError('patch unsupported by test provider', 'FS_IO_ERROR') }
+  override async deleteFile(): Promise<never> { throw new FsError('delete unsupported by test provider', 'FS_IO_ERROR') }
+  override async moveFile(): Promise<never> { throw new FsError('move unsupported by test provider', 'FS_IO_ERROR') }
+
   override watch(): never { throw new Error('Fixture does not support watching') }
   entries = new Map<string, { type: FsInfo['type']; content?: string; version?: FsVersion }>()
   missingOnResolve = new Set<string>()

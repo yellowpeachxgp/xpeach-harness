@@ -140,6 +140,7 @@ const SECTION_ORDERS = {
   TOOL_READ: 1100,
   TOOL_WRITE: 1200,
   TOOL_EDIT: 1300,
+  TOOL_APPLY_PATCH: 1350,
   TOOL_GLOB: 1400,
   TOOL_GREP: 1500,
   TOOL_JOBS: 1600,
@@ -256,7 +257,7 @@ function compareToolNames(a: ToolSchema, b: ToolSchema): number {
 
 /** Plugin config: the deployment-authored fragment of the system prompt (see {@link Config.personaPrefix} for its contract). */
 export interface Config {
-  /** Include the fixed DeepSeek Harness identity before the deployment persona (default true). */
+  /** Include the fixed XPeach Harness identity before the deployment persona (default true). */
   includeHarnessIdentity?: boolean
   /** Include optional runtime-context snapshots in model history (default true); required context remains. */
   includeRuntimeContext?: boolean
@@ -452,7 +453,7 @@ export class SystemPrompt extends Service {
         order: this.getSectionOrder('HARNESS_IDENTITY'),
         text: process.env.XPH_PRODUCT === '1'
           ? 'You are an AI agent powered by XPeach Harness.'
-          : 'You are an AI agent powered by DeepSeek Harness.',
+          : 'You are an AI agent powered by XPeach Harness.',
       })
     }
     this.section({

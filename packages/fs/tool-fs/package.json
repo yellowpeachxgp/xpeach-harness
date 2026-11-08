@@ -1,13 +1,13 @@
 {
   "name": "@xpeach/xph-tool-fs",
-  "description": "Model-facing filesystem tools (read, write, edit) over the DeepSeek Harness filesystem seam (ctx.fs)",
+  "description": "Model-facing filesystem tools (read, write, edit) over the XPeach Harness filesystem seam (ctx.fs)",
   "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/fs/tool-fs"
   },
   "type": "module",
@@ -31,7 +31,9 @@
   "dependencies": {
     "diff": "^9.0.0",
     "@xpeach/xph-schemastery": "workspace:~",
-    "@xpeach/xph-util-code-language": "workspace:*"
+    "@xpeach/xph-util-code-language": "workspace:*",
+    "@xpeach/xph-fs-patch": "workspace:*",
+    "@xpeach/xph-util-values": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-attachment": "workspace:*",
@@ -54,6 +56,7 @@
     "@xpeach/xph-fs": "workspace:*",
     "@xpeach/xph-fs-local": "workspace:*",
     "@xpeach/xph-fs-observation-policy": "workspace:*",
+    "@xpeach/xph-fs-sandbox": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-llm-deepseek": "workspace:*",
     "@xpeach/xph-llm-deepseek-api-key": "workspace:*",
