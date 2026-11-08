@@ -34,7 +34,9 @@
     "@xpeach/xph-skill": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",
-    "@xpeach/xph-cordis-plugin-include": "workspace:~"
+    "@xpeach/xph-cordis-plugin-include": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "dependencies": {
     "@deepseek-ai/libreoffice-kit": "^0.1.5",

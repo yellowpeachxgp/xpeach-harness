@@ -63,7 +63,7 @@ kind: "package-reference"
 
 #### 模型可见内容
 
-[工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-working-directory) 定义可选的 `cd` 参数与规范 `cwd` 结果。目录通知由 `dsh-working-directory` 拥有。
+[工具目录](../../../docs/tool-catalog.zh.md#xpeachxph-tool-working-directory) 定义可选的 `cd` 参数与规范 `cwd` 结果。目录通知由 `dsh-working-directory` 拥有。
 
 #### Token 影响
 

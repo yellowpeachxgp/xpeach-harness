@@ -39,7 +39,8 @@
     "@xpeach/xph-util-values": "workspace:*",
     "@xpeach/xph-schemastery": "workspace:~",
     "@joplin/turndown-plugin-gfm": "^1.0.67",
-    "turndown": "^7.2.4"
+    "turndown": "^7.2.4",
+    "@xpeach/xph-output-retention": "workspace:*"
   },
   "devDependencies": {
     "@xpeach/xph-cordis": "workspace:~",
@@ -56,6 +57,8 @@
     "@xpeach/xph-web-search-exa": "workspace:*",
     "@types/turndown": "^5.0.6",
     "@xpeach/xph-scope": "workspace:*",
-    "@xpeach/xph-token-meter": "workspace:*"
+    "@xpeach/xph-token-meter": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

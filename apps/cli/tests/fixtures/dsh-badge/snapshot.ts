@@ -1,3 +1,4 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { fileURLToPath } from 'node:url'
 import { agentEvents, type Agent } from '@xpeach/xph-agent'
 import { ToolCallId } from '@xpeach/xph-llm'
@@ -51,7 +52,7 @@ try {
       && message.source.kind === 'skill-catalog')?.content
     : undefined
   const summary = (await ctx.skills.list()).find(skill => skill.name === 'dsh-badge')
-  const result = await ctx.tools.execute({
+  const result = await executeToolFixture(ctx, {
     callId: ToolCallId('dsh-badge-snapshot'),
     name: 'skill',
     arguments: { name: 'dsh-badge' },

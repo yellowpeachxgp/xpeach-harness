@@ -48,6 +48,8 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-agent-loop": "workspace:*",
     "@xpeach/xph-attachment-local": "workspace:*",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

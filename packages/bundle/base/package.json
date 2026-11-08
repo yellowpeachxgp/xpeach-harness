@@ -128,7 +128,9 @@
     "@xpeach/xph-otel": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-tool-working-directory": "workspace:*",
-    "@xpeach/xph-web-deepseek-api": "workspace:*"
+    "@xpeach/xph-web-deepseek-api": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~"

@@ -97,6 +97,8 @@
     "@xpeach/xph-tool-fs": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

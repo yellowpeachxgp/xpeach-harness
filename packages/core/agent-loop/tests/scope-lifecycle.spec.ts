@@ -1,10 +1,12 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { createUserMessage } from '@xpeach/xph-llm'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { Context, symbols, type EffectMeta, type Fiber } from '@xpeach/xph-cordis'
 import LlmRuntime from '@xpeach/xph-llm'
 import SessionStore, { SessionId, type SessionEvent } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { agentEvents, assembleContextFor } from '@xpeach/xph-agent'
 
 import type { Agent } from '@xpeach/xph-agent'
@@ -21,6 +23,7 @@ async function harnessWithLoop(adapter: MockAdapter = new MockAdapter([textRespo
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { personaPrefix: 'You are the deployment.' })
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   const loopFiber = await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)

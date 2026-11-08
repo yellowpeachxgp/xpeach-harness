@@ -16,6 +16,7 @@ import {
   checkExperimentalDependencyIsolation,
   checkExperimentalManifest,
   checkExperimentalNameExceptions,
+  detailDocumentFiles,
   expectedDshPackageFiles,
   readWorkspaceManifests,
   type WorkspaceManifest,
@@ -327,6 +328,72 @@ describe('package payload constraints', () => {
     ])
   })
 
+  it('publishes tools entry points and shared runtime chunks', () => {
+    const dir = 'packages/core/tools'
+    const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+    expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+    for (const omitted of ['lib/pipeline.js', 'lib/shared-*.js']) {
+      expect(checkWorkspaceManifest({ dir, manifest: {
+        ...manifest, files: manifest.files!.filter(file => file !== omitted),
+      } })).toEqual([expect.stringContaining('package.json files must be')])
+    }
+    expect(checkWorkspaceManifest({ dir, manifest: {
+      ...manifest,
+      exports: {
+        ...manifest.exports,
+        './pipeline': { types: './lib/types/pipeline.d.ts', default: './lib/index.js' },
+      },
+    } })).toContainEqual(expect.stringContaining('exports["./pipeline"] must expose'))
+  })
+
+  it('publishes the directory of each locale detail document after the locale resources', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-detail-files-'))
+    onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+    mkdirSync(join(dir, 'docs/guide'), { recursive: true })
+    mkdirSync(join(dir, 'locale'))
+    writeFileSync(join(dir, 'docs/DETAIL.md'), '')
+    writeFileSync(join(dir, 'docs/guide/DETAIL.zh.md'), '')
+    writeFileSync(join(dir, 'docs/DETAIL.fr.md'), '')
+    writeFileSync(join(dir, 'locale/en.json'), JSON.stringify({ meta: { title: 'T', detail: 'docs/DETAIL.md' } }))
+    writeFileSync(join(dir, 'locale/zh.json'), JSON.stringify({ meta: { title: 'T', detail: 'docs/guide/DETAIL.zh.md' } }))
+    writeFileSync(join(dir, 'locale/fr.json'), JSON.stringify({ meta: { title: 'T', detail: 'docs/DETAIL.fr.md' } }))
+    writeFileSync(join(dir, 'locale/de.json'), JSON.stringify({ meta: { title: 'T' } }))
+    writeFileSync(join(dir, 'locale/ja.json'), '{')
+    const detailFiles = detailDocumentFiles(dir)
+    expect(detailFiles).toEqual(['docs'])
+    expect(expectedDshPackageFiles({ exports: { './locale/*.json': './locale/*.json' } }, detailFiles)).toEqual([
+      'locale/*.json', 'docs', 'lib/index.js', 'lib/types/**/*.d.ts',
+    ])
+  })
+
+  it('rejects a detail document that is missing, outside the package, or at the package root', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-detail-invalid-'))
+    onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+    mkdirSync(join(dir, 'locale'))
+    const declare = (detail: unknown): void => {
+      writeFileSync(join(dir, 'locale/en.json'), JSON.stringify({ meta: { detail } }))
+    }
+    declare('docs/DETAIL.md')
+    expect(() => detailDocumentFiles(dir)).toThrow(/DETAIL\.md.*does not exist/)
+    mkdirSync(join(dir, 'docs'))
+    writeFileSync(join(dir, 'docs/DETAIL.md'), '')
+    expect(detailDocumentFiles(dir)).toEqual(['docs'])
+    declare('DETAIL.md')
+    expect(() => detailDocumentFiles(dir)).toThrow(/must name a file in a subdirectory/)
+    declare('../DETAIL.md')
+    expect(() => detailDocumentFiles(dir)).toThrow(/must be a relative path inside the package/)
+    writeFileSync(join(dir, 'locale/en.json'), 'null')
+    expect(detailDocumentFiles(dir)).toEqual([])
+  })
+
+  it('rejects a bundle whose locale detail document is missing from its publication files', () => {
+    const dir = 'packages/experimental/badge-skill-bundle'
+    const manifest = JSON.parse(readFileSync(join(import.meta.dirname, '..', dir, 'package.json'), 'utf8')) as WorkspaceManifest['manifest']
+    expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+    const files = (manifest.files ?? []).filter(file => file !== 'docs')
+    expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files } }).join('\n')).toContain('"docs"')
+  })
+
   it('does not infer locale payloads from unrelated or non-JSON exports', () => {
     expect(expectedDshPackageFiles({
       exports: {
@@ -470,6 +537,24 @@ it('requires the standalone shortcut protocol and rejects unrelated runtime file
     ['lib/index.js', 'lib/client.js', 'lib/protocol.js', 'lib/extra.js', 'lib/types/**/*.d.ts'],
   ]) {
     expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files } }))
+      .toEqual([expect.stringContaining('package.json files must be')])
+  }
+})
+
+it('requires the OAR license while rejecting unrelated payload files', () => {
+  const dir = 'packages/experimental/subagent-oar'
+  const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+  const files = [
+    'icon.svg', 'locale/*.json', 'lib/index.js',
+    'LICENSE-OAR', 'lib/types/**/*.d.ts',
+  ]
+  expect(expectedDshPackageFiles(manifest)).toEqual(files)
+  expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+  for (const invalidFiles of [
+    files.filter(file => file !== 'LICENSE-OAR'),
+    [...files, 'lib/unrelated.js'],
+  ]) {
+    expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files: invalidFiles } }))
       .toEqual([expect.stringContaining('package.json files must be')])
   }
 })

@@ -101,6 +101,8 @@ function dirOf(url: string): string {
 }
 
 interface SdkAssertions {
+  /** Client decisions for the internal approval protocol recording. */
+  approvalOutcomes?: readonly ('allowed-once' | 'rejected')[]
   /** Additional profile patches applied after the shared composition. */
   patches?: readonly string[]
   /** Wait for the recorded provider title before sending each subsequent prompt. */
@@ -127,6 +129,12 @@ interface SdkAssertions {
 }
 
 const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
+  'approval': {
+    approvalOutcomes: ['allowed-once', 'rejected'],
+    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    patches: [fileURLToPath(new URL('./approval/runtime.cordis.yml', import.meta.url))],
+  },
+
   'minimal-image-compaction': {
     expectedFinalResponse: 'MINIMAL_IMAGE_OK',
     expectedTools: { bash: ['command'], read_image: ['file_path'], working_directory: [] },
@@ -648,6 +656,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
 
   const createHarness = (): DeepSeekHarness => new DeepSeekHarness({
     profile: scenario.manifest.profile,
+    ...(assertions.approvalOutcomes === undefined ? {} : { approvalRequests: true }),
     patches,
     dshHome,
     processCwd: cwd,
@@ -665,6 +674,17 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     const results: RunResult[] = []
     const sessionId = 'fixture-root-session'
     const liveSessions: (string | undefined)[] = [sessionId]
+    if (assertions.approvalOutcomes !== undefined) {
+      const outcomes = [...assertions.approvalOutcomes]
+      harness.client.start()
+      harness.client.onRequest(async (method, params) => {
+        expect(method).toBe('approval/request')
+        expect(params).toMatchObject({ sessionId, toolName: 'fixture-write' })
+        const outcome = outcomes.shift()
+        if (outcome === undefined) throw new Error('unexpected approval request')
+        return { outcome }
+      })
+    }
     await harness.start()
     let subscription = harness.client.subscribeSessionTree(sessionId)
     const titleSubscription = assertions.waitForProviderTitle === true
@@ -952,6 +972,8 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       const actualContext = contextOf(ordered, cwd)
       if (scenario.name === 'minimal-image-compaction') {
         const events = results.flatMap(result => result.events)
+        const failures = events.filter(event => event.type === 'turn/end' && event.data.reason.kind === 'error')
+        expect(failures, 'minimal profile completes its checkpointed turn').toEqual([])
         const image = events.find(event => event.type === 'tool/result')
         expect(image).toMatchObject({ data: { message: {
           toolCallId: 'minimal-image-read',
@@ -1068,7 +1090,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
         const events = results.flatMap(result => result.events)
         const headers = events.filter(event => event.type === 'request/header')
           .map(event => (event.data.header as { tools: { name: string }[] }).tools.map(tool => tool.name))
-        expect(headers).toHaveLength(2)
+        expect(headers, JSON.stringify(events.filter(event => event.type === 'turn/end' || event.type === 'tool/result'))).toHaveLength(2)
         expect(headers[0]).toContain('bash')
         expect(headers[0]).not.toContain('run_code')
         expect(headers[1]).toEqual(['run_code'])
@@ -1086,7 +1108,8 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
         }
       }
       if (assertions.expectedFinalResponse !== undefined) {
-        expect(results.at(-1)?.finalResponse, `${scenario.name}: final response`).toBe(assertions.expectedFinalResponse)
+        const failures = results.flatMap(result => result.events).filter(event => event.type === 'turn/end' || event.type === 'tool/result')
+        expect(results.at(-1)?.finalResponse, `${scenario.name}: final response; outcomes: ${JSON.stringify(failures)}`).toBe(assertions.expectedFinalResponse)
         const parent = ordered[0]
         if (parent === undefined) throw new Error(`${scenario.name}: no primary session log`)
         const turnEnds = records(parent.content).filter(record => record.type === 'turn/end')
@@ -1231,6 +1254,9 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           const system = assembledSystem(parent)
           for (const clause of assertions.runtimeContext.includes) expect(system).not.toContain(clause)
         }
+      }
+      if (scenario.name === 'serial-created') {
+        expect(observedMethods.has('subagent.started')).toBe(false)
       }
       if (ordered.length > 1 && assertions.dshSdkChild === undefined) {
         expect(observedMethods.has('subagent.started')).toBe(true)

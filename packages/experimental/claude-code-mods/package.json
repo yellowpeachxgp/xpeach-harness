@@ -97,6 +97,8 @@
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-user-questions": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-session-persistence-jsonl": "workspace:*"
+    "@xpeach/xph-session-persistence-jsonl": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

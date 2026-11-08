@@ -1,0 +1,72 @@
+{
+  "name": "@xpeach/xph-experimental-subagent-oar",
+  "description": "Experimental one-shot subagents through OAR runtimes",
+  "version": "0.0.32-alpha",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/experimental/subagent-oar"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "icon.svg",
+    "locale/*.json",
+    "lib/index.js",
+    "LICENSE-OAR",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-subprocess": "workspace:*"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.4.0",
+    "@xpeach/xph-brand": "workspace:*",
+    "@xpeach/xph-timeout": "workspace:*",
+    "@xpeach/xph-util-values": "workspace:*",
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@earendil-works/pi-ai": "^1.3.0",
+    "@earendil-works/pi-coding-agent": "^1.3.0",
+    "cross-spawn": "^7.0.6",
+    "undici": "8.10.2",
+    "which": "^2.0.2"
+  },
+  "devDependencies": {
+    "@botiverse/oar": "0.67.0",
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-cordis-plugin-loader": "workspace:~",
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-app-boot": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-loader-smoke": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-checkpoint-policy": "workspace:*",
+    "@xpeach/xph-session-persistence-jsonl": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-subprocess": "workspace:*",
+    "@xpeach/xph-tool-jobs": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-experimental-tool-subagent-oar": "workspace:*"
+  }
+}

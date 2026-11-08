@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,7 +11,8 @@ import AgentRegistry from '@xpeach/xph-agent'
 import type { Agent } from '@xpeach/xph-agent'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
 import SystemPrompt, { renderPrompt } from '@xpeach/xph-system-prompt'
-import ToolRegistry, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRegistry from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { FILE_REFERENCE_PROMPT } from '@xpeach/xph-file-reference'
 import LocalFileReferenceService, { WorkspaceFileSearch } from '../src/index.ts'
 
@@ -26,9 +28,10 @@ async function harness(): Promise<Context> {
   await ctx.plugin(SessionStore)
   await ctx.plugin(SystemPrompt, { personaPrefix: '' })
   await ctx.plugin(ToolRegistry)
+  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalFileSystem)
-  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(WorkingDirectory)
   return ctx
 }
@@ -73,6 +76,7 @@ describe('LocalFileReferenceService', () => {
       expect(ctx.agents.get(agent.id)).toBe(agent)
       await ctx.plugin(SystemPrompt, { personaPrefix: '' })
       await ctx.plugin(ToolRegistry)
+      await ctx.plugin(NativeToolExecutor)
       ctx.tools.register(defineContentToolFixture({
         name: 'read', description: 'read a file', parameters: {}, execute: () => Promise.resolve([]),
       }))

@@ -63,6 +63,8 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.13",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

@@ -14,6 +14,7 @@ import scheduleRemote from '@xpeach/xph-schedule/remote'
 import llmRemote from '@xpeach/xph-llm/remote'
 import dynamicRemote from '@xpeach/xph-cordis-host-runner/remote'
 import pluginManagerRemote from '@xpeach/xph-plugin-manager/remote'
+import toolResultsRemote from '@xpeach/xph-client-ui-trajectory/remote'
 import pluginRegistryProbeRemote from '@xpeach/xph-client-ui-plugin-manager/remote'
 import pluginMarketRemote from '@xpeach/xph-plugin-market/remote'
 import pluginInventoryRemote from '@xpeach/xph-host-plugin-inventory/remote'
@@ -32,18 +33,20 @@ import type { ClientRemote } from '@xpeach/xph-api-gateway/client'
 
 export type { ClientRemote } from '@xpeach/xph-api-gateway/client'
 export type {
-  BundleInfo, BundleRowInfo, ChangeResult, IncompatiblePlugin, InspectOptions, InstallBundleOptions, InstallSpecKind, ManagementError,
-  PackageResult,
+  BundleDetail, BundleInfo, BundleRowInfo, ChangeResult, IncompatiblePlugin, InspectOptions, InstallBundleOptions, InstallSpecKind,
+  ManagementError, PackageResult,
   PluginChange, PluginEntryId, PluginInfo, PluginInspectProblem, PluginInstallCancellation, PluginInstallFailureKind,
   PluginInstallLogChunk, PluginInstallProgress, PluginInstallRequestId, PluginRegistries, PluginSpecInspection,
+  PluginUpdateProgress, PluginUpdateResult, PluginUpdateStep, PluginVersion, PluginVersionList, RegistryAttempt,
   ReadOnlyReason, Registry, RestartReason,
 } from '@xpeach/xph-plugin-manager/types'
 export type {} from '@xpeach/xph-plugin-manager/remote'
 export type {} from '@xpeach/xph-client-ui-plugin-manager/remote'
+export type {} from '@xpeach/xph-client-ui-trajectory/remote'
 export type {} from '@xpeach/xph-plugin-market/remote'
 export type {
   MarketCompatibility, MarketIndexSummary, MarketInstallation, MarketInstallationStatus, MarketListingEntry, MarketListingVersion,
-  MarketQuery, MarketSearchResult, MarketSort,
+  MarketQuery, MarketSearchResult, MarketSort, PluginDetail, PluginDetailDocumentId, PluginDetailOrigin,
 } from '@xpeach/xph-plugin-market/types'
 export type { PluginInventorySnapshot } from '@xpeach/xph-host-plugin-inventory/types'
 export type {} from '@xpeach/xph-agent-preset-registry/remote'
@@ -188,7 +191,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     for (const contribution of [
       productAnalyticsRemote, agentPresetsRemote, commandsRemote, settingsControllerRemote, accountRemote,
       goalsRemote, llmRemote, dynamicRemote, scheduleRemote,
-      pluginInventoryRemote, pluginManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote,
+      pluginInventoryRemote, pluginManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote, toolResultsRemote,
       messageFeedbackRemote, sessionFeedbackRemote,
       fileUploadsRemote, sessionReferencesRemote,
       permissionPresetsRemote, subagentsRemote, sessionRemote, jobRemote, workspaceRemote, workspaceFilesRemote, terminalRemote,

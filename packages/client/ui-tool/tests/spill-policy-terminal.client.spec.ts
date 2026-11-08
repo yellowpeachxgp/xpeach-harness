@@ -1,4 +1,7 @@
 /** Producer-to-UI regression for shell results bounded by the real spill policy. */
+import { executeModelToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import * as PtcToolExecutor from '@xpeach/xph-tool-executor-ptc'
 import { Context } from '@xpeach/xph-cordis'
 import type { Agent } from '@xpeach/xph-agent'
 import type { ToolResultNode } from '@xpeach/xph-client-ui-chat/client'
@@ -11,7 +14,8 @@ import { SpillLocator, SpillStore, type SaveTextSpill, type SpillRef } from '@xp
 import * as SpillPolicy from '@xpeach/xph-spill-policy'
 import { formatSpillNotice } from '@xpeach/xph-spill-policy/notice'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { PartialArguments } from '@xpeach/xph-util-values'
 import { describe, expect, it } from 'vitest'
 import { isSpilledShellCall, terminalCardModel } from '../src/client/tool/models/terminal-card-model.ts'
@@ -40,7 +44,8 @@ async function executeShell(text: string, nested: boolean, name = 'bash', maxInl
   const ctx = new Context()
   try {
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime, { mode: nested ? 'ptc' : 'native' })
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin((nested ? 'ptc' : 'native') === 'ptc' ? PtcToolExecutor : NativeToolExecutor)
     ctx.provide('workingDirectory', { ensure: async () => process.cwd() })
     await ctx.plugin(MemorySpillStore)
     await ctx.plugin(SpillPolicy, { maxInlineTokens })
@@ -75,7 +80,7 @@ async function executeShell(text: string, nested: boolean, name = 'bash', maxInl
     // Nested PTC registers retained-environment cleanup on the owning context.
     const agent = { ctx, session } as Agent
     const callId = ToolCallId('shell-call')
-    const result = await ctx.tools.execute({
+    const result = await executeModelToolFixture(ctx, {
       callId,
       agent,
       signal: new AbortController().signal,

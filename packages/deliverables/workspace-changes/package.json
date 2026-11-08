@@ -1,13 +1,13 @@
 {
   "name": "@xpeach/xph-workspace-changes",
-  "description": "Per-turn workspace file changes recorded from git working-tree snapshots and whole-file captures, with per-file comparisons, for the DeepSeek Harness",
+  "description": "Per-turn workspace file changes recorded from git working-tree snapshots and whole-file captures, with per-file comparisons, for the XPeach Harness",
   "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/deliverables/workspace-changes"
   },
   "type": "module",
@@ -57,6 +57,8 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-fs": "workspace:*",
     "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-fs-observation-policy": "workspace:*",
+    "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-agent-loop-testkit": "workspace:*",
     "@xpeach/xph-agent-loop": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",

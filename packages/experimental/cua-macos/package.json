@@ -80,7 +80,10 @@
     "@xpeach/xph-app-boot": "workspace:*",
     "@xpeach/xph-config-editor": "workspace:*",
     "@xpeach/xph-hmr": "workspace:*",
-    "@xpeach/xph-cordis-plugin-timer": "workspace:~"
+    "@xpeach/xph-cordis-plugin-timer": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "scripts": {
     "build:native": "swift build --package-path native --configuration release"

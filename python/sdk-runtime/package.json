@@ -126,6 +126,7 @@
     "@xpeach/xph-tool-bash-persistent": "workspace:*",
     "@xpeach/xph-tool-call-timeout-policy": "workspace:*",
     "@xpeach/xph-tool-cordis": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
     "@xpeach/xph-tool-fs": "workspace:*",
     "@xpeach/xph-tool-fs-search": "workspace:*",
     "@xpeach/xph-tool-goal": "workspace:*",

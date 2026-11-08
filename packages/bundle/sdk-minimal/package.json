@@ -52,6 +52,7 @@
     "@xpeach/xph-sdk-app": "workspace:*",
     "@xpeach/xph-sdk-jsonrpc-server": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-checkpoint-policy": "workspace:*",
     "@xpeach/xph-session-log-deepseek": "workspace:*",
     "@xpeach/xph-session-persistence-jsonl": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
@@ -67,7 +68,9 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-tool-working-directory": "workspace:*",
-    "@xpeach/xph-fs-local": "workspace:*"
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-session-checkpoint-policy": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~"

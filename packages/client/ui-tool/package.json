@@ -77,7 +77,10 @@
     "clsx": "^2.0.0",
     "@xpeach/xph-ptc-runtime": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
-    "@xpeach/xph-user-questions": "workspace:*"
+    "@xpeach/xph-user-questions": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",

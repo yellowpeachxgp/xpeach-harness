@@ -1,5 +1,6 @@
 /** Real Loader composition: the bridge mounted from a cordis.yml row beside the shipped core plugins. */
 
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -17,7 +18,8 @@ import LlmRuntime, { createUserMessage } from '@xpeach/xph-llm'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import * as ClaudeCodeMods from '../src/index.ts'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
@@ -44,6 +46,7 @@ it('loads from cordis.yml, counts the model\'s tool calls, and answers /tally th
     ['@xpeach/xph-fs-local', LocalFileSystem],
     ['@xpeach/xph-working-directory', WorkingDirectory],
     ['@xpeach/xph-tools', ToolRuntime],
+    ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
     ['@xpeach/xph-agent', AgentRegistry],
     ['@xpeach/xph-agent-loop', AgentLoop],
     ['@xpeach/xph-commands', CommandRuntime],

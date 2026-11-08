@@ -56,6 +56,7 @@
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-fs-local": "workspace:*"
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }
