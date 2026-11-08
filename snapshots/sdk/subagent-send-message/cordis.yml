@@ -4,3 +4,7 @@
 - insert:
     - id: send-message-fence
       name: '../../../packages/test-support/session-snapshot/tests/fixtures/subagent-send-message-fence.ts'
+
+# Keep this recorded composition stable; the sdk profile's plugin management tool is covered separately.
+- id: tool-plugin-manager
+  disabled: true

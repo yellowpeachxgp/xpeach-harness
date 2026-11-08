@@ -16,6 +16,7 @@ import {
   checkExperimentalDependencyIsolation,
   checkExperimentalManifest,
   checkExperimentalNameExceptions,
+  detailDocumentFiles,
   expectedDshPackageFiles,
   readWorkspaceManifests,
   type WorkspaceManifest,
@@ -327,6 +328,54 @@ describe('package payload constraints', () => {
     ])
   })
 
+  it('publishes the directory of each locale detail document after the locale resources', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-detail-files-'))
+    onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+    mkdirSync(join(dir, 'docs/guide'), { recursive: true })
+    mkdirSync(join(dir, 'locale'))
+    writeFileSync(join(dir, 'docs/DETAIL.md'), '')
+    writeFileSync(join(dir, 'docs/guide/DETAIL.zh.md'), '')
+    writeFileSync(join(dir, 'docs/DETAIL.fr.md'), '')
+    writeFileSync(join(dir, 'locale/en.json'), JSON.stringify({ meta: { title: 'T', detail: 'docs/DETAIL.md' } }))
+    writeFileSync(join(dir, 'locale/zh.json'), JSON.stringify({ meta: { title: 'T', detail: 'docs/guide/DETAIL.zh.md' } }))
+    writeFileSync(join(dir, 'locale/fr.json'), JSON.stringify({ meta: { title: 'T', detail: 'docs/DETAIL.fr.md' } }))
+    writeFileSync(join(dir, 'locale/de.json'), JSON.stringify({ meta: { title: 'T' } }))
+    writeFileSync(join(dir, 'locale/ja.json'), '{')
+    const detailFiles = detailDocumentFiles(dir)
+    expect(detailFiles).toEqual(['docs'])
+    expect(expectedDshPackageFiles({ exports: { './locale/*.json': './locale/*.json' } }, detailFiles)).toEqual([
+      'locale/*.json', 'docs', 'lib/index.js', 'lib/types/**/*.d.ts',
+    ])
+  })
+
+  it('rejects a detail document that is missing, outside the package, or at the package root', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-detail-invalid-'))
+    onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+    mkdirSync(join(dir, 'locale'))
+    const declare = (detail: unknown): void => {
+      writeFileSync(join(dir, 'locale/en.json'), JSON.stringify({ meta: { detail } }))
+    }
+    declare('docs/DETAIL.md')
+    expect(() => detailDocumentFiles(dir)).toThrow(/DETAIL\.md.*does not exist/)
+    mkdirSync(join(dir, 'docs'))
+    writeFileSync(join(dir, 'docs/DETAIL.md'), '')
+    expect(detailDocumentFiles(dir)).toEqual(['docs'])
+    declare('DETAIL.md')
+    expect(() => detailDocumentFiles(dir)).toThrow(/must name a file in a subdirectory/)
+    declare('../DETAIL.md')
+    expect(() => detailDocumentFiles(dir)).toThrow(/must be a relative path inside the package/)
+    writeFileSync(join(dir, 'locale/en.json'), 'null')
+    expect(detailDocumentFiles(dir)).toEqual([])
+  })
+
+  it('rejects a bundle whose locale detail document is missing from its publication files', () => {
+    const dir = 'packages/experimental/badge-skill-bundle'
+    const manifest = JSON.parse(readFileSync(join(import.meta.dirname, '..', dir, 'package.json'), 'utf8')) as WorkspaceManifest['manifest']
+    expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+    const files = (manifest.files ?? []).filter(file => file !== 'docs')
+    expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files } }).join('\n')).toContain('"docs"')
+  })
+
   it('does not infer locale payloads from unrelated or non-JSON exports', () => {
     expect(expectedDshPackageFiles({
       exports: {
@@ -428,11 +477,11 @@ it('requires the local speech worker and locked runtime in the published payload
   }
 })
 
-it('requires both Node execution bootstraps in the published payload', () => {
+it('requires Node profile configuration and both execution bootstraps in the published payload', () => {
   const dir = 'packages/ptc-runtime/ptc-runtime-node'
   const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
   expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
-  for (const omitted of ['lib/process.js', 'lib/persistent-process.js']) {
+  for (const omitted of ['lib/configuration.js', 'lib/process.js', 'lib/persistent-process.js']) {
     const files = expectedDshPackageFiles(manifest).filter(file => file !== omitted)
     expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files } }))
       .toEqual([expect.stringContaining('package.json files must be')])

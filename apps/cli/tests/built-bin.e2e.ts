@@ -1276,6 +1276,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         ['persistent-bash', '@xpeach/xph-tool-bash-persistent'],
         ['persistent-pwsh', '@xpeach/xph-tool-pwsh-persistent'],
         ['sessions', '@xpeach/xph-session-persistence-jsonl'],
+        ['session-checkpoint-policy', '@xpeach/xph-session-checkpoint-policy'],
       ])
       expect(stdout).toContain('# == @xpeach/xph-sdk-minimal')
       expect(stdout).not.toContain('@xpeach/xph-base')

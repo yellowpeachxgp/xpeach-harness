@@ -61,6 +61,7 @@ describe('dsh-sdk-minimal bundle', () => {
       ['persistent-bash', '@xpeach/xph-tool-bash-persistent'],
       ['persistent-pwsh', '@xpeach/xph-tool-pwsh-persistent'],
       ['sessions', '@xpeach/xph-session-persistence-jsonl'],
+      ['session-checkpoint-policy', '@xpeach/xph-session-checkpoint-policy'],
     ])
     expect(rows.find(row => row.id === 'sdk-app-startup')?.config).toEqual({ profile: 'sdk-minimal' })
     expect(rows.find(row => row.id === 'sdk-jsonrpc-server')).toMatchObject({
