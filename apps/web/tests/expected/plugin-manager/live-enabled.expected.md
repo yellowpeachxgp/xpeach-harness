@@ -24,7 +24,7 @@
 - list:
   - listitem:
     - button "查看 智能体团队": 智能体团队
-    - text: 实验性 启用团队协作、团队工具、成员列表和共享任务看板。
+    - text: 实验性 让与你对话的智能体把工作分给有名字的队友，在共享任务看板上跟踪进度，并汇总队友的结果向你汇报。
     - switch "启用 智能体团队"
   - listitem:
     - button "查看 语音输入": 语音输入
@@ -36,7 +36,7 @@
     - switch "启用 自动授权审查"
   - listitem:
     - button "查看 开发者工具": 开发者工具
-    - text: 实验性 查看调试会话原始数据、聊天消息分组数据，以及调试 NodeJS 后端
+    - text: 实验性 用于排查问题：在“会话数据诊断”中查看 XPeach Harness 为会话记录的内容，并在 Chrome DevTools 中调试 XPeach Harness 后端。
     - switch "启用 开发者工具"
 - heading "已安装插件" [level=3]
 - list:
