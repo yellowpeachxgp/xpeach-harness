@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The extensions group provides read-only runtime API discovery for agents, process-local runners for programmatic and browser consumers, and historical generated-plugin cards. Creator mode installs persistent plugins through [Plugin Manager](../boot/plugin-manager/README.md). Choose a child package for inspection, Host execution, Client execution, or browser controls.
+The extensions group provides read-only runtime API discovery for agents, process-local runners for programmatic and browser consumers, and historical generated-plugin cards. Standard and Creator modes install persistent plugins through [Plugin Manager](../boot/plugin-manager/README.md). Choose a child package for inspection, Host execution, Client execution, or browser controls.
 
 ## Table of Contents
 
@@ -35,8 +35,8 @@ The extensions group provides read-only runtime API discovery for agents, proces
 ## Related documentation
 
 - [Extensions subsystem](../../docs/subsystems/extensions.md) — the generated `ctx.cordisInspect` and `ctx.dynamicCordisRunner` service API.
-- [Generated tool catalog](../../docs/tool-catalog.md#deepseek-aidsh-tool-cordis) — the two read-only tool schemas.
-- [Generated configuration catalog](../../docs/config-catalog.md#deepseek-aidsh-cordis-host-runner) — the runner's accepted config fields.
+- [Generated tool catalog](../../docs/tool-catalog.md#xpeachxph-tool-cordis) — the two read-only tool schemas.
+- [Generated configuration catalog](../../docs/config-catalog.md#xpeachxph-cordis-host-runner) — the runner's accepted config fields.
 - [Self-referential Cordis toolset reference](cordis-host-runner/README.md) — design home for sandbox semantics, lifecycle, and composition.
 - [Client shells and dynamic packages Agent Note](../../.agents/notes/implemented/architecture/2026-08-15-client-shells-and-dynamic-packages.md) — package placement and build faces for the client halves.
 

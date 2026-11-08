@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-ptc-runtime-node",
   "description": "Node PTC execution with async function, REPL and VM Script evaluators and optional retained state",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },

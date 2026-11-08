@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-web-frontend",
   "description": "Web application entry: vite build over the @xpeach/xph-client-web shell library; dist/ served by apps/cli's dsh web",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -70,5 +70,8 @@
     "@xpeach/xph-experimental-cot-translation-bundle": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-plugin-market-bundle": "workspace:*"
+  },
+  "dependencies": {
+    "@xpeach/xph-message-quotes": "workspace:*"
   }
 }

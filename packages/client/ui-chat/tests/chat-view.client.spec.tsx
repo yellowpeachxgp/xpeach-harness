@@ -35,7 +35,7 @@ import { en as commonEn } from '@xpeach/xph-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@xpeach/xph-client-locale/src/locales/zh.ts'
 import { PartialArguments } from '@xpeach/xph-util-values'
 import { createChatStore } from '../src/client/stores.ts'
-import { derivePresentationPolicy, type CollapseTiming } from '../src/client/presentation-policy.ts'
+import { derivePresentationPolicy, type CollapseTiming, type FoldedReplies } from '../src/client/presentation-policy.ts'
 import { CHAT_FLOW_INJECT, CHAT_NODE_INJECT } from '../src/client/apply.ts'
 import { ChatView } from '../src/client/chat/ChatView.tsx'
 import { ChatFlow } from '../src/client/chat/ChatFlow.tsx'
@@ -260,7 +260,7 @@ function bindKeyedSnapshotSelector<Value>(
 }
 
 declare const nodeDispatch: PropsRenderSlots<'conversation.chat.node'>['renderSlot']
-declare const flowDispatch: ChatViewSlotProps['renderSlot']
+declare const flowDispatch: PropsRenderSlots<'conversation.chat.flow'>['renderSlot']
 type NodeRenderer = typeof nodeDispatch<'conversation.chat.node'>
 type FlowRenderer = typeof flowDispatch<'conversation.chat.flow'>
 type ImageRenderer = (owner: MessageImagesOwnerProps) => React.ReactNode
@@ -419,6 +419,7 @@ function makeHarness(
   const chat = createChatStore().create()
   const transcriptView = createSnapshotStore<TranscriptViewMode>('compact')
   const collapseTiming = createSnapshotStore<CollapseTiming>('completion')
+  const foldedReplies = createSnapshotStore<FoldedReplies>('all')
   const performanceUsage = createSnapshotStore<'compact' | 'detailed'>('detailed')
   const t = makeTranslate(zh, commonZh)
   const toolOwners: ToolOwner[] = []
@@ -452,7 +453,8 @@ function makeHarness(
     if (name !== 'conversation.chat.user.content') throw new Error(`Unexpected Chat Factory: ${name}`)
     return renderUserContent(owner as UserContentInput, renderImages, props.t)
   }
-  const renderSlot: FlowRenderer = (key, owner, opts) => {
+  const renderSlot = (key: string, owner: ChatFlowOwnerProps, opts: Parameters<FlowRenderer>[2]) => {
+    if (key === 'conversation.chat.text-interaction') return null
     if (key !== 'conversation.chat.flow') throw new Error(`Undeclared ChatView child: ${key}`)
     if ('renderSlot' in owner || 'useStore' in owner || 'actions' in owner) {
       throw new Error('Flow owner data must not replace its rendering or store authority')
@@ -488,6 +490,7 @@ function makeHarness(
     },
     useInput: (() => { throw new Error('unused') }),
     inputActions: {
+      insertQuote: () => false,
       captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),
       insertText: () => false,
       setDraft: () => {},
@@ -499,7 +502,9 @@ function makeHarness(
     },
     useStore: bindSnapshotSelector(chat),
     actions: chat.actions,
-    usePresentation: bindSnapshotSelector(derivePresentationPolicy(transcriptView, collapseTiming)),
+    useInteractionIds: bindSnapshotSelector(createSnapshotStore<readonly string[]>([])),
+    dispatchInteraction: () => null,
+    usePresentation: bindSnapshotSelector(derivePresentationPolicy(transcriptView, collapseTiming, foldedReplies)),
     // The fixture implements the concrete flow dispatch behind the generic slot signature.
     renderSlot: renderSlot as ChatViewSlotProps['renderSlot'],
     SessionProvider: SessionProviderStub,
@@ -549,6 +554,7 @@ function makeHarness(
     },
     setTranscriptView: (mode: TranscriptViewMode) => { transcriptView.set(mode) },
     setCollapseTiming: (timing: CollapseTiming) => { collapseTiming.set(timing) },
+    setFoldedReplies: (replies: FoldedReplies) => { foldedReplies.set(replies) },
     setNodeRenderer: (renderer: NodeRenderer) => { nodeSlotOverride = renderer },
     setImageRenderer: (renderer: ImageRenderer) => { imageSlotOverride = renderer },
   }
@@ -974,6 +980,49 @@ describe('ChatView', () => {
       expect(view.getByText('current answer').closest('[hidden]')).toBeNull()
     },
   )
+
+  // jsdom applies no CSS, so the cap is observed through the class that carries `max-height`; the fold
+  // animation measures the body in the commit that closes it.
+  const uncapped = (body: HTMLElement): boolean => body.className.includes('expandedBody')
+
+  it.each(['compact', 'standard'] as const)(
+    'closes a reader-opened running %s group from its height cap with next-input timing', (mode) => {
+      const h = makeCompletionHarness(mode, 'next-input')
+      const view = render(<h.ChatView {...h.props} />)
+      const root = view.container.querySelector<HTMLElement>('[data-chat-group-key][data-chat-turn="2"]')!
+      const header = root.querySelector<HTMLButtonElement>('[data-process-activity]')!
+      const body = root.querySelector<HTMLElement>('[data-step-process-body]')!
+      fireEvent.click(header)
+      expect(body.hasAttribute('hidden')).toBe(false)
+      expect(uncapped(body)).toBe(false)
+      fireEvent.click(header)
+      expect(header.getAttribute('aria-expanded')).toBe('false')
+      expect(body.hasAttribute('hidden')).toBe(true)
+      expect(uncapped(body)).toBe(false)
+    },
+  )
+
+  it('closes flat Detailed rows at full height and a reader-opened historical group from its cap', () => {
+    const h = makeCompletionHarness('detailed', 'next-input')
+    const view = render(<h.ChatView {...h.props} />)
+    act(() => { h.complete() })
+    const root = view.container.querySelector<HTMLElement>('[data-chat-group-key][data-chat-turn="2"]')!
+    const header = root.querySelector<HTMLButtonElement>('[data-process-activity]')!
+    const body = root.querySelector<HTMLElement>('[data-step-process-body]')!
+    expect(body.hasAttribute('hidden')).toBe(false)
+    expect(uncapped(body)).toBe(true)
+    act(() => { h.sendNext() })
+    act(() => { h.startNext() })
+    expect(body.hasAttribute('hidden')).toBe(true)
+    expect(uncapped(body)).toBe(true)
+    fireEvent.click(view.container.querySelector<HTMLButtonElement>('[data-turn-process="2"]')!)
+    fireEvent.click(header)
+    expect(body.hasAttribute('hidden')).toBe(false)
+    expect(uncapped(body)).toBe(false)
+    fireEvent.click(header)
+    expect(body.hasAttribute('hidden')).toBe(true)
+    expect(uncapped(body)).toBe(false)
+  })
 
   it.each([
     { initialHeight: 200, closed: true },
@@ -2462,7 +2511,87 @@ describe('ChatView', () => {
     expect(branchButtons.map(button => button.getAttribute('aria-disabled'))).toEqual([null, null])
   })
 
-  it('folds Think and Tool rows before the final answer without unmounting them', () => {
+  it('keeps every Assistant reply visible while the whole Turn folds its process', () => {
+    const progress = {
+      ...assistant(2, 'stage reply', 1, 1),
+      blocks: [
+        { kind: 'reasoning' as const, text: 'inspect the repository' },
+        { kind: 'text' as const, text: 'stage reply' },
+      ],
+    }
+    const h = makeHarness({
+      nodes: [
+        user(1, 'question'),
+        progress,
+        toolResult(3, 'a'),
+        assistant(4, 'final answer', 1, 2),
+        user(5, 'next question'),
+        assistant(6, 'reply before the last step', 2, 1),
+        toolResult(7, 'b'),
+        reasoningAssistant(8, 'closing thought', 2, 2),
+        user(10, 'third question'),
+        assistant(11, 'first notice reply', 3, 1),
+        assistant(12, 'second notice reply', 3, 2),
+      ],
+      turnEnds: new Map([[1, 5], [2, 9], [3, 13]]),
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    const visible = (text: string) => view.getByText(text).closest('[hidden]') === null
+
+    expect(visible('stage reply')).toBe(true)
+    expect(visible('final answer')).toBe(true)
+    expect(visible('reply before the last step')).toBe(true)
+    expect(visible('first notice reply')).toBe(true)
+    expect(visible('inspect the repository')).toBe(false)
+    expect(visible('closing thought')).toBe(false)
+    const members = [...view.container.querySelectorAll<HTMLElement>('[data-turn-process-member]')]
+    expect(members.map(member => member.dataset.chatFlowKind)).toEqual(['tool-call', 'tool-call', 'assistant-step'])
+    expect(members.every(member => member.getAttribute('hidden') === 'until-found')).toBe(true)
+    const [first, second, third] = view.container.querySelectorAll<HTMLButtonElement>('[data-turn-process]')
+    expect(first?.getAttribute('aria-expanded')).toBe('false')
+    expect(second?.getAttribute('aria-expanded')).toBe('false')
+    // Replies alone leave nothing to fold.
+    expect(third?.disabled).toBe(true)
+
+    fireEvent.click(first!)
+    expect(visible('inspect the repository')).toBe(true)
+  })
+
+  it('switches between keeping every reply and only the final answer without remounting rows', () => {
+    const h = makeHarness({
+      nodes: [
+        user(1, 'question'),
+        reasoningAssistant(2, 'inspect the repository', 1, 1),
+        assistant(3, 'stage reply', 1, 2),
+        toolResult(4, 'a'),
+        assistant(5, 'final answer', 1, 3),
+        user(7, 'next question'),
+        assistant(8, 'first notice reply', 2, 1),
+        assistant(9, 'second notice reply', 2, 2),
+      ],
+      turnEnds: new Map([[1, 6], [2, 10]]),
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    const stage = view.getByText('stage reply').closest<HTMLElement>('[data-chat-flow-kind]')!
+    const notice = view.getByText('first notice reply').closest<HTMLElement>('[data-chat-flow-kind]')!
+    const [, second] = view.container.querySelectorAll<HTMLButtonElement>('[data-turn-process]')
+    expect(stage.closest('[hidden]')).toBeNull()
+    expect(second?.disabled).toBe(true)
+
+    act(() => { h.setFoldedReplies('final') })
+    expect(view.getByText('stage reply').closest('[data-chat-flow-kind]')).toBe(stage)
+    expect(stage.getAttribute('hidden')).toBe('until-found')
+    expect(notice.getAttribute('hidden')).toBe('until-found')
+    expect(view.getByText('final answer').closest('[hidden]')).toBeNull()
+    expect(view.getByText('second notice reply').closest('[hidden]')).toBeNull()
+    expect(second?.disabled).toBe(false)
+
+    act(() => { h.setFoldedReplies('all') })
+    expect(stage.getAttribute('hidden')).toBeNull()
+    expect(notice.getAttribute('hidden')).toBeNull()
+  })
+
+  it('folds Think and Tool rows around visible replies without unmounting them', () => {
     const first = {
       ...assistant(2, 'earlier reply', 1, 1),
       blocks: [
@@ -2488,35 +2617,36 @@ describe('ChatView', () => {
     expect(toggle.getAttribute('data-turn-process-tool-calls')).toBe('1')
     expect(toggle.getAttribute('data-turn-process-messages')).toBe('1')
     expect(toggle.getAttribute('data-turn-process-subagents')).toBe('1')
+    const reasoning = () => view.getByText('inspect the repository').closest('[hidden]')
     const members = [...view.container.querySelectorAll<HTMLElement>('[data-turn-process-member]')]
-    expect(members).toHaveLength(3)
-    expect(members.map(member => member.getAttribute('hidden')))
-      .toEqual(['until-found', 'until-found', 'until-found'])
-    expect(members[0]?.textContent).toContain('inspect the repository')
-    expect(members[1]?.textContent).toContain('bash:a')
-    expect(members[2]?.textContent).toContain('subagent:b')
-    expect(view.getByText('final answer')).toBeTruthy()
+    expect(members).toHaveLength(2)
+    expect(members.map(member => member.getAttribute('hidden'))).toEqual(['until-found', 'until-found'])
+    expect(members[0]?.textContent).toContain('bash:a')
+    expect(members[1]?.textContent).toContain('subagent:b')
+    expect(view.getByText('earlier reply').closest('[hidden]')).toBeNull()
+    expect(view.getByText('final answer').closest('[hidden]')).toBeNull()
+    expect(reasoning()).not.toBeNull()
 
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null, null])
+    expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null])
+    expect(reasoning()).toBeNull()
 
     fireEvent.click(toggle)
-    expect(members.map(member => member.getAttribute('hidden')))
-      .toEqual(['until-found', 'until-found', 'until-found'])
-    fireEvent(members[1]!, new Event('beforematch'))
+    expect(members.map(member => member.getAttribute('hidden'))).toEqual(['until-found', 'until-found'])
+    fireEvent(members[0]!, new Event('beforematch'))
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null, null])
+    expect(members.map(member => member.getAttribute('hidden'))).toEqual([null, null])
 
     act(() => { h.set({ nodes: [user(1, 'question'), first] }) })
     expect(view.getByRole('button', { name: '已完成，用时 4秒' }).getAttribute('aria-expanded')).toBe('false')
-    expect(members[0]?.getAttribute('hidden')).toBeNull()
+    expect(view.getByText('earlier reply').closest('[hidden]')).toBeNull()
     act(() => { h.set({
       nodes: [user(1, 'question'), first, toolResult(3, 'a'), toolResult(4, 'b', 'subagent'), second],
     }) })
     const renewedToggle = view.getByRole('button', { name: '已完成，用时 4秒' })
     expect(renewedToggle.getAttribute('aria-expanded')).toBe('true')
-    expect(members[0]?.getAttribute('hidden')).toBeNull()
+    expect(reasoning()).toBeNull()
   })
 
   it('omits injected Context while folding and revealing the visible Turn process', () => {
@@ -2632,23 +2762,6 @@ describe('ChatView', () => {
     expect(view.getByText('final answer').closest('[hidden]')).toBeNull()
   })
 
-  it('keeps ordinary spacing when steering separates the process control from its answer', () => {
-    const h = makeHarness({
-      nodes: [
-        user(1, 'question'),
-        reasoningAssistant(2, 'inspect', 1, 1),
-        steering(3, 'also mention safety', 1),
-        assistant(4, 'final answer', 1, 2),
-      ],
-      turnEnds: new Map([[1, 5]]),
-    })
-    const view = render(<h.ChatView {...h.props} />)
-    const answer = view.container.querySelector<HTMLElement>('[data-chat-flow-kind="assistant-step"]:not([hidden])')
-
-    expect(view.getByText('also mention safety')).toBeTruthy()
-    expect(answer?.hasAttribute('data-turn-process-answer')).toBe(false)
-  })
-
   it.each(['compact', 'standard', 'detailed'] as const)(
     'preserves steering-separated process groups in %s mode after Turn completion', (mode) => {
       const nodes = [
@@ -2710,27 +2823,8 @@ describe('ChatView', () => {
     },
   )
 
-  it('keeps compact answer spacing after multiple opening steering inputs', () => {
-    const h = makeHarness({
-      nodes: [
-        steering(1, 'question', 1),
-        steering(2, 'also mention safety', 1),
-        reasoningAssistant(3, 'inspect', 1, 1),
-        assistant(4, 'final answer', 1, 2),
-      ],
-      turnEnds: new Map([[1, 5]]),
-    })
-    const view = render(<h.ChatView {...h.props} />)
-    const answer = view.container.querySelector<HTMLElement>('[data-chat-flow-kind="assistant-step"]:not([hidden])')
-
-    expect(view.getByText('also mention safety')).toBeTruthy()
-    expect(answer?.hasAttribute('data-turn-process-answer')).toBe(true)
-    fireEvent.click(turnProcessControl(view.container)!)
-    expect(answer?.hasAttribute('data-turn-process-answer')).toBe(false)
-  })
-
   it('keeps a live Turn expanded and folds it once at turn/end', withClock(3_000, () => {
-    const process = assistant(2, 'inspect', 1, 1)
+    const process = reasoningAssistant(2, 'inspect', 1, 1)
     const h = makeHarness({
       nodes: [user(1, 'question'), process],
       partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'streaming answer' }] },
@@ -2765,7 +2859,7 @@ describe('ChatView', () => {
   }))
 
   it('preserves whole-Turn folding and manual expansion across work-details modes', () => {
-    const process = assistant(2, 'inspect', 1, 1)
+    const process = reasoningAssistant(2, 'inspect', 1, 1)
     const h = makeHarness({
       nodes: [user(1, 'question'), process, assistant(4, 'final answer', 1, 2)],
       turnEnds: new Map([[1, 5]]),
@@ -2843,7 +2937,7 @@ describe('ChatView', () => {
   })
 
   it('folds a completed Turn even while the reader is away from the tail', () => {
-    const first = assistant(2, 'first answer', 1, 1)
+    const first = reasoningAssistant(2, 'first thought', 1, 1)
     const h = makeHarness({
       nodes: [user(1, 'question'), first], running: true,
       turnTimings: new Map([[1, { startTime: 0 }]]),
@@ -2852,7 +2946,7 @@ describe('ChatView', () => {
     const scroller = view.container.querySelector('[data-chat-flow]')!.parentElement as HTMLDivElement
     Object.defineProperty(scroller, 'scrollHeight', { value: 1_000, writable: true })
     Object.defineProperty(scroller, 'clientHeight', { value: 300, writable: true })
-    const firstRow = view.getByText('first answer').closest('[data-chat-flow-kind="assistant-step"]') as HTMLElement
+    const firstRow = view.getByText('first thought').closest('[data-chat-flow-kind="assistant-step"]') as HTMLElement
     readerScroll(scroller, 100)
 
     act(() => { h.set({
@@ -2934,7 +3028,7 @@ describe('ChatView', () => {
     const h = makeHarness({
       nodes: [
         user(1, 'question'),
-        assistant(3, 'working', 1, 1),
+        reasoningAssistant(3, 'working', 1, 1),
         assistant(4, 'final answer', 1, 2),
       ],
       turnEnds: new Map([[1, 5]]),
@@ -3087,7 +3181,7 @@ describe('ChatView', () => {
       h.set({
         nodes: [
           user(1, 'older question'),
-          assistant(2, 'older first answer', 1, 1),
+          reasoningAssistant(2, 'older first thought', 1, 1),
           assistant(4, 'older final answer', 1, 2),
           user(9, 'visible question'),
           assistant(10, 'visible answer', 2),
@@ -3113,7 +3207,7 @@ describe('ChatView', () => {
       nodes: [
         user(1, 'question'),
         context(2, 'runtime policy', 1),
-        assistant(3, 'working', 1, 1),
+        reasoningAssistant(3, 'working', 1, 1),
         assistant(4, 'final answer', 1, 2),
       ],
       turnEnds: new Map([[1, 5]]),
@@ -3179,7 +3273,7 @@ describe('ChatView', () => {
     Object.defineProperty(host, 'scrollTop', { value: 0, writable: true, configurable: true })
     document.body.appendChild(host)
     try {
-      const first = assistant(2, 'first answer', 1, 1)
+      const first = reasoningAssistant(2, 'first thought', 1, 1)
       const h = makeHarness({
         nodes: [user(1, 'question'), first, assistant(4, 'new answer', 1, 2)],
         turnEnds: new Map([[1, 5]]),
@@ -4431,7 +4525,7 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     const column = view.container.querySelector('[data-chat-flow]')!
     const status = column.querySelector('[data-chat-running]')
-    expect(column.lastElementChild).toBe(status)
+    expect([...column.children].filter(child => !child.hasAttribute('data-text-interaction-surface')).at(-1)).toBe(status)
     expect(within(status as HTMLElement).getByRole('status').textContent).toBe('深度思考中')
     expect(status?.lastElementChild?.textContent).toBe('深度思考中')
     const icon = status?.querySelector('svg')?.parentElement

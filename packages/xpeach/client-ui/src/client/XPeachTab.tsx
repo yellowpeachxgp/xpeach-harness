@@ -439,10 +439,10 @@ export function XPeachTab({
     setPerfSyncing(true)
     void perfMetricsSummary(24).then((rows) => {
       setPerfSyncing(false)
-      if (!Array.isArray(rows)) return
+      if ('error' in rows) return
       const m = new Map<string, XPeachModelPerfSummary>()
       for (const r of rows) {
-        if (typeof r.model_name === 'string' && r.model_name.length > 0) {
+        if (r.model_name.length > 0) {
           m.set(r.model_name, r)
         }
       }

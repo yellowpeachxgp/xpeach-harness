@@ -170,3 +170,6 @@
       config:
         root: !!js dshHomePath('sessions')
         compression: none
+
+    - id: session-checkpoint-policy
+      name: '@xpeach/xph-session-checkpoint-policy'

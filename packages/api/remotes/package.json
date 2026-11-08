@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-remotes",
   "description": "Remote BFF assembly for application-selected Host capabilities",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -98,6 +98,7 @@
     "@xpeach/xph-office-to-pdf": "workspace:*",
     "@xpeach/xph-api-account-controller": "workspace:*",
     "@xpeach/xph-deepseek-account": "workspace:*",
-    "@xpeach/xph-client-product-analytics": "workspace:*"
+    "@xpeach/xph-client-product-analytics": "workspace:*",
+    "@xpeach/xph-client-ui-trajectory": "workspace:*"
   }
 }

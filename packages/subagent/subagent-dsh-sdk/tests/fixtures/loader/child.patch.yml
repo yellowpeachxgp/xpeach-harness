@@ -27,3 +27,7 @@
 - insert:
     - id: child-mock-llm
       name: './child-mock-llm.ts'
+
+# Keep this recorded child composition stable; plugin management is covered separately.
+- id: tool-plugin-manager
+  disabled: true
