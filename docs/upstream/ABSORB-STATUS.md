@@ -11,6 +11,8 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| PTC birpc 传输层（#6688） | `051ac9154b` | ptc-runtime-node 313 项、ssh 53 项单测通过；persistent.ts 保留移植前沙箱策略比较（additionalWritableRoots 增强未同步） |
+| PTC VM Script 格式（#6763） | `e3805406c4` | ptc-runtime 435 项、cua/cua-macos 293 项单测通过；tool-executor-ptc 改动适配至 core/tools；快照预期待 CI 构建校验 |
 
 ## 产品侧修复（非上游）
 
