@@ -69,7 +69,7 @@ package.json 不变式（由 `pnpm run constraints` / `scripts/check-workspace-c
 | `Config` | 拥有一个已解析配置值，或一项边界严格的配置记录及其更新约定。 | 存储通用集合、执行工作或暴露无关设置。 |
 | `Service` | 拥有一项无法用以上更精确角色诚实描述的内聚领域服务。 | 只因为类继承 Cordis `Service` 而使用该名称。 |
 
-只对受支持的 Python 与 TypeScript SDK 所使用的 JSON-RPC 客户端／服务器协议使用 `SDK`。DeepSeek Harness 本身是 agent harness，不是 SDK 项目。产品拼写统一使用 `Typert`，不得使用 `TypeRT` 或 `typeRT`。
+只对受支持的 Python 与 TypeScript SDK 所使用的 JSON-RPC 客户端／服务器协议使用 `SDK`。XPeach Harness 本身是 agent harness，不是 SDK 项目。产品拼写统一使用 `Typert`，不得使用 `TypeRT` 或 `typeRT`。
 
 <a id="4-write-the-package-readme"></a>
 
@@ -136,7 +136,7 @@ Append-only, prefix-stable, replacing, or independent behavior, including the ex
 }
 ```
 
-语言文件统一放在 `locale/`，并保留 `en.json` 作为发现入口。字段可选，填写时必须是非空字符串。文件或字段缺失时允许回退，JSON 损坏或字段无效时显示单插件诊断。
+语言文件统一放在 `locale/`，并保留 `en.json` 作为发现入口。字段可选，填写时必须是非空字符串。英文 `meta.title` 和 `meta.description` 使用 sentence case：只大写首个单词、专有名词和产品名，例如 `Git worktrees`（[rule](../../.agents/skills/dsh-prose-standard/SKILL.md#required-coverage-by-prose-location)）。运行时文件或字段缺失时允许回退，JSON 损坏或字段无效时显示单插件诊断。仓库内的包和插件模板必须提供 `ja.json`、`es.json`、`fr.json`、`de.json`、`ru.json` 和 `pt.json`，覆盖 `en.json` 或可选 `zh.json` 中的全部字段并保留占位符、斜杠命令和 API 字段名；详情路径可指向现有英文文档。`locale/<subpath>/` 下的子路径资源使用相同检查。英文描述面向产品用户说明可见行为，并以句末标点结束。运行 `pnpm run check:i18n` 检查 JSON 元数据和 UI 字典完整性；JSON 检查也接入 `check:all`、CI 静态检查和 hygiene。
 
 各字段先独立回退，再按页面规则格式化技术名称；回退优先经过现有 locale 语言链：
 

@@ -39,3 +39,87 @@ export const en: Record<keyof typeof zh, string> = {
 
 /** Stable locale keys consumed by the shared modal. */
 export type SessionLogDownloadKey = keyof typeof zh
+
+/** Japanese copy, checked against the English keys. */
+export const ja = {
+  'header.more': 'その他の操作',
+  'menu.download': 'セッションログをダウンロード',
+  'menu.feedback': 'フィードバック',
+  'dialog.preparingTitle': 'セッションをエクスポート中',
+  'dialog.preparingDescription': 'このセッション、そのサブセッション、添付ファイルを含むZIPを準備しています。',
+  'dialog.successTitle': 'セッションのダウンロードを開始しました',
+  'dialog.successDescription': 'ブラウザがセッションZIPをダウンロードしています。',
+  'dialog.errorTitle': 'セッションのエクスポートに失敗しました',
+  'dialog.close': '閉じる',
+  'dialog.commandFailed': 'セッションのエクスポートを開始できませんでした。',
+} satisfies Record<keyof typeof en, string>
+
+/** Spanish dictionary, checked against the English keys. */
+export const es = {
+  'header.more': 'Más acciones',
+  'menu.download': 'Descargar registro de sesión',
+  'menu.feedback': 'Comentarios',
+  'dialog.preparingTitle': 'Sesión de exportación',
+  'dialog.preparingDescription': 'Preparar un ZIP que contenga esta Sesión, sus subsesiones y archivos adjuntos.',
+  'dialog.successTitle': 'Descarga de sesión iniciada',
+  'dialog.successDescription': 'El navegador está descargando el ZIP de la sesión.',
+  'dialog.errorTitle': 'Error al exportar la sesión',
+  'dialog.close': 'Cerrar',
+  'dialog.commandFailed': 'No se pudo iniciar la exportación de la sesión.',
+} satisfies Record<keyof typeof en, string>
+
+/** French dictionary, checked against the English keys. */
+export const fr = {
+  'header.more': 'Autres actions',
+  'menu.download': 'Télécharger le journal de session',
+  'menu.feedback': 'Commentaires',
+  'dialog.preparingTitle': "Session d'exportation",
+  'dialog.preparingDescription': "Préparation d'un ZIP contenant cette session, ses sous-sessions et les pièces jointes.",
+  'dialog.successTitle': 'Le téléchargement de la session a commencé',
+  'dialog.successDescription': 'Le navigateur télécharge le ZIP de la session.',
+  'dialog.errorTitle': "Échec de l'exportation de la session",
+  'dialog.close': 'Fermer',
+  'dialog.commandFailed': "Impossible de démarrer l'exportation de session.",
+} satisfies Record<keyof typeof en, string>
+
+/** German dictionary, checked against the English keys. */
+export const de = {
+  'header.more': 'Weitere Aktionen',
+  'menu.download': 'Sitzungsprotokoll herunterladen',
+  'menu.feedback': 'Rückmeldung',
+  'dialog.preparingTitle': 'Sitzung exportieren',
+  'dialog.preparingDescription': 'Vorbereiten einer ZIP-Datei mit dieser Sitzung, ihren Untersitzungen und Anhängen.',
+  'dialog.successTitle': 'Sitzungsdownload gestartet',
+  'dialog.successDescription': 'Der Browser lädt die Sitzungs-ZIP herunter.',
+  'dialog.errorTitle': 'Der Sitzungsexport ist fehlgeschlagen',
+  'dialog.close': 'Schließen',
+  'dialog.commandFailed': 'Der Sitzungsexport konnte nicht gestartet werden.',
+} satisfies Record<keyof typeof en, string>
+
+/** Russian dictionary, checked against the English keys. */
+export const ru = {
+  'header.more': 'Другие действия',
+  'menu.download': 'Скачать журнал сеанса',
+  'menu.feedback': 'Обратная связь',
+  'dialog.preparingTitle': 'Экспорт сеанса',
+  'dialog.preparingDescription': 'Подготовка ZIP-файла, содержащего этот сеанс, его подсеансы и вложения.',
+  'dialog.successTitle': 'Загрузка сеанса началась',
+  'dialog.successDescription': 'Браузер загружает ZIP-файл сеанса.',
+  'dialog.errorTitle': 'Экспорт сеанса не удался',
+  'dialog.close': 'Закрыть',
+  'dialog.commandFailed': 'Не удалось начать экспорт сеанса.',
+} satisfies Record<keyof typeof en, string>
+
+/** Portuguese dictionary, checked against the English keys. */
+export const pt = {
+  'header.more': 'Mais ações',
+  'menu.download': 'Baixar registro da sessão',
+  'menu.feedback': 'Comentários',
+  'dialog.preparingTitle': 'Exportando Sessão',
+  'dialog.preparingDescription': 'Preparando um ZIP contendo esta Sessão, suas subsessões e anexos.',
+  'dialog.successTitle': 'Download da sessão iniciado',
+  'dialog.successDescription': 'O navegador está baixando o ZIP da sessão.',
+  'dialog.errorTitle': 'Falha na exportação da sessão',
+  'dialog.close': 'Fechar',
+  'dialog.commandFailed': 'Não foi possível iniciar a exportação da sessão.',
+} satisfies Record<keyof typeof en, string>

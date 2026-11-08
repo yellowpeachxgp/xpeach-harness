@@ -1,117 +1,31 @@
-# 上游吸收状态
+# 上游吸收状态（`dsh-v0.2.1-rc.2` → `dsh-v0.2.2-rc.1`）
 
-记录从 `dsh-v0.2.1-rc.3` 到上游 HEAD 的功能吸收与适配状态。
+记录从 `dsh-v0.2.1-rc.2` 到 `dsh-v0.2.2-rc.1` 的全量功能与修复吸收状态。
 
-## 已完成
+## 已合入（All Absorbed）
 
-| 项 | 提交 | 验证状态 |
+| 批次 / PR | 模块与功能 | 上游 PR / 提交 |
 |---|---|---|
-| Tooltip 定位引擎 | `d26c41f4f7` | `ui-primitives` 1384 项单测通过 |
-| 模型列表缓存 | `7af55268ad` | `packages/llm` 1558 项单测通过 |
-| 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
-| 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
-| 模型重排序 | `afcb6709cd` | 3 项单测通过 |
-| 会话恢复修复簇（v0 subagent/descriptor v1/v2 迁移） | `dffda31215`, `e51cb3959f` (PR #7570) | session-format-v0-to-v1 + session-persistence-jsonl 873 项单测通过 |
-| 隐藏 system-prompt 卡片经 chatNode 重建 | `19956a1da9`, `ab627b91ce`, `b45eee4fca` (PR #7527) | ui-chat 84 项单测通过 |
-| Markdown 文件链接行号范围（`:24`/`:24-30`/`:24:5`） | `09d9f1152e`, `b1cb1f34e9`, `7ee39638b2`, `db2b8122f2`, `2e5ac1db66` (PR #7056) | ui-primitives 1739 项单测通过 |
-| 中键关闭标签页 | `9c5958b07b`, `3d746bc794` (PR #6820) | ui-dockkit + ui-sidebar-right 518 项单测通过 |
-| 会话搜索 id 匹配 + 标题 fallback 激活保留 | `cae21f2ab7`, `5e99b92884` (PR #6616), `ab7bd24b6` | session-title 86 项 + ui-workspace 552 项单测通过 |
-| 多选题推荐项预选 | `bf8d8494ba`, `07c3c10d2c`, `185eb56a2b` (PR #7407) | ui-user-questions 126 项单测通过 |
-| Web 预览 codemirror 懒加载提速 | `4b1d4c814e`, `39d973322b` (PR #6950) | webworker-runtime 987 项单测通过 |
-
-## 运行时修复批次（port/fixes-runtime）
-
-| 项 | 上游 | 验证状态 |
-|---|---|---|
-| ACP stdout 诊断泄漏（MCP 资源列表） | #7168 `cb7f0878e4`、#7179 `f425304f7b`、#7202 `10551d0e4e` | mcp 147 项单测通过；账号侧部分按 skip-list 丢弃 |
-| pi-ai 图片数量上限自动卸载 | #7606 `f77e9a2757` | llm-pi-ai 422 项单测通过 |
-| pi-ai system-reminder 保留 | #6606 `185a9d63dd` | 同上（与 #7606 同提交） |
-| 模型切换前压缩 | #6345 `09b389cf55` | compaction 247 项单测通过 |
-| persistent-bash 输入改写 | #6756 `cd9ee0ee4c` | tool-bash-persistent 27 项单测通过 |
-| file-upload resolver dispose | #6567 `854043a205` | session-controller upload spec 22 项单测通过 |
-| shiki Go 回溯 | #7004 `ce333bc5ea` | go-highlighting spec 2 项单测通过 |
-| web-fetch charset 容错 | #7322 `cf38ed3205` | web 426 项单测通过 |
-| glob 前缀快路径 | #7045 `faa2619933` | tool-fs-search 174 项单测通过 |
-| agent-loop 系列起点前缀缓存 | #6986 `a677aca248` | system-prompt specs 37 项单测通过；持久化路径测试存在环境性失败（基线同样失败） |
-
-### 插件管理器批次（B7, port/plugin-mgr）
-
-| 项 | 提交 | 验证状态 |
-|---|---|---|
-| 插件版本更新 + 热更回滚 (#6174) | `82a5ae1744` | plugin-manager/ui-plugin-manager/plugin-detail 测试通过 |
-| 插件详情 README 管线 + 新包 plugin-detail (#6279) | `b702109a8c` | `@xpeach/xph-plugin-detail` 13 项单测通过 |
-| 详情页描述 (#7048) | `da3055de3e` | 10 个实验性 bundle locale 已更新 |
-| 标准模式插件管理 (#6795) | `edde4a0667` | tool-schemas/组合期望已对齐 |
-| 安装失败诊断 (#7463) | `6a994ee917` | 依赖未移植的 git-transport(#6943)已裁剪 |
-| 设置导航图标 (#7624) | `516ca64acb` | settings.section.icon slot 已接入 |
-| bundle 详情页预览 (#6605) | `c9eb8e9349` | BUNDLE_PREVIEWS 已迁移为 DETAIL.md |
-| 全部 bundle 详情文档 (#6623) | `8114a96ae4` | 10 个 bundle 获得 DETAIL.md/zh |
-| 启用不跳回已安装页 (#6594) | `8d00245b8e` | 组件测试通过 |
-| 市场生成跳过私有包 (#6513) | `87a5f371` | 生成器测试通过 |
-| 插件市场入主列表 (#6815) | `ce403d850c` | 期望输出已对齐 |
-| git dep allowBuilds (#6838) | `644eb3158e` | build-approval 测试通过 |
-
-跳过（成本/缺失前置）：#6564 sticky-header（依赖未移植的布局/工具提示改动）、#7012+#7018 unify lists（boot/official-bundles 包在本树不存在）。
-
-## 产品侧修复（非上游）
-
-| 项 | 提交 |
-|---|---|
-| 会话追踪头（`X-Session-ID` 等） | `1ff4a4f856` |
-| Anthropic `baseURL` 规范化（去除末尾 `/v1`） | `880c1016d6` |
-| 协议偏好默认设为 `compatible` | `7df5e491f7` |
-| 清理残留 provider 配置 | `f561b6a08f` |
-| 渠道故障重试次数收敛（5 → 2） | `46fc479055` |
-
-## 已完成（续）
-
-| 项 | 提交 | 验证状态 |
-|---|---|---|
-| #6369 sdk-minimal-checkpoints（Python 手动关闭冒烟） | `7d656c0511` → `c59d2e3ff6` | 文件级移植；manual_sdk_shutdown_smoke.py 需真实运行时 |
-| #6523 sdk-approval-rpc（Python 审批 API） | `4fbe6e3f42` → `6592625f1a` | pytest 359 通过；运行时测试依赖 PR #51 的 approval.mjs 与 bin |
-| #7107 sdk-tool-parity（Python 运行时 packageManager） | `8f236fef35` → `24fd711e11` | python-runtime-download.spec 6/6、build-exe.spec 9/9 |
-| #6955 python-sdk slash commands（TS 侧） | `1a8939248a` → `a08f9a1150` | sdk 包单测 300+ 通过（plan/compact/goal/permission parity 全绿） |
-| #6955 python-sdk slash commands（Python 侧） | `1a8939248a` → `1290da4d62` | pytest 359 通过、53 跳过（需构建运行时） |
-
-## 待吸收项分析：富文本引用 + 草稿恢复（`0e49f443dd`）
-
-上游变更共涉及 139 个文件（+4869 行），按模块拆分如下：
-
-| 类别 | 文件数 | 处理策略 |
-|---|---|---|
-| 快照与测试 | 46 | 移植时同步上游测试与快照 |
-| 源码 | 49 | 集中在 4 个工作区包 |
-| README / i18n | 44 | 文档与多语言词条同步 |
-
-核心源码变更分布：
-
-| 包 | 变更内容 | 本地冲突情况 |
-|---|---|---|
-| `session/message-quotes` | 新增包（4 文件） | 无冲突 |
-| `ui-primitives` | `QuotePreview`、`HoverCard`、`index` | 无本地改动 |
-| `ui-chat` | 12 文件，含新增 `text-interaction.ts` / `text-selection.ts` | `ChatView.tsx` 与 `apply.ts` 存在本地编辑重发相关改动 |
-| `bundle/web-app` | `cordis.patch.yml` + `package.json` | 存在本地改动 |
-
-合并策略：先合入无冲突的新增包与基础组件，再对 `ChatView.tsx` 与 `apply.ts` 进行三路合并。
-
-## 待吸收项分析：多语言词条
-
-上游为日语、西班牙语、法语、德语、俄语、葡萄牙语各新增约 288 个语言包文件（每个插件包一份）。后续可优先覆盖核心界面（设置、会话、输入、模型选择等约 20 个包）。
-
-## 阶段汇总
-
-| 项 | 规模 | 备注 |
-|---|---|---|
-| 富文本引用 + 草稿恢复 | 139 文件 / +4869 行 | 涉及 `api/session-controller`、`ui-chat`、`ui-conversation`、`ui-primitives`，需按包分批合并 |
-| 多语言扩展 | 6 种语言 × 多命名空间 | 优先覆盖核心 UI 包 |
-
-## 外部参考：dsh-TUI 路由设计评估
-
-`ccch1mneyyy/dsh-TUI` 的「三接口调度」实质为三个独立智能体运行时并存（`dsh` / `claude` / `codex` 各自独立后端），并非单会话多模型并发调度；其 `modelRoute.ts` 仅负责单个 `(provider, model)` 的优先级解析。
-
-其中具备参考价值的能力协商模型（`backend-manifest.ts` + `capabilities.ts`）已体现在 `packages/xpeach/account` 的 `modelProtocol` 与 `modelInputs` 字段设计中。
-
-## 待跟进验证项
-
-- 模型拖拽排序在桌面端与 Web 端页面的交互回归验证
-- Claude 模型经 `anthropic-messages` 协议的端到端连通性验证（待站点对应分组开放渠道）
+| 前序已吸收 | Tooltip 定位引擎、模型列表缓存、侧栏固定（panel-pins）、主题图标 sprite、模型重排序 | `d26c41f4f7`, `7af55268ad`, `813b7db6f4`, `38497b347c`, `afcb6709cd` |
+| PR #38 | 客户端与会话修复批（v0 描述符迁移、压缩历史、行号范围链接、中键关标签、会话 ID 搜索、多选推荐、CodeMirror 预览性能） | `#7570`, `#7527`, `#7056`, `#6820`, `#6616`, `#7407`, `#6950` |
+| PR #39 | B2 完整历史会话复制为 Markdown（含原始日志路径） | `#6472` (`2a48671b83`) |
+| PR #40 | 运行时与 LLM 修复批（ACP stdout 泄漏、pi-ai 图片超限自动省略、system-reminder 保留、切模型前压缩、持久 bash、文件上传释放、Go 高亮、web-fetch 编码、glob 快路径、前缀缓存） | `#7168`, `#7179`, `#7202`, `#7606`, `#6606`, `#6345`, `#6756`, `#6567`, `#7004`, `#7322`, `#7045`, `#6986` |
+| PR #41 | A3 实验性「开发者工具 - 统计」插件（`@xpeach/xph-experimental-client-ui-stats`） | `#6639` (`037ffa43d9`) |
+| PR #42 | Skill 根目录隔离修复（损坏根目录不再中断发现） | `#7214` (`ae38375654`) |
+| PR #44 | B10 性能优化批次（助手可见性缓存、静态生产模式、入口名索引、搜索设置去重） | `#7532`, `#7528`, `#7518`, `#7419`, `54af8907ca` |
+| PR #45 | B4 Trajectory 子调用折叠、高亮、失败输出、原始/渲染切换与 Gemini 思考签名剥离 | `#7490`, `#7086`, `#7399`, `#7069`, `#6649`, `#6537` |
+| PR #46 | B6 文件预览常驻目录树与文件定位 | `#6759` (`821043d6bf`) |
+| PR #47 | A1 实验性 `subagent_oar`（派发任务至本机 Codex/Claude CLI）与 Tool Executor 插件接缝 | `#6325`, `#6539` (`1c6c558432`, `e5cac772de`) |
+| PR #48 | B1 聊天富文本引用插入输入框 + B3 折叠步骤保留助手回复 | `#3206` (`0e49f443dd`), `#6312`, `#6519` |
+| PR #50 | B7 插件管理器批次（第三方插件更新、热更新失败回滚、富文本详情页、`@xpeach/xph-plugin-detail`、安装失败诊断、设置导航图标） | `#6174`, `#6279`, `#7048`, `#6795`, `#7463`, `#7624`, `#6605`, `#6623`, `#6594`, `#6513`, `#6815`, `#6838` |
+| PR #51 | B12 TypeScript SDK 对齐批次（最小检查点、审批 RPC、会话流快照、工具对齐） | `#6369`, `#6523`, `#7154`, `#7107` |
+| PR #52 | PTC 运行时升级（birpc 传输 + VM Script 格式） | `#6688`, `#6763` |
+| PR #54 | 会话行为批次（摘要投影与空会话复用、`fs-observation-policy` 默认关闭、独立会话分支） | `#7701`, `#7559`, `#7039` |
+| PR #55 | A7 `apply_patch` 补丁工具与 `@xpeach/xph-fs-patch` 解析器 | `#6747`, `#7559`, `#7698` |
+| PR #56 | B8 六国语言包（日语、西班牙语、法语、德语、俄语、巴西葡萄牙语） | `#6796`, `#6850`, `#6980`, `#7007` |
+| PR #57 | Python SDK 对齐与 `#6955` 双端斜杠命令（`session/query`） | `#6955`, `#6369`, `#6523`, `#7107` |
+| PR #58 | 全仓门禁清零与 `#7707` Python Runtime 锁文件部署修复 | `#7707` (`a7d0d02146`, `eab19efcf8`) |
+| PR #59 | A4 实验性「个性化推荐与插件推荐」集群（7 个新包） | `#6631`, `#7034` |
+| PR #60 | 导航入口自定义（`@xpeach/xph-client-ui-entry-customization`）与客户端扩展点 | `#6247`, `#6486` |
+| PR #61 | B9 移动端/平板/窄屏适配全集（14 个 PR）与对话尾部状态滑动条 | `#6672`, `#6664`, `#6669`, `#6673`, `#6662`, `#6660`, `#6666`, `#7211`, `#7356`, `#7478`, `#7512`, `#7542`, `#7556`, `#6321`, `#6637` |
+| PR #62 | A2 实验性「变更请求与工作树（Forge）」集群（5 个新包 + worktree 升级） | `#5960`, `#5961`, `#7376`, `#7378`, `#7452`, `#7482`, `#7487`, `#7457`, `#7467`, `#7603`, `#7619`, `#7721` |

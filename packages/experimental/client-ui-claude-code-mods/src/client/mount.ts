@@ -11,7 +11,7 @@ import type { SurfaceSnapshot } from '@xpeach/xph-experimental-claude-code-mods/
 import type { SessionId } from '@xpeach/xph-session/types'
 import type { TypertRemoteContribution } from '@xpeach/xph-typert-protocol'
 import { Band, type BandInjected } from './Band.tsx'
-import { en, NS, zh, type ModsBandKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, NS, zh, type ModsBandKey } from './locales.ts'
 
 declare module '@xpeach/xph-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -75,7 +75,7 @@ function watchSession(ctx: Context, sessionId: SessionId, onEnd: () => void): { 
 }
 
 function registerUi(ctx: Context): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'client-ui-claude-code-mods: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'client-ui-claude-code-mods: dictionaries')
   const watches = new Map<SessionId, ReturnType<typeof watchSession>>()
   ctx.effect(() => () => {
     for (const watch of watches.values()) watch.dispose()
