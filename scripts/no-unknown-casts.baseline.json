@@ -673,7 +673,7 @@
     "1bbd18e22567ce0529d02b770533f9bda84ff379b161dda8b9548053a18a0e97": 1
   },
   "packages/client/ui-sidebar-files/tests/mount.client.tsx": {
-    "2caa9ae382deea09b4ac64586c1ab49bd935b1e689218e3d485bd7b918e22066": 2,
+    "2caa9ae382deea09b4ac64586c1ab49bd935b1e689218e3d485bd7b918e22066": 1,
     "684eae6dc3d4dbe526c5a5b11ebd84e35e335bebd519cf09c0f3a24ba9280fc1": 1
   },
   "packages/client/ui-sidebar-files/tests/watch.client.spec.ts": {
@@ -751,9 +751,7 @@
     "24334994394c1d4336d192b2f38986beadcd0f6b235108370c3a736c34eebe98": 1,
     "33e462c9f8d9ef55f1b54a408f047caaa9467facc4fc88887fa5979fdce6c09f": 1,
     "455072902745ebd120bdeaaebf1b00b2d747a300409066715375263bcc4e8a63": 1,
-    "4df26af834cb4f8d55bb6908736ddeb6971b4c4c1cbd5a9ace2f9cfe9c0b94e4": 1,
     "6078d7e1390a0c3c94892edd74526a76e6cbbda8360656bf9f97d367371c0c4c": 1,
-    "71b9c7a18658556ab36c9af394f29dac5885fab402304b0b6f4d5127d6acdeff": 1,
     "9117562f15005ef8ec18dbad9c29cdc723c4af2c6a9c217af3cd7d8380de999b": 1,
     "98169406d3c872458f70f3f8f70abdd6eeaca296816ce91cdcf8392cfa6a77bf": 1,
     "afecf8092cd8de095ffbe00a1df00816897e8205854fd33a9d2beeaee88eca95": 1,
@@ -1530,20 +1528,12 @@
     "cb524acd0159b942e7974d76b581b1f419b8653d1734946a3f154dda8e8f4762": 1,
     "f10c6a0a3a762be54c2de87ab5d787e37a21a89c9d468bf81d0658c2bf15d581": 1
   },
-  "packages/session-query/session-log-export/tests/client-apply.client.spec.tsx": {
-    "04984a2ce1486250236e638e0197da0a1a840855ed3975c59130a85358c7e5fe": 1,
-    "eee35b4d8641824c6eaacfe03ed60d353d81d5257d1111132f34d46a7b13ef35": 1
-  },
   "packages/session-query/session-log-export/tests/controller.client.spec.ts": {
     "746ebc5aade01a50cc9a74fc07b1023addf021aef80b62c069a437ac140c9e64": 1,
     "c920d88f6eb309ef5991608642a1ab0fd972690538b33c34d86c68d07ddd6edf": 1
   },
   "packages/session-query/session-log-export/tests/dialog.client.spec.tsx": {
     "a9b1969d76db0b05f87c862956f8ff45c52f1f4a5b32a206339de0c9fee99a77": 1
-  },
-  "packages/session-query/session-log-export/tests/header-action.client.spec.tsx": {
-    "238a292bbe3a61acbc4f2d96fff474df5fba1577357219a88c914813786b56a7": 1,
-    "47d3a14a42ef7142ea22071677b42265f02fba5a2a0cf4210f4f9c7c5a876d10": 1
   },
   "packages/session-query/session-log-export/tests/loader-composition.host.spec.ts": {
     "59c63f734e8bba862325f776e3fcbebd78a84cfb4161f8df41c216950d9bf351": 1,

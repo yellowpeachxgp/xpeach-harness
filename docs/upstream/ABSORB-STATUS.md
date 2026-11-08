@@ -11,6 +11,28 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| 会话恢复修复簇（v0 subagent/descriptor v1/v2 迁移） | `dffda31215`, `e51cb3959f` (PR #7570) | session-format-v0-to-v1 + session-persistence-jsonl 873 项单测通过 |
+| 隐藏 system-prompt 卡片经 chatNode 重建 | `19956a1da9`, `ab627b91ce`, `b45eee4fca` (PR #7527) | ui-chat 84 项单测通过 |
+| Markdown 文件链接行号范围（`:24`/`:24-30`/`:24:5`） | `09d9f1152e`, `b1cb1f34e9`, `7ee39638b2`, `db2b8122f2`, `2e5ac1db66` (PR #7056) | ui-primitives 1739 项单测通过 |
+| 中键关闭标签页 | `9c5958b07b`, `3d746bc794` (PR #6820) | ui-dockkit + ui-sidebar-right 518 项单测通过 |
+| 会话搜索 id 匹配 + 标题 fallback 激活保留 | `cae21f2ab7`, `5e99b92884` (PR #6616), `ab7bd24b6` | session-title 86 项 + ui-workspace 552 项单测通过 |
+| 多选题推荐项预选 | `bf8d8494ba`, `07c3c10d2c`, `185eb56a2b` (PR #7407) | ui-user-questions 126 项单测通过 |
+| Web 预览 codemirror 懒加载提速 | `4b1d4c814e`, `39d973322b` (PR #6950) | webworker-runtime 987 项单测通过 |
+
+## 运行时修复批次（port/fixes-runtime）
+
+| 项 | 上游 | 验证状态 |
+|---|---|---|
+| ACP stdout 诊断泄漏（MCP 资源列表） | #7168 `cb7f0878e4`、#7179 `f425304f7b`、#7202 `10551d0e4e` | mcp 147 项单测通过；账号侧部分按 skip-list 丢弃 |
+| pi-ai 图片数量上限自动卸载 | #7606 `f77e9a2757` | llm-pi-ai 422 项单测通过 |
+| pi-ai system-reminder 保留 | #6606 `185a9d63dd` | 同上（与 #7606 同提交） |
+| 模型切换前压缩 | #6345 `09b389cf55` | compaction 247 项单测通过 |
+| persistent-bash 输入改写 | #6756 `cd9ee0ee4c` | tool-bash-persistent 27 项单测通过 |
+| file-upload resolver dispose | #6567 `854043a205` | session-controller upload spec 22 项单测通过 |
+| shiki Go 回溯 | #7004 `ce333bc5ea` | go-highlighting spec 2 项单测通过 |
+| web-fetch charset 容错 | #7322 `cf38ed3205` | web 426 项单测通过 |
+| glob 前缀快路径 | #7045 `faa2619933` | tool-fs-search 174 项单测通过 |
+| agent-loop 系列起点前缀缓存 | #6986 `a677aca248` | system-prompt specs 37 项单测通过；持久化路径测试存在环境性失败（基线同样失败） |
 
 ### 插件管理器批次（B7, port/plugin-mgr）
 

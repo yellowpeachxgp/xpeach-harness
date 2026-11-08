@@ -100,9 +100,11 @@ A successful `selectModel` response acknowledges the Session-local selection wit
 | `nativeOpen` | platform-detected | Whether Session workspace paths can be handed to a native desktop opener |
 | `listWorkSliceMs` | `16` | Positive integral list-work time slice in milliseconds; checks occur between complete rows |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-api-session-controller) is the exhaustive source for accepted fields and their JSDoc.
+The generated [configuration catalog](../../../docs/config-catalog.md#xpeachxph-api-session-controller) is the exhaustive source for accepted fields and their JSDoc.
 
 -----
+
+Blockquotes travel as ordinary prompt text without quote metadata. Local submission echoes and durable messages use the same text rendering rules; queue edits replace content while retaining prompt correlation.
 
 <a id="model-experience"></a>
 ## Model Experience

@@ -11,10 +11,99 @@
 
 每个包的条目用三个标识符标注：`inject` 列出插件注入的服务键，其 `cordis.yml` 树还必须加载这些服务的提供者；`refs` 列出声明引用、但未粘贴在此处的类型；`source` 链接到声明配置的源文件。范围限定为 harness 层级（`packages/`）；配置树还可能加载的 vendored cordis 插件（控制台日志记录器等）固定为上游源代码（参见 [vendoring policy](../vendor/README.md)），未收录于此目录。
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-acp -->
-<a id="deepseek-aidsh-acp"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-account -->
+<a id="xpeachxph-account"></a>
 
-## `@deepseek-ai/dsh-acp`
+## `@xpeach/xph-account`
+
+- `inject`: `typert` · `credentials` · `settings`
+- `source`: [`packages/xpeach/account/src/index.ts:162`](../packages/xpeach/account/src/index.ts)
+
+```ts config-catalog
+/** Deployment knobs for the XPeach site route. */
+export interface Config {
+  /** New API site root used for management calls (default https://xpeach.codes). */
+  readonly baseURL?: string
+  /** Credential reference resolved per call (default XPEACH_API_KEY). */
+  readonly apiKeyEnv?: string
+  /**
+   * Which wire a model uses when the site advertises several
+   * (default `compatible`, i.e. chat completions). `native` prefers Anthropic
+   * messages and the Responses API, which keep cache breakpoints and reasoning
+   * state but only work where the relay routes those endpoints.
+   */
+  readonly protocolPreference?: ModelProtocolPreference
+  /**
+   * Model families (the site's `groups`) the catalogue keeps. Absent or empty
+   * keeps every family, so a fresh profile is not silently narrowed.
+   */
+  readonly enabledFamilies?: readonly string[]
+  /** Whether product providers inject `X-Session-ID` and `X-Conversation-ID` tracking headers (default true). */
+  readonly conversationTracking?: boolean
+  /** Whether startup and settings changes automatically sync the site model catalog into `llm-pi-ai` (default true). */
+  readonly autoSyncModels?: boolean
+  /** Remote JSON URL for dynamic model context-window and capability metadata sync. */
+  readonly modelMetadataUrl?: string
+  /**
+   * Site-management token store path (default $XPH_HOME/profiles/xpeach/xpeach.admin):
+   * the New API system access token authenticating admin endpoints as the site
+   * owner. Profile-local like keyFile — optional; admin surfaces stay honest
+   * "not bound" while absent.
+   */
+  readonly adminKeyFile?: string
+  /** Process-env variable for the admin token (default XPEACH_ADMIN_KEY). */
+  readonly adminKeyVar?: string
+  /**
+   * Session-cookie store path (default $XPH_HOME/profiles/xpeach/xpeach.session).
+   * New API's user-write endpoints need the site's own session cookie —
+   * Turnstile blocks programmatic login so the user pastes 'session=' here.
+   */
+  readonly sessionKeyFile?: string
+  /** Process-env variable for the session cookie (default XPEACH_SESSION). */
+  readonly sessionKeyVar?: string
+  /** Per-request timeout in milliseconds (default 15000). */
+  readonly timeoutMs?: number
+  /**
+   * Harness-configured model ids the section cross-checks against the site
+   * catalog — the "is my model actually available" answer.
+   */
+  readonly watchModels?: string[]
+  /**
+   * Independent key store path (default $XPH_HOME/profiles/xpeach/xpeach.key).
+   * Deliberately outside the shared credentials.yaml — deleting entries there
+   * never disturbs this harness.
+   */
+  readonly keyFile?: string
+  /**
+   * Process-env variable the key is exported under for the LLM providers'
+   * apiKeyEnv resolution (default XPEACH_RELAY_KEY). Not the shared
+   * credentials.yaml reference — our own channel.
+   */
+  readonly keyVar?: string
+  /** XPeach SSO root URL used for Device Authorization and credential bridging. */
+  readonly ssoBaseURL?: string
+  /** Client identifier registered with XPeach SSO Device Authorization. */
+  readonly ssoClientId?: string
+  /** Profile-local file storing bound SSO identity metadata (`xpeach.sso.json`). */
+  readonly ssoStateFile?: string
+  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`, default `'beta'`). */
+  readonly updateChannel?: XPeachReleaseChannel
+  /** Whether automatic update checks are enabled (default `true`). */
+  readonly autoCheckUpdate?: boolean
+}
+
+/** Wire protocol selection strategy for catalog models. */
+export type ModelProtocolPreference = 'compatible' | 'native' | 'auto'
+
+/** Release update channels supported by XPeach Harness. */
+export type XPeachReleaseChannel = 'least' | 'beta' | 'alpha'
+```
+<!-- END GENERATED config-catalog:@xpeach/xph-account -->
+
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-acp -->
+<a id="xpeachxph-acp"></a>
+
+## `@xpeach/xph-acp`
 
 - `inject`: `agents` · `llm` · `sessionPersistence` · `sessions`
 - `refs`: `Stream` (`@agentclientprotocol/sdk`)
@@ -33,14 +122,14 @@ export interface AcpConfig {
   stream?: Stream
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-acp -->
+<!-- END GENERATED config-catalog:@xpeach/xph-acp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-default-model -->
-<a id="deepseek-aidsh-agent-default-model"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-default-model -->
+<a id="xpeachxph-agent-default-model"></a>
 
-## `@deepseek-ai/dsh-agent-default-model`
+## `@xpeach/xph-agent-default-model`
 
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/core/agent-default-model/src/index.ts:24`](../packages/core/agent-default-model/src/index.ts)
 
 ```ts config-catalog
@@ -54,12 +143,12 @@ export interface Config {
   reasoningEffort: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-default-model -->
+<!-- END GENERATED config-catalog:@xpeach/xph-agent-default-model -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-instructions -->
-<a id="deepseek-aidsh-agent-instructions"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-instructions -->
+<a id="xpeachxph-agent-instructions"></a>
 
-## `@deepseek-ai/dsh-agent-instructions`
+## `@xpeach/xph-agent-instructions`
 
 - `inject`: `sessionProjections` · `workingDirectory`
 - `source`: [`packages/context/agent-instructions/src/config.ts:18`](../packages/context/agent-instructions/src/config.ts)
@@ -85,15 +174,15 @@ export interface Config {
   localInstructionFileCandidates?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-instructions -->
+<!-- END GENERATED config-catalog:@xpeach/xph-agent-instructions -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-loop -->
-<a id="deepseek-aidsh-agent-loop"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-loop -->
+<a id="xpeachxph-agent-loop"></a>
 
-## `@deepseek-ai/dsh-agent-loop`
+## `@xpeach/xph-agent-loop`
 
 - `inject`: `agents` · `sessions` · `llm` · `tools` · `systemPrompt` · `sessionProjections`
-- `refs`: [`AgentOptions`](subsystems/core.zh.md) · [`SessionId`](subsystems/core.zh.md) · `Volatile` (`@deepseek-ai/cosmokit`)
+- `refs`: [`AgentOptions`](subsystems/core.zh.md) · [`SessionId`](subsystems/core.zh.md) · `Volatile` (`@xpeach/xph-cosmokit`)
 - `source`: [`packages/core/agent-loop/src/index.ts:303`](../packages/core/agent-loop/src/index.ts)
 
 ```ts config-catalog
@@ -117,12 +206,12 @@ export interface Config {
   })[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-loop -->
+<!-- END GENERATED config-catalog:@xpeach/xph-agent-loop -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-preset -->
-<a id="deepseek-aidsh-agent-preset"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-preset -->
+<a id="xpeachxph-agent-preset"></a>
 
-## `@deepseek-ai/dsh-agent-preset`
+## `@xpeach/xph-agent-preset`
 
 - `inject`: `agentPresets`
 - `refs`: [`PresetDefinition`](../packages/preset/agent-preset-registry/src/index.ts)
@@ -132,15 +221,15 @@ export interface Config {
 /** Definition submitted to the preset registry. */
 export type Config = PresetDefinition
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-preset -->
+<!-- END GENERATED config-catalog:@xpeach/xph-agent-preset -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-preset-registry -->
-<a id="deepseek-aidsh-agent-preset-registry"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-preset-registry -->
+<a id="xpeachxph-agent-preset-registry"></a>
 
-## `@deepseek-ai/dsh-agent-preset-registry`
+## `@xpeach/xph-agent-preset-registry`
 
 - `inject`: `loader` · `sessionProjections`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/preset/agent-preset-registry/src/preset.ts:13`](../packages/preset/agent-preset-registry/src/preset.ts)
 
 ```ts config-catalog
@@ -152,12 +241,12 @@ export interface Config {
   selectedDefault: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-preset-registry -->
+<!-- END GENERATED config-catalog:@xpeach/xph-agent-preset-registry -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-tool-presentation -->
-<a id="deepseek-aidsh-agent-tool-presentation"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-tool-presentation -->
+<a id="xpeachxph-agent-tool-presentation"></a>
 
-## `@deepseek-ai/dsh-agent-tool-presentation`
+## `@xpeach/xph-agent-tool-presentation`
 
 - `inject`: `tools`
 - `refs`: [`ToolPresentationMode`](subsystems/tools.zh.md)
@@ -176,12 +265,12 @@ export interface Config {
   mode: ToolPresentationMode
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-tool-presentation -->
+<!-- END GENERATED config-catalog:@xpeach/xph-agent-tool-presentation -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-gateway -->
-<a id="deepseek-aidsh-api-gateway"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-gateway -->
+<a id="xpeachxph-api-gateway"></a>
 
-## `@deepseek-ai/dsh-api-gateway`
+## `@xpeach/xph-api-gateway`
 
 - `inject`: `typert` · `remoteAccess`
 - `source`: [`packages/api/gateway/src/index.ts:156`](../packages/api/gateway/src/index.ts)
@@ -195,12 +284,12 @@ export interface Config {
   readonly streamInboxBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-gateway -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-gateway -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-job-controller -->
-<a id="deepseek-aidsh-api-job-controller"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-job-controller -->
+<a id="xpeachxph-api-job-controller"></a>
 
-## `@deepseek-ai/dsh-api-job-controller`
+## `@xpeach/xph-api-job-controller`
 
 - `inject`: `jobs` · `typert`
 - `source`: [`packages/api/job-controller/src/index.ts:35`](../packages/api/job-controller/src/index.ts)
@@ -214,12 +303,12 @@ export interface Config {
   readonly observeMaxFrameBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-job-controller -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-job-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-session-controller -->
-<a id="deepseek-aidsh-api-session-controller"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-session-controller -->
+<a id="xpeachxph-api-session-controller"></a>
 
-## `@deepseek-ai/dsh-api-session-controller`
+## `@xpeach/xph-api-session-controller`
 
 - `inject`: `agentDefaultModel` · `agents` · `attachments` · `fileUploads` · `fs` · `llm` · `remoteAccess` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `workspaceRegistry`
 - `source`: [`packages/api/session-controller/src/index.ts:94`](../packages/api/session-controller/src/index.ts)
@@ -233,12 +322,12 @@ export interface Config {
   readonly listWorkSliceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-session-controller -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-session-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-settings-controller -->
-<a id="deepseek-aidsh-api-settings-controller"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-settings-controller -->
+<a id="xpeachxph-api-settings-controller"></a>
 
-## `@deepseek-ai/dsh-api-settings-controller`
+## `@xpeach/xph-api-settings-controller`
 
 - `source`: [`packages/api/settings-controller/src/index.ts:35`](../packages/api/settings-controller/src/index.ts)
 
@@ -249,12 +338,12 @@ export interface SettingsControllerInternals {
   readonly openTextFile?: (path: string, signal: AbortSignal) => Promise<void>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-settings-controller -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-settings-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-terminal-controller -->
-<a id="deepseek-aidsh-api-terminal-controller"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-terminal-controller -->
+<a id="xpeachxph-api-terminal-controller"></a>
 
-## `@deepseek-ai/dsh-api-terminal-controller`
+## `@xpeach/xph-api-terminal-controller`
 
 - `inject`: `subprocess` · `sandboxPolicy` · `workingDirectory` · `typert`
 - `source`: [`packages/api/terminal-controller/src/index.ts:27`](../packages/api/terminal-controller/src/index.ts)
@@ -295,12 +384,12 @@ export interface Config {
   readonly cleanupRetryMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-terminal-controller -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-terminal-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-controller -->
-<a id="deepseek-aidsh-api-workspace-controller"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-workspace-controller -->
+<a id="xpeachxph-api-workspace-controller"></a>
 
-## `@deepseek-ai/dsh-api-workspace-controller`
+## `@xpeach/xph-api-workspace-controller`
 
 - `inject`: `remoteAccess` · `typert` · `workspaceRegistry`
 - `source`: [`packages/api/workspace-controller/src/index.ts:37`](../packages/api/workspace-controller/src/index.ts)
@@ -314,12 +403,12 @@ export interface Config {
   documentsLookupTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-controller -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-workspace-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-files -->
-<a id="deepseek-aidsh-api-workspace-files"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-workspace-files -->
+<a id="xpeachxph-api-workspace-files"></a>
 
-## `@deepseek-ai/dsh-api-workspace-files`
+## `@xpeach/xph-api-workspace-files`
 
 - `inject`: `fs` · `sandboxPolicy` · `sessions` · `typert`
 - `source`: [`packages/api/workspace-files/src/index.ts:70`](../packages/api/workspace-files/src/index.ts)
@@ -343,12 +432,12 @@ export interface Config {
   readonly maxEntries: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-files -->
+<!-- END GENERATED config-catalog:@xpeach/xph-api-workspace-files -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-attachment-local -->
-<a id="deepseek-aidsh-attachment-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-attachment-local -->
+<a id="xpeachxph-attachment-local"></a>
 
-## `@deepseek-ai/dsh-attachment-local`
+## `@xpeach/xph-attachment-local`
 
 - `source`: [`packages/attachment/attachment-local/src/index.ts:61`](../packages/attachment/attachment-local/src/index.ts)
 
@@ -380,15 +469,15 @@ export interface Config {
   imageCompressionConcurrency?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-attachment-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-attachment-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-bash-local -->
-<a id="deepseek-aidsh-bash-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-bash-local -->
+<a id="xpeachxph-bash-local"></a>
 
-## `@deepseek-ai/dsh-bash-local`
+## `@xpeach/xph-bash-local`
 
 - `inject`: `subprocess`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/shell/bash-local/src/index.ts:41`](../packages/shell/bash-local/src/index.ts)
 
 ```ts config-catalog
@@ -408,33 +497,33 @@ export interface Config {
   graceMs: Volatile<number>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-bash-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-bash-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-bash-sandbox -->
-<a id="deepseek-aidsh-bash-sandbox"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-bash-sandbox -->
+<a id="xpeachxph-bash-sandbox"></a>
 
-## `@deepseek-ai/dsh-bash-sandbox`
+## `@xpeach/xph-bash-sandbox`
 
 - `inject`: `subprocess` · `sandbox` · `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-bash-local)
+- `refs`: [`LocalConfig`](#xpeachxph-bash-local)
 - `source`: [`packages/shell/bash-sandbox/src/index.ts:36`](../packages/shell/bash-sandbox/src/index.ts)
 
 ```ts config-catalog
 /**
  * Plugin config: the local executor's knobs, verbatim. The sandbox policy —
  * the default mode and fallback `workspace-write` root — is NOT here: it lives
- * on `ctx.sandboxPolicy` (`@deepseek-ai/dsh-sandbox-policy`), which resolves
+ * on `ctx.sandboxPolicy` (`@xpeach/xph-sandbox-policy`), which resolves
  * each calling session's mode and cwd for every enforcing capability. The runner
  * choice is likewise the `ctx.sandbox` provider's config, not this executor's.
  */
 export type Config = LocalConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-bash-sandbox -->
+<!-- END GENERATED config-catalog:@xpeach/xph-bash-sandbox -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-connection -->
-<a id="deepseek-aidsh-client-connection"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-connection -->
+<a id="xpeachxph-client-connection"></a>
 
-## `@deepseek-ai/dsh-client-connection`
+## `@xpeach/xph-client-connection`
 
 - `inject`: `credentials`
 - `source`: [`packages/client/connection/src/index.ts:96`](../packages/client/connection/src/index.ts)
@@ -474,12 +563,12 @@ export interface ConnectionRecoveryConfig {
   generationReadyTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-connection -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-connection -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-hmr -->
-<a id="deepseek-aidsh-client-hmr"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-hmr -->
+<a id="xpeachxph-client-hmr"></a>
 
-## `@deepseek-ai/dsh-client-hmr`
+## `@xpeach/xph-client-hmr`
 
 - `inject`: `clientModules` · `webServer`
 - `source`: [`packages/client/hmr/src/index.ts:30`](../packages/client/hmr/src/index.ts)
@@ -491,15 +580,15 @@ export interface Config {
   pollIntervalMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-hmr -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-hmr -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-product-analytics -->
-<a id="deepseek-aidsh-client-product-analytics"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-product-analytics -->
+<a id="xpeachxph-client-product-analytics"></a>
 
-## `@deepseek-ai/dsh-client-product-analytics`
+## `@xpeach/xph-client-product-analytics`
 
 - `inject`: `deepseekAccount` · `productTelemetry`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/client/product-analytics/src/index.ts:15`](../packages/client/product-analytics/src/index.ts)
 
 ```ts config-catalog
@@ -515,12 +604,12 @@ export interface Config {
   environmentQueryMaxOutputBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-product-analytics -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-product-analytics -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-shortcuts -->
-<a id="deepseek-aidsh-client-shortcuts"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-shortcuts -->
+<a id="xpeachxph-client-shortcuts"></a>
 
-## `@deepseek-ai/dsh-client-shortcuts`
+## `@xpeach/xph-client-shortcuts`
 
 - `source`: [`packages/client/shortcuts/src/config.ts:5`](../packages/client/shortcuts/src/config.ts)
 
@@ -531,12 +620,12 @@ export interface Config {
   stopSequenceMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-shortcuts -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-shortcuts -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-plugin-manager -->
-<a id="deepseek-aidsh-client-ui-plugin-manager"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-plugin-manager -->
+<a id="xpeachxph-client-ui-plugin-manager"></a>
 
-## `@deepseek-ai/dsh-client-ui-plugin-manager`
+## `@xpeach/xph-client-ui-plugin-manager`
 
 - `source`: [`packages/client/ui-plugin-manager/src/index.ts:15`](../packages/client/ui-plugin-manager/src/index.ts)
 
@@ -551,14 +640,14 @@ export interface Config {
   registryProbeCacheTtlMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-plugin-manager -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-ui-plugin-manager -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-account -->
-<a id="deepseek-aidsh-client-ui-settings-account"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-settings-account -->
+<a id="xpeachxph-client-ui-settings-account"></a>
 
-## `@deepseek-ai/dsh-client-ui-settings-account`
+## `@xpeach/xph-client-ui-settings-account`
 
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/client/ui-settings-account/src/index.ts:9`](../packages/client/ui-settings-account/src/index.ts)
 
 ```ts config-catalog
@@ -601,12 +690,12 @@ export type OnboardingPurpose = 'office' | 'development' | 'both'
 /** Work-detail mode applied to Chat when onboarding completes. */
 export type OnboardingProcess = 'compact' | 'standard' | 'detailed'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-account -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-ui-settings-account -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->
-<a id="deepseek-aidsh-client-ui-settings-models"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-settings-models -->
+<a id="xpeachxph-client-ui-settings-models"></a>
 
-## `@deepseek-ai/dsh-client-ui-settings-models`
+## `@xpeach/xph-client-ui-settings-models`
 
 - `source`: [`packages/client/ui-settings-models/src/onboarding-config.ts:6`](../packages/client/ui-settings-models/src/onboarding-config.ts)
 
@@ -617,12 +706,12 @@ export interface Config {
   credentialOnboarding: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-ui-settings-models -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-sidebar-documentpreview -->
-<a id="deepseek-aidsh-client-ui-sidebar-documentpreview"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-sidebar-documentpreview -->
+<a id="xpeachxph-client-ui-sidebar-documentpreview"></a>
 
-## `@deepseek-ai/dsh-client-ui-sidebar-documentpreview`
+## `@xpeach/xph-client-ui-sidebar-documentpreview`
 
 - `source`: [`packages/client/ui-sidebar-documentpreview/src/config.ts:5`](../packages/client/ui-sidebar-documentpreview/src/config.ts)
 
@@ -651,14 +740,14 @@ export interface Config {
   }
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-sidebar-documentpreview -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-ui-sidebar-documentpreview -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-theme -->
-<a id="deepseek-aidsh-client-ui-theme"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-theme -->
+<a id="xpeachxph-client-ui-theme"></a>
 
-## `@deepseek-ai/dsh-client-ui-theme`
+## `@xpeach/xph-client-ui-theme`
 
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/client/ui-theme/src/index.ts:20`](../packages/client/ui-theme/src/index.ts)
 
 ```ts config-catalog
@@ -683,12 +772,12 @@ export interface Config {
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-theme -->
+<!-- END GENERATED config-catalog:@xpeach/xph-client-ui-theme -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-compaction-basic -->
-<a id="deepseek-aidsh-compaction-basic"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-compaction-basic -->
+<a id="xpeachxph-compaction-basic"></a>
 
-## `@deepseek-ai/dsh-compaction-basic`
+## `@xpeach/xph-compaction-basic`
 
 - `inject`: `llm` · `tokenMeter` · `sessions`
 - `source`: [`packages/compaction/compaction-basic/src/types.ts:40`](../packages/compaction/compaction-basic/src/types.ts)
@@ -732,12 +821,12 @@ export interface ModelCompactPolicyConfig extends CompactionPolicyConfig {
   model: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-compaction-basic -->
+<!-- END GENERATED config-catalog:@xpeach/xph-compaction-basic -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-compaction-tool-result-pruner -->
-<a id="deepseek-aidsh-compaction-tool-result-pruner"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-compaction-tool-result-pruner -->
+<a id="xpeachxph-compaction-tool-result-pruner"></a>
 
-## `@deepseek-ai/dsh-compaction-tool-result-pruner`
+## `@xpeach/xph-compaction-tool-result-pruner`
 
 - `inject`: `tokenMeter`
 - `source`: [`packages/compaction/compaction-tool-result-pruner/src/types.ts:5`](../packages/compaction/compaction-tool-result-pruner/src/types.ts)
@@ -753,12 +842,12 @@ export interface ToolResultPruneConfig {
   tailChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-compaction-tool-result-pruner -->
+<!-- END GENERATED config-catalog:@xpeach/xph-compaction-tool-result-pruner -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-cordis-host-runner -->
-<a id="deepseek-aidsh-cordis-host-runner"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-cordis-host-runner -->
+<a id="xpeachxph-cordis-host-runner"></a>
 
-## `@deepseek-ai/dsh-cordis-host-runner`
+## `@xpeach/xph-cordis-host-runner`
 
 - `inject`: `tools`
 - `source`: [`packages/extensions/cordis-host-runner/src/index.ts:103`](../packages/extensions/cordis-host-runner/src/index.ts)
@@ -772,12 +861,12 @@ export interface Config {
   clientInspectTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-cordis-host-runner -->
+<!-- END GENERATED config-catalog:@xpeach/xph-cordis-host-runner -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
-<a id="deepseek-aidsh-credentials-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-credentials-local -->
+<a id="xpeachxph-credentials-local"></a>
 
-## `@deepseek-ai/dsh-credentials-local`
+## `@xpeach/xph-credentials-local`
 
 - `source`: [`packages/credentials/credentials-local/src/index.ts:64`](../packages/credentials/credentials-local/src/index.ts)
 
@@ -794,12 +883,12 @@ export interface Config {
   debounceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-credentials-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
-<a id="deepseek-aidsh-deepseek-account-platform"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-deepseek-account-platform -->
+<a id="xpeachxph-deepseek-account-platform"></a>
 
-## `@deepseek-ai/dsh-deepseek-account-platform`
+## `@xpeach/xph-deepseek-account-platform`
 
 - `inject`: `credentials` · `authorization`
 - `source`: [`packages/credentials/deepseek-account-platform/src/index.ts:23`](../packages/credentials/deepseek-account-platform/src/index.ts)
@@ -835,12 +924,12 @@ export interface Config {
   attemptTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
+<!-- END GENERATED config-catalog:@xpeach/xph-deepseek-account-platform -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-agent-team -->
-<a id="deepseek-aidsh-experimental-agent-team"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-agent-team -->
+<a id="xpeachxph-experimental-agent-team"></a>
 
-## `@deepseek-ai/dsh-experimental-agent-team`
+## `@xpeach/xph-experimental-agent-team`
 
 - `inject`: `agents` · `sessions` · `sessionPersistence` · `sessionProjections` · `subagents`
 - `source`: [`packages/experimental/agent-team/src/types.ts:153`](../packages/experimental/agent-team/src/types.ts)
@@ -858,12 +947,12 @@ export interface Config {
   readonly disposalTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-agent-team -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-agent-team -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
-<a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-api-speech-to-text -->
+<a id="xpeachxph-experimental-api-speech-to-text"></a>
 
-## `@deepseek-ai/dsh-experimental-api-speech-to-text`
+## `@xpeach/xph-experimental-api-speech-to-text`
 
 - `inject`: `speechToText` · `typert`
 - `source`: [`packages/experimental/api-speech-to-text/src/index.ts:20`](../packages/experimental/api-speech-to-text/src/index.ts)
@@ -877,42 +966,42 @@ export interface Config {
   maxDurationSeconds: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-api-speech-to-text -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp -->
-<a id="deepseek-aidsh-experimental-browser-use-chrome-devtools-mcp"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-browser-use-chrome-devtools-mcp -->
+<a id="xpeachxph-experimental-browser-use-chrome-devtools-mcp"></a>
 
-## `@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp`
+## `@xpeach/xph-experimental-browser-use-chrome-devtools-mcp`
 
 - `inject`: `browserUse` · `agents` · `tools` · `systemPrompt` · `workingDirectory`
-- `refs`: `BrowserMcpConfig` (`@deepseek-ai/dsh-experimental-browser-use-runtime/mcp`)
+- `refs`: `BrowserMcpConfig` (`@xpeach/xph-experimental-browser-use-runtime/mcp`)
 - `source`: [`packages/experimental/browser-use-chrome-devtools-mcp/src/index.ts:15`](../packages/experimental/browser-use-chrome-devtools-mcp/src/index.ts)
 
 ```ts config-catalog
 /** Fixed Chromium launch or existing-browser attachment settings. */
 export type Config = BrowserMcpConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-browser-use-chrome-devtools-mcp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-playwright-mcp -->
-<a id="deepseek-aidsh-experimental-browser-use-playwright-mcp"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-browser-use-playwright-mcp -->
+<a id="xpeachxph-experimental-browser-use-playwright-mcp"></a>
 
-## `@deepseek-ai/dsh-experimental-browser-use-playwright-mcp`
+## `@xpeach/xph-experimental-browser-use-playwright-mcp`
 
 - `inject`: `browserUse` · `agents` · `tools` · `systemPrompt` · `workingDirectory`
-- `refs`: `BrowserMcpConfig` (`@deepseek-ai/dsh-experimental-browser-use-runtime/mcp`)
+- `refs`: `BrowserMcpConfig` (`@xpeach/xph-experimental-browser-use-runtime/mcp`)
 - `source`: [`packages/experimental/browser-use-playwright-mcp/src/index.ts:16`](../packages/experimental/browser-use-playwright-mcp/src/index.ts)
 
 ```ts config-catalog
 /** Fixed Chromium launch or existing-browser attachment settings. */
 export type Config = BrowserMcpConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-playwright-mcp -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-browser-use-playwright-mcp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-stagehand-native -->
-<a id="deepseek-aidsh-experimental-browser-use-stagehand-native"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-browser-use-stagehand-native -->
+<a id="xpeachxph-experimental-browser-use-stagehand-native"></a>
 
-## `@deepseek-ai/dsh-experimental-browser-use-stagehand-native`
+## `@xpeach/xph-experimental-browser-use-stagehand-native`
 
 - `inject`: `browserUse` · `agents` · `tools` · `systemPrompt`
 - `refs`: `ModelConfig` (`@browserbasehq/stagehand`)
@@ -949,12 +1038,12 @@ export interface StagehandModelConfig {
   headers?: Record<string, string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-stagehand-native -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-browser-use-stagehand-native -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-claude-code-mods -->
-<a id="deepseek-aidsh-experimental-claude-code-mods"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-claude-code-mods -->
+<a id="xpeachxph-experimental-claude-code-mods"></a>
 
-## `@deepseek-ai/dsh-experimental-claude-code-mods`
+## `@xpeach/xph-experimental-claude-code-mods`
 
 - `inject`: `workingDirectory`
 - `source`: [`packages/experimental/claude-code-mods/src/index.ts:53`](../packages/experimental/claude-code-mods/src/index.ts)
@@ -976,15 +1065,15 @@ export interface Config {
   bandRows?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-claude-code-mods -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-claude-code-mods -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-client-ui-cot-translation -->
-<a id="deepseek-aidsh-experimental-client-ui-cot-translation"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-client-ui-cot-translation -->
+<a id="xpeachxph-experimental-client-ui-cot-translation"></a>
 
-## `@deepseek-ai/dsh-experimental-client-ui-cot-translation`
+## `@xpeach/xph-experimental-client-ui-cot-translation`
 
 - `inject`: `translator` · `typert` · `sessionController`
-- `refs`: [`TranslationProvider`](subsystems/translation.zh.md) · `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: [`TranslationProvider`](subsystems/translation.zh.md) · `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/experimental/client-ui-cot-translation/src/index.ts:14`](../packages/experimental/client-ui-cot-translation/src/index.ts)
 
 ```ts config-catalog
@@ -1004,12 +1093,12 @@ export interface CotTranslationPreferences {
   targetLanguage: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-client-ui-cot-translation -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-client-ui-cot-translation -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp -->
-<a id="deepseek-aidsh-experimental-computer-use-cua-driver-mcp"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-computer-use-cua-driver-mcp -->
+<a id="xpeachxph-experimental-computer-use-cua-driver-mcp"></a>
 
-## `@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp`
+## `@xpeach/xph-experimental-computer-use-cua-driver-mcp`
 
 - `inject`: `computerUse` · `tools`
 - `refs`: [`McpClient`](../packages/mcp/mcp-client/src/index.ts)
@@ -1028,12 +1117,12 @@ export interface Config {
   reconnect: McpClient.ReconnectConfig
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-computer-use-cua-driver-mcp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-cua-macos -->
-<a id="deepseek-aidsh-experimental-cua-macos"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-cua-macos -->
+<a id="xpeachxph-experimental-cua-macos"></a>
 
-## `@deepseek-ai/dsh-experimental-cua-macos`
+## `@xpeach/xph-experimental-cua-macos`
 
 - `inject`: `computerUse` · `tools` · `systemPrompt` · `subprocess` · `agents`
 - `refs`: [`CuaConfig`](../packages/experimental/cua/src/index.ts)
@@ -1043,12 +1132,12 @@ export interface Config {
 /** Native preparation, operation bounds, and profile-local application grants. */
 export type Config = CuaConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-cua-macos -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-cua-macos -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-inspector -->
-<a id="deepseek-aidsh-experimental-inspector"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-inspector -->
+<a id="xpeachxph-experimental-inspector"></a>
 
-## `@deepseek-ai/dsh-experimental-inspector`
+## `@xpeach/xph-experimental-inspector`
 
 - `inject`: `webServer` · `connection`
 - `source`: [`packages/experimental/inspector/src/index.ts:66`](../packages/experimental/inspector/src/index.ts)
@@ -1112,12 +1201,12 @@ export interface InspectorOptions {
   readonly maxDisconnectedCordisTrees?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-inspector -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-inspector -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-ptc-runtime-python -->
-<a id="deepseek-aidsh-experimental-ptc-runtime-python"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-ptc-runtime-python -->
+<a id="xpeachxph-experimental-ptc-runtime-python"></a>
 
-## `@deepseek-ai/dsh-experimental-ptc-runtime-python`
+## `@xpeach/xph-experimental-ptc-runtime-python`
 
 - `inject`: `sandbox` · `sandboxPolicy`
 - `source`: [`packages/experimental/ptc-runtime-python/src/index.ts:45`](../packages/experimental/ptc-runtime-python/src/index.ts)
@@ -1181,14 +1270,14 @@ export interface Config {
   pythonBin?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-ptc-runtime-python -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-ptc-runtime-python -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text -->
-<a id="deepseek-aidsh-experimental-speech-to-text"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text -->
+<a id="xpeachxph-experimental-speech-to-text"></a>
 
-## `@deepseek-ai/dsh-experimental-speech-to-text`
+## `@xpeach/xph-experimental-speech-to-text`
 
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/experimental/speech-to-text/src/index.ts:20`](../packages/experimental/speech-to-text/src/index.ts)
 
 ```ts config-catalog
@@ -1200,12 +1289,12 @@ export interface Config {
   language: Volatile<string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text-sensevoice -->
-<a id="deepseek-aidsh-experimental-speech-to-text-sensevoice"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text-sensevoice -->
+<a id="xpeachxph-experimental-speech-to-text-sensevoice"></a>
 
-## `@deepseek-ai/dsh-experimental-speech-to-text-sensevoice`
+## `@xpeach/xph-experimental-speech-to-text-sensevoice`
 
 - `inject`: `speechToText` · `subprocess`
 - `source`: [`packages/experimental/speech-to-text-sensevoice/src/config.ts:6`](../packages/experimental/speech-to-text-sensevoice/src/config.ts)
@@ -1261,12 +1350,12 @@ export interface Config {
   progressIntervalMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text-sensevoice -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text-sensevoice -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-tool-agent-team -->
-<a id="deepseek-aidsh-experimental-tool-agent-team"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-tool-agent-team -->
+<a id="xpeachxph-experimental-tool-agent-team"></a>
 
-## `@deepseek-ai/dsh-experimental-tool-agent-team`
+## `@xpeach/xph-experimental-tool-agent-team`
 
 - `inject`: `agents` · `agentTeams` · `tools` · `systemPrompt`
 - `source`: [`packages/experimental/tool-agent-team/src/index.ts:17`](../packages/experimental/tool-agent-team/src/index.ts)
@@ -1282,12 +1371,12 @@ export interface Config {
   readonly forkProvider?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-tool-agent-team -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-tool-agent-team -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-translator -->
-<a id="deepseek-aidsh-experimental-translator"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-translator -->
+<a id="xpeachxph-experimental-translator"></a>
 
-## `@deepseek-ai/dsh-experimental-translator`
+## `@xpeach/xph-experimental-translator`
 
 - `source`: [`packages/experimental/translator/src/index.ts:25`](../packages/experimental/translator/src/index.ts)
 
@@ -1321,12 +1410,12 @@ export type AnonymousTranslationProvider = 'google' | 'bing'
 /** Explicit native DeepSeek credential route selected for paid translation. */
 export type PaidTranslationProvider = 'deepseek-account' | 'deepseek-official'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-translator -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-translator -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-worktree -->
-<a id="deepseek-aidsh-experimental-worktree"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-worktree -->
+<a id="xpeachxph-experimental-worktree"></a>
 
-## `@deepseek-ai/dsh-experimental-worktree`
+## `@xpeach/xph-experimental-worktree`
 
 - `inject`: `workingDirectory` · `fs` · `subprocess` · `sandbox` · `sandboxPolicy`
 - `source`: [`packages/experimental/worktree/src/index.ts:19`](../packages/experimental/worktree/src/index.ts)
@@ -1350,12 +1439,12 @@ export interface Config {
   maxOutputBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-worktree -->
+<!-- END GENERATED config-catalog:@xpeach/xph-experimental-worktree -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-file-reference-local -->
-<a id="deepseek-aidsh-file-reference-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-file-reference-local -->
+<a id="xpeachxph-file-reference-local"></a>
 
-## `@deepseek-ai/dsh-file-reference-local`
+## `@xpeach/xph-file-reference-local`
 
 - `inject`: `agents` · `workingDirectory`
 - `source`: [`packages/context/file-reference-local/src/index.ts:35`](../packages/context/file-reference-local/src/index.ts)
@@ -1371,12 +1460,12 @@ export interface Config {
   excludedDirectories?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-file-reference-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-file-reference-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-fs-local -->
-<a id="deepseek-aidsh-fs-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-fs-local -->
+<a id="xpeachxph-fs-local"></a>
 
-## `@deepseek-ai/dsh-fs-local`
+## `@xpeach/xph-fs-local`
 
 - `source`: [`packages/fs/fs-local/src/index.ts:45`](../packages/fs/fs-local/src/index.ts)
 
@@ -1392,15 +1481,15 @@ export interface Config {
   diffBasisMaxBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-fs-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-fs-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-fs-sandbox -->
-<a id="deepseek-aidsh-fs-sandbox"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-fs-sandbox -->
+<a id="xpeachxph-fs-sandbox"></a>
 
-## `@deepseek-ai/dsh-fs-sandbox`
+## `@xpeach/xph-fs-sandbox`
 
 - `inject`: `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-fs-local)
+- `refs`: [`LocalConfig`](#xpeachxph-fs-local)
 - `source`: [`packages/fs/fs-sandbox/src/index.ts:45`](../packages/fs/fs-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -1412,12 +1501,12 @@ export interface Config {
  */
 export type Config = LocalConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-fs-sandbox -->
+<!-- END GENERATED config-catalog:@xpeach/xph-fs-sandbox -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-goal -->
-<a id="deepseek-aidsh-goal"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-goal -->
+<a id="xpeachxph-goal"></a>
 
-## `@deepseek-ai/dsh-goal`
+## `@xpeach/xph-goal`
 
 - `inject`: `agents` · `sessionProjections`
 - `source`: [`packages/goal/goal/src/index.ts:172`](../packages/goal/goal/src/index.ts)
@@ -1429,12 +1518,12 @@ export interface Config {
   defaultMaxGoalRounds?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-goal -->
+<!-- END GENERATED config-catalog:@xpeach/xph-goal -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-headless -->
-<a id="deepseek-aidsh-headless"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-headless -->
+<a id="xpeachxph-headless"></a>
 
-## `@deepseek-ai/dsh-headless`
+## `@xpeach/xph-headless`
 
 - `inject`: `agentDefaultModel` · `agents` · `sessions`
 - `source`: [`packages/bundle/headless/src/index.ts:43`](../packages/bundle/headless/src/index.ts)
@@ -1450,12 +1539,12 @@ export interface Config {
   json?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-headless -->
+<!-- END GENERATED config-catalog:@xpeach/xph-headless -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-hmr -->
-<a id="deepseek-aidsh-hmr"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-hmr -->
+<a id="xpeachxph-hmr"></a>
 
-## `@deepseek-ai/dsh-hmr`
+## `@xpeach/xph-hmr`
 
 - `refs`: `ChokidarOptions` (`chokidar`)
 - `source`: [`packages/boot/hmr/src/index.ts:56`](../packages/boot/hmr/src/index.ts)
@@ -1473,12 +1562,12 @@ export interface HmrConfig extends ChokidarOptions {
   ignored: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-hmr -->
+<!-- END GENERATED config-catalog:@xpeach/xph-hmr -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-hooks-claude-code -->
-<a id="deepseek-aidsh-hooks-claude-code"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-hooks-claude-code -->
+<a id="xpeachxph-hooks-claude-code"></a>
 
-## `@deepseek-ai/dsh-hooks-claude-code`
+## `@xpeach/xph-hooks-claude-code`
 
 - `inject`: `shell` · `sessionProjections` · `workingDirectory`
 - `source`: [`packages/experimental/hooks-claude-code/src/index.ts:51`](../packages/experimental/hooks-claude-code/src/index.ts)
@@ -1512,12 +1601,12 @@ export interface Config {
   stderrSummaryMaxChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-hooks-claude-code -->
+<!-- END GENERATED config-catalog:@xpeach/xph-hooks-claude-code -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-hooks-codex -->
-<a id="deepseek-aidsh-hooks-codex"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-hooks-codex -->
+<a id="xpeachxph-hooks-codex"></a>
 
-## `@deepseek-ai/dsh-hooks-codex`
+## `@xpeach/xph-hooks-codex`
 
 - `inject`: `shell` · `sessionProjections` · `workingDirectory`
 - `source`: [`packages/experimental/hooks-codex/src/index.ts:50`](../packages/experimental/hooks-codex/src/index.ts)
@@ -1540,12 +1629,12 @@ export interface Config {
   stderrSummaryMaxChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-hooks-codex -->
+<!-- END GENERATED config-catalog:@xpeach/xph-hooks-codex -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-directory-picker-browse -->
-<a id="deepseek-aidsh-host-directory-picker-browse"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-directory-picker-browse -->
+<a id="xpeachxph-host-directory-picker-browse"></a>
 
-## `@deepseek-ai/dsh-host-directory-picker-browse`
+## `@xpeach/xph-host-directory-picker-browse`
 
 - `source`: [`packages/host/directory-picker-browse/src/index.ts:181`](../packages/host/directory-picker-browse/src/index.ts)
 
@@ -1556,12 +1645,12 @@ export interface Config {
   maxEntries: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-directory-picker-browse -->
+<!-- END GENERATED config-catalog:@xpeach/xph-host-directory-picker-browse -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-frontend-static -->
-<a id="deepseek-aidsh-host-frontend-static"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-frontend-static -->
+<a id="xpeachxph-host-frontend-static"></a>
 
-## `@deepseek-ai/dsh-host-frontend-static`
+## `@xpeach/xph-host-frontend-static`
 
 - `inject`: `webServer` · `connection`
 - `source`: [`packages/host/frontend-static/src/index.ts:30`](../packages/host/frontend-static/src/index.ts)
@@ -1573,12 +1662,12 @@ export interface Config {
   distIndex: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-frontend-static -->
+<!-- END GENERATED config-catalog:@xpeach/xph-host-frontend-static -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-open-in-app -->
-<a id="deepseek-aidsh-host-open-in-app"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-open-in-app -->
+<a id="xpeachxph-host-open-in-app"></a>
 
-## `@deepseek-ai/dsh-host-open-in-app`
+## `@xpeach/xph-host-open-in-app`
 
 - `inject`: `webServer` · `connection` · `subprocess`
 - `source`: [`packages/host/open-in-app/src/index.ts:50`](../packages/host/open-in-app/src/index.ts)
@@ -1605,12 +1694,12 @@ export interface Config {
   readonly launchWatchMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-open-in-app -->
+<!-- END GENERATED config-catalog:@xpeach/xph-host-open-in-app -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-product-telemetry-otel -->
-<a id="deepseek-aidsh-host-product-telemetry-otel"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-product-telemetry-otel -->
+<a id="xpeachxph-host-product-telemetry-otel"></a>
 
-## `@deepseek-ai/dsh-host-product-telemetry-otel`
+## `@xpeach/xph-host-product-telemetry-otel`
 
 - `inject`: `otel`
 - `source`: [`packages/host/product-telemetry-otel/src/index.ts:18`](../packages/host/product-telemetry-otel/src/index.ts)
@@ -1642,12 +1731,12 @@ export interface Config {
   shutdownTimeoutMillis: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-product-telemetry-otel -->
+<!-- END GENERATED config-catalog:@xpeach/xph-host-product-telemetry-otel -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-webserver -->
-<a id="deepseek-aidsh-host-webserver"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-webserver -->
+<a id="xpeachxph-host-webserver"></a>
 
-## `@deepseek-ai/dsh-host-webserver`
+## `@xpeach/xph-host-webserver`
 
 - `source`: [`packages/host/webserver/src/index.ts:76`](../packages/host/webserver/src/index.ts)
 
@@ -1695,12 +1784,12 @@ export interface TlsConfig {
   keyFile: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-webserver -->
+<!-- END GENERATED config-catalog:@xpeach/xph-host-webserver -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
-<a id="deepseek-aidsh-jobs-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-jobs-local -->
+<a id="xpeachxph-jobs-local"></a>
 
-## `@deepseek-ai/dsh-jobs-local`
+## `@xpeach/xph-jobs-local`
 
 - `source`: [`packages/jobs/jobs-local/src/index.ts:46`](../packages/jobs/jobs-local/src/index.ts)
 
@@ -1724,15 +1813,15 @@ export interface Config {
   pumpPollMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-jobs-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
-<a id="deepseek-aidsh-llm-deepseek-account"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-deepseek-account -->
+<a id="xpeachxph-llm-deepseek-account"></a>
 
-## `@deepseek-ai/dsh-llm-deepseek-account`
+## `@xpeach/xph-llm-deepseek-account`
 
 - `inject`: `llm`
-- `refs`: [`DeepSeekCatalogModel`](../packages/llm/llm-deepseek/src/index.ts) · [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: [`DeepSeekCatalogModel`](../packages/llm/llm-deepseek/src/index.ts) · [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/llm/llm-deepseek-account/src/config.ts:19`](../packages/llm/llm-deepseek-account/src/config.ts)
 
 ```ts config-catalog
@@ -1752,34 +1841,34 @@ export interface Config extends Omit<ProtocolConfig, 'models'> {
 /** Field overrides for one model; unset fields and empty lists inherit the underlying entry. */
 export type ModelOverride = Omit<DeepSeekCatalogModel, 'id'>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
+<!-- END GENERATED config-catalog:@xpeach/xph-llm-deepseek-account -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-api-key -->
-<a id="deepseek-aidsh-llm-deepseek-api-key"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-deepseek-api-key -->
+<a id="xpeachxph-llm-deepseek-api-key"></a>
 
-## `@deepseek-ai/dsh-llm-deepseek-api-key`
+## `@xpeach/xph-llm-deepseek-api-key`
 
 - `inject`: `llm`
-- `refs`: [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-deepseek-api-key/src/config.ts:10`](../packages/llm/llm-deepseek-api-key/src/config.ts)
+- `refs`: [`ModelListingConfig`](../packages/llm/llm-deepseek/src/index.ts) · [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@xpeach/xph-cordis`)
+- `source`: [`packages/llm/llm-deepseek-api-key/src/config.ts:18`](../packages/llm/llm-deepseek-api-key/src/config.ts)
 
 ```ts config-catalog
 /** Messages configuration with a per-request API-key reference. */
-export interface Config extends ProtocolConfig {
+export interface Config extends ProtocolConfig, ModelListingConfig {
   /** Credential reference resolved per request; defaults to DEEPSEEK_API_KEY. */
   apiKeyEnv: Volatile<string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-api-key -->
+<!-- END GENERATED config-catalog:@xpeach/xph-llm-deepseek-api-key -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
-<a id="deepseek-aidsh-llm-pi-ai"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-pi-ai -->
+<a id="xpeachxph-llm-pi-ai"></a>
 
-## `@deepseek-ai/dsh-llm-pi-ai`
+## `@xpeach/xph-llm-pi-ai`
 
 - `inject`: `llm`
-- `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:222`](../packages/llm/llm-pi-ai/src/config.ts)
+- `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@xpeach/xph-cordis`)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:219`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -1854,6 +1943,12 @@ export interface PiAiProviderProfile {
   defaultInput?: PiAiModality[]
   /** Provider request headers, validated against Fetch when the profile resolves; Harness attribution wins reserved names. */
   headers?: Record<string, string>
+  /**
+   * Send the conversation identity a gateway uses for billing and prompt-cache
+   * accounting. Some routes reject a request that names no conversation, so this
+   * defaults to on; a deployment whose route ignores the headers can turn it off.
+   */
+  conversationTracking?: boolean
   /** Provider-neutral pi-ai reasoning level. */
   reasoning?: ModelThinkingLevel
   /** Token budgets used by reasoning providers that support them. */
@@ -2045,12 +2140,12 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
 /** The reasoning-budget field spellings pi-ai accepts. */
 export type PiAiThinkingTokenBudgetField = NonNullable<OpenAICompletionsCompat['thinkingTokenBudgetField']>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
+<!-- END GENERATED config-catalog:@xpeach/xph-llm-pi-ai -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-replay -->
-<a id="deepseek-aidsh-llm-replay"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-replay -->
+<a id="xpeachxph-llm-replay"></a>
 
-## `@deepseek-ai/dsh-llm-replay`
+## `@xpeach/xph-llm-replay`
 
 - `inject`: `llm`
 - `refs`: [`ModelModality`](../packages/llm/llm/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · [`SystemPromptUpdate`](../packages/llm/llm/src/index.ts) · [`ToolUpdate`](../packages/llm/llm/src/index.ts)
@@ -2126,12 +2221,12 @@ export interface ReplayModelConfig {
   toolUpdate?: ToolUpdate
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-replay -->
+<!-- END GENERATED config-catalog:@xpeach/xph-llm-replay -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-retry -->
-<a id="deepseek-aidsh-llm-retry"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-retry -->
+<a id="xpeachxph-llm-retry"></a>
 
-## `@deepseek-ai/dsh-llm-retry`
+## `@xpeach/xph-llm-retry`
 
 - `inject`: `agents` · `sessionProjections`
 - `source`: [`packages/llm/llm-retry/src/index.ts:25`](../packages/llm/llm-retry/src/index.ts)
@@ -2140,12 +2235,12 @@ export interface ReplayModelConfig {
 /** This policy executor has no config; providers own `retryPolicy`. */
 export type Config = Readonly<Record<string, never>>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-retry -->
+<!-- END GENERATED config-catalog:@xpeach/xph-llm-retry -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-lsp-stdio -->
-<a id="deepseek-aidsh-lsp-stdio"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-lsp-stdio -->
+<a id="xpeachxph-lsp-stdio"></a>
 
-## `@deepseek-ai/dsh-lsp-stdio`
+## `@xpeach/xph-lsp-stdio`
 
 - `inject`: `fs` · `lsp` · `subprocess`
 - `source`: [`packages/lsp/lsp-stdio/src/index.ts:82`](../packages/lsp/lsp-stdio/src/index.ts)
@@ -2183,15 +2278,15 @@ export interface LspLocalServerConfig {
   killGraceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-lsp-stdio -->
+<!-- END GENERATED config-catalog:@xpeach/xph-lsp-stdio -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-mcp-client -->
-<a id="deepseek-aidsh-mcp-client"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-mcp-client -->
+<a id="xpeachxph-mcp-client"></a>
 
-## `@deepseek-ai/dsh-mcp-client`
+## `@xpeach/xph-mcp-client`
 
 - `inject`: `tools`
-- `source`: [`packages/mcp/mcp-client/src/index.ts:104`](../packages/mcp/mcp-client/src/index.ts)
+- `source`: [`packages/mcp/mcp-client/src/index.ts:108`](../packages/mcp/mcp-client/src/index.ts)
 
 ```ts config-catalog
 /** Configuration for one stdio or Streamable HTTP MCP server. */
@@ -2219,6 +2314,8 @@ export interface StdioConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Complete plugin activation without awaiting the initial connection when `failOnStartupError` is false. */
+  backgroundStartup?: boolean
   /** Maximum UTF-8 bytes of attributed server instructions (default 32768). */
   maxInstructionBytes?: number
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
@@ -2243,6 +2340,8 @@ export interface StreamableHttpConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Complete plugin activation without awaiting the initial connection when `failOnStartupError` is false. */
+  backgroundStartup?: boolean
   /** Maximum UTF-8 bytes of attributed server instructions (default 32768). */
   maxInstructionBytes?: number
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
@@ -2261,12 +2360,12 @@ export interface ReconnectConfig {
   maxAttempts?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-mcp-client -->
+<!-- END GENERATED config-catalog:@xpeach/xph-mcp-client -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-message-feedback -->
-<a id="deepseek-aidsh-message-feedback"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-message-feedback -->
+<a id="xpeachxph-message-feedback"></a>
 
-## `@deepseek-ai/dsh-message-feedback`
+## `@xpeach/xph-message-feedback`
 
 - `inject`: `sessionPersistence` · `sessions`
 - `source`: [`packages/feedback/message-feedback/src/index.ts:40`](../packages/feedback/message-feedback/src/index.ts)
@@ -2278,12 +2377,12 @@ export interface Config {
   readonly maxNoteBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-message-feedback -->
+<!-- END GENERATED config-catalog:@xpeach/xph-message-feedback -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-office-to-pdf -->
-<a id="deepseek-aidsh-office-to-pdf"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-office-to-pdf -->
+<a id="xpeachxph-office-to-pdf"></a>
 
-## `@deepseek-ai/dsh-office-to-pdf`
+## `@xpeach/xph-office-to-pdf`
 
 - `source`: [`packages/document/office-to-pdf/src/index.ts:31`](../packages/document/office-to-pdf/src/index.ts)
 
@@ -2330,15 +2429,15 @@ export interface Config {
   maxLoadedFontBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-office-to-pdf -->
+<!-- END GENERATED config-catalog:@xpeach/xph-office-to-pdf -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-permission-presets -->
-<a id="deepseek-aidsh-permission-presets"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-permission-presets -->
+<a id="xpeachxph-permission-presets"></a>
 
-## `@deepseek-ai/dsh-permission-presets`
+## `@xpeach/xph-permission-presets`
 
 - `inject`: `shell` · `approval` · `sessions` · `sessionProjections`
-- `refs`: [`ApprovalPolicy`](subsystems/approval.zh.md) · [`SandboxMode`](subsystems/sandbox.zh.md) · `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: [`ApprovalPolicy`](subsystems/approval.zh.md) · [`SandboxMode`](subsystems/sandbox.zh.md) · `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/interaction/permission-presets/src/index.ts:159`](../packages/interaction/permission-presets/src/index.ts)
 
 ```ts config-catalog
@@ -2370,12 +2469,12 @@ export interface PresetSpec {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-permission-presets -->
+<!-- END GENERATED config-catalog:@xpeach/xph-permission-presets -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-persona -->
-<a id="deepseek-aidsh-persona"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-persona -->
+<a id="xpeachxph-persona"></a>
 
-## `@deepseek-ai/dsh-persona`
+## `@xpeach/xph-persona`
 
 - `inject`: `systemPrompt`
 - `source`: [`packages/preset/persona/src/index.ts:30`](../packages/preset/persona/src/index.ts)
@@ -2400,12 +2499,12 @@ export interface Config {
   includeRuntimeContext?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-persona -->
+<!-- END GENERATED config-catalog:@xpeach/xph-persona -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plan-mode -->
-<a id="deepseek-aidsh-plan-mode"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-plan-mode -->
+<a id="xpeachxph-plan-mode"></a>
 
-## `@deepseek-ai/dsh-plan-mode`
+## `@xpeach/xph-plan-mode`
 
 - `inject`: `tools` · `systemPrompt` · `sessionProjections`
 - `source`: [`packages/plan/plan-mode/src/index.ts:69`](../packages/plan/plan-mode/src/index.ts)
@@ -2417,16 +2516,15 @@ export interface PlanModeConfig {
   section: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plan-mode -->
+<!-- END GENERATED config-catalog:@xpeach/xph-plan-mode -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plugin-manager -->
-<a id="deepseek-aidsh-plugin-manager"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-plugin-manager -->
+<a id="xpeachxph-plugin-manager"></a>
 
-## `@deepseek-ai/dsh-plugin-manager`
+## `@xpeach/xph-plugin-manager`
 
 - `inject`: `loader` · `profileContext`
-- `refs`: [`NpmFileSource`](subsystems/boot.zh.md)
-- `source`: [`packages/boot/plugin-manager/src/index.ts:50`](../packages/boot/plugin-manager/src/index.ts)
+- `source`: [`packages/boot/plugin-manager/src/index.ts:42`](../packages/boot/plugin-manager/src/index.ts)
 
 ```ts config-catalog
 /** The pnpm executable, registries, and limits for diagnostics, lookups and connection checks. */
@@ -2451,30 +2549,18 @@ export interface Config {
    * unless that is npm's own registry or one of these.
    */
   fallbackRegistries?: string[]
-  /** How many of the newest versions above the installed one a version listing reads and returns. */
-  versionListLimit?: number
-  /** How many single-version registry lookups a version listing runs at once. */
-  versionLookupConcurrency?: number
-  /** Largest bundle detail document, and largest locale file read for one, in bytes. */
-  detailMaxBytes?: number
-  /** Largest image served beside a bundle detail document, in bytes. */
-  detailImageMaxBytes?: number
-  /** Deadline of one npm file CDN request for an offered bundle's detail document. */
-  detailFetchTimeoutMs?: number
-  /** npm file CDNs that offered bundles are read from, in order; a read's `npmFileSources` moves the CDNs it names first. */
-  detailNpmFileSources?: NpmFileSource[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plugin-manager -->
+<!-- END GENERATED config-catalog:@xpeach/xph-plugin-manager -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plugin-market -->
-<a id="deepseek-aidsh-plugin-market"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-plugin-market -->
+<a id="xpeachxph-plugin-market"></a>
 
-## `@deepseek-ai/dsh-plugin-market`
+## `@xpeach/xph-plugin-market`
 
 - `inject`: `pluginManager`
-- `refs`: [`NpmFileSource`](subsystems/boot.zh.md) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/boot/plugin-market/src/index.ts:43`](../packages/boot/plugin-market/src/index.ts)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
+- `source`: [`packages/boot/plugin-market/src/index.ts:32`](../packages/boot/plugin-market/src/index.ts)
 
 ```ts config-catalog
 /** Index sources and fetch limits. */
@@ -2485,32 +2571,16 @@ export interface Config {
   fetchTimeoutMs: number
   /** Largest accepted index body in bytes. */
   maxBytes: number
-  /** Lifetime of a successfully read index document, a detail read result, and a repository's default-branch commit. */
+  /** Lifetime of a successfully read index document. */
   cacheTtlMs: number
-  /** Largest detail document in bytes. */
-  detailMaxBytes: number
-  /** Largest image beside a detail document in bytes. */
-  detailImageMaxBytes: number
-  /** Largest amount in bytes one Git command adds to a partial clone; a repository whose fetch adds more is not read. */
-  detailRepositoryMaxBytes: number
-  /** Largest total size of the partial clones; least recently used ones are deleted beyond it. */
-  detailCacheMaxBytes: number
-  /** Directory of the partial clones, relative to the profile directory; absent means `.plugin-market/repositories`. */
-  detailCacheDir?: string
-  /** Deadline of one Git command of the clone fallback. */
-  detailGitTimeoutMs: number
-  /** npm file CDNs read in order; a read's `npmFileSources` moves the CDNs it names first. */
-  detailNpmFileSources: NpmFileSource[]
-  /** Hosts serving the GitLab repository files API. */
-  detailGitlabHosts: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plugin-market -->
+<!-- END GENERATED config-catalog:@xpeach/xph-plugin-market -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plugin-package-inventory-deepseek -->
-<a id="deepseek-aidsh-plugin-package-inventory-deepseek"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-plugin-package-inventory-deepseek -->
+<a id="xpeachxph-plugin-package-inventory-deepseek"></a>
 
-## `@deepseek-ai/dsh-plugin-package-inventory-deepseek`
+## `@xpeach/xph-plugin-package-inventory-deepseek`
 
 - `inject`: `agents` · `deepseekLlmApiExtensions` · `loader`
 - `source`: [`packages/llm/plugin-package-inventory-deepseek/src/index.ts:32`](../packages/llm/plugin-package-inventory-deepseek/src/index.ts)
@@ -2522,12 +2592,12 @@ export interface Config {
   enabled?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plugin-package-inventory-deepseek -->
+<!-- END GENERATED config-catalog:@xpeach/xph-plugin-package-inventory-deepseek -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-ptc-runtime-node -->
-<a id="deepseek-aidsh-ptc-runtime-node"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-ptc-runtime-node -->
+<a id="xpeachxph-ptc-runtime-node"></a>
 
-## `@deepseek-ai/dsh-ptc-runtime-node`
+## `@xpeach/xph-ptc-runtime-node`
 
 - `inject`: `fs` · `subprocess` · `sandbox` · `sandboxPolicy`
 - `source`: [`packages/ptc-runtime/ptc-runtime-node/src/config.ts:7`](../packages/ptc-runtime/ptc-runtime-node/src/config.ts)
@@ -2570,15 +2640,15 @@ export type LaunchConfig = {
   executable: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-ptc-runtime-node -->
+<!-- END GENERATED config-catalog:@xpeach/xph-ptc-runtime-node -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-pwsh-local -->
-<a id="deepseek-aidsh-pwsh-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-pwsh-local -->
+<a id="xpeachxph-pwsh-local"></a>
 
-## `@deepseek-ai/dsh-pwsh-local`
+## `@xpeach/xph-pwsh-local`
 
 - `inject`: `subprocess`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/shell/pwsh-local/src/index.ts:58`](../packages/shell/pwsh-local/src/index.ts)
 
 ```ts config-catalog
@@ -2605,34 +2675,34 @@ export interface Config {
   pwshPath: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-pwsh-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-pwsh-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-pwsh-sandbox -->
-<a id="deepseek-aidsh-pwsh-sandbox"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-pwsh-sandbox -->
+<a id="xpeachxph-pwsh-sandbox"></a>
 
-## `@deepseek-ai/dsh-pwsh-sandbox`
+## `@xpeach/xph-pwsh-sandbox`
 
 - `inject`: `subprocess` · `sandbox` · `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-pwsh-local)
+- `refs`: [`LocalConfig`](#xpeachxph-pwsh-local)
 - `source`: [`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-sandbox/src/index.ts)
 
 ```ts config-catalog
 /**
  * Plugin config: the local executor's knobs, verbatim. The sandbox policy —
  * the default mode and fallback `workspace-write` root — is NOT here: it lives
- * on `ctx.sandboxPolicy` (`@deepseek-ai/dsh-sandbox-policy`), which resolves
+ * on `ctx.sandboxPolicy` (`@xpeach/xph-sandbox-policy`), which resolves
  * each calling session's mode and cwd for every enforcing capability. The
  * runner choice is likewise the `ctx.sandbox` provider's config, not this
  * executor's.
  */
 export type Config = LocalConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-pwsh-sandbox -->
+<!-- END GENERATED config-catalog:@xpeach/xph-pwsh-sandbox -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-repeat-tool-reminder -->
-<a id="deepseek-aidsh-repeat-tool-reminder"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-repeat-tool-reminder -->
+<a id="xpeachxph-repeat-tool-reminder"></a>
 
-## `@deepseek-ai/dsh-repeat-tool-reminder`
+## `@xpeach/xph-repeat-tool-reminder`
 
 - `source`: [`packages/guard/repeat-tool-reminder/src/index.ts:35`](../packages/guard/repeat-tool-reminder/src/index.ts)
 
@@ -2663,12 +2733,12 @@ export interface Config {
   argumentsPreviewChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-repeat-tool-reminder -->
+<!-- END GENERATED config-catalog:@xpeach/xph-repeat-tool-reminder -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sandbox-local -->
-<a id="deepseek-aidsh-sandbox-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-sandbox-local -->
+<a id="xpeachxph-sandbox-local"></a>
 
-## `@deepseek-ai/dsh-sandbox-local`
+## `@xpeach/xph-sandbox-local`
 
 - `source`: [`packages/sandbox/sandbox-local/src/index.ts:45`](../packages/sandbox/sandbox-local/src/index.ts)
 
@@ -2697,16 +2767,16 @@ export interface Config {
   probeTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sandbox-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-sandbox-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sandbox-policy -->
-<a id="deepseek-aidsh-sandbox-policy"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-sandbox-policy -->
+<a id="xpeachxph-sandbox-policy"></a>
 
-## `@deepseek-ai/dsh-sandbox-policy`
+## `@xpeach/xph-sandbox-policy`
 
 - `inject`: `sessionProjections`
 - `refs`: [`SandboxMode`](subsystems/sandbox.zh.md)
-- `source`: [`packages/sandbox/sandbox-policy/src/index.ts:71`](../packages/sandbox/sandbox-policy/src/index.ts)
+- `source`: [`packages/sandbox/sandbox-policy/src/index.ts:72`](../packages/sandbox/sandbox-policy/src/index.ts)
 
 ```ts config-catalog
 /**
@@ -2726,12 +2796,12 @@ export interface Config {
   workspaceRoot?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sandbox-policy -->
+<!-- END GENERATED config-catalog:@xpeach/xph-sandbox-policy -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-schedule -->
-<a id="deepseek-aidsh-schedule"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-schedule -->
+<a id="xpeachxph-schedule"></a>
 
-## `@deepseek-ai/dsh-schedule`
+## `@xpeach/xph-schedule`
 
 - `inject`: `agents` · `sessions` · `storageDomain` · `sessionController` · `sessionPersistence`
 - `source`: [`packages/schedule/schedule/src/index.ts:72`](../packages/schedule/schedule/src/index.ts)
@@ -2751,12 +2821,12 @@ export interface Config {
   deliveryHistoryRecords?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-schedule -->
+<!-- END GENERATED config-catalog:@xpeach/xph-schedule -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sdk-app -->
-<a id="deepseek-aidsh-sdk-app"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-sdk-app -->
+<a id="xpeachxph-sdk-app"></a>
 
-## `@deepseek-ai/dsh-sdk-app`
+## `@xpeach/xph-sdk-app`
 
 - `inject`: `cmdlineArgs`
 - `source`: [`packages/bundle/sdk-app/src/index.ts:23`](../packages/bundle/sdk-app/src/index.ts)
@@ -2768,12 +2838,12 @@ export interface Config {
   profile?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sdk-app -->
+<!-- END GENERATED config-catalog:@xpeach/xph-sdk-app -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sdk-jsonrpc-server -->
-<a id="deepseek-aidsh-sdk-jsonrpc-server"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-sdk-jsonrpc-server -->
+<a id="xpeachxph-sdk-jsonrpc-server"></a>
 
-## `@deepseek-ai/dsh-sdk-jsonrpc-server`
+## `@xpeach/xph-sdk-jsonrpc-server`
 
 - `inject`: `agents` · `workingDirectory`
 - `refs`: `Readable` (`node:stream`) · `Writable` (`node:stream`)
@@ -2792,15 +2862,15 @@ export interface JsonRpcConfig {
   exit?: (code: number) => void
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sdk-jsonrpc-server -->
+<!-- END GENERATED config-catalog:@xpeach/xph-sdk-jsonrpc-server -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-log-deepseek -->
-<a id="deepseek-aidsh-session-log-deepseek"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-log-deepseek -->
+<a id="xpeachxph-session-log-deepseek"></a>
 
-## `@deepseek-ai/dsh-session-log-deepseek`
+## `@xpeach/xph-session-log-deepseek`
 
 - `inject`: `deepseekLlmApiExtensions` · `sessions`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/session/session-log-deepseek/src/index.ts:39`](../packages/session/session-log-deepseek/src/index.ts)
 
 ```ts config-catalog
@@ -2816,15 +2886,15 @@ export interface Config {
   maxBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-log-deepseek -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-log-deepseek -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-log-export -->
-<a id="deepseek-aidsh-session-log-export"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-log-export -->
+<a id="xpeachxph-session-log-export"></a>
 
-## `@deepseek-ai/dsh-session-log-export`
+## `@xpeach/xph-session-log-export`
 
 - `inject`: `commands` · `connection`
-- `source`: [`packages/session-query/session-log-export/src/index.ts:46`](../packages/session-query/session-log-export/src/index.ts)
+- `source`: [`packages/session-query/session-log-export/src/index.ts:48`](../packages/session-query/session-log-export/src/index.ts)
 
 ```ts config-catalog
 /** Session-log archive policy. */
@@ -2836,12 +2906,12 @@ export interface Config {
 /** Valid fflate DEFLATE levels accepted by session-log export. */
 export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-log-export -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-log-export -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-persistence-jsonl -->
-<a id="deepseek-aidsh-session-persistence-jsonl"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-persistence-jsonl -->
+<a id="xpeachxph-session-persistence-jsonl"></a>
 
-## `@deepseek-ai/dsh-session-persistence-jsonl`
+## `@xpeach/xph-session-persistence-jsonl`
 
 - `source`: [`packages/session/session-persistence-jsonl/src/index.ts:94`](../packages/session/session-persistence-jsonl/src/index.ts)
 
@@ -2869,12 +2939,12 @@ export interface Config {
 /** Physical encoding selected for JSONL session artifacts. */
 export type JsonlCompression = 'zstd' | 'none'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-persistence-jsonl -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-persistence-jsonl -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-projection-cache -->
-<a id="deepseek-aidsh-session-projection-cache"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-projection-cache -->
+<a id="xpeachxph-session-projection-cache"></a>
 
-## `@deepseek-ai/dsh-session-projection-cache`
+## `@xpeach/xph-session-projection-cache`
 
 - `inject`: `storageDomain` · `sessionProjections` · `sessions`
 - `source`: [`packages/session/session-projection-cache/src/index.ts:75`](../packages/session/session-projection-cache/src/index.ts)
@@ -2894,12 +2964,12 @@ export interface Config {
   writeIntervalMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-projection-cache -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-projection-cache -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-query-sqlite -->
-<a id="deepseek-aidsh-session-query-sqlite"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-query-sqlite -->
+<a id="xpeachxph-session-query-sqlite"></a>
 
-## `@deepseek-ai/dsh-session-query-sqlite`
+## `@xpeach/xph-session-query-sqlite`
 
 - `inject`: `sessions`
 - `refs`: [`SessionQueryConfig`](../packages/session-query/session-query/src/index.ts)
@@ -2942,12 +3012,12 @@ export type OpenAt = 'startup' | 'first-search' | 'never'
 /** Supported SQLite journal modes. */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-query-sqlite -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-query-sqlite -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-reference -->
-<a id="deepseek-aidsh-session-reference"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-reference -->
+<a id="xpeachxph-session-reference"></a>
 
-## `@deepseek-ai/dsh-session-reference`
+## `@xpeach/xph-session-reference`
 
 - `inject`: `sessionQuery`
 - `source`: [`packages/context/session-reference/src/config.ts:11`](../packages/context/session-reference/src/config.ts)
@@ -2965,12 +3035,12 @@ export interface Config {
   referenceContextFraction?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-reference -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-reference -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-telemetry-otel -->
-<a id="deepseek-aidsh-session-telemetry-otel"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-telemetry-otel -->
+<a id="xpeachxph-session-telemetry-otel"></a>
 
-## `@deepseek-ai/dsh-session-telemetry-otel`
+## `@xpeach/xph-session-telemetry-otel`
 
 - `inject`: `sessions` · `otel`
 - `refs`: [`LogExporterOptions`](../packages/telemetry/otel/src/index.ts) · [`SessionLogProcessorOptions`](../packages/telemetry/otel/src/index.ts)
@@ -3012,12 +3082,12 @@ export enum SessionTelemetryMode {
   DISABLED = 'DISABLED',
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-telemetry-otel -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-telemetry-otel -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-title -->
-<a id="deepseek-aidsh-session-title"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-title -->
+<a id="xpeachxph-session-title"></a>
 
-## `@deepseek-ai/dsh-session-title`
+## `@xpeach/xph-session-title`
 
 - `inject`: `sessions` · `sessionProjections`
 - `source`: [`packages/session/session-title/src/index.ts:56`](../packages/session/session-title/src/index.ts)
@@ -3033,12 +3103,12 @@ export interface Config {
   readonly maxTitleBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-title -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-title-all-prompts-llm -->
-<a id="deepseek-aidsh-session-title-all-prompts-llm"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-title-all-prompts-llm -->
+<a id="xpeachxph-session-title-all-prompts-llm"></a>
 
-## `@deepseek-ai/dsh-session-title-all-prompts-llm`
+## `@xpeach/xph-session-title-all-prompts-llm`
 
 - `inject`: `sessionTitle` · `llm` · `sessions`
 - `refs`: [`SessionTitleLlmConfig`](../packages/session/session-title-llm/src/index.ts)
@@ -3053,12 +3123,12 @@ export interface Config extends SessionTitleLlmConfig {
   readonly targetCjkCharacters: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title-all-prompts-llm -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-title-all-prompts-llm -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-title-first-prompt-llm -->
-<a id="deepseek-aidsh-session-title-first-prompt-llm"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-title-first-prompt-llm -->
+<a id="xpeachxph-session-title-first-prompt-llm"></a>
 
-## `@deepseek-ai/dsh-session-title-first-prompt-llm`
+## `@xpeach/xph-session-title-first-prompt-llm`
 
 - `inject`: `sessionTitle` · `llm` · `sessions`
 - `refs`: [`SessionTitleLlmConfig`](../packages/session/session-title-llm/src/index.ts)
@@ -3073,12 +3143,12 @@ export interface Config extends SessionTitleLlmConfig {
   readonly targetCjkCharacters: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title-first-prompt-llm -->
+<!-- END GENERATED config-catalog:@xpeach/xph-session-title-first-prompt-llm -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-shell-env -->
-<a id="deepseek-aidsh-shell-env"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-shell-env -->
+<a id="xpeachxph-shell-env"></a>
 
-## `@deepseek-ai/dsh-shell-env`
+## `@xpeach/xph-shell-env`
 
 - `source`: [`packages/shell/shell-env/src/index.ts:30`](../packages/shell/shell-env/src/index.ts)
 
@@ -3089,12 +3159,12 @@ export interface Config {
   dshHome?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-shell-env -->
+<!-- END GENERATED config-catalog:@xpeach/xph-shell-env -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-skill -->
-<a id="deepseek-aidsh-skill"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-skill -->
+<a id="xpeachxph-skill"></a>
 
-## `@deepseek-ai/dsh-skill`
+## `@xpeach/xph-skill`
 
 - `source`: [`packages/skill/skill/src/index.ts:278`](../packages/skill/skill/src/index.ts)
 
@@ -3105,12 +3175,12 @@ export interface Config {
   readonly collectCacheMaxEntries?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-skill -->
+<!-- END GENERATED config-catalog:@xpeach/xph-skill -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-skill-filesystem -->
-<a id="deepseek-aidsh-skill-filesystem"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-skill-filesystem -->
+<a id="xpeachxph-skill-filesystem"></a>
 
-## `@deepseek-ai/dsh-skill-filesystem`
+## `@xpeach/xph-skill-filesystem`
 
 - `inject`: `skills`
 - `source`: [`packages/skill/skill-filesystem/src/index.ts:48`](../packages/skill/skill-filesystem/src/index.ts)
@@ -3144,12 +3214,12 @@ export interface Config {
   bundledSkillDir?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-skill-filesystem -->
+<!-- END GENERATED config-catalog:@xpeach/xph-skill-filesystem -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-skill-office -->
-<a id="deepseek-aidsh-skill-office"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-skill-office -->
+<a id="xpeachxph-skill-office"></a>
 
-## `@deepseek-ai/dsh-skill-office`
+## `@xpeach/xph-skill-office`
 
 - `inject`: `skills`
 - `source`: [`packages/skill/skill-office/src/index.ts:16`](../packages/skill/skill-office/src/index.ts)
@@ -3165,12 +3235,12 @@ export interface Config {
   cli?: string | false
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-skill-office -->
+<!-- END GENERATED config-catalog:@xpeach/xph-skill-office -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-spill-local -->
-<a id="deepseek-aidsh-spill-local"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-spill-local -->
+<a id="xpeachxph-spill-local"></a>
 
-## `@deepseek-ai/dsh-spill-local`
+## `@xpeach/xph-spill-local`
 
 - `source`: [`packages/spill/spill-local/src/index.ts:31`](../packages/spill/spill-local/src/index.ts)
 
@@ -3196,12 +3266,12 @@ export interface Config {
   cleanupPeriodDays?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-spill-local -->
+<!-- END GENERATED config-catalog:@xpeach/xph-spill-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-spill-policy -->
-<a id="deepseek-aidsh-spill-policy"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-spill-policy -->
+<a id="xpeachxph-spill-policy"></a>
 
-## `@deepseek-ai/dsh-spill-policy`
+## `@xpeach/xph-spill-policy`
 
 - `inject`: `tools`
 - `source`: [`packages/spill/spill-policy/src/index.ts:25`](../packages/spill/spill-policy/src/index.ts)
@@ -3213,12 +3283,12 @@ export interface Config {
   maxInlineTokens?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-spill-policy -->
+<!-- END GENERATED config-catalog:@xpeach/xph-spill-policy -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-ssh -->
-<a id="deepseek-aidsh-ssh"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-ssh -->
+<a id="xpeachxph-ssh"></a>
 
-## `@deepseek-ai/dsh-ssh`
+## `@xpeach/xph-ssh`
 
 - `source`: [`packages/ssh/ssh/src/index.ts:33`](../packages/ssh/ssh/src/index.ts)
 
@@ -3260,12 +3330,12 @@ export type HelperLaunch = {
   kind: 'executable'
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-ssh -->
+<!-- END GENERATED config-catalog:@xpeach/xph-ssh -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-storage-domain -->
-<a id="deepseek-aidsh-storage-domain"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-storage-domain -->
+<a id="xpeachxph-storage-domain"></a>
 
-## `@deepseek-ai/dsh-storage-domain`
+## `@xpeach/xph-storage-domain`
 
 - `inject`: `storage`
 - `source`: [`packages/storage/storage-domain/src/index.ts:52`](../packages/storage/storage-domain/src/index.ts)
@@ -3284,12 +3354,12 @@ export interface Config {
   routes?: Record<string, string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-storage-domain -->
+<!-- END GENERATED config-catalog:@xpeach/xph-storage-domain -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-storage-json -->
-<a id="deepseek-aidsh-storage-json"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-storage-json -->
+<a id="xpeachxph-storage-json"></a>
 
-## `@deepseek-ai/dsh-storage-json`
+## `@xpeach/xph-storage-json`
 
 - `inject`: `storage`
 - `source`: [`packages/storage/storage-json/src/index.ts:28`](../packages/storage/storage-json/src/index.ts)
@@ -3306,12 +3376,12 @@ export interface Config {
   root: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-storage-json -->
+<!-- END GENERATED config-catalog:@xpeach/xph-storage-json -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-storage-sqlite -->
-<a id="deepseek-aidsh-storage-sqlite"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-storage-sqlite -->
+<a id="xpeachxph-storage-sqlite"></a>
 
-## `@deepseek-ai/dsh-storage-sqlite`
+## `@xpeach/xph-storage-sqlite`
 
 - `inject`: `storage`
 - `source`: [`packages/storage/storage-sqlite/src/index.ts:24`](../packages/storage/storage-sqlite/src/index.ts)
@@ -3347,15 +3417,15 @@ export interface Config {
  */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-storage-sqlite -->
+<!-- END GENERATED config-catalog:@xpeach/xph-storage-sqlite -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent -->
-<a id="deepseek-aidsh-subagent"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent -->
+<a id="xpeachxph-subagent"></a>
 
-## `@deepseek-ai/dsh-subagent`
+## `@xpeach/xph-subagent`
 
 - `inject`: `workingDirectory`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/subagent/subagent/src/index.ts:186`](../packages/subagent/subagent/src/index.ts)
 
 ```ts config-catalog
@@ -3367,12 +3437,12 @@ export interface Config {
   maxDepth: Volatile<number>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-acp -->
-<a id="deepseek-aidsh-subagent-acp"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-acp -->
+<a id="xpeachxph-subagent-acp"></a>
 
-## `@deepseek-ai/dsh-subagent-acp`
+## `@xpeach/xph-subagent-acp`
 
 - `inject`: `subagents` · `subprocess`
 - `source`: [`packages/subagent/subagent-acp/src/index.ts:25`](../packages/subagent/subagent-acp/src/index.ts)
@@ -3413,12 +3483,12 @@ export interface Config {
 /** Fixed response to child permission requests: reject by default, or select the first allow option. */
 export type PermissionPolicy = 'allow' | 'reject'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-acp -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent-acp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-claude-code -->
-<a id="deepseek-aidsh-subagent-claude-code"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-claude-code -->
+<a id="xpeachxph-subagent-claude-code"></a>
 
-## `@deepseek-ai/dsh-subagent-claude-code`
+## `@xpeach/xph-subagent-claude-code`
 
 - `inject`: `subagents` · `subprocess`
 - `source`: [`packages/subagent/subagent-claude-code/src/index.ts:38`](../packages/subagent/subagent-claude-code/src/index.ts)
@@ -3449,12 +3519,12 @@ export interface Config {
 /** Profile-selectable non-interactive Claude Code permission mode. */
 export type ClaudeCodePermissionMode = typeof CLAUDE_CODE_PERMISSION_MODES[number]
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-claude-code -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent-claude-code -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-codex -->
-<a id="deepseek-aidsh-subagent-codex"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-codex -->
+<a id="xpeachxph-subagent-codex"></a>
 
-## `@deepseek-ai/dsh-subagent-codex`
+## `@xpeach/xph-subagent-codex`
 
 - `inject`: `subagents` · `subprocess`
 - `source`: [`packages/subagent/subagent-codex/src/index.ts:36`](../packages/subagent/subagent-codex/src/index.ts)
@@ -3483,12 +3553,12 @@ export type CodexPermissionMode =
   | 'approve-for-me'
   | 'dangerously-bypass-approvals-and-sandbox'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-codex -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent-codex -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-dsh-sdk -->
-<a id="deepseek-aidsh-subagent-dsh-sdk"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-dsh-sdk -->
+<a id="xpeachxph-subagent-dsh-sdk"></a>
 
-## `@deepseek-ai/dsh-subagent-dsh-sdk`
+## `@xpeach/xph-subagent-dsh-sdk`
 
 - `inject`: `subagents`
 - `source`: [`packages/subagent/subagent-dsh-sdk/src/index.ts:34`](../packages/subagent/subagent-dsh-sdk/src/index.ts)
@@ -3531,12 +3601,12 @@ export interface Config {
   disposeGraceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-dsh-sdk -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent-dsh-sdk -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-fork-in-process -->
-<a id="deepseek-aidsh-subagent-fork-in-process"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-fork-in-process -->
+<a id="xpeachxph-subagent-fork-in-process"></a>
 
-## `@deepseek-ai/dsh-subagent-fork-in-process`
+## `@xpeach/xph-subagent-fork-in-process`
 
 - `inject`: `subagents`
 - `source`: [`packages/subagent/subagent-fork-in-process/src/index.ts:29`](../packages/subagent/subagent-fork-in-process/src/index.ts)
@@ -3548,12 +3618,12 @@ export interface Config {
   providerName: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-fork-in-process -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent-fork-in-process -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-spawn-in-process -->
-<a id="deepseek-aidsh-subagent-spawn-in-process"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-spawn-in-process -->
+<a id="xpeachxph-subagent-spawn-in-process"></a>
 
-## `@deepseek-ai/dsh-subagent-spawn-in-process`
+## `@xpeach/xph-subagent-spawn-in-process`
 
 - `inject`: `subagents`
 - `source`: [`packages/subagent/subagent-spawn-in-process/src/index.ts:23`](../packages/subagent/subagent-spawn-in-process/src/index.ts)
@@ -3565,12 +3635,12 @@ export interface Config {
   providerName: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-spawn-in-process -->
+<!-- END GENERATED config-catalog:@xpeach/xph-subagent-spawn-in-process -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-system-prompt -->
-<a id="deepseek-aidsh-system-prompt"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-system-prompt -->
+<a id="xpeachxph-system-prompt"></a>
 
-## `@deepseek-ai/dsh-system-prompt`
+## `@xpeach/xph-system-prompt`
 
 - `source`: [`packages/core/system-prompt/src/index.ts:258`](../packages/core/system-prompt/src/index.ts)
 
@@ -3599,12 +3669,12 @@ export interface Config {
   toolOrder?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-system-prompt -->
+<!-- END GENERATED config-catalog:@xpeach/xph-system-prompt -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-terminal-bash -->
-<a id="deepseek-aidsh-terminal-bash"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-terminal-bash -->
+<a id="xpeachxph-terminal-bash"></a>
 
-## `@deepseek-ai/dsh-terminal-bash`
+## `@xpeach/xph-terminal-bash`
 
 - `inject`: `terminals` · `sandboxPolicy` · `sessionProjections` · `subprocess` · `workingDirectory`
 - `source`: [`packages/terminal/terminal-bash/src/config.ts:10`](../packages/terminal/terminal-bash/src/config.ts)
@@ -3659,12 +3729,12 @@ export interface Config {
 /** One supported interactive shell dialect. */
 export type ShellDialect = 'bash' | 'pwsh'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-terminal-bash -->
+<!-- END GENERATED config-catalog:@xpeach/xph-terminal-bash -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-time-context -->
-<a id="deepseek-aidsh-time-context"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-time-context -->
+<a id="xpeachxph-time-context"></a>
 
-## `@deepseek-ai/dsh-time-context`
+## `@xpeach/xph-time-context`
 
 - `inject`: `agents` · `sessionProjections`
 - `source`: [`packages/context/time-context/src/index.ts:56`](../packages/context/time-context/src/index.ts)
@@ -3678,12 +3748,12 @@ export interface Config {
   refreshIntervalMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-time-context -->
+<!-- END GENERATED config-catalog:@xpeach/xph-time-context -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tmux-context -->
-<a id="deepseek-aidsh-tmux-context"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tmux-context -->
+<a id="xpeachxph-tmux-context"></a>
 
-## `@deepseek-ai/dsh-tmux-context`
+## `@xpeach/xph-tmux-context`
 
 - `inject`: `agents` · `sessionProjections`
 - `source`: [`packages/context/tmux-context/src/index.ts:47`](../packages/context/tmux-context/src/index.ts)
@@ -3695,12 +3765,12 @@ export interface Config {
   refreshIntervalMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tmux-context -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tmux-context -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-token-meter -->
-<a id="deepseek-aidsh-token-meter"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-token-meter -->
+<a id="xpeachxph-token-meter"></a>
 
-## `@deepseek-ai/dsh-token-meter`
+## `@xpeach/xph-token-meter`
 
 - `inject`: `sessionProjections`
 - `source`: [`packages/llm/token-meter/src/types.ts:13`](../packages/llm/token-meter/src/types.ts)
@@ -3709,12 +3779,12 @@ export interface Config {
 /** Token-meter plugin configuration; the fixed estimator has no settings. */
 export type TokenMeterConfig = Record<string, never>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-token-meter -->
+<!-- END GENERATED config-catalog:@xpeach/xph-token-meter -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-ask-user -->
-<a id="deepseek-aidsh-tool-ask-user"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-ask-user -->
+<a id="xpeachxph-tool-ask-user"></a>
 
-## `@deepseek-ai/dsh-tool-ask-user`
+## `@xpeach/xph-tool-ask-user`
 
 - `inject`: `tools` · `userQuestions`
 - `source`: [`packages/interaction/tool-ask-user/src/index.ts:16`](../packages/interaction/tool-ask-user/src/index.ts)
@@ -3728,12 +3798,12 @@ export interface Config {
   timeout?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-ask-user -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-ask-user -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-bash -->
-<a id="deepseek-aidsh-tool-bash"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-bash -->
+<a id="xpeachxph-tool-bash"></a>
 
-## `@deepseek-ai/dsh-tool-bash`
+## `@xpeach/xph-tool-bash`
 
 - `inject`: `tools` · `shell` · `systemPrompt` · `shellEnv` · `workingDirectory`
 - `source`: [`packages/shell/tool-bash/src/index.ts:37`](../packages/shell/tool-bash/src/index.ts)
@@ -3758,12 +3828,12 @@ export interface Config {
   promoteOnTimeout?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-bash -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-bash -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-bash-persistent -->
-<a id="deepseek-aidsh-tool-bash-persistent"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-bash-persistent -->
+<a id="xpeachxph-tool-bash-persistent"></a>
 
-## `@deepseek-ai/dsh-tool-bash-persistent`
+## `@xpeach/xph-tool-bash-persistent`
 
 - `inject`: `tools` · `terminals` · `workingDirectory`
 - `source`: [`packages/shell/tool-bash-persistent/src/index.ts:445`](../packages/shell/tool-bash-persistent/src/index.ts)
@@ -3781,12 +3851,12 @@ export interface Config {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-bash-persistent -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-bash-persistent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-fs -->
-<a id="deepseek-aidsh-tool-fs"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-fs -->
+<a id="xpeachxph-tool-fs"></a>
 
-## `@deepseek-ai/dsh-tool-fs`
+## `@xpeach/xph-tool-fs`
 
 - `inject`: `tools` · `fs` · `systemPrompt` · `workingDirectory`
 - `source`: [`packages/fs/tool-fs/src/index.ts:26`](../packages/fs/tool-fs/src/index.ts)
@@ -3812,12 +3882,12 @@ export interface Config {
   readStreamMinSize?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-fs -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-fs -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-fs-search -->
-<a id="deepseek-aidsh-tool-fs-search"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-fs-search -->
+<a id="xpeachxph-tool-fs-search"></a>
 
-## `@deepseek-ai/dsh-tool-fs-search`
+## `@xpeach/xph-tool-fs-search`
 
 - `inject`: `tools` · `systemPrompt` · `subprocess` · `workingDirectory`
 - `source`: [`packages/fs/tool-fs-search/src/index.ts:74`](../packages/fs/tool-fs-search/src/index.ts)
@@ -3843,17 +3913,17 @@ export interface Config {
   stderrMaxBytes?: number
   /**
    * Cooperative tool-call timeout budget (ms) on both tools, enforced by
-   * `@deepseek-ai/dsh-tool-call-timeout-policy` through `exec.signal`.
+   * `@xpeach/xph-tool-call-timeout-policy` through `exec.signal`.
    */
   timeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-fs-search -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-fs-search -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-goal -->
-<a id="deepseek-aidsh-tool-goal"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-goal -->
+<a id="xpeachxph-tool-goal"></a>
 
-## `@deepseek-ai/dsh-tool-goal`
+## `@xpeach/xph-tool-goal`
 
 - `inject`: `agents` · `goals` · `tools` · `systemPrompt` · `sessionProjections`
 - `source`: [`packages/goal/tool-goal/src/index.ts:32`](../packages/goal/tool-goal/src/index.ts)
@@ -3865,12 +3935,12 @@ export interface Config {
   blockedAfterConsecutiveRounds?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-goal -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-goal -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-jobs -->
-<a id="deepseek-aidsh-tool-jobs"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-jobs -->
+<a id="xpeachxph-tool-jobs"></a>
 
-## `@deepseek-ai/dsh-tool-jobs`
+## `@xpeach/xph-tool-jobs`
 
 - `inject`: `tools` · `jobs` · `systemPrompt`
 - `source`: [`packages/jobs/tool-jobs/src/index.ts:41`](../packages/jobs/tool-jobs/src/index.ts)
@@ -3902,12 +3972,12 @@ export interface Config {
  */
 export type CompletionDelivery = 'quiet' | 'wakeup'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-jobs -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-jobs -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-lsp -->
-<a id="deepseek-aidsh-tool-lsp"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-lsp -->
+<a id="xpeachxph-tool-lsp"></a>
 
-## `@deepseek-ai/dsh-tool-lsp`
+## `@xpeach/xph-tool-lsp`
 
 - `inject`: `tools` · `lsp` · `systemPrompt` · `workingDirectory`
 - `source`: [`packages/lsp/tool-lsp/src/index.ts:56`](../packages/lsp/tool-lsp/src/index.ts)
@@ -3923,12 +3993,12 @@ export interface Config {
   timeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-lsp -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-lsp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-present -->
-<a id="deepseek-aidsh-tool-present"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-present -->
+<a id="xpeachxph-tool-present"></a>
 
-## `@deepseek-ai/dsh-tool-present`
+## `@xpeach/xph-tool-present`
 
 - `inject`: `tools` · `fs` · `sessionProjections` · `workingDirectory`
 - `source`: [`packages/deliverables/tool-present/src/index.ts:16`](../packages/deliverables/tool-present/src/index.ts)
@@ -3940,12 +4010,12 @@ export interface Config {
   maxFiles: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-present -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-present -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh -->
-<a id="deepseek-aidsh-tool-pwsh"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-pwsh -->
+<a id="xpeachxph-tool-pwsh"></a>
 
-## `@deepseek-ai/dsh-tool-pwsh`
+## `@xpeach/xph-tool-pwsh`
 
 - `inject`: `tools` · `shell` · `systemPrompt` · `shellEnv` · `workingDirectory`
 - `source`: [`packages/shell/tool-pwsh/src/index.ts:54`](../packages/shell/tool-pwsh/src/index.ts)
@@ -3970,12 +4040,12 @@ export interface Config {
   promoteOnTimeout?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-pwsh -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh-persistent -->
-<a id="deepseek-aidsh-tool-pwsh-persistent"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-pwsh-persistent -->
+<a id="xpeachxph-tool-pwsh-persistent"></a>
 
-## `@deepseek-ai/dsh-tool-pwsh-persistent`
+## `@xpeach/xph-tool-pwsh-persistent`
 
 - `inject`: `tools` · `terminals` · `workingDirectory`
 - `source`: [`packages/shell/tool-pwsh-persistent/src/index.ts:458`](../packages/shell/tool-pwsh-persistent/src/index.ts)
@@ -3993,12 +4063,12 @@ export interface Config {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh-persistent -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-pwsh-persistent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-ralph -->
-<a id="deepseek-aidsh-tool-ralph"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-ralph -->
+<a id="xpeachxph-tool-ralph"></a>
 
-## `@deepseek-ai/dsh-tool-ralph`
+## `@xpeach/xph-tool-ralph`
 
 - `inject`: `tools` · `workflowEngine` · `subagents` · `systemPrompt`
 - `source`: [`packages/experimental/tool-ralph/src/index.ts:21`](../packages/experimental/tool-ralph/src/index.ts)
@@ -4016,12 +4086,12 @@ export interface Config {
   maxResultChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-ralph -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-ralph -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-session-query -->
-<a id="deepseek-aidsh-tool-session-query"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-session-query -->
+<a id="xpeachxph-tool-session-query"></a>
 
-## `@deepseek-ai/dsh-tool-session-query`
+## `@xpeach/xph-tool-session-query`
 
 - `inject`: `tools` · `systemPrompt` · `sessionQuery` · `sessionProjections`
 - `source`: [`packages/experimental/tool-session-query/src/index.ts:28`](../packages/experimental/tool-session-query/src/index.ts)
@@ -4035,15 +4105,15 @@ export interface Config {
   searchTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-session-query -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-session-query -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-skill -->
-<a id="deepseek-aidsh-tool-skill"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-skill -->
+<a id="xpeachxph-tool-skill"></a>
 
-## `@deepseek-ai/dsh-tool-skill`
+## `@xpeach/xph-tool-skill`
 
 - `inject`: `agents` · `tools` · `skills` · `workingDirectory`
-- `source`: [`packages/skill/tool-skill/src/index.ts:62`](../packages/skill/tool-skill/src/index.ts)
+- `source`: [`packages/skill/tool-skill/src/index.ts:64`](../packages/skill/tool-skill/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
@@ -4052,12 +4122,12 @@ export interface Config {
   catalogDescriptionMaxLength?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-skill -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-skill -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-str-replace-editor -->
-<a id="deepseek-aidsh-tool-str-replace-editor"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-str-replace-editor -->
+<a id="xpeachxph-tool-str-replace-editor"></a>
 
-## `@deepseek-ai/dsh-tool-str-replace-editor`
+## `@xpeach/xph-tool-str-replace-editor`
 
 - `inject`: `tools` · `fs`
 - `source`: [`packages/fs/tool-str-replace-editor/src/index.ts:506`](../packages/fs/tool-str-replace-editor/src/index.ts)
@@ -4071,12 +4141,12 @@ export interface Config {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-str-replace-editor -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-str-replace-editor -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-subagent -->
-<a id="deepseek-aidsh-tool-subagent"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-subagent -->
+<a id="xpeachxph-tool-subagent"></a>
 
-## `@deepseek-ai/dsh-tool-subagent`
+## `@xpeach/xph-tool-subagent`
 
 - `inject`: `tools` · `subagents` · `systemPrompt` · `sessionProjections`
 - `refs`: [`AgentOptions`](subsystems/core.zh.md)
@@ -4122,12 +4192,12 @@ export interface PresetSelectionConfig {
   allowedAgentPresets?: string[] | undefined
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-subagent -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-subagent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-terminal -->
-<a id="deepseek-aidsh-tool-terminal"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-terminal -->
+<a id="xpeachxph-tool-terminal"></a>
 
-## `@deepseek-ai/dsh-tool-terminal`
+## `@xpeach/xph-tool-terminal`
 
 - `inject`: `terminals` · `tools` · `systemPrompt` · `workingDirectory`
 - `source`: [`packages/experimental/tool-terminal/src/index.ts:38`](../packages/experimental/tool-terminal/src/index.ts)
@@ -4141,12 +4211,12 @@ export interface Config {
   maxResultBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-terminal -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-terminal -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-todo -->
-<a id="deepseek-aidsh-tool-todo"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-todo -->
+<a id="xpeachxph-tool-todo"></a>
 
-## `@deepseek-ai/dsh-tool-todo`
+## `@xpeach/xph-tool-todo`
 
 - `inject`: `tools` · `sessionProjections`
 - `source`: [`packages/todo/tool-todo/src/index.ts:29`](../packages/todo/tool-todo/src/index.ts)
@@ -4164,12 +4234,12 @@ export interface Config {
   allowParallelInProgress: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-todo -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-todo -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-web -->
-<a id="deepseek-aidsh-tool-web"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-web -->
+<a id="xpeachxph-tool-web"></a>
 
-## `@deepseek-ai/dsh-tool-web`
+## `@xpeach/xph-tool-web`
 
 - `inject`: `tools` · `web` · `systemPrompt`
 - `source`: [`packages/web/tool-web/src/index.ts:37`](../packages/web/tool-web/src/index.ts)
@@ -4193,12 +4263,12 @@ export interface Config {
   fetchMaxOutputChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-web -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-web -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-workflow -->
-<a id="deepseek-aidsh-tool-workflow"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-workflow -->
+<a id="xpeachxph-tool-workflow"></a>
 
-## `@deepseek-ai/dsh-tool-workflow`
+## `@xpeach/xph-tool-workflow`
 
 - `inject`: `tools` · `workflowEngine` · `systemPrompt`
 - `source`: [`packages/workflow/tool-workflow/src/index.ts:44`](../packages/workflow/tool-workflow/src/index.ts)
@@ -4220,12 +4290,12 @@ export interface Config {
   enableRunInBackground?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-workflow -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-workflow -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-workspace-dependencies -->
-<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-workspace-dependencies -->
+<a id="xpeachxph-tool-workspace-dependencies"></a>
 
-## `@deepseek-ai/dsh-tool-workspace-dependencies`
+## `@xpeach/xph-tool-workspace-dependencies`
 
 - `inject`: `tools`
 - `source`: [`packages/skill/tool-workspace-dependencies/src/index.ts:15`](../packages/skill/tool-workspace-dependencies/src/index.ts)
@@ -4243,12 +4313,12 @@ export interface Config {
   readonly root?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-workspace-dependencies -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tool-workspace-dependencies -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tools -->
-<a id="deepseek-aidsh-tools"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tools -->
+<a id="xpeachxph-tools"></a>
 
-## `@deepseek-ai/dsh-tools`
+## `@xpeach/xph-tools`
 
 - `inject`: `systemPrompt`
 - `source`: [`packages/core/tools/src/index.ts:675`](../packages/core/tools/src/index.ts)
@@ -4280,12 +4350,12 @@ export interface Config {
 /** How the registry presents its tools to the model (see {@link Config.mode}). */
 export type ToolPresentationMode = 'native' | 'ptc'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tools -->
+<!-- END GENERATED config-catalog:@xpeach/xph-tools -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-typert-loader -->
-<a id="deepseek-aidsh-typert-loader"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-typert-loader -->
+<a id="xpeachxph-typert-loader"></a>
 
-## `@deepseek-ai/dsh-typert-loader`
+## `@xpeach/xph-typert-loader`
 
 - `inject`: `typert` · `loader`
 - `source`: [`packages/typert/loader/src/index.ts:48`](../packages/typert/loader/src/index.ts)
@@ -4297,12 +4367,12 @@ export interface Config {
   packages?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-typert-loader -->
+<!-- END GENERATED config-catalog:@xpeach/xph-typert-loader -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-user-approval -->
-<a id="deepseek-aidsh-user-approval"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-user-approval -->
+<a id="xpeachxph-user-approval"></a>
 
-## `@deepseek-ai/dsh-user-approval`
+## `@xpeach/xph-user-approval`
 
 - `source`: [`packages/interaction/user-approval/src/index.ts:135`](../packages/interaction/user-approval/src/index.ts)
 
@@ -4330,14 +4400,14 @@ export interface Config {
  */
 export type ApprovalPolicy = 'ask' | 'never'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-user-approval -->
+<!-- END GENERATED config-catalog:@xpeach/xph-user-approval -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web -->
-<a id="deepseek-aidsh-web"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web -->
+<a id="xpeachxph-web"></a>
 
-## `@deepseek-ai/dsh-web`
+## `@xpeach/xph-web`
 
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/web/web/src/index.ts:57`](../packages/web/web/src/index.ts)
 
 ```ts config-catalog
@@ -4356,12 +4426,12 @@ export interface WebRuntimeConfig {
   readonly fetchProvider: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-app -->
-<a id="deepseek-aidsh-web-app"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-app -->
+<a id="xpeachxph-web-app"></a>
 
-## `@deepseek-ai/dsh-web-app`
+## `@xpeach/xph-web-app`
 
 - `inject`: `webServer`
 - `source`: [`packages/bundle/web-app/src/index.ts:55`](../packages/bundle/web-app/src/index.ts)
@@ -4388,15 +4458,15 @@ export interface Config {
   publicUrl?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-app -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web-app -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-deepseek-api -->
-<a id="deepseek-aidsh-web-deepseek-api"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-deepseek-api -->
+<a id="xpeachxph-web-deepseek-api"></a>
 
-## `@deepseek-ai/dsh-web-deepseek-api`
+## `@xpeach/xph-web-deepseek-api`
 
 - `inject`: `web`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
 - `source`: [`packages/web/web-deepseek-api/src/index.ts:34`](../packages/web/web-deepseek-api/src/index.ts)
 
 ```ts config-catalog
@@ -4414,12 +4484,12 @@ export interface Config {
   sendOriginalQuestion: Volatile<boolean>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-deepseek-api -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web-deepseek-api -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
-<a id="deepseek-aidsh-web-fetch-http"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-fetch-http -->
+<a id="xpeachxph-web-fetch-http"></a>
 
-## `@deepseek-ai/dsh-web-fetch-http`
+## `@xpeach/xph-web-fetch-http`
 
 - `inject`: `web`
 - `source`: [`packages/web/web-fetch-http/src/index.ts:32`](../packages/web/web-fetch-http/src/index.ts)
@@ -4439,16 +4509,16 @@ export interface Config {
   userAgent?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web-fetch-http -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-deepseek -->
-<a id="deepseek-aidsh-web-search-deepseek"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-search-deepseek -->
+<a id="xpeachxph-web-search-deepseek"></a>
 
-## `@deepseek-ai/dsh-web-search-deepseek`
+## `@xpeach/xph-web-search-deepseek`
 
 - `inject`: `web`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/web/web-search-deepseek/src/index.ts:49`](../packages/web/web-search-deepseek/src/index.ts)
+- `refs`: `Volatile` (`@xpeach/xph-cordis`)
+- `source`: [`packages/web/web-search-deepseek/src/index.ts:51`](../packages/web/web-search-deepseek/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
@@ -4469,12 +4539,12 @@ export interface Config {
   maxUses: Volatile<number>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-deepseek -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web-search-deepseek -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
-<a id="deepseek-aidsh-web-search-exa"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-search-exa -->
+<a id="xpeachxph-web-search-exa"></a>
 
-## `@deepseek-ai/dsh-web-search-exa`
+## `@xpeach/xph-web-search-exa`
 
 - `inject`: `web`
 - `source`: [`packages/web/web-search-exa/src/index.ts:35`](../packages/web/web-search-exa/src/index.ts)
@@ -4494,12 +4564,12 @@ export interface Config {
   highlightsPerResult?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web-search-exa -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-perplexity -->
-<a id="deepseek-aidsh-web-search-perplexity"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-search-perplexity -->
+<a id="xpeachxph-web-search-perplexity"></a>
 
-## `@deepseek-ai/dsh-web-search-perplexity`
+## `@xpeach/xph-web-search-perplexity`
 
 - `inject`: `web`
 - `source`: [`packages/web/web-search-perplexity/src/index.ts:30`](../packages/web/web-search-perplexity/src/index.ts)
@@ -4519,12 +4589,12 @@ export interface Config {
   searchRecency?: 'day' | 'week' | 'month' | 'year'
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-perplexity -->
+<!-- END GENERATED config-catalog:@xpeach/xph-web-search-perplexity -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-webhook-github -->
-<a id="deepseek-aidsh-webhook-github"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-webhook-github -->
+<a id="xpeachxph-webhook-github"></a>
 
-## `@deepseek-ai/dsh-webhook-github`
+## `@xpeach/xph-webhook-github`
 
 - `inject`: `webServer` · `webhookRuntime` · `credentials`
 - `source`: [`packages/experimental/webhook-github/src/index.ts:17`](../packages/experimental/webhook-github/src/index.ts)
@@ -4542,12 +4612,12 @@ export interface Config {
   readonly maxBodyBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-webhook-github -->
+<!-- END GENERATED config-catalog:@xpeach/xph-webhook-github -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-workflow-ptc -->
-<a id="deepseek-aidsh-workflow-ptc"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-workflow-ptc -->
+<a id="xpeachxph-workflow-ptc"></a>
 
-## `@deepseek-ai/dsh-workflow-ptc`
+## `@xpeach/xph-workflow-ptc`
 
 - `inject`: `subagents` · `ptcRuntime` · `sandboxPolicy` · `workingDirectory`
 - `source`: [`packages/workflow/workflow-ptc/src/index.ts:33`](../packages/workflow/workflow-ptc/src/index.ts)
@@ -4567,12 +4637,12 @@ export interface Config {
   syncTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-workflow-ptc -->
+<!-- END GENERATED config-catalog:@xpeach/xph-workflow-ptc -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-working-directory -->
-<a id="deepseek-aidsh-working-directory"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-working-directory -->
+<a id="xpeachxph-working-directory"></a>
 
-## `@deepseek-ai/dsh-working-directory`
+## `@xpeach/xph-working-directory`
 
 - `inject`: `fs` · `sessionProjections` · `systemPrompt`
 - `source`: [`packages/session/working-directory/src/index.ts:56`](../packages/session/working-directory/src/index.ts)
@@ -4584,12 +4654,12 @@ export interface Config {
   defaultDirectory?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-working-directory -->
+<!-- END GENERATED config-catalog:@xpeach/xph-working-directory -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-workspace-changes -->
-<a id="deepseek-aidsh-workspace-changes"></a>
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-workspace-changes -->
+<a id="xpeachxph-workspace-changes"></a>
 
-## `@deepseek-ai/dsh-workspace-changes`
+## `@xpeach/xph-workspace-changes`
 
 - `inject`: `subprocess` · `fs`
 - `source`: [`packages/deliverables/workspace-changes/src/index.ts:34`](../packages/deliverables/workspace-changes/src/index.ts)
@@ -4612,7 +4682,7 @@ export interface Config {
   diffTimeoutMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-workspace-changes -->
+<!-- END GENERATED config-catalog:@xpeach/xph-workspace-changes -->
 
 ## 无配置的可加载插件
 
@@ -4621,113 +4691,114 @@ export interface Config {
 <!-- BEGIN GENERATED config-catalog:no-config -->
 | `package` | `inject` | `source` |
 | --- | --- | --- |
-| `@deepseek-ai/dsh-acp-app` | `cmdlineArgs` | [`packages/bundle/acp-app/src/index.ts`](../packages/bundle/acp-app/src/index.ts) |
-| `@deepseek-ai/dsh-agent` | — | [`packages/core/agent/src/index.ts`](../packages/core/agent/src/index.ts) |
-| `@deepseek-ai/dsh-api-account-controller` | `deepseekAccount` · `agents` | [`packages/api/account-controller/src/index.ts`](../packages/api/account-controller/src/index.ts) |
-| `@deepseek-ai/dsh-api-remote-access` | — | [`packages/api/remote-access/src/index.ts`](../packages/api/remote-access/src/index.ts) |
-| `@deepseek-ai/dsh-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |
-| `@deepseek-ai/dsh-authorization` | `credentials` | [`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts) |
-| `@deepseek-ai/dsh-browser-use` | — | [`packages/browser-use/browser-use/src/index.ts`](../packages/browser-use/browser-use/src/index.ts) |
-| `@deepseek-ai/dsh-client-file-upload` | `agents` · `attachments` · `commands` · `connection` | [`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts) |
-| `@deepseek-ai/dsh-client-locale` | — | [`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts) |
-| `@deepseek-ai/dsh-client-modules` | `loader` | [`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts) |
-| `@deepseek-ai/dsh-client-resources` | — | [`packages/client/resources/src/index.ts`](../packages/client/resources/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-agent-preset` | — | [`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-approval` | — | [`packages/client/ui-approval/src/index.ts`](../packages/client/ui-approval/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-attachment` | — | [`packages/client/ui-attachment/src/index.ts`](../packages/client/ui-attachment/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-brand-official` | — | [`packages/client/ui-brand-official/src/index.ts`](../packages/client/ui-brand-official/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-chat` | — | [`packages/client/ui-chat/src/index.ts`](../packages/client/ui-chat/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-commands` | — | [`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-conversation` | — | [`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-cordis` | — | [`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-deepseek-model-label-1017` | — | [`packages/client/ui-deepseek-model-label-1017/src/index.ts`](../packages/client/ui-deepseek-model-label-1017/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-deliverables` | `systemPrompt` · `connection` · `sessionQuery` · `sessionController` · `workspaceFiles` · `fs` · `sandboxPolicy` · `workspaceChanges` | [`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-directory-picker-browse` | — | [`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-directory-picker-native` | — | [`packages/client/ui-directory-picker-native/src/index.ts`](../packages/client/ui-directory-picker-native/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-goal` | — | [`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-input-trigger` | — | [`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-jobs` | — | [`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-layout` | — | [`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-message-feedback` | — | [`packages/client/ui-message-feedback/src/index.ts`](../packages/client/ui-message-feedback/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-model-selection` | — | [`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-open-in-app` | — | [`packages/client/ui-open-in-app/src/index.ts`](../packages/client/ui-open-in-app/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-permission-presets` | — | [`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-plan` | — | [`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-plugin-market` | — | [`packages/client/ui-plugin-market/src/index.ts`](../packages/client/ui-plugin-market/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-reference` | — | [`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-renderer` | — | [`packages/client/ui-renderer/src/index.ts`](../packages/client/ui-renderer/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-schedule` | — | [`packages/client/ui-schedule/src/index.ts`](../packages/client/ui-schedule/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-secret-mask` | — | [`packages/client/ui-secret-mask/src/index.ts`](../packages/client/ui-secret-mask/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-session` | — | [`packages/client/ui-session/src/index.ts`](../packages/client/ui-session/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings` | — | [`packages/client/ui-settings/src/index.ts`](../packages/client/ui-settings/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-agent-loop` | — | [`packages/client/ui-settings-agent-loop/src/index.ts`](../packages/client/ui-settings-agent-loop/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-general` | — | [`packages/client/ui-settings-general/src/index.ts`](../packages/client/ui-settings-general/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-plugin-inventory` | — | [`packages/client/ui-settings-plugin-inventory/src/index.ts`](../packages/client/ui-settings-plugin-inventory/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-session-log` | — | [`packages/client/ui-settings-session-log/src/index.ts`](../packages/client/ui-settings-session-log/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-shell` | — | [`packages/client/ui-settings-shell/src/index.ts`](../packages/client/ui-settings-shell/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-subagent` | — | [`packages/client/ui-settings-subagent/src/index.ts`](../packages/client/ui-settings-subagent/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-web-search` | — | [`packages/client/ui-settings-web-search/src/index.ts`](../packages/client/ui-settings-web-search/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-shortcuts` | — | [`packages/client/ui-shortcuts/src/index.ts`](../packages/client/ui-shortcuts/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-sidebar` | — | [`packages/client/ui-sidebar/src/index.ts`](../packages/client/ui-sidebar/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-sidebar-browser` | — | [`packages/client/ui-sidebar-browser/src/index.ts`](../packages/client/ui-sidebar-browser/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-sidebar-files` | — | [`packages/client/ui-sidebar-files/src/index.ts`](../packages/client/ui-sidebar-files/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-sidebar-right` | — | [`packages/client/ui-sidebar-right/src/index.ts`](../packages/client/ui-sidebar-right/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-sidebar-terminal` | — | [`packages/client/ui-sidebar-terminal/src/index.ts`](../packages/client/ui-sidebar-terminal/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-skill` | — | [`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-subagent` | — | [`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-tool` | — | [`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-trajectory` | — | [`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-user-questions` | — | [`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-workflow-run` | — | [`packages/client/ui-workflow-run/src/index.ts`](../packages/client/ui-workflow-run/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-workspace` | — | [`packages/client/ui-workspace/src/index.ts`](../packages/client/ui-workspace/src/index.ts) |
-| `@deepseek-ai/dsh-command-compact` | `commands` · `compaction` | [`packages/compaction/command-compact/src/index.ts`](../packages/compaction/command-compact/src/index.ts) |
-| `@deepseek-ai/dsh-command-feedback` | `commands` | [`packages/feedback/command-feedback/src/index.ts`](../packages/feedback/command-feedback/src/index.ts) |
-| `@deepseek-ai/dsh-command-goal` | `commands` · `goals` | [`packages/goal/command-goal/src/index.ts`](../packages/goal/command-goal/src/index.ts) |
-| `@deepseek-ai/dsh-commands` | — | [`packages/interaction/commands/src/index.ts`](../packages/interaction/commands/src/index.ts) |
-| `@deepseek-ai/dsh-compaction-image-offload` | `agents` · `sessions` | [`packages/compaction/compaction-image-offload/src/index.ts`](../packages/compaction/compaction-image-offload/src/index.ts) |
-| `@deepseek-ai/dsh-computer-use` | — | [`packages/computer-use/computer-use/src/index.ts`](../packages/computer-use/computer-use/src/index.ts) |
-| `@deepseek-ai/dsh-config-editor` | `loader` · `profileContext` | [`packages/boot/config-editor/src/index.ts`](../packages/boot/config-editor/src/index.ts) |
-| `@deepseek-ai/dsh-cordis-client-runner` | — | [`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts) |
-| `@deepseek-ai/dsh-deepseek-llm-api-extensions` | — | [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../packages/llm/deepseek-llm-api-extensions/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-auto-review` | `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory` | [`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-client-ui-agent-team` | — | [`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-client-ui-claude-code-mods` | — | [`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-client-ui-voice-input` | — | [`packages/experimental/client-ui-voice-input/src/index.ts`](../packages/experimental/client-ui-voice-input/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` | `computerUse` · `tools` · `systemPrompt` | [`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-session-inspector` | — | [`packages/experimental/session-inspector/src/index.ts`](../packages/experimental/session-inspector/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-tool-worktree` | `tools` · `worktrees` | [`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts) |
-| `@deepseek-ai/dsh-fs-observation-policy` | — | [`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts) |
-| `@deepseek-ai/dsh-fs-ssh` | `ssh` · `sandboxPolicy` | [`packages/ssh/fs-ssh/src/index.ts`](../packages/ssh/fs-ssh/src/index.ts) |
-| `@deepseek-ai/dsh-goal-round-driver` | `agents` · `goals` · `sessions` | [`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts) |
-| `@deepseek-ai/dsh-harness-dev-context` | `systemPrompt` · `sessionProjections` · `webApp` | [`packages/context/harness-dev-context/src/index.ts`](../packages/context/harness-dev-context/src/index.ts) |
-| `@deepseek-ai/dsh-host-directory-picker-auto` | `webServer` · `connection` · `loader` | [`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts) |
-| `@deepseek-ai/dsh-host-directory-picker-native` | — | [`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts) |
-| `@deepseek-ai/dsh-host-plugin-inventory` | `loader` | [`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts) |
-| `@deepseek-ai/dsh-llm` | — | [`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts) |
-| `@deepseek-ai/dsh-lsp` | — | [`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts) |
-| `@deepseek-ai/dsh-mcp-resources` | `tools` | [`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts) |
-| `@deepseek-ai/dsh-otel` | — | [`packages/telemetry/otel/src/index.ts`](../packages/telemetry/otel/src/index.ts) |
-| `@deepseek-ai/dsh-sandbox-ssh` | `ssh` | [`packages/ssh/sandbox-ssh/src/index.ts`](../packages/ssh/sandbox-ssh/src/index.ts) |
-| `@deepseek-ai/dsh-session` | — | [`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts) |
-| `@deepseek-ai/dsh-session-checkpoint-policy` | `llm` · `sessionPersistence` · `sessions` · `tools` | [`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts) |
-| `@deepseek-ai/dsh-session-projection` | — | [`packages/session/session-projection/src/index.ts`](../packages/session/session-projection/src/index.ts) |
-| `@deepseek-ai/dsh-session-stats` | `sessionProjections` | [`packages/session/session-stats/src/index.ts`](../packages/session/session-stats/src/index.ts) |
-| `@deepseek-ai/dsh-session-turn-outline` | `sessionProjections` | [`packages/session/session-turn-outline/src/index.ts`](../packages/session/session-turn-outline/src/index.ts) |
-| `@deepseek-ai/dsh-settings` | `configEditor` · `profileContext` | [`packages/settings/settings/src/index.ts`](../packages/settings/settings/src/index.ts) |
-| `@deepseek-ai/dsh-skill-badge` | `skills` | [`packages/experimental/skill-badge/src/index.ts`](../packages/experimental/skill-badge/src/index.ts) |
-| `@deepseek-ai/dsh-storage` | — | [`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts) |
-| `@deepseek-ai/dsh-subprocess-local` | — | [`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts) |
-| `@deepseek-ai/dsh-subprocess-ssh` | `ssh` | [`packages/ssh/subprocess-ssh/src/index.ts`](../packages/ssh/subprocess-ssh/src/index.ts) |
-| `@deepseek-ai/dsh-terminal` | — | [`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts) |
-| `@deepseek-ai/dsh-tool-call-timeout-policy` | `tools` | [`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts) |
-| `@deepseek-ai/dsh-tool-cordis` | `tools` · `cordisInspect` | [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts) |
-| `@deepseek-ai/dsh-tool-schedule` | `tools` | [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts) |
-| `@deepseek-ai/dsh-tool-subagent-control` | `tools` · `subagents` | [`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts) |
-| `@deepseek-ai/dsh-tool-working-directory` | `tools` · `workingDirectory` | [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts) |
-| `@deepseek-ai/dsh-user-questions` | — | [`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts) |
-| `@deepseek-ai/dsh-webhook` | `agents` · `agentDefaultModel` · `agentPresets` · `permissionPresets` · `sessionTitle` · `workspaceRegistry` | [`packages/experimental/webhook/src/index.ts`](../packages/experimental/webhook/src/index.ts) |
-| `@deepseek-ai/dsh-workspace` | `storageDomain` · `sessionPersistence` | [`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts) |
+| `@xpeach/xph-acp-app` | `cmdlineArgs` | [`packages/bundle/acp-app/src/index.ts`](../packages/bundle/acp-app/src/index.ts) |
+| `@xpeach/xph-agent` | — | [`packages/core/agent/src/index.ts`](../packages/core/agent/src/index.ts) |
+| `@xpeach/xph-api-account-controller` | `deepseekAccount` · `agents` | [`packages/api/account-controller/src/index.ts`](../packages/api/account-controller/src/index.ts) |
+| `@xpeach/xph-api-remote-access` | — | [`packages/api/remote-access/src/index.ts`](../packages/api/remote-access/src/index.ts) |
+| `@xpeach/xph-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |
+| `@xpeach/xph-authorization` | `credentials` | [`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts) |
+| `@xpeach/xph-browser-use` | — | [`packages/browser-use/browser-use/src/index.ts`](../packages/browser-use/browser-use/src/index.ts) |
+| `@xpeach/xph-client-file-upload` | `agents` · `attachments` · `commands` · `connection` | [`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts) |
+| `@xpeach/xph-client-locale` | — | [`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts) |
+| `@xpeach/xph-client-modules` | `loader` | [`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts) |
+| `@xpeach/xph-client-resources` | — | [`packages/client/resources/src/index.ts`](../packages/client/resources/src/index.ts) |
+| `@xpeach/xph-client-ui` | — | [`packages/xpeach/client-ui/src/index.ts`](../packages/xpeach/client-ui/src/index.ts) |
+| `@xpeach/xph-client-ui-agent-preset` | — | [`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts) |
+| `@xpeach/xph-client-ui-approval` | — | [`packages/client/ui-approval/src/index.ts`](../packages/client/ui-approval/src/index.ts) |
+| `@xpeach/xph-client-ui-attachment` | — | [`packages/client/ui-attachment/src/index.ts`](../packages/client/ui-attachment/src/index.ts) |
+| `@xpeach/xph-client-ui-brand-official` | — | [`packages/client/ui-brand-official/src/index.ts`](../packages/client/ui-brand-official/src/index.ts) |
+| `@xpeach/xph-client-ui-chat` | — | [`packages/client/ui-chat/src/index.ts`](../packages/client/ui-chat/src/index.ts) |
+| `@xpeach/xph-client-ui-commands` | — | [`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts) |
+| `@xpeach/xph-client-ui-conversation` | — | [`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts) |
+| `@xpeach/xph-client-ui-cordis` | — | [`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts) |
+| `@xpeach/xph-client-ui-deepseek-model-label-1017` | — | [`packages/client/ui-deepseek-model-label-1017/src/index.ts`](../packages/client/ui-deepseek-model-label-1017/src/index.ts) |
+| `@xpeach/xph-client-ui-deliverables` | `systemPrompt` · `connection` · `sessionQuery` · `sessionController` · `workspaceFiles` · `fs` · `sandboxPolicy` · `workspaceChanges` | [`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts) |
+| `@xpeach/xph-client-ui-directory-picker-browse` | — | [`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts) |
+| `@xpeach/xph-client-ui-directory-picker-native` | — | [`packages/client/ui-directory-picker-native/src/index.ts`](../packages/client/ui-directory-picker-native/src/index.ts) |
+| `@xpeach/xph-client-ui-goal` | — | [`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts) |
+| `@xpeach/xph-client-ui-input-trigger` | — | [`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts) |
+| `@xpeach/xph-client-ui-jobs` | — | [`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts) |
+| `@xpeach/xph-client-ui-layout` | — | [`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts) |
+| `@xpeach/xph-client-ui-message-feedback` | — | [`packages/client/ui-message-feedback/src/index.ts`](../packages/client/ui-message-feedback/src/index.ts) |
+| `@xpeach/xph-client-ui-model-selection` | — | [`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts) |
+| `@xpeach/xph-client-ui-open-in-app` | — | [`packages/client/ui-open-in-app/src/index.ts`](../packages/client/ui-open-in-app/src/index.ts) |
+| `@xpeach/xph-client-ui-permission-presets` | — | [`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts) |
+| `@xpeach/xph-client-ui-plan` | — | [`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts) |
+| `@xpeach/xph-client-ui-plugin-market` | — | [`packages/client/ui-plugin-market/src/index.ts`](../packages/client/ui-plugin-market/src/index.ts) |
+| `@xpeach/xph-client-ui-reference` | — | [`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts) |
+| `@xpeach/xph-client-ui-renderer` | — | [`packages/client/ui-renderer/src/index.ts`](../packages/client/ui-renderer/src/index.ts) |
+| `@xpeach/xph-client-ui-schedule` | — | [`packages/client/ui-schedule/src/index.ts`](../packages/client/ui-schedule/src/index.ts) |
+| `@xpeach/xph-client-ui-secret-mask` | — | [`packages/client/ui-secret-mask/src/index.ts`](../packages/client/ui-secret-mask/src/index.ts) |
+| `@xpeach/xph-client-ui-session` | — | [`packages/client/ui-session/src/index.ts`](../packages/client/ui-session/src/index.ts) |
+| `@xpeach/xph-client-ui-settings` | — | [`packages/client/ui-settings/src/index.ts`](../packages/client/ui-settings/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-agent-loop` | — | [`packages/client/ui-settings-agent-loop/src/index.ts`](../packages/client/ui-settings-agent-loop/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-general` | — | [`packages/client/ui-settings-general/src/index.ts`](../packages/client/ui-settings-general/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-plugin-inventory` | — | [`packages/client/ui-settings-plugin-inventory/src/index.ts`](../packages/client/ui-settings-plugin-inventory/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-session-log` | — | [`packages/client/ui-settings-session-log/src/index.ts`](../packages/client/ui-settings-session-log/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-shell` | — | [`packages/client/ui-settings-shell/src/index.ts`](../packages/client/ui-settings-shell/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-subagent` | — | [`packages/client/ui-settings-subagent/src/index.ts`](../packages/client/ui-settings-subagent/src/index.ts) |
+| `@xpeach/xph-client-ui-settings-web-search` | — | [`packages/client/ui-settings-web-search/src/index.ts`](../packages/client/ui-settings-web-search/src/index.ts) |
+| `@xpeach/xph-client-ui-shortcuts` | — | [`packages/client/ui-shortcuts/src/index.ts`](../packages/client/ui-shortcuts/src/index.ts) |
+| `@xpeach/xph-client-ui-sidebar` | — | [`packages/client/ui-sidebar/src/index.ts`](../packages/client/ui-sidebar/src/index.ts) |
+| `@xpeach/xph-client-ui-sidebar-browser` | — | [`packages/client/ui-sidebar-browser/src/index.ts`](../packages/client/ui-sidebar-browser/src/index.ts) |
+| `@xpeach/xph-client-ui-sidebar-files` | — | [`packages/client/ui-sidebar-files/src/index.ts`](../packages/client/ui-sidebar-files/src/index.ts) |
+| `@xpeach/xph-client-ui-sidebar-right` | — | [`packages/client/ui-sidebar-right/src/index.ts`](../packages/client/ui-sidebar-right/src/index.ts) |
+| `@xpeach/xph-client-ui-sidebar-terminal` | — | [`packages/client/ui-sidebar-terminal/src/index.ts`](../packages/client/ui-sidebar-terminal/src/index.ts) |
+| `@xpeach/xph-client-ui-skill` | — | [`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts) |
+| `@xpeach/xph-client-ui-subagent` | — | [`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts) |
+| `@xpeach/xph-client-ui-tool` | — | [`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts) |
+| `@xpeach/xph-client-ui-trajectory` | — | [`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts) |
+| `@xpeach/xph-client-ui-user-questions` | — | [`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts) |
+| `@xpeach/xph-client-ui-workflow-run` | — | [`packages/client/ui-workflow-run/src/index.ts`](../packages/client/ui-workflow-run/src/index.ts) |
+| `@xpeach/xph-client-ui-workspace` | — | [`packages/client/ui-workspace/src/index.ts`](../packages/client/ui-workspace/src/index.ts) |
+| `@xpeach/xph-command-compact` | `commands` · `compaction` | [`packages/compaction/command-compact/src/index.ts`](../packages/compaction/command-compact/src/index.ts) |
+| `@xpeach/xph-command-feedback` | `commands` | [`packages/feedback/command-feedback/src/index.ts`](../packages/feedback/command-feedback/src/index.ts) |
+| `@xpeach/xph-command-goal` | `commands` · `goals` | [`packages/goal/command-goal/src/index.ts`](../packages/goal/command-goal/src/index.ts) |
+| `@xpeach/xph-commands` | — | [`packages/interaction/commands/src/index.ts`](../packages/interaction/commands/src/index.ts) |
+| `@xpeach/xph-compaction-image-offload` | `agents` · `sessions` | [`packages/compaction/compaction-image-offload/src/index.ts`](../packages/compaction/compaction-image-offload/src/index.ts) |
+| `@xpeach/xph-computer-use` | — | [`packages/computer-use/computer-use/src/index.ts`](../packages/computer-use/computer-use/src/index.ts) |
+| `@xpeach/xph-config-editor` | `loader` · `profileContext` | [`packages/boot/config-editor/src/index.ts`](../packages/boot/config-editor/src/index.ts) |
+| `@xpeach/xph-cordis-client-runner` | — | [`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts) |
+| `@xpeach/xph-deepseek-llm-api-extensions` | — | [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../packages/llm/deepseek-llm-api-extensions/src/index.ts) |
+| `@xpeach/xph-experimental-auto-review` | `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory` | [`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts) |
+| `@xpeach/xph-experimental-client-ui-agent-team` | — | [`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts) |
+| `@xpeach/xph-experimental-client-ui-claude-code-mods` | — | [`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts) |
+| `@xpeach/xph-experimental-client-ui-voice-input` | — | [`packages/experimental/client-ui-voice-input/src/index.ts`](../packages/experimental/client-ui-voice-input/src/index.ts) |
+| `@xpeach/xph-experimental-computer-use-cua-driver-native` | `computerUse` · `tools` · `systemPrompt` | [`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts) |
+| `@xpeach/xph-experimental-session-inspector` | — | [`packages/experimental/session-inspector/src/index.ts`](../packages/experimental/session-inspector/src/index.ts) |
+| `@xpeach/xph-experimental-tool-worktree` | `tools` · `worktrees` | [`packages/experimental/tool-worktree/src/index.ts`](../packages/experimental/tool-worktree/src/index.ts) |
+| `@xpeach/xph-fs-observation-policy` | — | [`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts) |
+| `@xpeach/xph-fs-ssh` | `ssh` · `sandboxPolicy` | [`packages/ssh/fs-ssh/src/index.ts`](../packages/ssh/fs-ssh/src/index.ts) |
+| `@xpeach/xph-goal-round-driver` | `agents` · `goals` · `sessions` | [`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts) |
+| `@xpeach/xph-harness-dev-context` | `systemPrompt` · `sessionProjections` · `webApp` | [`packages/context/harness-dev-context/src/index.ts`](../packages/context/harness-dev-context/src/index.ts) |
+| `@xpeach/xph-host-directory-picker-auto` | `webServer` · `connection` · `loader` | [`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts) |
+| `@xpeach/xph-host-directory-picker-native` | — | [`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts) |
+| `@xpeach/xph-host-plugin-inventory` | `loader` | [`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts) |
+| `@xpeach/xph-llm` | — | [`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts) |
+| `@xpeach/xph-lsp` | — | [`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts) |
+| `@xpeach/xph-mcp-resources` | `tools` | [`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts) |
+| `@xpeach/xph-otel` | — | [`packages/telemetry/otel/src/index.ts`](../packages/telemetry/otel/src/index.ts) |
+| `@xpeach/xph-sandbox-ssh` | `ssh` | [`packages/ssh/sandbox-ssh/src/index.ts`](../packages/ssh/sandbox-ssh/src/index.ts) |
+| `@xpeach/xph-session` | — | [`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts) |
+| `@xpeach/xph-session-checkpoint-policy` | `llm` · `sessionPersistence` · `sessions` · `tools` | [`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts) |
+| `@xpeach/xph-session-projection` | — | [`packages/session/session-projection/src/index.ts`](../packages/session/session-projection/src/index.ts) |
+| `@xpeach/xph-session-stats` | `sessionProjections` | [`packages/session/session-stats/src/index.ts`](../packages/session/session-stats/src/index.ts) |
+| `@xpeach/xph-session-turn-outline` | `sessionProjections` | [`packages/session/session-turn-outline/src/index.ts`](../packages/session/session-turn-outline/src/index.ts) |
+| `@xpeach/xph-settings` | `configEditor` · `profileContext` | [`packages/settings/settings/src/index.ts`](../packages/settings/settings/src/index.ts) |
+| `@xpeach/xph-skill-badge` | `skills` | [`packages/experimental/skill-badge/src/index.ts`](../packages/experimental/skill-badge/src/index.ts) |
+| `@xpeach/xph-storage` | — | [`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts) |
+| `@xpeach/xph-subprocess-local` | — | [`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts) |
+| `@xpeach/xph-subprocess-ssh` | `ssh` | [`packages/ssh/subprocess-ssh/src/index.ts`](../packages/ssh/subprocess-ssh/src/index.ts) |
+| `@xpeach/xph-terminal` | — | [`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts) |
+| `@xpeach/xph-tool-call-timeout-policy` | `tools` | [`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts) |
+| `@xpeach/xph-tool-cordis` | `tools` · `cordisInspect` | [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts) |
+| `@xpeach/xph-tool-schedule` | `tools` | [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts) |
+| `@xpeach/xph-tool-subagent-control` | `tools` · `subagents` | [`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts) |
+| `@xpeach/xph-tool-working-directory` | `tools` · `workingDirectory` | [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts) |
+| `@xpeach/xph-user-questions` | — | [`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts) |
+| `@xpeach/xph-webhook` | `agents` · `agentDefaultModel` · `agentPresets` · `permissionPresets` · `sessionTitle` · `workspaceRegistry` | [`packages/experimental/webhook/src/index.ts`](../packages/experimental/webhook/src/index.ts) |
+| `@xpeach/xph-workspace` | `storageDomain` · `sessionPersistence` | [`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts) |
 <!-- END GENERATED config-catalog:no-config -->
 
 ## Seam 包（不可直接加载）
@@ -4737,22 +4808,22 @@ export interface Config {
 <!-- BEGIN GENERATED config-catalog:seam -->
 | `package` | `class` | `inject` | `source` |
 | --- | --- | --- | --- |
-| `@deepseek-ai/dsh-attachment` | `AttachmentStore` | — | [`packages/attachment/attachment/src/index.ts`](../packages/attachment/attachment/src/index.ts) |
-| `@deepseek-ai/dsh-compaction` | `CompactionEngine` | — | [`packages/compaction/compaction/src/index.ts`](../packages/compaction/compaction/src/index.ts) |
-| `@deepseek-ai/dsh-credentials` | `CredentialProvider` | — | [`packages/credentials/credentials/src/index.ts`](../packages/credentials/credentials/src/index.ts) |
-| `@deepseek-ai/dsh-deepseek-account` | `DeepSeekAccount` | — | [`packages/credentials/deepseek-account/src/index.ts`](../packages/credentials/deepseek-account/src/index.ts) |
-| `@deepseek-ai/dsh-file-reference` | `FileReferenceService` | — | [`packages/context/file-reference/src/index.ts`](../packages/context/file-reference/src/index.ts) |
-| `@deepseek-ai/dsh-fs` | `FileSystem` | — | [`packages/fs/fs/src/index.ts`](../packages/fs/fs/src/index.ts) |
-| `@deepseek-ai/dsh-host-directory-picker` | `DirectoryPicker` | — | [`packages/host/directory-picker/src/index.ts`](../packages/host/directory-picker/src/index.ts) |
-| `@deepseek-ai/dsh-jobs` | `JobRegistry` | — | [`packages/jobs/jobs/src/index.ts`](../packages/jobs/jobs/src/index.ts) |
-| `@deepseek-ai/dsh-ptc-runtime` | `PtcRuntime` | — | [`packages/ptc-runtime/ptc-runtime/src/index.ts`](../packages/ptc-runtime/ptc-runtime/src/index.ts) |
-| `@deepseek-ai/dsh-sandbox` | `SandboxProvider` | — | [`packages/sandbox/sandbox/src/index.ts`](../packages/sandbox/sandbox/src/index.ts) |
-| `@deepseek-ai/dsh-session-persistence` | `SessionPersistence` | — | [`packages/session/session-persistence/src/index.ts`](../packages/session/session-persistence/src/index.ts) |
-| `@deepseek-ai/dsh-session-query` | `SessionQueryEngine` | — | [`packages/session-query/session-query/src/index.ts`](../packages/session-query/session-query/src/index.ts) |
-| `@deepseek-ai/dsh-shell` | `ShellExecutor` | — | [`packages/shell/shell/src/index.ts`](../packages/shell/shell/src/index.ts) |
-| `@deepseek-ai/dsh-spill` | `SpillStore` | — | [`packages/spill/spill/src/index.ts`](../packages/spill/spill/src/index.ts) |
-| `@deepseek-ai/dsh-subprocess` | `SubprocessRuntime` | — | [`packages/subprocess/subprocess/src/index.ts`](../packages/subprocess/subprocess/src/index.ts) |
-| `@deepseek-ai/dsh-workflow` | `WorkflowEngine` | — | [`packages/workflow/workflow/src/index.ts`](../packages/workflow/workflow/src/index.ts) |
+| `@xpeach/xph-attachment` | `AttachmentStore` | — | [`packages/attachment/attachment/src/index.ts`](../packages/attachment/attachment/src/index.ts) |
+| `@xpeach/xph-compaction` | `CompactionEngine` | — | [`packages/compaction/compaction/src/index.ts`](../packages/compaction/compaction/src/index.ts) |
+| `@xpeach/xph-credentials` | `CredentialProvider` | — | [`packages/credentials/credentials/src/index.ts`](../packages/credentials/credentials/src/index.ts) |
+| `@xpeach/xph-deepseek-account` | `DeepSeekAccount` | — | [`packages/credentials/deepseek-account/src/index.ts`](../packages/credentials/deepseek-account/src/index.ts) |
+| `@xpeach/xph-file-reference` | `FileReferenceService` | — | [`packages/context/file-reference/src/index.ts`](../packages/context/file-reference/src/index.ts) |
+| `@xpeach/xph-fs` | `FileSystem` | — | [`packages/fs/fs/src/index.ts`](../packages/fs/fs/src/index.ts) |
+| `@xpeach/xph-host-directory-picker` | `DirectoryPicker` | — | [`packages/host/directory-picker/src/index.ts`](../packages/host/directory-picker/src/index.ts) |
+| `@xpeach/xph-jobs` | `JobRegistry` | — | [`packages/jobs/jobs/src/index.ts`](../packages/jobs/jobs/src/index.ts) |
+| `@xpeach/xph-ptc-runtime` | `PtcRuntime` | — | [`packages/ptc-runtime/ptc-runtime/src/index.ts`](../packages/ptc-runtime/ptc-runtime/src/index.ts) |
+| `@xpeach/xph-sandbox` | `SandboxProvider` | — | [`packages/sandbox/sandbox/src/index.ts`](../packages/sandbox/sandbox/src/index.ts) |
+| `@xpeach/xph-session-persistence` | `SessionPersistence` | — | [`packages/session/session-persistence/src/index.ts`](../packages/session/session-persistence/src/index.ts) |
+| `@xpeach/xph-session-query` | `SessionQueryEngine` | — | [`packages/session-query/session-query/src/index.ts`](../packages/session-query/session-query/src/index.ts) |
+| `@xpeach/xph-shell` | `ShellExecutor` | — | [`packages/shell/shell/src/index.ts`](../packages/shell/shell/src/index.ts) |
+| `@xpeach/xph-spill` | `SpillStore` | — | [`packages/spill/spill/src/index.ts`](../packages/spill/spill/src/index.ts) |
+| `@xpeach/xph-subprocess` | `SubprocessRuntime` | — | [`packages/subprocess/subprocess/src/index.ts`](../packages/subprocess/subprocess/src/index.ts) |
+| `@xpeach/xph-workflow` | `WorkflowEngine` | — | [`packages/workflow/workflow/src/index.ts`](../packages/workflow/workflow/src/index.ts) |
 <!-- END GENERATED config-catalog:seam -->
 
 ## 库包（无插件入口）
@@ -4762,72 +4833,71 @@ export interface Config {
 <!-- BEGIN GENERATED config-catalog:library -->
 | `package` | `inject` | `source` |
 | --- | --- | --- |
-| `@deepseek-ai/dsh-agent-loop-testkit` | — | [`packages/test-support/agent-loop-testkit/src/index.ts`](../packages/test-support/agent-loop-testkit/src/index.ts) |
-| `@deepseek-ai/dsh-anonymous-user-id` | — | [`packages/identity/anonymous-user-id/src/index.ts`](../packages/identity/anonymous-user-id/src/index.ts) |
-| `@deepseek-ai/dsh-app-boot` | — | [`packages/boot/app-boot/src/index.ts`](../packages/boot/app-boot/src/index.ts) |
-| `@deepseek-ai/dsh-atomic-write` | — | [`packages/util/atomic-write/src/index.ts`](../packages/util/atomic-write/src/index.ts) |
-| `@deepseek-ai/dsh-base` | — | [`packages/bundle/base/src/index.ts`](../packages/bundle/base/src/index.ts) |
-| `@deepseek-ai/dsh-brand` | — | [`packages/util/brand/src/index.ts`](../packages/util/brand/src/index.ts) |
-| `@deepseek-ai/dsh-chunked-list` | — | [`packages/util/chunked-list/src/index.ts`](../packages/util/chunked-list/src/index.ts) |
-| `@deepseek-ai/dsh-client-store` | — | [`packages/client/store/src/index.ts`](../packages/client/store/src/index.ts) |
-| `@deepseek-ai/dsh-client-test-runtime` | — | [`packages/test-support/client-runtime/src/index.ts`](../packages/test-support/client-runtime/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-dockkit` | — | [`packages/client/ui-dockkit/src/index.ts`](../packages/client/ui-dockkit/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-primitives` | — | [`packages/client/ui-primitives/src/index.ts`](../packages/client/ui-primitives/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-slots` | — | [`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts) |
-| `@deepseek-ai/dsh-client-web` | — | [`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts) |
-| `@deepseek-ai/dsh-cmdline` | — | [`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts) |
-| `@deepseek-ai/dsh-cua` | — | [`packages/experimental/cua/src/index.ts`](../packages/experimental/cua/src/index.ts) |
-| `@deepseek-ai/dsh-deque` | — | [`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-agent-team-profile` | — | [`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-badge-skill-bundle` | — | [`packages/experimental/badge-skill-bundle/src/index.ts`](../packages/experimental/badge-skill-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-browser-use-runtime` | — | [`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-cot-translation-bundle` | — | [`packages/experimental/cot-translation-bundle/src/index.ts`](../packages/experimental/cot-translation-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-inspector-profile` | — | [`packages/experimental/inspector-profile/src/index.ts`](../packages/experimental/inspector-profile/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-plugin-market-bundle` | — | [`packages/experimental/plugin-market-bundle/src/index.ts`](../packages/experimental/plugin-market-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-ralph-bundle` | — | [`packages/experimental/ralph-bundle/src/index.ts`](../packages/experimental/ralph-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-session-search` | — | [`packages/experimental/session-search/src/index.ts`](../packages/experimental/session-search/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-session-titles-bundle` | — | [`packages/experimental/session-titles-bundle/src/index.ts`](../packages/experimental/session-titles-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-terminal-bundle` | — | [`packages/experimental/terminal-bundle/src/index.ts`](../packages/experimental/terminal-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-voice-input-bundle` | — | [`packages/experimental/voice-input-bundle/src/index.ts`](../packages/experimental/voice-input-bundle/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-webworker-packer` | — | [`packages/experimental/webworker-packer/src/index.ts`](../packages/experimental/webworker-packer/src/index.ts) |
-| `@deepseek-ai/dsh-experimental-webworker-runtime` | — | [`packages/experimental/webworker-runtime/src/index.ts`](../packages/experimental/webworker-runtime/src/index.ts) |
-| `@deepseek-ai/dsh-home-paths` | — | [`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts) |
-| `@deepseek-ai/dsh-hook-protocol` | — | [`packages/experimental/hook-protocol/src/index.ts`](../packages/experimental/hook-protocol/src/index.ts) |
-| `@deepseek-ai/dsh-http-proxy` | — | [`packages/util/http-proxy/src/index.ts`](../packages/util/http-proxy/src/index.ts) |
-| `@deepseek-ai/dsh-launch-environment` | — | [`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts) |
-| `@deepseek-ai/dsh-lazy-require` | — | [`packages/util/lazy-require/src/index.ts`](../packages/util/lazy-require/src/index.ts) |
-| `@deepseek-ai/dsh-llm-deepseek` | — | [`packages/llm/llm-deepseek/src/index.ts`](../packages/llm/llm-deepseek/src/index.ts) |
-| `@deepseek-ai/dsh-llm-mock-server` | — | [`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts) |
-| `@deepseek-ai/dsh-loader-smoke` | — | [`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts) |
-| `@deepseek-ai/dsh-native-command` | — | [`packages/util/native-command/src/index.ts`](../packages/util/native-command/src/index.ts) |
-| `@deepseek-ai/dsh-output-retention` | — | [`packages/util/output-retention/src/index.ts`](../packages/util/output-retention/src/index.ts) |
-| `@deepseek-ai/dsh-package-manifest` | — | [`packages/util/package-manifest/src/index.ts`](../packages/util/package-manifest/src/index.ts) |
-| `@deepseek-ai/dsh-plugin-detail` | — | [`packages/util/plugin-detail/src/index.ts`](../packages/util/plugin-detail/src/index.ts) |
-| `@deepseek-ai/dsh-plugin-market-index` | — | [`packages/util/plugin-market-index/src/index.ts`](../packages/util/plugin-market-index/src/index.ts) |
-| `@deepseek-ai/dsh-remote-mock` | — | [`packages/test-support/remote-mock/src/index.ts`](../packages/test-support/remote-mock/src/index.ts) |
-| `@deepseek-ai/dsh-sandbox-windows-acl` | — | [`packages/sandbox/sandbox-windows-acl/src/index.ts`](../packages/sandbox/sandbox-windows-acl/src/index.ts) |
-| `@deepseek-ai/dsh-scope` | — | [`packages/core/scope/src/index.ts`](../packages/core/scope/src/index.ts) |
-| `@deepseek-ai/dsh-sdk-client` | — | [`packages/sdk/client/src/index.ts`](../packages/sdk/client/src/index.ts) |
-| `@deepseek-ai/dsh-sdk-minimal` | — | [`packages/bundle/sdk-minimal/src/index.ts`](../packages/bundle/sdk-minimal/src/index.ts) |
-| `@deepseek-ai/dsh-sdk-protocol` | — | [`packages/sdk/protocol/src/index.ts`](../packages/sdk/protocol/src/index.ts) |
-| `@deepseek-ai/dsh-session-format` | — | [`packages/session/session-format/src/index.ts`](../packages/session/session-format/src/index.ts) |
-| `@deepseek-ai/dsh-session-format-catalog` | — | [`packages/session/session-format-catalog/src/index.ts`](../packages/session/session-format-catalog/src/index.ts) |
-| `@deepseek-ai/dsh-session-format-v0-to-v1` | — | [`packages/session/session-format-v0-to-v1/src/index.ts`](../packages/session/session-format-v0-to-v1/src/index.ts) |
-| `@deepseek-ai/dsh-session-format-v1-to-v2` | — | [`packages/session/session-format-v1-to-v2/src/index.ts`](../packages/session/session-format-v1-to-v2/src/index.ts) |
-| `@deepseek-ai/dsh-session-format-v2-to-v3` | — | [`packages/session/session-format-v2-to-v3/src/index.ts`](../packages/session/session-format-v2-to-v3/src/index.ts) |
-| `@deepseek-ai/dsh-session-format-v3-to-v4` | — | [`packages/session/session-format-v3-to-v4/src/index.ts`](../packages/session/session-format-v3-to-v4/src/index.ts) |
-| `@deepseek-ai/dsh-session-snapshot` | — | [`packages/test-support/session-snapshot/src/index.ts`](../packages/test-support/session-snapshot/src/index.ts) |
-| `@deepseek-ai/dsh-session-telemetry` | — | [`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts) |
-| `@deepseek-ai/dsh-session-title-llm` | — | [`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts) |
-| `@deepseek-ai/dsh-ssh-helper-runtime` | — | [`packages/ssh/ssh-helper-runtime/src/index.ts`](../packages/ssh/ssh-helper-runtime/src/index.ts) |
-| `@deepseek-ai/dsh-timeout` | — | [`packages/util/timeout/src/index.ts`](../packages/util/timeout/src/index.ts) |
-| `@deepseek-ai/dsh-typert-generator` | — | [`packages/typert/generator/src/index.ts`](../packages/typert/generator/src/index.ts) |
-| `@deepseek-ai/dsh-typert-protocol` | — | [`packages/typert/protocol/src/index.ts`](../packages/typert/protocol/src/index.ts) |
-| `@deepseek-ai/dsh-typert-registry` | — | [`packages/typert/registry/src/index.ts`](../packages/typert/registry/src/index.ts) |
-| `@deepseek-ai/dsh-util-code-language` | — | [`packages/util/code-language/src/index.ts`](../packages/util/code-language/src/index.ts) |
-| `@deepseek-ai/dsh-util-crypto` | — | [`packages/util/crypto/src/index.ts`](../packages/util/crypto/src/index.ts) |
-| `@deepseek-ai/dsh-util-time` | — | [`packages/util/time/src/index.ts`](../packages/util/time/src/index.ts) |
-| `@deepseek-ai/dsh-util-values` | — | [`packages/util/values/src/index.ts`](../packages/util/values/src/index.ts) |
-| `@deepseek-ai/dsh-util-workspace-path` | — | [`packages/util/workspace-path/src/index.ts`](../packages/util/workspace-path/src/index.ts) |
-| `@deepseek-ai/dsh-win32-process` | — | [`packages/subprocess/win32-process/src/index.ts`](../packages/subprocess/win32-process/src/index.ts) |
+| `@xpeach/xph-agent-loop-testkit` | — | [`packages/test-support/agent-loop-testkit/src/index.ts`](../packages/test-support/agent-loop-testkit/src/index.ts) |
+| `@xpeach/xph-anonymous-user-id` | — | [`packages/identity/anonymous-user-id/src/index.ts`](../packages/identity/anonymous-user-id/src/index.ts) |
+| `@xpeach/xph-app-boot` | — | [`packages/boot/app-boot/src/index.ts`](../packages/boot/app-boot/src/index.ts) |
+| `@xpeach/xph-atomic-write` | — | [`packages/util/atomic-write/src/index.ts`](../packages/util/atomic-write/src/index.ts) |
+| `@xpeach/xph-base` | — | [`packages/bundle/base/src/index.ts`](../packages/bundle/base/src/index.ts) |
+| `@xpeach/xph-brand` | — | [`packages/util/brand/src/index.ts`](../packages/util/brand/src/index.ts) |
+| `@xpeach/xph-chunked-list` | — | [`packages/util/chunked-list/src/index.ts`](../packages/util/chunked-list/src/index.ts) |
+| `@xpeach/xph-client-store` | — | [`packages/client/store/src/index.ts`](../packages/client/store/src/index.ts) |
+| `@xpeach/xph-client-test-runtime` | — | [`packages/test-support/client-runtime/src/index.ts`](../packages/test-support/client-runtime/src/index.ts) |
+| `@xpeach/xph-client-ui-dockkit` | — | [`packages/client/ui-dockkit/src/index.ts`](../packages/client/ui-dockkit/src/index.ts) |
+| `@xpeach/xph-client-ui-primitives` | — | [`packages/client/ui-primitives/src/index.ts`](../packages/client/ui-primitives/src/index.ts) |
+| `@xpeach/xph-client-ui-slots` | — | [`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts) |
+| `@xpeach/xph-client-web` | — | [`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts) |
+| `@xpeach/xph-cmdline` | — | [`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts) |
+| `@xpeach/xph-cua` | — | [`packages/experimental/cua/src/index.ts`](../packages/experimental/cua/src/index.ts) |
+| `@xpeach/xph-deque` | — | [`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts) |
+| `@xpeach/xph-experimental-agent-team-profile` | — | [`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts) |
+| `@xpeach/xph-experimental-badge-skill-bundle` | — | [`packages/experimental/badge-skill-bundle/src/index.ts`](../packages/experimental/badge-skill-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-browser-use-runtime` | — | [`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts) |
+| `@xpeach/xph-experimental-cot-translation-bundle` | — | [`packages/experimental/cot-translation-bundle/src/index.ts`](../packages/experimental/cot-translation-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-inspector-profile` | — | [`packages/experimental/inspector-profile/src/index.ts`](../packages/experimental/inspector-profile/src/index.ts) |
+| `@xpeach/xph-experimental-plugin-market-bundle` | — | [`packages/experimental/plugin-market-bundle/src/index.ts`](../packages/experimental/plugin-market-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-ralph-bundle` | — | [`packages/experimental/ralph-bundle/src/index.ts`](../packages/experimental/ralph-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-session-search` | — | [`packages/experimental/session-search/src/index.ts`](../packages/experimental/session-search/src/index.ts) |
+| `@xpeach/xph-experimental-session-titles-bundle` | — | [`packages/experimental/session-titles-bundle/src/index.ts`](../packages/experimental/session-titles-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-terminal-bundle` | — | [`packages/experimental/terminal-bundle/src/index.ts`](../packages/experimental/terminal-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-voice-input-bundle` | — | [`packages/experimental/voice-input-bundle/src/index.ts`](../packages/experimental/voice-input-bundle/src/index.ts) |
+| `@xpeach/xph-experimental-webworker-packer` | — | [`packages/experimental/webworker-packer/src/index.ts`](../packages/experimental/webworker-packer/src/index.ts) |
+| `@xpeach/xph-experimental-webworker-runtime` | — | [`packages/experimental/webworker-runtime/src/index.ts`](../packages/experimental/webworker-runtime/src/index.ts) |
+| `@xpeach/xph-home-paths` | — | [`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts) |
+| `@xpeach/xph-hook-protocol` | — | [`packages/experimental/hook-protocol/src/index.ts`](../packages/experimental/hook-protocol/src/index.ts) |
+| `@xpeach/xph-http-proxy` | — | [`packages/util/http-proxy/src/index.ts`](../packages/util/http-proxy/src/index.ts) |
+| `@xpeach/xph-launch-environment` | — | [`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts) |
+| `@xpeach/xph-lazy-require` | — | [`packages/util/lazy-require/src/index.ts`](../packages/util/lazy-require/src/index.ts) |
+| `@xpeach/xph-llm-deepseek` | — | [`packages/llm/llm-deepseek/src/index.ts`](../packages/llm/llm-deepseek/src/index.ts) |
+| `@xpeach/xph-llm-mock-server` | — | [`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts) |
+| `@xpeach/xph-loader-smoke` | — | [`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts) |
+| `@xpeach/xph-native-command` | — | [`packages/util/native-command/src/index.ts`](../packages/util/native-command/src/index.ts) |
+| `@xpeach/xph-output-retention` | — | [`packages/util/output-retention/src/index.ts`](../packages/util/output-retention/src/index.ts) |
+| `@xpeach/xph-package-manifest` | — | [`packages/util/package-manifest/src/index.ts`](../packages/util/package-manifest/src/index.ts) |
+| `@xpeach/xph-plugin-market-index` | — | [`packages/util/plugin-market-index/src/index.ts`](../packages/util/plugin-market-index/src/index.ts) |
+| `@xpeach/xph-remote-mock` | — | [`packages/test-support/remote-mock/src/index.ts`](../packages/test-support/remote-mock/src/index.ts) |
+| `@xpeach/xph-sandbox-windows-acl` | — | [`packages/sandbox/sandbox-windows-acl/src/index.ts`](../packages/sandbox/sandbox-windows-acl/src/index.ts) |
+| `@xpeach/xph-scope` | — | [`packages/core/scope/src/index.ts`](../packages/core/scope/src/index.ts) |
+| `@xpeach/xph-sdk-client` | — | [`packages/sdk/client/src/index.ts`](../packages/sdk/client/src/index.ts) |
+| `@xpeach/xph-sdk-minimal` | — | [`packages/bundle/sdk-minimal/src/index.ts`](../packages/bundle/sdk-minimal/src/index.ts) |
+| `@xpeach/xph-sdk-protocol` | — | [`packages/sdk/protocol/src/index.ts`](../packages/sdk/protocol/src/index.ts) |
+| `@xpeach/xph-session-format` | — | [`packages/session/session-format/src/index.ts`](../packages/session/session-format/src/index.ts) |
+| `@xpeach/xph-session-format-catalog` | — | [`packages/session/session-format-catalog/src/index.ts`](../packages/session/session-format-catalog/src/index.ts) |
+| `@xpeach/xph-session-format-v0-to-v1` | — | [`packages/session/session-format-v0-to-v1/src/index.ts`](../packages/session/session-format-v0-to-v1/src/index.ts) |
+| `@xpeach/xph-session-format-v1-to-v2` | — | [`packages/session/session-format-v1-to-v2/src/index.ts`](../packages/session/session-format-v1-to-v2/src/index.ts) |
+| `@xpeach/xph-session-format-v2-to-v3` | — | [`packages/session/session-format-v2-to-v3/src/index.ts`](../packages/session/session-format-v2-to-v3/src/index.ts) |
+| `@xpeach/xph-session-format-v3-to-v4` | — | [`packages/session/session-format-v3-to-v4/src/index.ts`](../packages/session/session-format-v3-to-v4/src/index.ts) |
+| `@xpeach/xph-session-snapshot` | — | [`packages/test-support/session-snapshot/src/index.ts`](../packages/test-support/session-snapshot/src/index.ts) |
+| `@xpeach/xph-session-telemetry` | — | [`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts) |
+| `@xpeach/xph-session-title-llm` | — | [`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts) |
+| `@xpeach/xph-ssh-helper-runtime` | — | [`packages/ssh/ssh-helper-runtime/src/index.ts`](../packages/ssh/ssh-helper-runtime/src/index.ts) |
+| `@xpeach/xph-timeout` | — | [`packages/util/timeout/src/index.ts`](../packages/util/timeout/src/index.ts) |
+| `@xpeach/xph-typert-generator` | — | [`packages/typert/generator/src/index.ts`](../packages/typert/generator/src/index.ts) |
+| `@xpeach/xph-typert-protocol` | — | [`packages/typert/protocol/src/index.ts`](../packages/typert/protocol/src/index.ts) |
+| `@xpeach/xph-typert-registry` | — | [`packages/typert/registry/src/index.ts`](../packages/typert/registry/src/index.ts) |
+| `@xpeach/xph-util-code-language` | — | [`packages/util/code-language/src/index.ts`](../packages/util/code-language/src/index.ts) |
+| `@xpeach/xph-util-crypto` | — | [`packages/util/crypto/src/index.ts`](../packages/util/crypto/src/index.ts) |
+| `@xpeach/xph-util-time` | — | [`packages/util/time/src/index.ts`](../packages/util/time/src/index.ts) |
+| `@xpeach/xph-util-values` | — | [`packages/util/values/src/index.ts`](../packages/util/values/src/index.ts) |
+| `@xpeach/xph-util-workspace-path` | — | [`packages/util/workspace-path/src/index.ts`](../packages/util/workspace-path/src/index.ts) |
+| `@xpeach/xph-win32-process` | — | [`packages/subprocess/win32-process/src/index.ts`](../packages/subprocess/win32-process/src/index.ts) |
 <!-- END GENERATED config-catalog:library -->

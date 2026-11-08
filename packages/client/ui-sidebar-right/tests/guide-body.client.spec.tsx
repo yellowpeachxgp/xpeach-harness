@@ -32,7 +32,7 @@ const standard: GlobalStandardProps & SessionStandardProps = {
   usePanelInfo: unused, useSessions: unused, useSessionStatus: unused,
   useSessionRetainInfo: unused, useResource: unused, useWorkspaces: unused,
   ...allowAllAccess,
-  inputActions: { captureInsertion: unused, insertText: unused, setDraft: unused, persistDraft: unused,
+  inputActions: { insertQuote: () => false, captureInsertion: unused, insertText: unused, setDraft: unused, persistDraft: unused,
     addAttachments: unused, removeAttachment: unused, pruneAttachments: unused, submit: unused },
 }
 
@@ -62,14 +62,15 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
   shortcuts: readonly ShortcutCatalogEntry[] = []) {
   const guideEntries = createSnapshotStore<readonly SidebarRightGuideBox[]>(entries)
   const openTab = vi.fn()
+  const close = vi.fn()
   const renderSlot = vi.fn<GuideBodyProps['renderSlotChain']>((_seat, _owner, options) => options?.fallback)
   const props: GuideBodyProps = {
     ...standard, SessionProvider: ({ children }) => children,
     useShortcuts: <T,>(selector: (entries: readonly ShortcutCatalogEntry[]) => T): T => selector(shortcuts),
-    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId },
+    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId, isFloating: false },
       tab: { ...TAB, visible: true, signal: new AbortController().signal,
         navigation: { address: TAB.contentId, params: undefined, revision: 0 },
-        actions: { bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), openTab, close: vi.fn() } } }),
+        actions: { bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), openTab, close } } }),
     useGuideEntries: bindSnapshotSelector(guideEntries),
     renderSlotChain: renderSlot,
     renderSlot: vi.fn((_slot: string, _owner: unknown, options?: RenderOpts) =>
@@ -78,7 +79,7 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
   const view = render(<GuideBody {...props} />)
   const boxes = (): string[] =>
     [...view.container.querySelectorAll('[data-sidebar-right-guide-entry]')].map(node => node.getAttribute('data-sidebar-right-guide-entry') ?? '')
-  return { view, guideEntries, openTab, renderSlot, entrySlot: props.renderSlot, boxes, useTabInfo: props.useTabInfo }
+  return { view, guideEntries, openTab, close, renderSlot, entrySlot: props.renderSlot, boxes, useTabInfo: props.useTabInfo }
 }
 
 describe('GuideBody', () => {
@@ -114,12 +115,14 @@ describe('GuideBody', () => {
     cleanup()
   })
 
-  it('picking a box without a reveal preference preserves the default opening behavior', () => {
-    const { view, openTab } = mountGuide([box('files', 10)])
+  it('picking a box opens its page in the guide\'s place, then closes the guide', () => {
+    const { view, openTab, close } = mountGuide([box('files', 10)])
     const entry = view.container.querySelector('[data-sidebar-right-guide-entry="files"]')
     if (entry === null) throw new Error('expected the files box')
     fireEvent.click(entry)
     expect(openTab).toHaveBeenCalledWith('files', { replaceTab: true })
+    expect(close).toHaveBeenCalledOnce()
+    expect(close.mock.invocationCallOrder[0]).toBeGreaterThan(openTab.mock.invocationCallOrder[0]!)
     cleanup()
   })
 

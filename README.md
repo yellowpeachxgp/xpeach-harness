@@ -151,4 +151,4 @@ pnpm run typecheck     # 全仓 TypeScript 严格类型检查
 
 本项目采用 [MIT 许可证](LICENSE) 开源。第三方依赖及其许可证声明详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-XPeach Harness 派生自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT 许可）。本仓库基于上游提交 `687f282e8625c6b8d11ff58211a90524be2e4317`（版本 `0.2.1-rc.2`）构建，上游原始版权声明完整保留于 [LICENSE](LICENSE) 中，本项目所做的架构演进与功能改造记录详见 [NOTICE.md](NOTICE.md)。
+XPeach Harness 派生自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT 许可）。本仓库基于上游发布标签 `dsh-v0.2.1-rc.2` 构建，上游原始版权声明完整保留于 [LICENSE](LICENSE) 中，本项目所做的架构演进与功能改造记录详见 [NOTICE.md](NOTICE.md)。
