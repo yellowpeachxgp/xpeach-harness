@@ -447,6 +447,97 @@ describe('headless stream-json snapshots', () => {
     }
   }, LOADER_SMOKE_TEST_TIMEOUT_MS * 2)
 
+  it.each(['allow', 'deny', 'malformed', 'failed'])('runs Auto review with noninteractive %s results', async (mode) => {
+    const result = await runLoaderSmoke({
+      label: `headless Auto review ${mode}`,
+      tempDirPrefix: 'headless-auto-',
+      binScript: dshBinScript,
+      configPath: autoReviewOverlayPath,
+      binArgs: [
+        '--profile', 'headless', '--patch', headlessOverlayPath, '--patch', autoReviewOverlayPath,
+        '--permission-mode', 'auto', '--approval-policy', 'never', '--json', 'Run the CLI probe.',
+      ],
+      tsconfigPath,
+      env: { DSH_AUTO_REVIEW_TEST_MODE: mode, DSH_TELEMETRY_DISABLED: '1' },
+      inspect: async (cwd) => {
+        const logs = await persistedLogs(cwd, join(cwd, '.dsh', 'sessions'))
+        expect(logs).toHaveLength(1)
+        const events = parseJsonl(logs[0]!.content)
+        expect(events.find(event => event.type === 'user/message')?.data).toMatchObject({
+          source: { kind: 'user' },
+        })
+        expect(events.some(event => event.type === 'approval/asked')).toBe(false)
+        expect(events.filter(event => event.type === 'approval/policy').at(-1)?.data).toEqual({ policy: 'never' })
+      },
+    })
+    const events = parseJsonl(result.stdout)
+    const tool = events.find(event => event.type === 'tool_result')
+    if (mode === 'allow') {
+      expect(tool?.status).toBe('completed')
+      expect(tool?.result).toContain('CLI_TOOL_ROUND_TRIP')
+      expect(tool).not.toHaveProperty('error')
+    } else {
+      expect(tool).toMatchObject({
+        status: 'error',
+        error: { code: mode === 'deny' ? 'AUTO_REVIEW_DENIED' : 'AUTO_REVIEW_FAILED' },
+      })
+      if (mode === 'deny') expect(tool?.error).toMatchObject({ reason: 'The caller did not authorize this target.' })
+      expect(tool?.result).toContain('body was not executed')
+      expect(tool?.result).not.toContain('CLI_TOOL_ROUND_TRIP')
+    }
+    expect(events.at(-1)).toMatchObject({ type: 'final', reason: { kind: 'completed' } })
+  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+
+  it('rejects Auto selection without the experimental integration', async () => {
+    const result = await runLoaderSmoke({
+      label: 'headless absent Auto integration', tempDirPrefix: 'headless-auto-absent-',
+      binScript: dshBinScript, configPath: headlessOverlayPath,
+      binArgs: ['--profile', 'headless', '--patch', headlessOverlayPath, '--permission-mode', 'auto', '--json', 'Do it.'],
+      tsconfigPath, expectedExitCode: 1, env: { DSH_TELEMETRY_DISABLED: '1' },
+    })
+    const events = parseJsonl(result.stdout)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.type).toBe('error')
+    expect(events[0]?.message).toContain('auto')
+  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+
+  it('resumes an Auto denial with caller attribution and saved policy', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'headless-auto-resume-'))
+    const args = ['--profile', 'headless', '--patch', headlessOverlayPath, '--patch', autoReviewOverlayPath, '--json']
+    try {
+      const first = await runLoaderSmoke({
+        label: 'headless Auto denied wake', cwd, binScript: dshBinScript, configPath: autoReviewOverlayPath,
+        binArgs: [...args, '--permission-mode', 'auto', '--approval-policy', 'never', 'Run the CLI probe.'], tsconfigPath,
+        env: { DSH_AUTO_REVIEW_TEST_MODE: 'deny', DSH_TELEMETRY_DISABLED: '1' },
+      })
+      const sessionId = parseJsonl(first.stdout)[0]?.sessionId
+      if (typeof sessionId !== 'string') throw new Error('missing Auto Session identity')
+      expect(parseJsonl(first.stdout).find(event => event.type === 'tool_result')).toMatchObject({
+        error: { code: 'AUTO_REVIEW_DENIED' },
+      })
+      const second = await runLoaderSmoke({
+        label: 'headless Auto authorized wake', cwd, binScript: dshBinScript, configPath: autoReviewOverlayPath,
+        binArgs: [...args, '--session-id', sessionId, 'I authorize the exact CLI probe. Retry it.'], tsconfigPath,
+        env: { DSH_AUTO_REVIEW_TEST_MODE: 'allow', DSH_TELEMETRY_DISABLED: '1' },
+        inspect: async (directory) => {
+          const logs = await persistedLogs(directory, join(directory, '.dsh', 'sessions'))
+          expect(logs).toHaveLength(1)
+          const events = parseJsonl(logs[0]!.content)
+          const sources = events.filter(event => event.type === 'user/message')
+            .map(event => (event.data as { source: { kind: string } }).source)
+            .filter(source => source.kind === 'user')
+          expect(sources).toEqual([{ kind: 'user' }, { kind: 'user' }])
+          expect(events.filter(event => event.type === 'permission/preset').at(-1)?.data).toEqual({ preset: 'auto' })
+          expect(events.some(event => event.type === 'approval/asked')).toBe(false)
+        },
+      })
+      expect(parseJsonl(second.stdout).at(-1)).toMatchObject({
+        type: 'final', sessionId, reason: { kind: 'completed' },
+        text: 'CLI tool round trip complete: CLI_TOOL_ROUND_TRIP',
+      })
+    } finally { await rm(cwd, { recursive: true, force: true }) }
+  }, LOADER_SMOKE_TEST_TIMEOUT_MS * 2)
+
   it('prints a terminal model failure through the product headless profile command', async () => {
     const result = await runLoaderSmoke({
       label: 'product headless profile model failure snapshot',

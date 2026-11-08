@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/context/time-context"
   },
   "type": "module",
@@ -38,7 +38,8 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-util-time": "workspace:*"
   },
   "devDependencies": {
     "@xpeach/xph-cordis": "workspace:~",
@@ -55,6 +56,8 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-subprocess-local": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-util-time": "workspace:*"
   }
 }

@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { provideWorkingDirectoryFixture, unsupportedInbox } from '@xpeach/xph-agent-loop-testkit'
 import { tmpdir } from 'node:os'
@@ -69,6 +71,7 @@ suite('terminal real Loader composition through cordis.yml', () => {
       "- name: '@xpeach/xph-agent'",
       "- name: '@xpeach/xph-system-prompt'",
       "- name: '@xpeach/xph-tools'",
+      "- name: '@xpeach/xph-tool-executor-native'",
       "- name: '@xpeach/xph-terminal'",
       "- name: '@xpeach/xph-test-sandbox'",
       "- name: '@xpeach/xph-session-projection'",
@@ -99,6 +102,7 @@ suite('terminal real Loader composition through cordis.yml', () => {
       ['@xpeach/xph-agent', AgentRegistry],
       ['@xpeach/xph-system-prompt', SystemPrompt],
       ['@xpeach/xph-tools', ToolRuntime],
+      ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
       ['@xpeach/xph-terminal', TerminalSessionService],
       ['@xpeach/xph-test-sandbox', PassthroughSandbox],
       ['@xpeach/xph-session-projection', SessionProjectionRegistry],
@@ -119,15 +123,15 @@ suite('terminal real Loader composition through cordis.yml', () => {
 
     const owner = await agent(context)
     const signal = new AbortController().signal
-    const spawn = await context.tools.execute({
+    const spawn = await executeToolFixture(context, {
       signal, callId: ToolCallId('spawn'), name: 'terminal_open', arguments: { type: 'shell', name: 'main', cwd: root }, agent: owner,
     })
     expect(resultText(spawn)).toContain('started terminal session pty-1 (main)')
 
-    await context.tools.execute({
+    await executeToolFixture(context, {
       signal, callId: ToolCallId('state'), name: 'terminal_send', arguments: { sessionId: 'pty-1', text: 'export KEEP=loader; cd /' }, agent: owner,
     })
-    const read = await context.tools.execute({
+    const read = await executeToolFixture(context, {
       signal, callId: ToolCallId('read'), name: 'terminal_send', arguments: { sessionId: 'pty-1', text: 'printf "cwd=%s keep=%s\\n" "$PWD" "$KEEP"' }, agent: owner,
     })
     expect(resultText(read)).toContain('cwd=/ keep=loader')

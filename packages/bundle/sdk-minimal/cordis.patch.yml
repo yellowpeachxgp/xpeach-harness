@@ -120,6 +120,9 @@
     - id: tools
       name: '@xpeach/xph-tools'
 
+    - id: tool-executor-native
+      name: '@xpeach/xph-tool-executor-native'
+
     - id: mcp-resources
       name: '@xpeach/xph-mcp-resources'
 

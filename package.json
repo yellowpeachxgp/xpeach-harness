@@ -228,6 +228,8 @@
   "devDependencies": {
     "@xpeach/xph-hooks-claude-code": "workspace:*",
     "@xpeach/xph-hooks-codex": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
     "@xpeach/xph-tool-ralph": "workspace:*",
     "@xpeach/xph-tool-terminal": "workspace:*",
     "@xpeach/xph-agent": "workspace:*",

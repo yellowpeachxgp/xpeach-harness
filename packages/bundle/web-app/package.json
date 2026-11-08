@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/bundle/web-app"
   },
   "type": "module",
@@ -190,7 +190,8 @@
     "@xpeach/xph-account": "workspace:*",
     "@xpeach/xph-client-ui": "workspace:*",
     "commander": "^15.0.0",
-    "open": "^11.0.2"
+    "open": "^11.0.2",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { jsonSchemaToTs, renderToolsSdk } from '@xpeach/xph-tools/src/ts-types.ts'
-import type { ToolSdkSchema } from '@xpeach/xph-tools/src/ts-types.ts'
+import { jsonSchemaToTs, renderToolsSdk } from '@xpeach/xph-tool-executor-ptc/src/ts-types.ts'
+import type { ToolSdkSchema } from '@xpeach/xph-tool-executor-ptc/src/ts-types.ts'
 import type { JsonSchemaNode } from '@xpeach/xph-tools/src/json-schema.ts'
 import { parameterSchemaSpecToJsonSchema } from '@xpeach/xph-tools'
 

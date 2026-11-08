@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/experimental/tool-worktree"
   },
   "peerDependencies": {
@@ -54,7 +54,9 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
-    "@xpeach/xph-agent-loop": "workspace:*"
+    "@xpeach/xph-agent-loop": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "icon": "./icon.svg",
   "dsh": {

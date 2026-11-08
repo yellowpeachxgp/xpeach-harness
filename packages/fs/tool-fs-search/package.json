@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/fs/tool-fs-search"
   },
   "type": "module",
@@ -58,6 +58,8 @@
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-agent-loop-testkit": "workspace:*"
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

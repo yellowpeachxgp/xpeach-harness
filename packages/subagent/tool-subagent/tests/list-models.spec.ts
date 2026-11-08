@@ -1,3 +1,6 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import AgentRegistry from '@xpeach/xph-agent'
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
@@ -90,10 +93,9 @@ async function setupAllowedListTool() {
 
 let counter = 0
 
-function call(ctx: Context, args: unknown) {
-  return ctx.tools.execute({
-    signal: testToolSignal,
-    callId: ToolCallId(`list-models-${++counter}`),
+function call(ctx: Context, args: unknown, signal = testToolSignal) {
+  return executeToolFixture(ctx, {
+    signal,    callId: ToolCallId(`list-models-${++counter}`),
     name: 'list_subagent_models',
     arguments: args,
   })
@@ -116,6 +118,8 @@ describe('list_subagent_models', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
+    await ctx.plugin(AgentRegistry)
     await mountWorkingDirectoryFixture(ctx)
     await ctx.plugin(SubagentRuntime)
     registerListSubagentModels(ctx, { routes: [{ provider: 'alpha', model: 'fast' }] })
@@ -194,6 +198,79 @@ describe('list_subagent_models', () => {
     expect(text(result)).toBe('(no advertised models for alpha)')
   })
 
+  it('lists authorized catalog entries without resolving removed or unlisted models', async () => {
+    const ctx = await setupListTool([
+      { provider: 'alpha', model: 'removed' },
+      { provider: 'alpha', model: 'plain' },
+    ])
+    try {
+      const adapter = new CatalogAdapter()
+      const resolveModel = vi.spyOn(adapter, 'resolveModel').mockRejectedValue(new Error('lookup unavailable'))
+      ctx.llm.registerAdapter(['alpha'], adapter)
+
+      const result = await call(ctx, { provider: 'alpha' })
+      expect(result.isError).toBe(false)
+      expect(text(result)).toBe('alpha/plain — Plain')
+      expect(resolveModel).not.toHaveBeenCalled()
+
+      const exact = await call(ctx, { provider: 'alpha', model: 'removed' })
+      expect(exact.isError).toBe(true)
+      expect(text(exact)).toContain('lookup unavailable')
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('rejects a failed catalog lookup', async () => {
+    const ctx = await setupListTool()
+    try {
+      const adapter = new CatalogAdapter()
+      vi.spyOn(adapter, 'listModels').mockRejectedValue(new Error('catalog unavailable'))
+      ctx.llm.registerAdapter(['alpha'], adapter)
+      const result = await call(ctx, { provider: 'alpha' })
+      expect(result.isError).toBe(true)
+      expect(text(result)).toContain('catalog unavailable')
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('rejects cancellation after a catalog lookup', async () => {
+    const ctx = await setupListTool()
+    try {
+      const controller = new AbortController()
+      const adapter = new CatalogAdapter()
+      vi.spyOn(adapter, 'listModels').mockImplementation(async () => {
+        controller.abort(new Error('discovery cancelled'))
+        return []
+      })
+      ctx.llm.registerAdapter(['alpha'], adapter)
+      const result = await call(ctx, { provider: 'alpha' }, controller.signal)
+      expect(result.isError).toBe(true)
+      expect(text(result)).toContain('discovery cancelled')
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it.each([false, true])('resolves only the current parent model without a Session policy (empty catalog: %s)', async (empty) => {
+    const ctx = await setup({
+      provider: 'mock',
+      withModelSelection: true,
+      hostSelectionEnabled: false,
+      parentAgentOptions: { provider: 'alpha', model: 'unlisted' },
+    })
+    const adapter = new CatalogAdapter(empty)
+    const listModels = vi.spyOn(adapter, 'listModels')
+    ctx.llm.registerAdapter(['alpha'], adapter)
+    const result = await executeToolFixture(ctx, {
+      signal: testToolSignal, callId: ToolCallId('parent-only-discovery'),
+      name: 'list_subagent_models', arguments: { provider: 'alpha' }, agent: modelSelectionSetupAgent(ctx),
+    })
+    expect(result.isError).toBe(false)
+    expect(text(result)).toBe('alpha/unlisted — Fast: Focused work.')
+    expect(listModels).not.toHaveBeenCalled()
+  })
   it('inspects exact-model efforts, descriptions, and defaults', async () => {
     const ctx = await setupListTool()
     ctx.llm.registerAdapter(['alpha', 'secret'], new CatalogAdapter())

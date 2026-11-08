@@ -39,3 +39,33 @@
         assetRoot: !!js "process.env.DSH_BUNDLED_OFFICE_SKILLS ?? process.getBuiltinModule('node:path').resolve(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME ?? '', '..', 'office-skills')"
         cli: !!js "process.env.DSH_BUNDLED_OFFICE_CLI === '' ? false : process.env.DSH_BUNDLED_OFFICE_CLI"
         node: !!js "process.env.DSH_BUNDLED_OFFICE_NODE ?? process.getBuiltinModule('node:path').resolve(process.env.DSH_PRIMARY_RUNTIME ?? process.env.DSH_BUNDLED_PRIMARY_RUNTIME ?? '', 'dependencies', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node')"
+
+# Share native desktop tools and model context without starting a Web server.
+- insert:
+    - id: connection
+      name: '@xpeach/xph-client-connection'
+
+    - id: file-upload
+      name: '@xpeach/xph-client-file-upload'
+
+    - id: workspace
+      name: '@xpeach/xph-workspace'
+
+    - id: schedule
+      name: '@xpeach/xph-schedule'
+      inject: [sdkSessionActivation]
+
+    - id: time-context
+      name: '@xpeach/xph-time-context'
+
+    - id: tool-schedule
+      name: '@xpeach/xph-tool-schedule'
+
+    - id: tool-ask-user
+      name: '@xpeach/xph-tool-ask-user'
+
+    - id: present
+      name: '@xpeach/xph-tool-present'
+
+    - id: file-reference-local
+      name: '@xpeach/xph-file-reference-local'

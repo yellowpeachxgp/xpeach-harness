@@ -9,7 +9,7 @@ import { ToolCallId, type StreamChunk } from '@xpeach/xph-llm'
 import { SESSION_FORMAT_VERSION, SessionId } from '@xpeach/xph-session'
 import type { SessionHeader } from '@xpeach/xph-session'
 import { SessionPersistenceRevision, type SessionPersistenceSnapshot } from '@xpeach/xph-session-persistence'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { makeBridgeHarness, textResponse, type BridgeHarness } from './harness.ts'
 import { startHttpMcpFixture } from '../../../mcp/mcp-client/tests/http-fixture.ts'
 

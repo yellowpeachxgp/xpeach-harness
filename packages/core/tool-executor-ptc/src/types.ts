@@ -1,7 +1,7 @@
 /**
- * Durable Tool event vocabulary shared with type-only consumers.
+ * Client-safe PTC dispatch events and message-source declarations.
  *
- * @module @xpeach/xph-tools/types
+ * @module @xpeach/xph-tool-executor-ptc/types
  */
 
 import type { ToolCallId } from '@xpeach/xph-llm/brand'
@@ -59,5 +59,12 @@ declare module '@xpeach/xph-session/types' {
      * construction.
      */
     'tool/ptc-dispatch': PtcDispatchEventData
+  }
+}
+
+declare module '@xpeach/xph-llm' {
+  interface MessageSourceMap {
+    /** Images deferred from a successful PTC subcall's final result. */
+    'ptc-mode': { kind: 'ptc-mode' }
   }
 }

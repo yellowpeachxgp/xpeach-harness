@@ -30,6 +30,7 @@
   "devDependencies": {
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",
     "@xpeach/xph-cordis-plugin-include": "workspace:~",
-    "@xpeach/xph-skill": "workspace:*"
+    "@xpeach/xph-skill": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   }
 }

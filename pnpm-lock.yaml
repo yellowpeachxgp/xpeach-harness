@@ -119,6 +119,12 @@ importers:
       '@xpeach/xph-skill-office':
         specifier: workspace:*
         version: link:packages/skill/skill-office
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:packages/core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:packages/core/tool-executor-ptc
       '@xpeach/xph-tool-ralph':
         specifier: workspace:*
         version: link:packages/experimental/tool-ralph
@@ -639,6 +645,9 @@ importers:
       '@xpeach/xph-tool-ralph':
         specifier: workspace:*
         version: link:../../packages/experimental/tool-ralph
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../packages/test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../packages/core/tools
@@ -827,6 +836,9 @@ importers:
       '@xpeach/xph-skill':
         specifier: workspace:*
         version: link:../../packages/skill/skill
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../packages/core/tool-executor-native
 
   apps/plugin-market-generator:
     dependencies:
@@ -954,6 +966,9 @@ importers:
       '@xpeach/xph-subprocess-local':
         specifier: workspace:*
         version: link:../../packages/subprocess/subprocess-local
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../packages/test-support/tool-testkit
       '@xpeach/xph-util-values':
         specifier: workspace:*
         version: link:../../packages/util/values
@@ -1098,6 +1113,9 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../packages/llm/token-meter
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../packages/test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../packages/core/tools
@@ -1206,6 +1224,9 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../../llm/token-meter
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -2045,6 +2066,9 @@ importers:
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
       '@xpeach/xph-util-values':
         specifier: workspace:*
         version: link:../../util/values
@@ -2064,6 +2088,9 @@ importers:
       '@xpeach/xph-brand':
         specifier: workspace:*
         version: link:../../util/brand
+      '@xpeach/xph-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
@@ -2100,6 +2127,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -2118,6 +2151,12 @@ importers:
       '@xpeach/xph-app-boot':
         specifier: workspace:*
         version: link:../app-boot
+      '@xpeach/xph-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@xpeach/xph-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
       '@xpeach/xph-package-manifest':
         specifier: workspace:*
         version: link:../../util/package-manifest
@@ -2146,6 +2185,9 @@ importers:
       '@types/semver':
         specifier: ^7.8.0
         version: 7.8.0
+      '@xpeach/xph-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
       '@xpeach/xph-config-editor':
         specifier: workspace:*
         version: link:../config-editor
@@ -2167,9 +2209,18 @@ importers:
       '@xpeach/xph-settings':
         specifier: workspace:*
         version: link:../../settings/settings
+      '@xpeach/xph-subprocess':
+        specifier: workspace:*
+        version: link:../../subprocess/subprocess
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -2420,6 +2471,12 @@ importers:
       '@xpeach/xph-tool-call-timeout-policy':
         specifier: workspace:*
         version: link:../../guard/timeout-policy
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
@@ -2636,6 +2693,9 @@ importers:
       '@xpeach/xph-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@xpeach/xph-session-checkpoint-policy':
+        specifier: workspace:*
+        version: link:../../session/session-checkpoint-policy
       '@xpeach/xph-session-log-deepseek':
         specifier: workspace:*
         version: link:../../session/session-log-deepseek
@@ -2666,6 +2726,9 @@ importers:
       '@xpeach/xph-tool-bash-persistent':
         specifier: workspace:*
         version: link:../../shell/tool-bash-persistent
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
@@ -3036,6 +3099,9 @@ importers:
       '@xpeach/xph-tool-cordis':
         specifier: workspace:*
         version: link:../../extensions/tool-cordis
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
@@ -3611,6 +3677,9 @@ importers:
       '@xpeach/xph-brand':
         specifier: workspace:*
         version: link:../../util/brand
+      '@xpeach/xph-client-connection':
+        specifier: workspace:*
+        version: link:../connection
       '@xpeach/xph-client-locale':
         specifier: workspace:*
         version: link:../locale
@@ -3692,6 +3761,9 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../../llm/token-meter
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -4615,6 +4687,9 @@ importers:
       '@xpeach/xph-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -6251,6 +6326,12 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../../llm/token-meter
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-jobs':
         specifier: workspace:*
         version: link:../../jobs/tool-jobs
@@ -6260,6 +6341,9 @@ importers:
       '@xpeach/xph-tool-terminal':
         specifier: workspace:*
         version: link:../../experimental/tool-terminal
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -6335,6 +6419,9 @@ importers:
       '@xpeach/xph-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -6407,6 +6494,9 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -6708,6 +6798,9 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../../llm/token-meter
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -6852,9 +6945,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -6895,6 +6994,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -7002,9 +7107,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -7069,9 +7180,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
+      '@xpeach/xph-util-time':
+        specifier: workspace:*
+        version: link:../../util/time
 
   packages/context/tmux-context:
     dependencies:
@@ -7210,6 +7327,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../tools
@@ -7219,6 +7345,12 @@ importers:
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../tool-executor-ptc
     devDependencies:
       '@xpeach/xph-agent':
         specifier: workspace:*
@@ -7289,6 +7421,73 @@ importers:
         specifier: workspace:*
         version: link:../scope
 
+  packages/core/tool-executor-native:
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../tools
+
+  packages/core/tool-executor-ptc:
+    dependencies:
+      '@xpeach/xph-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      '@xpeach/xph-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
+    devDependencies:
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@xpeach/xph-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../ptc-runtime/ptc-runtime
+      '@xpeach/xph-sandbox':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox
+      '@xpeach/xph-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@xpeach/xph-scope':
+        specifier: workspace:*
+        version: link:../scope
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../session
+      '@xpeach/xph-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../tools
+      '@xpeach/xph-user-approval':
+        specifier: workspace:*
+        version: link:../../interaction/user-approval
+      '@xpeach/xph-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
+
   packages/core/tools:
     dependencies:
       '@xpeach/xph-brand':
@@ -7334,6 +7533,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-user-approval':
         specifier: workspace:*
         version: link:../../interaction/user-approval
@@ -7473,6 +7678,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -7749,12 +7960,21 @@ importers:
       '@xpeach/xph-tool-bash':
         specifier: workspace:*
         version: link:../../shell/tool-bash
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
       '@xpeach/xph-tool-subagent':
         specifier: workspace:*
         version: link:../../subagent/tool-subagent
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -7927,6 +8147,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8000,6 +8229,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8088,6 +8323,12 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../../llm/token-meter
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8390,6 +8631,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8448,6 +8695,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8670,6 +8923,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8743,6 +9005,9 @@ importers:
       '@xpeach/xph-subprocess-local':
         specifier: workspace:*
         version: link:../../subprocess/subprocess-local
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -8792,6 +9057,9 @@ importers:
       '@xpeach/xph-subprocess-local':
         specifier: workspace:*
         version: link:../../subprocess/subprocess-local
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9218,6 +9486,9 @@ importers:
       '@xpeach/xph-tool-subagent-control':
         specifier: workspace:*
         version: link:../../subagent/tool-subagent-control
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9264,6 +9535,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9325,6 +9602,43 @@ importers:
       '@xpeach/xph-tool-call-timeout-policy':
         specifier: workspace:*
         version: link:../../guard/timeout-policy
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+
+  packages/experimental/tool-subagent-oar:
+    dependencies:
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@xpeach/xph-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-subagent':
+        specifier: workspace:*
+        version: link:../../subagent/subagent
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9386,9 +9700,18 @@ importers:
       '@xpeach/xph-terminal-bash':
         specifier: workspace:*
         version: link:../../terminal/terminal-bash
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-jobs':
         specifier: workspace:*
         version: link:../../jobs/tool-jobs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9447,6 +9770,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9860,6 +10189,12 @@ importers:
       '@xpeach/xph-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -9893,6 +10228,9 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10155,6 +10493,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10210,6 +10557,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10265,6 +10618,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10429,6 +10788,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10460,6 +10825,9 @@ importers:
       '@xpeach/xph-session-projection':
         specifier: workspace:*
         version: link:../../session/session-projection
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10475,6 +10843,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10792,6 +11166,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10857,6 +11237,9 @@ importers:
       '@xpeach/xph-session-projection':
         specifier: workspace:*
         version: link:../../session/session-projection
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -10949,6 +11332,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11089,6 +11478,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11176,6 +11571,9 @@ importers:
         specifier: workspace:*
         version: link:../../util/values
     devDependencies:
+      '@xpeach/xph-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
       '@xpeach/xph-attachment':
         specifier: workspace:*
         version: link:../../attachment/attachment
@@ -11209,12 +11607,21 @@ importers:
       '@xpeach/xph-llm-deepseek-api-key':
         specifier: workspace:*
         version: link:../llm-deepseek-api-key
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
       '@xpeach/xph-settings':
         specifier: workspace:*
         version: link:../../settings/settings
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
 
   packages/llm/llm-retry:
     dependencies:
@@ -11273,6 +11680,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11451,6 +11864,12 @@ importers:
       '@xpeach/xph-tool-call-timeout-policy':
         specifier: workspace:*
         version: link:../../guard/timeout-policy
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11512,6 +11931,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11543,6 +11968,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11586,6 +12020,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11669,12 +12112,18 @@ importers:
       '@xpeach/xph-cordis-plugin-loader':
         specifier: workspace:~
         version: link:../../../vendor/loader
+      '@xpeach/xph-fs-local':
+        specifier: workspace:*
+        version: link:../../fs/fs-local
       '@xpeach/xph-hmr':
         specifier: workspace:*
         version: link:../../boot/hmr
       '@xpeach/xph-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@xpeach/xph-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../ptc-runtime/ptc-runtime
       '@xpeach/xph-sandbox':
         specifier: workspace:*
         version: link:../../sandbox/sandbox
@@ -11696,6 +12145,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -11705,6 +12163,9 @@ importers:
       '@xpeach/xph-user-approval':
         specifier: workspace:*
         version: link:../../interaction/user-approval
+      '@xpeach/xph-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
 
   packages/preset/persona:
     dependencies:
@@ -11952,12 +12413,18 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
       '@xpeach/xph-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
+      '@xpeach/xph-util-time':
+        specifier: workspace:*
+        version: link:../../util/time
       '@xpeach/xph-workspace':
         specifier: workspace:*
         version: link:../../workspace/workspace
@@ -11985,6 +12452,9 @@ importers:
       '@xpeach/xph-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -12251,6 +12721,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -12818,6 +13294,9 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tool-working-directory':
         specifier: workspace:*
         version: link:../tool-working-directory
@@ -13072,9 +13551,18 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-jobs':
         specifier: workspace:*
         version: link:../../jobs/tool-jobs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13139,6 +13627,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13206,9 +13700,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tool-jobs':
         specifier: workspace:*
         version: link:../../jobs/tool-jobs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13276,6 +13776,12 @@ importers:
       '@xpeach/xph-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13351,6 +13857,12 @@ importers:
       '@xpeach/xph-skill':
         specifier: workspace:*
         version: link:../skill
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
 
   packages/skill/tool-skill:
     dependencies:
@@ -13382,6 +13894,12 @@ importers:
       '@xpeach/xph-skill-filesystem':
         specifier: workspace:*
         version: link:../skill-filesystem
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13413,6 +13931,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13529,9 +14053,18 @@ importers:
       '@xpeach/xph-token-meter':
         specifier: workspace:*
         version: link:../../llm/token-meter
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -13907,6 +14440,9 @@ importers:
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -14337,6 +14873,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -14389,6 +14931,9 @@ importers:
       '@xpeach/xph-subagent-spawn-in-process':
         specifier: workspace:*
         version: link:../subagent-spawn-in-process
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -14548,6 +15093,13 @@ importers:
         version: link:../../session/working-directory
 
   packages/test-support/agent-loop-testkit:
+    dependencies:
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
     devDependencies:
       '@xpeach/xph-agent':
         specifier: workspace:*
@@ -14564,6 +15116,9 @@ importers:
       '@xpeach/xph-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@xpeach/xph-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../ptc-runtime/ptc-runtime
       '@xpeach/xph-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -14839,12 +15394,30 @@ importers:
       '@xpeach/xph-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
       '@xpeach/xph-user-questions':
         specifier: workspace:*
         version: link:../../interaction/user-questions
+
+  packages/test-support/tool-testkit:
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
 
   packages/todo/tool-todo:
     dependencies:
@@ -14885,6 +15458,12 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -15102,6 +15681,9 @@ importers:
       '@joplin/turndown-plugin-gfm':
         specifier: ^1.0.67
         version: 1.0.67
+      '@xpeach/xph-output-retention':
+        specifier: workspace:*
+        version: link:../../util/output-retention
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
@@ -15145,6 +15727,12 @@ importers:
       '@xpeach/xph-tool-call-timeout-policy':
         specifier: workspace:*
         version: link:../../guard/timeout-policy
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -15338,9 +15926,15 @@ importers:
       '@xpeach/xph-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@xpeach/xph-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
       '@xpeach/xph-tool-jobs':
         specifier: workspace:*
         version: link:../../jobs/tool-jobs
+      '@xpeach/xph-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
       '@xpeach/xph-tools':
         specifier: workspace:*
         version: link:../../core/tools
@@ -15926,6 +16520,9 @@ importers:
       '@xpeach/xph-tool-cordis':
         specifier: workspace:*
         version: link:../../packages/extensions/tool-cordis
+      '@xpeach/xph-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../packages/core/tool-executor-ptc
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../packages/fs/tool-fs

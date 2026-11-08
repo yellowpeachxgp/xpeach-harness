@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/compaction/compaction-basic"
   },
   "type": "module",
@@ -63,6 +63,7 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-compaction-image-offload": "workspace:*"
+    "@xpeach/xph-compaction-image-offload": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

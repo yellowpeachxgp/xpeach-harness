@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/experimental/tool-ralph"
   },
   "type": "module",
@@ -55,6 +55,8 @@
     "@xpeach/xph-workflow": "workspace:*",
     "@xpeach/xph-workflow-ptc": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

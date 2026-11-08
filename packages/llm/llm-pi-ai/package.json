@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/llm/llm-pi-ai"
   },
   "type": "module",
@@ -58,7 +58,11 @@
     "@xpeach/xph-timeout": "workspace:*",
     "@xpeach/xph-http-proxy": "workspace:*",
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",
-    "@xpeach/xph-settings": "workspace:*"
+    "@xpeach/xph-settings": "workspace:*",
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@xpeach/xph-cordis-plugin-loader": {
