@@ -52,6 +52,8 @@
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

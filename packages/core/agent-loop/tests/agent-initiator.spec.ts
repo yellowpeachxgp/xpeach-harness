@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context, type Fiber } from '@xpeach/xph-cordis'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
@@ -7,7 +9,8 @@ import LlmRuntime, { createUserMessage, ToolCallId, LlmAdapter  } from '@xpeach/
 import type { GenerateOptions, StreamChunk } from '@xpeach/xph-llm'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter.ts'
 
 const testToolSignal = new AbortController().signal
@@ -25,6 +28,7 @@ async function harness(adapter: LlmAdapter): Promise<Harness> {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   const agentsFiber = await ctx.plugin(AgentRegistry)
   const loopFiber = await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -126,6 +130,7 @@ describe('AgentLoop initiator scope', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)
@@ -312,7 +317,7 @@ describe('AgentLoop initiator scope', () => {
       },
     }))
 
-    const direct = await ctx.tools.execute({
+    const direct = await executeToolFixture(ctx, {
       signal: testToolSignal,
       callId: ToolCallId('direct'),
       name: 'agentless-probe',
@@ -387,6 +392,7 @@ describe('AgentLoop initiator scope', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)

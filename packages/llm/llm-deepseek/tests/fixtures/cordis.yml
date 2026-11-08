@@ -3,6 +3,7 @@
 - name: '@xpeach/xph-session-projection'
 - name: '@xpeach/xph-system-prompt'
 - name: '@xpeach/xph-tools'
+- name: '@xpeach/xph-tool-executor-native'
 - name: '@xpeach/xph-agent'
 - name: '@xpeach/xph-agent-loop'
   config:

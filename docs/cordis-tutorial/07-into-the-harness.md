@@ -37,12 +37,13 @@ export function apply(ctx: Context) {
   // the model. ToolCallId brands the correlation id a provider would issue.
   void (async () => {
     const result = await ctx.tools.execute({
-      callId: brandString<ToolCallId>('demo-1'),
-      name: 'greet',
-      arguments: { name: 'Cordis' },
+      calls: [{
+        type: 'tool-call', id: brandString<ToolCallId>('demo-1'),
+        name: 'greet', arguments: JSON.stringify({ name: 'Cordis' }),
+      }],
       signal: new AbortController().signal,
     })
-    console.log('tool replied:', JSON.stringify(result.content))
+    console.log('tool replied:', JSON.stringify(result.results[0]?.result.content))
   })()
 }
 ```
@@ -105,4 +106,4 @@ Where to go next:
 - The generated `cordis-surface` regions on the [subsystem pages](../subsystems/core.md) — everything you can inject and listen to, each on its owning page.
 - [Architecture](../architecture.md) — the system map these plugins live in.
 
-[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/yellowpeachxgp/xpeach-harness)

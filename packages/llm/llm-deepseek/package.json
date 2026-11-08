@@ -74,7 +74,9 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-credentials-local": "workspace:*",
     "@xpeach/xph-settings": "workspace:*",
-    "@xpeach/xph-deepseek-account": "workspace:*"
+    "@xpeach/xph-deepseek-account": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@xpeach/xph-cordis-plugin-loader": {

@@ -123,10 +123,8 @@
             config:
               fetch: true
               searchTimeoutMs: 60000
-          - id: tool-presentation
-            name: '@xpeach/xph-agent-tool-presentation'
-            config:
-              mode: ptc
+          - id: tool-executor-ptc
+            name: '@xpeach/xph-tool-executor-ptc'
           - id: present
             name: '@xpeach/xph-tool-present'
           - id: tool-plugin-manager

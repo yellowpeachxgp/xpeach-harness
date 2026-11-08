@@ -38,7 +38,10 @@
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-fs-local": "workspace:*"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
+  },
   "devDependencies": {
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-agent-loop": "workspace:*",
@@ -49,6 +52,7 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-fs-local": "workspace:*"
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-ptc-runtime": "workspace:*"
   }
 }

@@ -1,10 +1,12 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { createUserMessage } from '@xpeach/xph-llm'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime from '@xpeach/xph-llm'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
 
 import AgentLoop from '@xpeach/xph-agent-loop'
@@ -45,6 +47,7 @@ async function loopHarness(): Promise<Context> {
   await created.plugin(SessionProjectionRegistry)
   await created.plugin(SystemPrompt, { personaPrefix: SYSTEM })
   await created.plugin(ToolRuntime)
+  await created.plugin(NativeToolExecutor)
   await created.plugin(AgentRegistry)
   await created.plugin(AgentLoop, { agents: [] })
   await created.plugin(LlmDeepSeek)

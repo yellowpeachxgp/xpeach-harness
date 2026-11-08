@@ -66,14 +66,13 @@ describe('Python SDK dsh profile keyless smoke', () => {
     { label: 'reports max-token turns with mapping enabled through env', envValue: 'true', editorEnabled: false },
     { label: 'reports max-token turns with mapping disabled through env', envValue: 'false', editorEnabled: false },
     { label: 'allows an explicit patch to enable str_replace_editor', envValue: undefined, editorEnabled: true },
-    { label: 'allows an explicit patch to enable apply_patch', envValue: undefined, editorEnabled: false, patchEnabled: true },
+    { label: 'uses the PTC executor overlay despite the retired environment selector', envValue: undefined, editorEnabled: false, ptc: true },
   ])('$label', async (scenario) => {
     const { envValue, editorEnabled } = scenario
-    const patchEnabled = 'patchEnabled' in scenario && scenario.patchEnabled
+    const ptc = 'ptc' in scenario && scenario.ptc
+
     const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-smoke-'))
     const editorPatch = join(root, 'editor.patch.yml')
-    const fsPatch = join(root, 'fs.patch.yml')
-    if (patchEnabled) await writeFile(fsPatch, '- {id: tool-fs, config: {applyPatch: true}}\n')
     if (editorEnabled) await writeFile(editorPatch, [
       '- insert:',
       '    - id: tool-str-replace-editor',
@@ -101,7 +100,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       '--profile',
       'sdk',
       ...(editorEnabled ? ['--patch', editorPatch] : []),
-      ...(patchEnabled ? ['--patch', fsPatch] : []),
+      ...(ptc ? ['--patch', join(repoRoot, 'apps/cli/config/examples/ptc.yml')] : []),
     ], {
       cwd: repoRoot,
       env: {
@@ -109,6 +108,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
         DSH_HOME: join(root, '.dsh'),
         DSH_PERMISSION_MODE: 'danger-full-access',
         DSH_TELEMETRY_DISABLED: '1',
+        DSH_TOOLS_MODE: ptc ? 'native' : 'ptc',
         DEEPSEEK_API_KEY: 'keyless-smoke-no-call',
         DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
         ...(envValue === undefined ? {} : { DSH_MAX_TOKENS_AS_SUCCESS: envValue }),
@@ -183,7 +183,6 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(modelRequests[0]?.output_config).toEqual({ effort: 'max' })
       expect(modelRequests[0]?.max_tokens).toBe(1234)
       expect(toolNames).toEqual(expect.arrayContaining(['read', 'write', 'edit', 'web_fetch', 'web_search']))
-      expect(toolNames.includes('apply_patch')).toBe(patchEnabled)
       expect(toolNames.includes('str_replace_editor')).toBe(editorEnabled)
       expect(toolNames).not.toContain('list_subagent_models')
 

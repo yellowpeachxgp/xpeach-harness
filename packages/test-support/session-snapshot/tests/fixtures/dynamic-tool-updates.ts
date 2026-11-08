@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type { Context } from '@xpeach/xph-cordis'
 import { projectToolUpdates } from '@xpeach/xph-llm'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 
 export const name = 'snapshot-dynamic-tool-updates'
 export const inject = ['tools']

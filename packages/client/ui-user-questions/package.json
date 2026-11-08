@@ -71,7 +71,8 @@
     "clsx": "^2.0.0",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-client-ui-chat": "workspace:*",
-    "@xpeach/xph-client-ui-tool": "workspace:*"
+    "@xpeach/xph-client-ui-tool": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   },
   "files": [
     "locale/*.json",

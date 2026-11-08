@@ -1,4 +1,5 @@
 /** The loop logs tool changes as developer messages and carries session tool history to the runtime. */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
@@ -8,7 +9,8 @@ import type { GenerateOptions } from '@xpeach/xph-llm'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
 const contexts: Context[] = []
@@ -24,6 +26,7 @@ async function harness(adapter: MockAdapter) {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { personaPrefix: '', personaSuffix: '' })
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)

@@ -71,6 +71,8 @@
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-typert-protocol": "workspace:*"
+    "@xpeach/xph-typert-protocol": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

@@ -52,6 +52,7 @@
     "@xpeach/xph-cordis-host-runner": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-schemastery": "workspace:~"
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   }
 }

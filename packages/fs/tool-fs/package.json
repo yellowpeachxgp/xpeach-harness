@@ -70,6 +70,9 @@
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-ptc-runtime": "workspace:*",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

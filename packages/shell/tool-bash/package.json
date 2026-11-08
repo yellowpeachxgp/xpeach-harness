@@ -67,6 +67,9 @@
     "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-session-projection": "workspace:*",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

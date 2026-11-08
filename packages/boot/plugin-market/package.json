@@ -59,10 +59,7 @@
     "semver": "^7.8.5",
     "zod": "^4.4.3",
     "@xpeach/xph-atomic-write": "workspace:*",
-    "@xpeach/xph-brand": "workspace:*",
-    "@xpeach/xph-plugin-detail": "workspace:*",
-    "execa": "^10.0.1",
-    "hosted-git-info": "^9.0.3"
+    "@xpeach/xph-brand": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~",
@@ -93,6 +90,7 @@
     "@types/semver": "^7.8.0",
     "@xpeach/xph-client-connection": "workspace:*",
     "@xpeach/xph-subprocess": "workspace:*",
-    "@types/hosted-git-info": "^3.0.5"
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

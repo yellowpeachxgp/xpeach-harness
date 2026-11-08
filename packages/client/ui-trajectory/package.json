@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-client-ui-trajectory",
-  "description": "Trajectory event ledger and timing overview with live tool-result inspection",
+  "description": "Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service)",
   "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
@@ -24,23 +24,11 @@
     },
     "./src/*": "./src/*",
     "./package.json": "./package.json",
-    "./locale/*.json": "./locale/*.json",
-    "./typert": {
-      "types": "./lib/typert.host.d.ts",
-      "default": "./lib/typert.host.js"
-    },
-    "./remote": {
-      "types": "./lib/typert.remote-client.d.ts",
-      "default": "./lib/typert.remote-client.js"
-    },
-    "./types": {
-      "types": "./lib/types/types.d.ts"
-    }
+    "./locale/*.json": "./locale/*.json"
   },
   "dsh": {
     "client": {
       "inject": [
-        "@xpeach/xph-api-remotes",
         "@xpeach/xph-api-session-controller",
         "@xpeach/xph-client-locale",
         "@xpeach/xph-client-ui-conversation",
@@ -60,7 +48,6 @@
   },
   "devDependencies": {
     "@xpeach/xph-agent": "workspace:*",
-    "@xpeach/xph-agent-loop-testkit": "workspace:*",
     "@xpeach/xph-client-locale": "workspace:*",
     "@xpeach/xph-client-test-runtime": "workspace:*",
     "@xpeach/xph-client-ui-primitives": "workspace:*",
@@ -69,7 +56,6 @@
     "@xpeach/xph-client-ui-slots": "workspace:*",
     "@xpeach/xph-compaction": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-typert-registry": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -83,22 +69,12 @@
     "@xpeach/xph-attachment": "workspace:*",
     "@tanstack/react-virtual": "3.14.10",
     "diff": "^9.0.0",
-    "@xpeach/xph-api-gateway": "workspace:*",
-    "@xpeach/xph-api-remotes": "workspace:*"
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",
     "lib/index.js",
     "lib/client.js",
-    "lib/types/**/*.d.ts",
-    "lib/typert.host.js",
-    "lib/typert.host.d.ts",
-    "lib/typert.remote-client.js",
-    "lib/typert.remote-client.d.ts"
-  ],
-  "dependencies": {
-    "@xpeach/xph-typert-protocol": "workspace:*",
-    "zod": "4.4.3",
-    "@xpeach/xph-schemastery": "workspace:~"
-  }
+    "lib/types/**/*.d.ts"
+  ]
 }

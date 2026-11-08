@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import AgentRegistry, { installModelSelection, type Agent, type ModelSelectionRef } from '@xpeach/xph-agent'
@@ -7,7 +8,8 @@ import { toPiContext } from '@xpeach/xph-llm-pi-ai/src/context.ts'
 import SessionStore, { Session, SessionId } from '@xpeach/xph-session'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
 declare module '@xpeach/xph-llm' {
@@ -29,6 +31,7 @@ async function harness(capable = new MockAdapter(Array.from({ length: 8 }, () =>
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { personaPrefix: '', personaSuffix: '' })
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   capable.systemPromptUpdate = 'in-history'

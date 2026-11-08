@@ -37,12 +37,13 @@ export function apply(ctx: Context) {
   // the model. ToolCallId brands the correlation id a provider would issue.
   void (async () => {
     const result = await ctx.tools.execute({
-      callId: brandString<ToolCallId>('demo-1'),
-      name: 'greet',
-      arguments: { name: 'Cordis' },
+      calls: [{
+        type: 'tool-call', id: brandString<ToolCallId>('demo-1'),
+        name: 'greet', arguments: JSON.stringify({ name: 'Cordis' }),
+      }],
       signal: new AbortController().signal,
     })
-    console.log('tool replied:', JSON.stringify(result.content))
+    console.log('tool replied:', JSON.stringify(result.results[0]?.result.content))
   })()
 }
 ```
@@ -105,4 +106,4 @@ logger 会先触发：`tools/result` 在结果物化过程中发出，发生在 
 - [子系统页面](../subsystems/core.zh.md)上生成的 `cordis-surface` 区块：可以注入和监听的所有内容，各在其所属页面上。
 - [架构](../architecture.zh.md)：这些插件所处的系统地图。
 
-[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/yellowpeachxgp/xpeach-harness)

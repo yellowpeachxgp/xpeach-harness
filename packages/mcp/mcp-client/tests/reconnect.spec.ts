@@ -4,6 +4,8 @@
  * cap, the stability-window budget reset, and disposal stopping reconnection.
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import SystemPrompt from '@xpeach/xph-system-prompt'
@@ -66,6 +68,7 @@ async function mountRegistry(): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   return ctx
 }
 
@@ -164,7 +167,7 @@ describe('reconnect supervisor', () => {
       mockConnect.mockImplementationOnce(() => reconnectGate.promise)
       instances[0]!.onclose?.()
       await vi.waitFor(() => { expect(instances).toHaveLength(2) })
-      const result = await ctx.tools.execute({
+      const result = await executeToolFixture(ctx, {
         name: 'list_mcp_resources', arguments: { server: 'srv' },
         callId: nextCallId(), signal: testToolSignal,
       })
@@ -194,7 +197,7 @@ describe('reconnect supervisor', () => {
     expect(mockConnect).toHaveBeenCalledTimes(2)
 
     // Post-recovery calls execute through the re-registered definition.
-    const result = await ctx.tools.execute({
+    const result = await executeToolFixture(ctx, {
       signal: testToolSignal,
       callId: nextCallId(), name: 'mcp__srv__revived', arguments: {},
     })

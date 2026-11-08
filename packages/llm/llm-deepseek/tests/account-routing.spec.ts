@@ -1,4 +1,5 @@
 /** Account route cancellation uses the real loop, registry, and tool lifecycle. */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { afterEach, expect, it, vi } from 'vitest'
 import { installAccountTaskCancellation, type DeepSeekAccount } from '@xpeach/xph-deepseek-account'
 import { Context } from '@xpeach/xph-cordis'
@@ -8,7 +9,8 @@ import AgentLoop from '@xpeach/xph-agent-loop'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import * as DeepSeek from '@xpeach/xph-llm-deepseek-api-key'
 import * as AccountProvider from '@xpeach/xph-llm-deepseek-account'
 import { assemble } from './assemble.ts'
@@ -31,7 +33,9 @@ async function harness() {
   const ctx = new Context()
   contexts.push(ctx)
   installAccountTaskCancellation(ctx)
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) {
+  for (const plugin of [
+    LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry,
+  ]) {
     await ctx.plugin(plugin)
   }
   await ctx.plugin(AgentLoop, { agents: [] })

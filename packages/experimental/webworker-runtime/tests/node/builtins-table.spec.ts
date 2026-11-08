@@ -62,12 +62,14 @@ describe('the replacement table', () => {
 describe('module identity through the loader', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('resolves REPL imports for image loading and refuses unsupported evaluation', () => {
+  it('loads the Pi SDK replacement from an empty image and refuses agent operations', () => {
     const require = loaderRequire()
-    const repl = require('node:repl') as typeof import('node:repl')
-    expect(require('repl')).toBe(repl)
+    const sdk = require('@earendil-works/pi-coding-agent') as { createAgentSessionServices(): never }
+    expect(require('@earendil-works/pi-coding-agent')).toBe(sdk)
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => repl.start()).toThrow(expect.objectContaining({ code: 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM' }))
+    expect(() => sdk.createAgentSessionServices()).toThrow(expect.objectContaining({
+      code: 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM',
+    }))
   })
 
   it('exposes async and synchronous resolution through the Cordis internal seam', async () => {

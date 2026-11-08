@@ -53,6 +53,7 @@ describe('dsh-sdk-minimal bundle', () => {
       ['session-title', '@xpeach/xph-session-title'],
       ['system-prompt', '@xpeach/xph-system-prompt'],
       ['tools', '@xpeach/xph-tools'],
+      ['tool-executor-native', '@xpeach/xph-tool-executor-native'],
       ['mcp-resources', '@xpeach/xph-mcp-resources'],
       ['agent', '@xpeach/xph-agent'],
       ['llm-retry', '@xpeach/xph-llm-retry'],

@@ -38,6 +38,8 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-timeout": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-cordis": "workspace:~"
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

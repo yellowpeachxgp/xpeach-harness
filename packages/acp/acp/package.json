@@ -62,6 +62,7 @@
     "@xpeach/xph-subagent": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-user-approval": "workspace:*"
+    "@xpeach/xph-user-approval": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }
