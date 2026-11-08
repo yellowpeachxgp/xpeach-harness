@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Remoto de conta XPeach",
+    "description": "Serve dados da conta do site XPeach — perfil, tokens, uso e faturamento — aos clientes Harness pelo namespace xpeach Remote gerado."
+  }
+}
