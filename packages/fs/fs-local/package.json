@@ -1,13 +1,13 @@
 {
   "name": "@xpeach/xph-fs-local",
-  "description": "Local-filesystem implementation of the DeepSeek Harness filesystem seam (ctx.fs)",
-  "version": "0.0.32-alpha",
+  "description": "Local-filesystem implementation of the XPeach Harness filesystem seam (ctx.fs)",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/fs/fs-local"
   },
   "type": "module",
@@ -33,7 +33,8 @@
   "dependencies": {
     "chokidar": "5.0.0",
     "koffi": "3.1.1",
-    "@xpeach/xph-schemastery": "workspace:~"
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-fs-patch": "workspace:*"
   },
   "devDependencies": {
     "@xpeach/xph-fs": "workspace:*",

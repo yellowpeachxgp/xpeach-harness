@@ -8,7 +8,7 @@ import type { ContentBlock } from '@xpeach/xph-llm/types'
 import type { SessionEvent } from '@xpeach/xph-session/types'
 import type {
   SessionEventEntry,
-  SessionPage,
+  SessionEventsPage,
   SessionWireEvent,
 } from '../src/types.ts'
 
@@ -185,8 +185,9 @@ export function entries(events: readonly SessionEvent[]): SessionEventEntry[] {
 }
 
 /** Build one view-less history response value. */
-export function historyValue(events: readonly SessionEvent[], hasMore = false): SessionPage {
+export function historyValue(events: readonly SessionEvent[], hasMore = false): SessionEventsPage {
   return {
+    cursor: events.at(-1)?.seq ?? -1,
     records: entries(events),
     hasMore,
   }

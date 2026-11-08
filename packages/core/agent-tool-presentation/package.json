@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-tool-presentation",
   "description": "Deprecated tool presentation selector; use dsh-tool-executor-native or dsh-tool-executor-ptc directly",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },

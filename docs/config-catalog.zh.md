@@ -11,8 +11,97 @@
 
 每个包的条目用三个标识符标注：`inject` 列出插件注入的服务键，其 `cordis.yml` 树还必须加载这些服务的提供者；`refs` 列出声明引用、但未粘贴在此处的类型；`source` 链接到声明配置的源文件。范围限定为 harness 层级（`packages/`）；配置树还可能加载的 vendored cordis 插件（控制台日志记录器等）固定为上游源代码（参见 [vendoring policy](../vendor/README.md)），未收录于此目录。
 
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-account -->
+<a id="xpeachxph-account"></a>
+
+## `@xpeach/xph-account`
+
+- `inject`: `typert` · `credentials` · `settings`
+- `source`: [`packages/xpeach/account/src/index.ts:162`](../packages/xpeach/account/src/index.ts)
+
+```ts config-catalog
+/** Deployment knobs for the XPeach site route. */
+export interface Config {
+  /** New API site root used for management calls (default https://xpeach.codes). */
+  readonly baseURL?: string
+  /** Credential reference resolved per call (default XPEACH_API_KEY). */
+  readonly apiKeyEnv?: string
+  /**
+   * Which wire a model uses when the site advertises several
+   * (default `compatible`, i.e. chat completions). `native` prefers Anthropic
+   * messages and the Responses API, which keep cache breakpoints and reasoning
+   * state but only work where the relay routes those endpoints.
+   */
+  readonly protocolPreference?: ModelProtocolPreference
+  /**
+   * Model families (the site's `groups`) the catalogue keeps. Absent or empty
+   * keeps every family, so a fresh profile is not silently narrowed.
+   */
+  readonly enabledFamilies?: readonly string[]
+  /** Whether product providers inject `X-Session-ID` and `X-Conversation-ID` tracking headers (default true). */
+  readonly conversationTracking?: boolean
+  /** Whether startup and settings changes automatically sync the site model catalog into `llm-pi-ai` (default true). */
+  readonly autoSyncModels?: boolean
+  /** Remote JSON URL for dynamic model context-window and capability metadata sync. */
+  readonly modelMetadataUrl?: string
+  /**
+   * Site-management token store path (default $XPH_HOME/profiles/xpeach/xpeach.admin):
+   * the New API system access token authenticating admin endpoints as the site
+   * owner. Profile-local like keyFile — optional; admin surfaces stay honest
+   * "not bound" while absent.
+   */
+  readonly adminKeyFile?: string
+  /** Process-env variable for the admin token (default XPEACH_ADMIN_KEY). */
+  readonly adminKeyVar?: string
+  /**
+   * Session-cookie store path (default $XPH_HOME/profiles/xpeach/xpeach.session).
+   * New API's user-write endpoints need the site's own session cookie —
+   * Turnstile blocks programmatic login so the user pastes 'session=' here.
+   */
+  readonly sessionKeyFile?: string
+  /** Process-env variable for the session cookie (default XPEACH_SESSION). */
+  readonly sessionKeyVar?: string
+  /** Per-request timeout in milliseconds (default 15000). */
+  readonly timeoutMs?: number
+  /**
+   * Harness-configured model ids the section cross-checks against the site
+   * catalog — the "is my model actually available" answer.
+   */
+  readonly watchModels?: string[]
+  /**
+   * Independent key store path (default $XPH_HOME/profiles/xpeach/xpeach.key).
+   * Deliberately outside the shared credentials.yaml — deleting entries there
+   * never disturbs this harness.
+   */
+  readonly keyFile?: string
+  /**
+   * Process-env variable the key is exported under for the LLM providers'
+   * apiKeyEnv resolution (default XPEACH_RELAY_KEY). Not the shared
+   * credentials.yaml reference — our own channel.
+   */
+  readonly keyVar?: string
+  /** XPeach SSO root URL used for Device Authorization and credential bridging. */
+  readonly ssoBaseURL?: string
+  /** Client identifier registered with XPeach SSO Device Authorization. */
+  readonly ssoClientId?: string
+  /** Profile-local file storing bound SSO identity metadata (`xpeach.sso.json`). */
+  readonly ssoStateFile?: string
+  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`, default `'beta'`). */
+  readonly updateChannel?: XPeachReleaseChannel
+  /** Whether automatic update checks are enabled (default `true`). */
+  readonly autoCheckUpdate?: boolean
+}
+
+/** Wire protocol selection strategy for catalog models. */
+export type ModelProtocolPreference = 'compatible' | 'native' | 'auto'
+
+/** Release update channels supported by XPeach Harness. */
+export type XPeachReleaseChannel = 'least' | 'beta' | 'alpha'
+```
+<!-- END GENERATED config-catalog:@xpeach/xph-account -->
+
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-acp -->
-<a id="deepseek-aidsh-acp"></a>
+<a id="xpeachxph-acp"></a>
 
 ## `@xpeach/xph-acp`
 
@@ -36,7 +125,7 @@ export interface AcpConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-acp -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-default-model -->
-<a id="deepseek-aidsh-agent-default-model"></a>
+<a id="xpeachxph-agent-default-model"></a>
 
 ## `@xpeach/xph-agent-default-model`
 
@@ -57,7 +146,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-agent-default-model -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-instructions -->
-<a id="deepseek-aidsh-agent-instructions"></a>
+<a id="xpeachxph-agent-instructions"></a>
 
 ## `@xpeach/xph-agent-instructions`
 
@@ -88,7 +177,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-agent-instructions -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-loop -->
-<a id="deepseek-aidsh-agent-loop"></a>
+<a id="xpeachxph-agent-loop"></a>
 
 ## `@xpeach/xph-agent-loop`
 
@@ -120,7 +209,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-agent-loop -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-preset -->
-<a id="deepseek-aidsh-agent-preset"></a>
+<a id="xpeachxph-agent-preset"></a>
 
 ## `@xpeach/xph-agent-preset`
 
@@ -135,7 +224,7 @@ export type Config = PresetDefinition
 <!-- END GENERATED config-catalog:@xpeach/xph-agent-preset -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-preset-registry -->
-<a id="deepseek-aidsh-agent-preset-registry"></a>
+<a id="xpeachxph-agent-preset-registry"></a>
 
 ## `@xpeach/xph-agent-preset-registry`
 
@@ -155,18 +244,16 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-agent-preset-registry -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-agent-tool-presentation -->
-<a id="deepseek-aidsh-agent-tool-presentation"></a>
+<a id="xpeachxph-agent-tool-presentation"></a>
 
 ## `@xpeach/xph-agent-tool-presentation`
 
 - `inject`: `tools`
-- `source`: [`packages/core/agent-tool-presentation/src/index.ts:25`](../packages/core/agent-tool-presentation/src/index.ts)
+- `refs`: [`ToolPresentationMode`](subsystems/tools.zh.md)
+- `source`: [`packages/core/agent-tool-presentation/src/index.ts:38`](../packages/core/agent-tool-presentation/src/index.ts)
 
 ```ts config-catalog
-/**
- * Plugin config.
- * @deprecated Select the native or PTC executor plugin directly instead of configuring a mode.
- */
+/** Plugin config. */
 export interface Config {
   /**
    * The form this agent's model sees. `native` sends every visible schema,
@@ -175,13 +262,13 @@ export interface Config {
    * without this row already gets, so an omitted value would mean the row was
    * composed for nothing.
    */
-  mode: 'native' | 'ptc'
+  mode: ToolPresentationMode
 }
 ```
 <!-- END GENERATED config-catalog:@xpeach/xph-agent-tool-presentation -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-gateway -->
-<a id="deepseek-aidsh-api-gateway"></a>
+<a id="xpeachxph-api-gateway"></a>
 
 ## `@xpeach/xph-api-gateway`
 
@@ -200,7 +287,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-gateway -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-job-controller -->
-<a id="deepseek-aidsh-api-job-controller"></a>
+<a id="xpeachxph-api-job-controller"></a>
 
 ## `@xpeach/xph-api-job-controller`
 
@@ -219,7 +306,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-job-controller -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-session-controller -->
-<a id="deepseek-aidsh-api-session-controller"></a>
+<a id="xpeachxph-api-session-controller"></a>
 
 ## `@xpeach/xph-api-session-controller`
 
@@ -238,7 +325,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-session-controller -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-settings-controller -->
-<a id="deepseek-aidsh-api-settings-controller"></a>
+<a id="xpeachxph-api-settings-controller"></a>
 
 ## `@xpeach/xph-api-settings-controller`
 
@@ -254,7 +341,7 @@ export interface SettingsControllerInternals {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-settings-controller -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-terminal-controller -->
-<a id="deepseek-aidsh-api-terminal-controller"></a>
+<a id="xpeachxph-api-terminal-controller"></a>
 
 ## `@xpeach/xph-api-terminal-controller`
 
@@ -300,7 +387,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-terminal-controller -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-workspace-controller -->
-<a id="deepseek-aidsh-api-workspace-controller"></a>
+<a id="xpeachxph-api-workspace-controller"></a>
 
 ## `@xpeach/xph-api-workspace-controller`
 
@@ -319,7 +406,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-workspace-controller -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-api-workspace-files -->
-<a id="deepseek-aidsh-api-workspace-files"></a>
+<a id="xpeachxph-api-workspace-files"></a>
 
 ## `@xpeach/xph-api-workspace-files`
 
@@ -348,7 +435,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-api-workspace-files -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-attachment-local -->
-<a id="deepseek-aidsh-attachment-local"></a>
+<a id="xpeachxph-attachment-local"></a>
 
 ## `@xpeach/xph-attachment-local`
 
@@ -385,7 +472,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-attachment-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-bash-local -->
-<a id="deepseek-aidsh-bash-local"></a>
+<a id="xpeachxph-bash-local"></a>
 
 ## `@xpeach/xph-bash-local`
 
@@ -413,12 +500,12 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-bash-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-bash-sandbox -->
-<a id="deepseek-aidsh-bash-sandbox"></a>
+<a id="xpeachxph-bash-sandbox"></a>
 
 ## `@xpeach/xph-bash-sandbox`
 
 - `inject`: `subprocess` · `sandbox` · `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-bash-local)
+- `refs`: [`LocalConfig`](#xpeachxph-bash-local)
 - `source`: [`packages/shell/bash-sandbox/src/index.ts:36`](../packages/shell/bash-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -434,7 +521,7 @@ export type Config = LocalConfig
 <!-- END GENERATED config-catalog:@xpeach/xph-bash-sandbox -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-connection -->
-<a id="deepseek-aidsh-client-connection"></a>
+<a id="xpeachxph-client-connection"></a>
 
 ## `@xpeach/xph-client-connection`
 
@@ -479,7 +566,7 @@ export interface ConnectionRecoveryConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-connection -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-hmr -->
-<a id="deepseek-aidsh-client-hmr"></a>
+<a id="xpeachxph-client-hmr"></a>
 
 ## `@xpeach/xph-client-hmr`
 
@@ -496,7 +583,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-hmr -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-product-analytics -->
-<a id="deepseek-aidsh-client-product-analytics"></a>
+<a id="xpeachxph-client-product-analytics"></a>
 
 ## `@xpeach/xph-client-product-analytics`
 
@@ -520,7 +607,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-product-analytics -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-shortcuts -->
-<a id="deepseek-aidsh-client-shortcuts"></a>
+<a id="xpeachxph-client-shortcuts"></a>
 
 ## `@xpeach/xph-client-shortcuts`
 
@@ -536,7 +623,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-shortcuts -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-plugin-manager -->
-<a id="deepseek-aidsh-client-ui-plugin-manager"></a>
+<a id="xpeachxph-client-ui-plugin-manager"></a>
 
 ## `@xpeach/xph-client-ui-plugin-manager`
 
@@ -556,7 +643,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-ui-plugin-manager -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-settings-account -->
-<a id="deepseek-aidsh-client-ui-settings-account"></a>
+<a id="xpeachxph-client-ui-settings-account"></a>
 
 ## `@xpeach/xph-client-ui-settings-account`
 
@@ -606,7 +693,7 @@ export type OnboardingProcess = 'compact' | 'standard' | 'detailed'
 <!-- END GENERATED config-catalog:@xpeach/xph-client-ui-settings-account -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-settings-models -->
-<a id="deepseek-aidsh-client-ui-settings-models"></a>
+<a id="xpeachxph-client-ui-settings-models"></a>
 
 ## `@xpeach/xph-client-ui-settings-models`
 
@@ -622,7 +709,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-ui-settings-models -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-sidebar-documentpreview -->
-<a id="deepseek-aidsh-client-ui-sidebar-documentpreview"></a>
+<a id="xpeachxph-client-ui-sidebar-documentpreview"></a>
 
 ## `@xpeach/xph-client-ui-sidebar-documentpreview`
 
@@ -656,7 +743,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-client-ui-sidebar-documentpreview -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-client-ui-theme -->
-<a id="deepseek-aidsh-client-ui-theme"></a>
+<a id="xpeachxph-client-ui-theme"></a>
 
 ## `@xpeach/xph-client-ui-theme`
 
@@ -688,7 +775,7 @@ export type ThemePreference = typeof THEME_PREFERENCES[number]
 <!-- END GENERATED config-catalog:@xpeach/xph-client-ui-theme -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-compaction-basic -->
-<a id="deepseek-aidsh-compaction-basic"></a>
+<a id="xpeachxph-compaction-basic"></a>
 
 ## `@xpeach/xph-compaction-basic`
 
@@ -737,7 +824,7 @@ export interface ModelCompactPolicyConfig extends CompactionPolicyConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-compaction-basic -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-compaction-tool-result-pruner -->
-<a id="deepseek-aidsh-compaction-tool-result-pruner"></a>
+<a id="xpeachxph-compaction-tool-result-pruner"></a>
 
 ## `@xpeach/xph-compaction-tool-result-pruner`
 
@@ -758,7 +845,7 @@ export interface ToolResultPruneConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-compaction-tool-result-pruner -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-cordis-host-runner -->
-<a id="deepseek-aidsh-cordis-host-runner"></a>
+<a id="xpeachxph-cordis-host-runner"></a>
 
 ## `@xpeach/xph-cordis-host-runner`
 
@@ -777,7 +864,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-cordis-host-runner -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-credentials-local -->
-<a id="deepseek-aidsh-credentials-local"></a>
+<a id="xpeachxph-credentials-local"></a>
 
 ## `@xpeach/xph-credentials-local`
 
@@ -799,7 +886,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-credentials-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-deepseek-account-platform -->
-<a id="deepseek-aidsh-deepseek-account-platform"></a>
+<a id="xpeachxph-deepseek-account-platform"></a>
 
 ## `@xpeach/xph-deepseek-account-platform`
 
@@ -840,7 +927,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-deepseek-account-platform -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-agent-team -->
-<a id="deepseek-aidsh-experimental-agent-team"></a>
+<a id="xpeachxph-experimental-agent-team"></a>
 
 ## `@xpeach/xph-experimental-agent-team`
 
@@ -863,7 +950,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-agent-team -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-api-speech-to-text -->
-<a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
+<a id="xpeachxph-experimental-api-speech-to-text"></a>
 
 ## `@xpeach/xph-experimental-api-speech-to-text`
 
@@ -882,7 +969,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-api-speech-to-text -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-browser-use-chrome-devtools-mcp -->
-<a id="deepseek-aidsh-experimental-browser-use-chrome-devtools-mcp"></a>
+<a id="xpeachxph-experimental-browser-use-chrome-devtools-mcp"></a>
 
 ## `@xpeach/xph-experimental-browser-use-chrome-devtools-mcp`
 
@@ -897,7 +984,7 @@ export type Config = BrowserMcpConfig
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-browser-use-chrome-devtools-mcp -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-browser-use-playwright-mcp -->
-<a id="deepseek-aidsh-experimental-browser-use-playwright-mcp"></a>
+<a id="xpeachxph-experimental-browser-use-playwright-mcp"></a>
 
 ## `@xpeach/xph-experimental-browser-use-playwright-mcp`
 
@@ -912,7 +999,7 @@ export type Config = BrowserMcpConfig
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-browser-use-playwright-mcp -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-browser-use-stagehand-native -->
-<a id="deepseek-aidsh-experimental-browser-use-stagehand-native"></a>
+<a id="xpeachxph-experimental-browser-use-stagehand-native"></a>
 
 ## `@xpeach/xph-experimental-browser-use-stagehand-native`
 
@@ -954,7 +1041,7 @@ export interface StagehandModelConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-browser-use-stagehand-native -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-claude-code-mods -->
-<a id="deepseek-aidsh-experimental-claude-code-mods"></a>
+<a id="xpeachxph-experimental-claude-code-mods"></a>
 
 ## `@xpeach/xph-experimental-claude-code-mods`
 
@@ -981,7 +1068,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-claude-code-mods -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-client-ui-cot-translation -->
-<a id="deepseek-aidsh-experimental-client-ui-cot-translation"></a>
+<a id="xpeachxph-experimental-client-ui-cot-translation"></a>
 
 ## `@xpeach/xph-experimental-client-ui-cot-translation`
 
@@ -1009,7 +1096,7 @@ export interface CotTranslationPreferences {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-client-ui-cot-translation -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-computer-use-cua-driver-mcp -->
-<a id="deepseek-aidsh-experimental-computer-use-cua-driver-mcp"></a>
+<a id="xpeachxph-experimental-computer-use-cua-driver-mcp"></a>
 
 ## `@xpeach/xph-experimental-computer-use-cua-driver-mcp`
 
@@ -1033,7 +1120,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-computer-use-cua-driver-mcp -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-cua-macos -->
-<a id="deepseek-aidsh-experimental-cua-macos"></a>
+<a id="xpeachxph-experimental-cua-macos"></a>
 
 ## `@xpeach/xph-experimental-cua-macos`
 
@@ -1048,7 +1135,7 @@ export type Config = CuaConfig
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-cua-macos -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-inspector -->
-<a id="deepseek-aidsh-experimental-inspector"></a>
+<a id="xpeachxph-experimental-inspector"></a>
 
 ## `@xpeach/xph-experimental-inspector`
 
@@ -1117,7 +1204,7 @@ export interface InspectorOptions {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-inspector -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-ptc-runtime-python -->
-<a id="deepseek-aidsh-experimental-ptc-runtime-python"></a>
+<a id="xpeachxph-experimental-ptc-runtime-python"></a>
 
 ## `@xpeach/xph-experimental-ptc-runtime-python`
 
@@ -1186,7 +1273,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-ptc-runtime-python -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text -->
-<a id="deepseek-aidsh-experimental-speech-to-text"></a>
+<a id="xpeachxph-experimental-speech-to-text"></a>
 
 ## `@xpeach/xph-experimental-speech-to-text`
 
@@ -1205,7 +1292,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text-sensevoice -->
-<a id="deepseek-aidsh-experimental-speech-to-text-sensevoice"></a>
+<a id="xpeachxph-experimental-speech-to-text-sensevoice"></a>
 
 ## `@xpeach/xph-experimental-speech-to-text-sensevoice`
 
@@ -1265,37 +1352,8 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-speech-to-text-sensevoice -->
 
-<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-subagent-oar -->
-<a id="deepseek-aidsh-experimental-subagent-oar"></a>
-
-## `@xpeach/xph-experimental-subagent-oar`
-
-- `inject`: `subagents`
-- `source`: [`packages/experimental/subagent-oar/src/index.ts:25`](../packages/experimental/subagent-oar/src/index.ts)
-
-```ts config-catalog
-/** Native runtime selection and deployment settings for one provider instance. */
-export interface Config {
-  /** OAR default-runtime id; unknown ids fail during plugin activation. */
-  runtime: string
-  /** Name registered on ctx.subagents (default oar). */
-  providerName?: string
-  /** Native model id; omission preserves the runtime's model selection. */
-  model?: string
-  /** Native reasoning effort; unsupported choices fail during startup. */
-  effort?: string
-  /** Explicit entries applied after ambient credential scrubbing; null removes a value. */
-  env?: Record<string, string | null>
-  /** Native launch arguments, including permission settings; omission uses OAR defaults. */
-  launchArgs?: string[]
-  /** Optional turn deadline in milliseconds after startup; omission uses parent cancellation only. */
-  timeoutMs?: number
-}
-```
-<!-- END GENERATED config-catalog:@xpeach/xph-experimental-subagent-oar -->
-
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-tool-agent-team -->
-<a id="deepseek-aidsh-experimental-tool-agent-team"></a>
+<a id="xpeachxph-experimental-tool-agent-team"></a>
 
 ## `@xpeach/xph-experimental-tool-agent-team`
 
@@ -1315,27 +1373,8 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-tool-agent-team -->
 
-<!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-tool-subagent-oar -->
-<a id="deepseek-aidsh-experimental-tool-subagent-oar"></a>
-
-## `@xpeach/xph-experimental-tool-subagent-oar`
-
-- `inject`: `tools` · `subagents`
-- `source`: [`packages/experimental/tool-subagent-oar/src/index.ts:12`](../packages/experimental/tool-subagent-oar/src/index.ts)
-
-```ts config-catalog
-/** Deployment-owned runtime choices exposed by the external delegation tool. */
-export interface Config {
-  /** Model-visible runtime aliases mapped to registered subagent provider names. */
-  providers: Record<string, string>
-  /** Model-facing tool name (default subagent_oar). */
-  toolName?: string
-}
-```
-<!-- END GENERATED config-catalog:@xpeach/xph-experimental-tool-subagent-oar -->
-
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-translator -->
-<a id="deepseek-aidsh-experimental-translator"></a>
+<a id="xpeachxph-experimental-translator"></a>
 
 ## `@xpeach/xph-experimental-translator`
 
@@ -1374,7 +1413,7 @@ export type PaidTranslationProvider = 'deepseek-account' | 'deepseek-official'
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-translator -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-experimental-worktree -->
-<a id="deepseek-aidsh-experimental-worktree"></a>
+<a id="xpeachxph-experimental-worktree"></a>
 
 ## `@xpeach/xph-experimental-worktree`
 
@@ -1403,7 +1442,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-experimental-worktree -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-file-reference-local -->
-<a id="deepseek-aidsh-file-reference-local"></a>
+<a id="xpeachxph-file-reference-local"></a>
 
 ## `@xpeach/xph-file-reference-local`
 
@@ -1424,7 +1463,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-file-reference-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-fs-local -->
-<a id="deepseek-aidsh-fs-local"></a>
+<a id="xpeachxph-fs-local"></a>
 
 ## `@xpeach/xph-fs-local`
 
@@ -1445,12 +1484,12 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-fs-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-fs-sandbox -->
-<a id="deepseek-aidsh-fs-sandbox"></a>
+<a id="xpeachxph-fs-sandbox"></a>
 
 ## `@xpeach/xph-fs-sandbox`
 
 - `inject`: `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-fs-local)
+- `refs`: [`LocalConfig`](#xpeachxph-fs-local)
 - `source`: [`packages/fs/fs-sandbox/src/index.ts:45`](../packages/fs/fs-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -1465,7 +1504,7 @@ export type Config = LocalConfig
 <!-- END GENERATED config-catalog:@xpeach/xph-fs-sandbox -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-goal -->
-<a id="deepseek-aidsh-goal"></a>
+<a id="xpeachxph-goal"></a>
 
 ## `@xpeach/xph-goal`
 
@@ -1482,7 +1521,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-goal -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-headless -->
-<a id="deepseek-aidsh-headless"></a>
+<a id="xpeachxph-headless"></a>
 
 ## `@xpeach/xph-headless`
 
@@ -1503,7 +1542,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-headless -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-hmr -->
-<a id="deepseek-aidsh-hmr"></a>
+<a id="xpeachxph-hmr"></a>
 
 ## `@xpeach/xph-hmr`
 
@@ -1526,7 +1565,7 @@ export interface HmrConfig extends ChokidarOptions {
 <!-- END GENERATED config-catalog:@xpeach/xph-hmr -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-hooks-claude-code -->
-<a id="deepseek-aidsh-hooks-claude-code"></a>
+<a id="xpeachxph-hooks-claude-code"></a>
 
 ## `@xpeach/xph-hooks-claude-code`
 
@@ -1565,7 +1604,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-hooks-claude-code -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-hooks-codex -->
-<a id="deepseek-aidsh-hooks-codex"></a>
+<a id="xpeachxph-hooks-codex"></a>
 
 ## `@xpeach/xph-hooks-codex`
 
@@ -1593,7 +1632,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-hooks-codex -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-directory-picker-browse -->
-<a id="deepseek-aidsh-host-directory-picker-browse"></a>
+<a id="xpeachxph-host-directory-picker-browse"></a>
 
 ## `@xpeach/xph-host-directory-picker-browse`
 
@@ -1609,7 +1648,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-host-directory-picker-browse -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-frontend-static -->
-<a id="deepseek-aidsh-host-frontend-static"></a>
+<a id="xpeachxph-host-frontend-static"></a>
 
 ## `@xpeach/xph-host-frontend-static`
 
@@ -1626,7 +1665,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-host-frontend-static -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-open-in-app -->
-<a id="deepseek-aidsh-host-open-in-app"></a>
+<a id="xpeachxph-host-open-in-app"></a>
 
 ## `@xpeach/xph-host-open-in-app`
 
@@ -1658,7 +1697,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-host-open-in-app -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-product-telemetry-otel -->
-<a id="deepseek-aidsh-host-product-telemetry-otel"></a>
+<a id="xpeachxph-host-product-telemetry-otel"></a>
 
 ## `@xpeach/xph-host-product-telemetry-otel`
 
@@ -1695,7 +1734,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-host-product-telemetry-otel -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-host-webserver -->
-<a id="deepseek-aidsh-host-webserver"></a>
+<a id="xpeachxph-host-webserver"></a>
 
 ## `@xpeach/xph-host-webserver`
 
@@ -1748,7 +1787,7 @@ export interface TlsConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-host-webserver -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-jobs-local -->
-<a id="deepseek-aidsh-jobs-local"></a>
+<a id="xpeachxph-jobs-local"></a>
 
 ## `@xpeach/xph-jobs-local`
 
@@ -1777,7 +1816,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-jobs-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-deepseek-account -->
-<a id="deepseek-aidsh-llm-deepseek-account"></a>
+<a id="xpeachxph-llm-deepseek-account"></a>
 
 ## `@xpeach/xph-llm-deepseek-account`
 
@@ -1805,17 +1844,17 @@ export type ModelOverride = Omit<DeepSeekCatalogModel, 'id'>
 <!-- END GENERATED config-catalog:@xpeach/xph-llm-deepseek-account -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-deepseek-api-key -->
-<a id="deepseek-aidsh-llm-deepseek-api-key"></a>
+<a id="xpeachxph-llm-deepseek-api-key"></a>
 
 ## `@xpeach/xph-llm-deepseek-api-key`
 
 - `inject`: `llm`
-- `refs`: [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@xpeach/xph-cordis`)
-- `source`: [`packages/llm/llm-deepseek-api-key/src/config.ts:10`](../packages/llm/llm-deepseek-api-key/src/config.ts)
+- `refs`: [`ModelListingConfig`](../packages/llm/llm-deepseek/src/index.ts) · [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@xpeach/xph-cordis`)
+- `source`: [`packages/llm/llm-deepseek-api-key/src/config.ts:18`](../packages/llm/llm-deepseek-api-key/src/config.ts)
 
 ```ts config-catalog
 /** Messages configuration with a per-request API-key reference. */
-export interface Config extends ProtocolConfig {
+export interface Config extends ProtocolConfig, ModelListingConfig {
   /** Credential reference resolved per request; defaults to DEEPSEEK_API_KEY. */
   apiKeyEnv: Volatile<string>
 }
@@ -1823,13 +1862,13 @@ export interface Config extends ProtocolConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-llm-deepseek-api-key -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-pi-ai -->
-<a id="deepseek-aidsh-llm-pi-ai"></a>
+<a id="xpeachxph-llm-pi-ai"></a>
 
 ## `@xpeach/xph-llm-pi-ai`
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@xpeach/xph-cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:222`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:219`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -1904,6 +1943,12 @@ export interface PiAiProviderProfile {
   defaultInput?: PiAiModality[]
   /** Provider request headers, validated against Fetch when the profile resolves; Harness attribution wins reserved names. */
   headers?: Record<string, string>
+  /**
+   * Send the conversation identity a gateway uses for billing and prompt-cache
+   * accounting. Some routes reject a request that names no conversation, so this
+   * defaults to on; a deployment whose route ignores the headers can turn it off.
+   */
+  conversationTracking?: boolean
   /** Provider-neutral pi-ai reasoning level. */
   reasoning?: ModelThinkingLevel
   /** Token budgets used by reasoning providers that support them. */
@@ -2098,7 +2143,7 @@ export type PiAiThinkingTokenBudgetField = NonNullable<OpenAICompletionsCompat['
 <!-- END GENERATED config-catalog:@xpeach/xph-llm-pi-ai -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-replay -->
-<a id="deepseek-aidsh-llm-replay"></a>
+<a id="xpeachxph-llm-replay"></a>
 
 ## `@xpeach/xph-llm-replay`
 
@@ -2179,7 +2224,7 @@ export interface ReplayModelConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-llm-replay -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-llm-retry -->
-<a id="deepseek-aidsh-llm-retry"></a>
+<a id="xpeachxph-llm-retry"></a>
 
 ## `@xpeach/xph-llm-retry`
 
@@ -2193,7 +2238,7 @@ export type Config = Readonly<Record<string, never>>
 <!-- END GENERATED config-catalog:@xpeach/xph-llm-retry -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-lsp-stdio -->
-<a id="deepseek-aidsh-lsp-stdio"></a>
+<a id="xpeachxph-lsp-stdio"></a>
 
 ## `@xpeach/xph-lsp-stdio`
 
@@ -2236,12 +2281,12 @@ export interface LspLocalServerConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-lsp-stdio -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-mcp-client -->
-<a id="deepseek-aidsh-mcp-client"></a>
+<a id="xpeachxph-mcp-client"></a>
 
 ## `@xpeach/xph-mcp-client`
 
 - `inject`: `tools`
-- `source`: [`packages/mcp/mcp-client/src/index.ts:104`](../packages/mcp/mcp-client/src/index.ts)
+- `source`: [`packages/mcp/mcp-client/src/index.ts:108`](../packages/mcp/mcp-client/src/index.ts)
 
 ```ts config-catalog
 /** Configuration for one stdio or Streamable HTTP MCP server. */
@@ -2269,6 +2314,8 @@ export interface StdioConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Complete plugin activation without awaiting the initial connection when `failOnStartupError` is false. */
+  backgroundStartup?: boolean
   /** Maximum UTF-8 bytes of attributed server instructions (default 32768). */
   maxInstructionBytes?: number
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
@@ -2293,6 +2340,8 @@ export interface StreamableHttpConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Complete plugin activation without awaiting the initial connection when `failOnStartupError` is false. */
+  backgroundStartup?: boolean
   /** Maximum UTF-8 bytes of attributed server instructions (default 32768). */
   maxInstructionBytes?: number
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
@@ -2314,7 +2363,7 @@ export interface ReconnectConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-mcp-client -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-message-feedback -->
-<a id="deepseek-aidsh-message-feedback"></a>
+<a id="xpeachxph-message-feedback"></a>
 
 ## `@xpeach/xph-message-feedback`
 
@@ -2331,7 +2380,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-message-feedback -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-office-to-pdf -->
-<a id="deepseek-aidsh-office-to-pdf"></a>
+<a id="xpeachxph-office-to-pdf"></a>
 
 ## `@xpeach/xph-office-to-pdf`
 
@@ -2383,7 +2432,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-office-to-pdf -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-permission-presets -->
-<a id="deepseek-aidsh-permission-presets"></a>
+<a id="xpeachxph-permission-presets"></a>
 
 ## `@xpeach/xph-permission-presets`
 
@@ -2423,7 +2472,7 @@ export interface PresetSpec {
 <!-- END GENERATED config-catalog:@xpeach/xph-permission-presets -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-persona -->
-<a id="deepseek-aidsh-persona"></a>
+<a id="xpeachxph-persona"></a>
 
 ## `@xpeach/xph-persona`
 
@@ -2453,7 +2502,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-persona -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-plan-mode -->
-<a id="deepseek-aidsh-plan-mode"></a>
+<a id="xpeachxph-plan-mode"></a>
 
 ## `@xpeach/xph-plan-mode`
 
@@ -2470,7 +2519,7 @@ export interface PlanModeConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-plan-mode -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-plugin-manager -->
-<a id="deepseek-aidsh-plugin-manager"></a>
+<a id="xpeachxph-plugin-manager"></a>
 
 ## `@xpeach/xph-plugin-manager`
 
@@ -2505,7 +2554,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-plugin-manager -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-plugin-market -->
-<a id="deepseek-aidsh-plugin-market"></a>
+<a id="xpeachxph-plugin-market"></a>
 
 ## `@xpeach/xph-plugin-market`
 
@@ -2529,7 +2578,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-plugin-market -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-plugin-package-inventory-deepseek -->
-<a id="deepseek-aidsh-plugin-package-inventory-deepseek"></a>
+<a id="xpeachxph-plugin-package-inventory-deepseek"></a>
 
 ## `@xpeach/xph-plugin-package-inventory-deepseek`
 
@@ -2546,7 +2595,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-plugin-package-inventory-deepseek -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-ptc-runtime-node -->
-<a id="deepseek-aidsh-ptc-runtime-node"></a>
+<a id="xpeachxph-ptc-runtime-node"></a>
 
 ## `@xpeach/xph-ptc-runtime-node`
 
@@ -2558,8 +2607,10 @@ export interface Config {
 export interface Config {
   /** Worker invocation in the subprocess world; omitted selects the local carrier. */
   launch?: LaunchConfig
-  /** per-call starts fresh processes; persistent-in-memory retains a REPL per owner under the same file policy. */
-  executionMode?: 'per-call' | 'persistent-in-memory'
+  /** per-call uses fresh async function bodies; vm-script uses VM contexts; persistent-in-memory retains a REPL per owner. */
+  executionMode?: 'per-call' | 'persistent-in-memory' | 'vm-script'
+  /** Retain a Script process and context per stateOwner; only supported with executionMode: vm-script. */
+  scriptPersistence?: boolean
   /** Default elapsed deadline, including nested tool and approval waits. */
   timeoutMs?: number
   /** Maximum numeric elapsed budget accepted by resolve. */
@@ -2568,7 +2619,7 @@ export interface Config {
   maxOutputBytes?: number
   /** V8 old-generation heap limit in MiB; native allocations are excluded. */
   maxOldGenerationSizeMb?: number
-  /** Maximum control frame, outstanding argument and queued control-output bytes. */
+  /** Maximum control message, outstanding binding-argument and queued control-output bytes. */
   maxMessageBytes?: number
   /** Maximum simultaneous host binding calls accepted from a program. */
   maxPendingCalls?: number
@@ -2594,7 +2645,7 @@ export type LaunchConfig = {
 <!-- END GENERATED config-catalog:@xpeach/xph-ptc-runtime-node -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-pwsh-local -->
-<a id="deepseek-aidsh-pwsh-local"></a>
+<a id="xpeachxph-pwsh-local"></a>
 
 ## `@xpeach/xph-pwsh-local`
 
@@ -2629,12 +2680,12 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-pwsh-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-pwsh-sandbox -->
-<a id="deepseek-aidsh-pwsh-sandbox"></a>
+<a id="xpeachxph-pwsh-sandbox"></a>
 
 ## `@xpeach/xph-pwsh-sandbox`
 
 - `inject`: `subprocess` · `sandbox` · `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-pwsh-local)
+- `refs`: [`LocalConfig`](#xpeachxph-pwsh-local)
 - `source`: [`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -2651,7 +2702,7 @@ export type Config = LocalConfig
 <!-- END GENERATED config-catalog:@xpeach/xph-pwsh-sandbox -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-repeat-tool-reminder -->
-<a id="deepseek-aidsh-repeat-tool-reminder"></a>
+<a id="xpeachxph-repeat-tool-reminder"></a>
 
 ## `@xpeach/xph-repeat-tool-reminder`
 
@@ -2687,7 +2738,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-repeat-tool-reminder -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-sandbox-local -->
-<a id="deepseek-aidsh-sandbox-local"></a>
+<a id="xpeachxph-sandbox-local"></a>
 
 ## `@xpeach/xph-sandbox-local`
 
@@ -2721,13 +2772,13 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-sandbox-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-sandbox-policy -->
-<a id="deepseek-aidsh-sandbox-policy"></a>
+<a id="xpeachxph-sandbox-policy"></a>
 
 ## `@xpeach/xph-sandbox-policy`
 
 - `inject`: `sessionProjections`
 - `refs`: [`SandboxMode`](subsystems/sandbox.zh.md)
-- `source`: [`packages/sandbox/sandbox-policy/src/index.ts:71`](../packages/sandbox/sandbox-policy/src/index.ts)
+- `source`: [`packages/sandbox/sandbox-policy/src/index.ts:72`](../packages/sandbox/sandbox-policy/src/index.ts)
 
 ```ts config-catalog
 /**
@@ -2750,7 +2801,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-sandbox-policy -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-schedule -->
-<a id="deepseek-aidsh-schedule"></a>
+<a id="xpeachxph-schedule"></a>
 
 ## `@xpeach/xph-schedule`
 
@@ -2775,7 +2826,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-schedule -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-sdk-app -->
-<a id="deepseek-aidsh-sdk-app"></a>
+<a id="xpeachxph-sdk-app"></a>
 
 ## `@xpeach/xph-sdk-app`
 
@@ -2792,7 +2843,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-sdk-app -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-sdk-jsonrpc-server -->
-<a id="deepseek-aidsh-sdk-jsonrpc-server"></a>
+<a id="xpeachxph-sdk-jsonrpc-server"></a>
 
 ## `@xpeach/xph-sdk-jsonrpc-server`
 
@@ -2816,7 +2867,7 @@ export interface JsonRpcConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-sdk-jsonrpc-server -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-log-deepseek -->
-<a id="deepseek-aidsh-session-log-deepseek"></a>
+<a id="xpeachxph-session-log-deepseek"></a>
 
 ## `@xpeach/xph-session-log-deepseek`
 
@@ -2840,12 +2891,12 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-log-deepseek -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-log-export -->
-<a id="deepseek-aidsh-session-log-export"></a>
+<a id="xpeachxph-session-log-export"></a>
 
 ## `@xpeach/xph-session-log-export`
 
 - `inject`: `commands` · `connection`
-- `source`: [`packages/session-query/session-log-export/src/index.ts:46`](../packages/session-query/session-log-export/src/index.ts)
+- `source`: [`packages/session-query/session-log-export/src/index.ts:48`](../packages/session-query/session-log-export/src/index.ts)
 
 ```ts config-catalog
 /** Session-log archive policy. */
@@ -2860,7 +2911,7 @@ export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 <!-- END GENERATED config-catalog:@xpeach/xph-session-log-export -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-persistence-jsonl -->
-<a id="deepseek-aidsh-session-persistence-jsonl"></a>
+<a id="xpeachxph-session-persistence-jsonl"></a>
 
 ## `@xpeach/xph-session-persistence-jsonl`
 
@@ -2893,7 +2944,7 @@ export type JsonlCompression = 'zstd' | 'none'
 <!-- END GENERATED config-catalog:@xpeach/xph-session-persistence-jsonl -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-projection-cache -->
-<a id="deepseek-aidsh-session-projection-cache"></a>
+<a id="xpeachxph-session-projection-cache"></a>
 
 ## `@xpeach/xph-session-projection-cache`
 
@@ -2918,7 +2969,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-projection-cache -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-query-sqlite -->
-<a id="deepseek-aidsh-session-query-sqlite"></a>
+<a id="xpeachxph-session-query-sqlite"></a>
 
 ## `@xpeach/xph-session-query-sqlite`
 
@@ -2966,7 +3017,7 @@ export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 <!-- END GENERATED config-catalog:@xpeach/xph-session-query-sqlite -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-reference -->
-<a id="deepseek-aidsh-session-reference"></a>
+<a id="xpeachxph-session-reference"></a>
 
 ## `@xpeach/xph-session-reference`
 
@@ -2989,7 +3040,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-reference -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-telemetry-otel -->
-<a id="deepseek-aidsh-session-telemetry-otel"></a>
+<a id="xpeachxph-session-telemetry-otel"></a>
 
 ## `@xpeach/xph-session-telemetry-otel`
 
@@ -3036,7 +3087,7 @@ export enum SessionTelemetryMode {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-telemetry-otel -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-title -->
-<a id="deepseek-aidsh-session-title"></a>
+<a id="xpeachxph-session-title"></a>
 
 ## `@xpeach/xph-session-title`
 
@@ -3057,7 +3108,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-title -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-title-all-prompts-llm -->
-<a id="deepseek-aidsh-session-title-all-prompts-llm"></a>
+<a id="xpeachxph-session-title-all-prompts-llm"></a>
 
 ## `@xpeach/xph-session-title-all-prompts-llm`
 
@@ -3077,7 +3128,7 @@ export interface Config extends SessionTitleLlmConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-title-all-prompts-llm -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-session-title-first-prompt-llm -->
-<a id="deepseek-aidsh-session-title-first-prompt-llm"></a>
+<a id="xpeachxph-session-title-first-prompt-llm"></a>
 
 ## `@xpeach/xph-session-title-first-prompt-llm`
 
@@ -3097,7 +3148,7 @@ export interface Config extends SessionTitleLlmConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-session-title-first-prompt-llm -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-shell-env -->
-<a id="deepseek-aidsh-shell-env"></a>
+<a id="xpeachxph-shell-env"></a>
 
 ## `@xpeach/xph-shell-env`
 
@@ -3113,7 +3164,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-shell-env -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-skill -->
-<a id="deepseek-aidsh-skill"></a>
+<a id="xpeachxph-skill"></a>
 
 ## `@xpeach/xph-skill`
 
@@ -3129,7 +3180,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-skill -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-skill-filesystem -->
-<a id="deepseek-aidsh-skill-filesystem"></a>
+<a id="xpeachxph-skill-filesystem"></a>
 
 ## `@xpeach/xph-skill-filesystem`
 
@@ -3168,7 +3219,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-skill-filesystem -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-skill-office -->
-<a id="deepseek-aidsh-skill-office"></a>
+<a id="xpeachxph-skill-office"></a>
 
 ## `@xpeach/xph-skill-office`
 
@@ -3189,7 +3240,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-skill-office -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-spill-local -->
-<a id="deepseek-aidsh-spill-local"></a>
+<a id="xpeachxph-spill-local"></a>
 
 ## `@xpeach/xph-spill-local`
 
@@ -3220,12 +3271,12 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-spill-local -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-spill-policy -->
-<a id="deepseek-aidsh-spill-policy"></a>
+<a id="xpeachxph-spill-policy"></a>
 
 ## `@xpeach/xph-spill-policy`
 
 - `inject`: `tools`
-- `source`: [`packages/spill/spill-policy/src/index.ts:26`](../packages/spill/spill-policy/src/index.ts)
+- `source`: [`packages/spill/spill-policy/src/index.ts:25`](../packages/spill/spill-policy/src/index.ts)
 
 ```ts config-catalog
 /** Optional result-retention budget. */
@@ -3237,7 +3288,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-spill-policy -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-ssh -->
-<a id="deepseek-aidsh-ssh"></a>
+<a id="xpeachxph-ssh"></a>
 
 ## `@xpeach/xph-ssh`
 
@@ -3284,7 +3335,7 @@ export type HelperLaunch = {
 <!-- END GENERATED config-catalog:@xpeach/xph-ssh -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-storage-domain -->
-<a id="deepseek-aidsh-storage-domain"></a>
+<a id="xpeachxph-storage-domain"></a>
 
 ## `@xpeach/xph-storage-domain`
 
@@ -3308,7 +3359,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-storage-domain -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-storage-json -->
-<a id="deepseek-aidsh-storage-json"></a>
+<a id="xpeachxph-storage-json"></a>
 
 ## `@xpeach/xph-storage-json`
 
@@ -3330,7 +3381,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-storage-json -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-storage-sqlite -->
-<a id="deepseek-aidsh-storage-sqlite"></a>
+<a id="xpeachxph-storage-sqlite"></a>
 
 ## `@xpeach/xph-storage-sqlite`
 
@@ -3371,7 +3422,7 @@ export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 <!-- END GENERATED config-catalog:@xpeach/xph-storage-sqlite -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent -->
-<a id="deepseek-aidsh-subagent"></a>
+<a id="xpeachxph-subagent"></a>
 
 ## `@xpeach/xph-subagent`
 
@@ -3391,7 +3442,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-acp -->
-<a id="deepseek-aidsh-subagent-acp"></a>
+<a id="xpeachxph-subagent-acp"></a>
 
 ## `@xpeach/xph-subagent-acp`
 
@@ -3437,7 +3488,7 @@ export type PermissionPolicy = 'allow' | 'reject'
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent-acp -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-claude-code -->
-<a id="deepseek-aidsh-subagent-claude-code"></a>
+<a id="xpeachxph-subagent-claude-code"></a>
 
 ## `@xpeach/xph-subagent-claude-code`
 
@@ -3473,7 +3524,7 @@ export type ClaudeCodePermissionMode = typeof CLAUDE_CODE_PERMISSION_MODES[numbe
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent-claude-code -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-codex -->
-<a id="deepseek-aidsh-subagent-codex"></a>
+<a id="xpeachxph-subagent-codex"></a>
 
 ## `@xpeach/xph-subagent-codex`
 
@@ -3507,7 +3558,7 @@ export type CodexPermissionMode =
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent-codex -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-dsh-sdk -->
-<a id="deepseek-aidsh-subagent-dsh-sdk"></a>
+<a id="xpeachxph-subagent-dsh-sdk"></a>
 
 ## `@xpeach/xph-subagent-dsh-sdk`
 
@@ -3555,7 +3606,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent-dsh-sdk -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-fork-in-process -->
-<a id="deepseek-aidsh-subagent-fork-in-process"></a>
+<a id="xpeachxph-subagent-fork-in-process"></a>
 
 ## `@xpeach/xph-subagent-fork-in-process`
 
@@ -3572,7 +3623,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent-fork-in-process -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-subagent-spawn-in-process -->
-<a id="deepseek-aidsh-subagent-spawn-in-process"></a>
+<a id="xpeachxph-subagent-spawn-in-process"></a>
 
 ## `@xpeach/xph-subagent-spawn-in-process`
 
@@ -3589,7 +3640,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-subagent-spawn-in-process -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-system-prompt -->
-<a id="deepseek-aidsh-system-prompt"></a>
+<a id="xpeachxph-system-prompt"></a>
 
 ## `@xpeach/xph-system-prompt`
 
@@ -3623,7 +3674,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-system-prompt -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-terminal-bash -->
-<a id="deepseek-aidsh-terminal-bash"></a>
+<a id="xpeachxph-terminal-bash"></a>
 
 ## `@xpeach/xph-terminal-bash`
 
@@ -3683,7 +3734,7 @@ export type ShellDialect = 'bash' | 'pwsh'
 <!-- END GENERATED config-catalog:@xpeach/xph-terminal-bash -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-time-context -->
-<a id="deepseek-aidsh-time-context"></a>
+<a id="xpeachxph-time-context"></a>
 
 ## `@xpeach/xph-time-context`
 
@@ -3702,7 +3753,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-time-context -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tmux-context -->
-<a id="deepseek-aidsh-tmux-context"></a>
+<a id="xpeachxph-tmux-context"></a>
 
 ## `@xpeach/xph-tmux-context`
 
@@ -3719,7 +3770,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tmux-context -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-token-meter -->
-<a id="deepseek-aidsh-token-meter"></a>
+<a id="xpeachxph-token-meter"></a>
 
 ## `@xpeach/xph-token-meter`
 
@@ -3733,7 +3784,7 @@ export type TokenMeterConfig = Record<string, never>
 <!-- END GENERATED config-catalog:@xpeach/xph-token-meter -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-ask-user -->
-<a id="deepseek-aidsh-tool-ask-user"></a>
+<a id="xpeachxph-tool-ask-user"></a>
 
 ## `@xpeach/xph-tool-ask-user`
 
@@ -3752,7 +3803,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-ask-user -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-bash -->
-<a id="deepseek-aidsh-tool-bash"></a>
+<a id="xpeachxph-tool-bash"></a>
 
 ## `@xpeach/xph-tool-bash`
 
@@ -3782,7 +3833,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-bash -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-bash-persistent -->
-<a id="deepseek-aidsh-tool-bash-persistent"></a>
+<a id="xpeachxph-tool-bash-persistent"></a>
 
 ## `@xpeach/xph-tool-bash-persistent`
 
@@ -3804,25 +3855,8 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-bash-persistent -->
 
-<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-executor-ptc -->
-<a id="deepseek-aidsh-tool-executor-ptc"></a>
-
-## `@xpeach/xph-tool-executor-ptc`
-
-- `inject`: `tools` · `systemPrompt` · `ptcRuntime`
-- `source`: [`packages/core/tool-executor-ptc/src/config.ts:5`](../packages/core/tool-executor-ptc/src/config.ts)
-
-```ts config-catalog
-/** Program execution limits. */
-export interface Config {
-  /** Maximum overlapping concurrency-safe program subcalls. */
-  maxParallelSubCalls: number
-}
-```
-<!-- END GENERATED config-catalog:@xpeach/xph-tool-executor-ptc -->
-
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-fs -->
-<a id="deepseek-aidsh-tool-fs"></a>
+<a id="xpeachxph-tool-fs"></a>
 
 ## `@xpeach/xph-tool-fs`
 
@@ -3853,7 +3887,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-fs -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-fs-search -->
-<a id="deepseek-aidsh-tool-fs-search"></a>
+<a id="xpeachxph-tool-fs-search"></a>
 
 ## `@xpeach/xph-tool-fs-search`
 
@@ -3889,7 +3923,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-fs-search -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-goal -->
-<a id="deepseek-aidsh-tool-goal"></a>
+<a id="xpeachxph-tool-goal"></a>
 
 ## `@xpeach/xph-tool-goal`
 
@@ -3906,7 +3940,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-goal -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-jobs -->
-<a id="deepseek-aidsh-tool-jobs"></a>
+<a id="xpeachxph-tool-jobs"></a>
 
 ## `@xpeach/xph-tool-jobs`
 
@@ -3943,7 +3977,7 @@ export type CompletionDelivery = 'quiet' | 'wakeup'
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-jobs -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-lsp -->
-<a id="deepseek-aidsh-tool-lsp"></a>
+<a id="xpeachxph-tool-lsp"></a>
 
 ## `@xpeach/xph-tool-lsp`
 
@@ -3964,7 +3998,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-lsp -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-present -->
-<a id="deepseek-aidsh-tool-present"></a>
+<a id="xpeachxph-tool-present"></a>
 
 ## `@xpeach/xph-tool-present`
 
@@ -3981,7 +4015,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-present -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-pwsh -->
-<a id="deepseek-aidsh-tool-pwsh"></a>
+<a id="xpeachxph-tool-pwsh"></a>
 
 ## `@xpeach/xph-tool-pwsh`
 
@@ -4011,7 +4045,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-pwsh -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-pwsh-persistent -->
-<a id="deepseek-aidsh-tool-pwsh-persistent"></a>
+<a id="xpeachxph-tool-pwsh-persistent"></a>
 
 ## `@xpeach/xph-tool-pwsh-persistent`
 
@@ -4034,7 +4068,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-pwsh-persistent -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-ralph -->
-<a id="deepseek-aidsh-tool-ralph"></a>
+<a id="xpeachxph-tool-ralph"></a>
 
 ## `@xpeach/xph-tool-ralph`
 
@@ -4057,7 +4091,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-ralph -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-session-query -->
-<a id="deepseek-aidsh-tool-session-query"></a>
+<a id="xpeachxph-tool-session-query"></a>
 
 ## `@xpeach/xph-tool-session-query`
 
@@ -4076,12 +4110,12 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-session-query -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-skill -->
-<a id="deepseek-aidsh-tool-skill"></a>
+<a id="xpeachxph-tool-skill"></a>
 
 ## `@xpeach/xph-tool-skill`
 
 - `inject`: `agents` · `tools` · `skills` · `workingDirectory`
-- `source`: [`packages/skill/tool-skill/src/index.ts:62`](../packages/skill/tool-skill/src/index.ts)
+- `source`: [`packages/skill/tool-skill/src/index.ts:64`](../packages/skill/tool-skill/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */
@@ -4093,7 +4127,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-skill -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-str-replace-editor -->
-<a id="deepseek-aidsh-tool-str-replace-editor"></a>
+<a id="xpeachxph-tool-str-replace-editor"></a>
 
 ## `@xpeach/xph-tool-str-replace-editor`
 
@@ -4112,7 +4146,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-str-replace-editor -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-subagent -->
-<a id="deepseek-aidsh-tool-subagent"></a>
+<a id="xpeachxph-tool-subagent"></a>
 
 ## `@xpeach/xph-tool-subagent`
 
@@ -4163,7 +4197,7 @@ export interface PresetSelectionConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-subagent -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-terminal -->
-<a id="deepseek-aidsh-tool-terminal"></a>
+<a id="xpeachxph-tool-terminal"></a>
 
 ## `@xpeach/xph-tool-terminal`
 
@@ -4182,7 +4216,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-terminal -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-todo -->
-<a id="deepseek-aidsh-tool-todo"></a>
+<a id="xpeachxph-tool-todo"></a>
 
 ## `@xpeach/xph-tool-todo`
 
@@ -4205,7 +4239,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-todo -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-web -->
-<a id="deepseek-aidsh-tool-web"></a>
+<a id="xpeachxph-tool-web"></a>
 
 ## `@xpeach/xph-tool-web`
 
@@ -4234,7 +4268,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-web -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-workflow -->
-<a id="deepseek-aidsh-tool-workflow"></a>
+<a id="xpeachxph-tool-workflow"></a>
 
 ## `@xpeach/xph-tool-workflow`
 
@@ -4261,7 +4295,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-workflow -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-tool-workspace-dependencies -->
-<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+<a id="xpeachxph-tool-workspace-dependencies"></a>
 
 ## `@xpeach/xph-tool-workspace-dependencies`
 
@@ -4283,8 +4317,45 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@xpeach/xph-tool-workspace-dependencies -->
 
+<!-- BEGIN GENERATED config-catalog:@xpeach/xph-tools -->
+<a id="xpeachxph-tools"></a>
+
+## `@xpeach/xph-tools`
+
+- `inject`: `systemPrompt`
+- `source`: [`packages/core/tools/src/index.ts:675`](../packages/core/tools/src/index.ts)
+
+```ts config-catalog
+/** Plugin config: how the registered tools are presented to the model. */
+export interface Config {
+  /**
+   * Model presentation. `native` (default) sends every visible schema; `ptc`
+   * sends only `run_code` plus a generated SDK prompt and collapses the
+   * executor to the same surface (a model-direct call may only name
+   * `run_code`; `run_code` SDK sub-dispatches keep every visible tool).
+   * PTC mode requires a `ctx.ptcRuntime` whose `language`
+   * has a registered SDK renderer (TypeScript or Python) and fails prompt
+   * assembly when it is absent or has no renderer. Under `ptc`, native names
+   * in `toolOrder` are invalid.
+   */
+  mode?: ToolPresentationMode
+  /**
+   * Concurrency cap for a `run_code` program's overlapping sub-calls
+   * (default 10, the loop scheduler's own default). Sub-calls follow the
+   * native scheduling contract — only calls whose tools classify
+   * concurrency-safe overlap; exclusive calls form barriers — so `1`
+   * restores strictly serial dispatch. Must be a positive integer.
+   */
+  maxParallelSubCalls?: number
+}
+
+/** How the registry presents its tools to the model (see {@link Config.mode}). */
+export type ToolPresentationMode = 'native' | 'ptc'
+```
+<!-- END GENERATED config-catalog:@xpeach/xph-tools -->
+
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-typert-loader -->
-<a id="deepseek-aidsh-typert-loader"></a>
+<a id="xpeachxph-typert-loader"></a>
 
 ## `@xpeach/xph-typert-loader`
 
@@ -4301,7 +4372,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-typert-loader -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-user-approval -->
-<a id="deepseek-aidsh-user-approval"></a>
+<a id="xpeachxph-user-approval"></a>
 
 ## `@xpeach/xph-user-approval`
 
@@ -4334,7 +4405,7 @@ export type ApprovalPolicy = 'ask' | 'never'
 <!-- END GENERATED config-catalog:@xpeach/xph-user-approval -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web -->
-<a id="deepseek-aidsh-web"></a>
+<a id="xpeachxph-web"></a>
 
 ## `@xpeach/xph-web`
 
@@ -4360,7 +4431,7 @@ export interface WebRuntimeConfig {
 <!-- END GENERATED config-catalog:@xpeach/xph-web -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-app -->
-<a id="deepseek-aidsh-web-app"></a>
+<a id="xpeachxph-web-app"></a>
 
 ## `@xpeach/xph-web-app`
 
@@ -4392,7 +4463,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-web-app -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-deepseek-api -->
-<a id="deepseek-aidsh-web-deepseek-api"></a>
+<a id="xpeachxph-web-deepseek-api"></a>
 
 ## `@xpeach/xph-web-deepseek-api`
 
@@ -4418,7 +4489,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-web-deepseek-api -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-fetch-http -->
-<a id="deepseek-aidsh-web-fetch-http"></a>
+<a id="xpeachxph-web-fetch-http"></a>
 
 ## `@xpeach/xph-web-fetch-http`
 
@@ -4443,13 +4514,13 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-web-fetch-http -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-search-deepseek -->
-<a id="deepseek-aidsh-web-search-deepseek"></a>
+<a id="xpeachxph-web-search-deepseek"></a>
 
 ## `@xpeach/xph-web-search-deepseek`
 
 - `inject`: `web`
 - `refs`: `Volatile` (`@xpeach/xph-cordis`)
-- `source`: [`packages/web/web-search-deepseek/src/index.ts:49`](../packages/web/web-search-deepseek/src/index.ts)
+- `source`: [`packages/web/web-search-deepseek/src/index.ts:51`](../packages/web/web-search-deepseek/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
@@ -4473,7 +4544,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-web-search-deepseek -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-search-exa -->
-<a id="deepseek-aidsh-web-search-exa"></a>
+<a id="xpeachxph-web-search-exa"></a>
 
 ## `@xpeach/xph-web-search-exa`
 
@@ -4498,7 +4569,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-web-search-exa -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-web-search-perplexity -->
-<a id="deepseek-aidsh-web-search-perplexity"></a>
+<a id="xpeachxph-web-search-perplexity"></a>
 
 ## `@xpeach/xph-web-search-perplexity`
 
@@ -4523,7 +4594,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-web-search-perplexity -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-webhook-github -->
-<a id="deepseek-aidsh-webhook-github"></a>
+<a id="xpeachxph-webhook-github"></a>
 
 ## `@xpeach/xph-webhook-github`
 
@@ -4546,7 +4617,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-webhook-github -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-workflow-ptc -->
-<a id="deepseek-aidsh-workflow-ptc"></a>
+<a id="xpeachxph-workflow-ptc"></a>
 
 ## `@xpeach/xph-workflow-ptc`
 
@@ -4571,7 +4642,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-workflow-ptc -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-working-directory -->
-<a id="deepseek-aidsh-working-directory"></a>
+<a id="xpeachxph-working-directory"></a>
 
 ## `@xpeach/xph-working-directory`
 
@@ -4588,7 +4659,7 @@ export interface Config {
 <!-- END GENERATED config-catalog:@xpeach/xph-working-directory -->
 
 <!-- BEGIN GENERATED config-catalog:@xpeach/xph-workspace-changes -->
-<a id="deepseek-aidsh-workspace-changes"></a>
+<a id="xpeachxph-workspace-changes"></a>
 
 ## `@xpeach/xph-workspace-changes`
 
@@ -4633,6 +4704,7 @@ export interface Config {
 | `@xpeach/xph-client-locale` | — | [`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts) |
 | `@xpeach/xph-client-modules` | `loader` | [`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts) |
 | `@xpeach/xph-client-resources` | — | [`packages/client/resources/src/index.ts`](../packages/client/resources/src/index.ts) |
+| `@xpeach/xph-client-ui` | — | [`packages/xpeach/client-ui/src/index.ts`](../packages/xpeach/client-ui/src/index.ts) |
 | `@xpeach/xph-client-ui-agent-preset` | — | [`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts) |
 | `@xpeach/xph-client-ui-approval` | — | [`packages/client/ui-approval/src/index.ts`](../packages/client/ui-approval/src/index.ts) |
 | `@xpeach/xph-client-ui-attachment` | — | [`packages/client/ui-attachment/src/index.ts`](../packages/client/ui-attachment/src/index.ts) |
@@ -4723,11 +4795,9 @@ export interface Config {
 | `@xpeach/xph-terminal` | — | [`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts) |
 | `@xpeach/xph-tool-call-timeout-policy` | `tools` | [`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts) |
 | `@xpeach/xph-tool-cordis` | `tools` · `cordisInspect` | [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts) |
-| `@xpeach/xph-tool-executor-native` | `tools` | [`packages/core/tool-executor-native/src/index.ts`](../packages/core/tool-executor-native/src/index.ts) |
 | `@xpeach/xph-tool-schedule` | `tools` | [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts) |
 | `@xpeach/xph-tool-subagent-control` | `tools` · `subagents` | [`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts) |
 | `@xpeach/xph-tool-working-directory` | `tools` · `workingDirectory` | [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts) |
-| `@xpeach/xph-tools` | `systemPrompt` | [`packages/core/tools/src/index.ts`](../packages/core/tools/src/index.ts) |
 | `@xpeach/xph-user-questions` | — | [`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts) |
 | `@xpeach/xph-webhook` | `agents` · `agentDefaultModel` · `agentPresets` · `permissionPresets` · `sessionTitle` · `workspaceRegistry` | [`packages/experimental/webhook/src/index.ts`](../packages/experimental/webhook/src/index.ts) |
 | `@xpeach/xph-workspace` | `storageDomain` · `sessionPersistence` | [`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts) |
@@ -4823,7 +4893,6 @@ export interface Config {
 | `@xpeach/xph-session-title-llm` | — | [`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts) |
 | `@xpeach/xph-ssh-helper-runtime` | — | [`packages/ssh/ssh-helper-runtime/src/index.ts`](../packages/ssh/ssh-helper-runtime/src/index.ts) |
 | `@xpeach/xph-timeout` | — | [`packages/util/timeout/src/index.ts`](../packages/util/timeout/src/index.ts) |
-| `@xpeach/xph-tool-testkit` | — | [`packages/test-support/tool-testkit/src/index.ts`](../packages/test-support/tool-testkit/src/index.ts) |
 | `@xpeach/xph-typert-generator` | — | [`packages/typert/generator/src/index.ts`](../packages/typert/generator/src/index.ts) |
 | `@xpeach/xph-typert-protocol` | — | [`packages/typert/protocol/src/index.ts`](../packages/typert/protocol/src/index.ts) |
 | `@xpeach/xph-typert-registry` | — | [`packages/typert/registry/src/index.ts`](../packages/typert/registry/src/index.ts) |

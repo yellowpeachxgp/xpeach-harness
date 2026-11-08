@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-product-analytics",
   "description": "Desktop product event collection and authenticated Host reporting",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },

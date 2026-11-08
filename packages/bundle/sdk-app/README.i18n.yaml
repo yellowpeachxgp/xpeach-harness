@@ -5,36 +5,36 @@
 /:
   en: 8148fef9eb6f852e
   zh: f4419bed153c9760
-/xpeach-xph-sdk-app:
-  en: 8516b161349f47b7
-  zh: 79446605a6a1b272
-/xpeach-xph-sdk-app/summary:
+/deepseek-ai-dsh-sdk-app:
+  en: 1393fc0c2c6cf60c
+  zh: 61e2f2c46463101b
+/deepseek-ai-dsh-sdk-app/summary:
   en: 5583f814d74d685f
   zh: 7d52ecc2cdcd78d4
-/xpeach-xph-sdk-app/table-of-contents:
+/deepseek-ai-dsh-sdk-app/table-of-contents:
   en: 4e53164159b5ce41
   zh: 89582dc0294d0776
-/xpeach-xph-sdk-app/use-this-package:
-  en: b9a0e01492ffe278
-  zh: 7c6ffd1f9e9c0906
-/xpeach-xph-sdk-app/model-experience:
+/deepseek-ai-dsh-sdk-app/use-this-package:
+  en: 6c4bb998302dbd1e
+  zh: 8bd23f9d8698affd
+/deepseek-ai-dsh-sdk-app/model-experience:
   en: 215e7ba838619b7b
   zh: a311da3843709f90
-/xpeach-xph-sdk-app/model-experience/sdk-model-context:
+/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context:
   en: 4f88e647c6df4f42
   zh: 2bd3e4b0bdfe9412
-/xpeach-xph-sdk-app/model-experience/sdk-model-context/what-the-model-sees:
-  en: fc42eb5995eb2078
-  zh: 4e47602e46ba5123
-/xpeach-xph-sdk-app/model-experience/sdk-model-context/token-effect:
-  en: 4a0cdca06d358f53
-  zh: d27080dcb68c661c
-/xpeach-xph-sdk-app/model-experience/sdk-model-context/kv-cache-effect:
-  en: 5b0e33295fb90e19
-  zh: 4d48ca75bb677202
-/xpeach-xph-sdk-app/known-limitations-and-deferred-work:
-  en: 416e2793f9786480
-  zh: 05cc4fd289d0185d
-/xpeach-xph-sdk-app/known-limitations-and-deferred-work/dev-note:
-  en: e67f633dc6fe7773
-  zh: e88aeb617ffb74ea
+/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context/what-the-model-sees:
+  en: 6b46520441d75a00
+  zh: 04851fd123960847
+/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context/token-effect:
+  en: cef8efe97fe1ff16
+  zh: c052ab3e6706efa6
+/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context/kv-cache-effect:
+  en: b1169743449b2272
+  zh: 98d465d802bf55c1
+/deepseek-ai-dsh-sdk-app/known-limitations-and-deferred-work:
+  en: ef13cf492fdb9ab4
+  zh: d04018c6922a1b98
+/deepseek-ai-dsh-sdk-app/known-limitations-and-deferred-work/dev-note:
+  en: b9b4e27513ebba78
+  zh: 51b123ac60ff28c6

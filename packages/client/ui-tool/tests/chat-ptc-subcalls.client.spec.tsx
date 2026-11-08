@@ -13,6 +13,7 @@ import type { PropsRenderSlots } from '@xpeach/xph-client-ui-slots'
 import {
   ConversationEventRegistry, ConversationViewRegistry, EMPTY_CONVERSATION_SNAPSHOT, type ConvViewOwnerProps,
 } from '@xpeach/xph-client-ui-conversation/client'
+import { ConversationInteractionRegistry } from '@xpeach/xph-client-ui-conversation/src/client/conversation/interaction-registry.ts'
 import { en as conversationEn, NS as CONVERSATION_NS, zh as conversationZh } from '@xpeach/xph-client-ui-conversation/src/client/locales.ts'
 import { apply as applyChat, inject as injectChat } from '@xpeach/xph-client-ui-chat/client'
 import { PartialArguments } from '@xpeach/xph-util-values'
@@ -112,6 +113,7 @@ async function bench(snapshot: ChatSnapshot) {
   ctx.provide('uiConversation', {
     events,
     views,
+    interactions: new ConversationInteractionRegistry(ctx),
     groups: { register: () => () => {} },
     binding: () => ({ target: () => chat, snapshot: conversation }),
   } as never)

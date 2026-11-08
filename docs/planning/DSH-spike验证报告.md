@@ -1,6 +1,6 @@
 # DSH 迁移可行性 Spike 验证报告
 
-> 日期：2026-10-13 · 底座版本：deepseek-harness 0.2.1-alpha.2 (`d743267`)
+> 日期：2026-10-13 · 底座版本：deepseek-harness `dsh-v0.2.1-alpha.2`
 > 验证目标：XPeach 站点定制 harness 是否可行、代价多大、与继续改 opencode 的对比
 
 ## 结论(先给判断)

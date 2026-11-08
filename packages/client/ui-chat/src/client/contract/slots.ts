@@ -7,6 +7,7 @@ import type { FileAttachmentRef } from '@xpeach/xph-attachment'
 import type { InboxState } from '@xpeach/xph-agent/types'
 import type {
   CommandNode, CompactionSummaryNode, ConversationLocationDataStore, ConversationTurnDataMap,
+  TextInteractionGesture, TextInteractionSurface,
   ConversationGroupData, GroupSnapshot,
   MessageImageLoader, MessageImageSource, MessageImagesOwnerProps, RenderEntry, TurnLocation, UserTextFacts, UserTextInput,
 } from '@xpeach/xph-client-ui-conversation/client'
@@ -298,7 +299,11 @@ export interface PerformanceUsageInjected {
 
 /** Business callbacks injected into the Chat view. */
 export interface ChatViewInjected {
+  /** Dispatch one gesture to the Conversation plugin registry. */
+  dispatchInteraction: (gesture: TextInteractionGesture) => string | null
   hooks: {
+    /** Live plugin IDs; removed plugins dismiss their active surface. */
+    interactionIds: ObservableSnapshot<readonly string[]>
     /** Live presentation policy derived from the accepted work-details mode. */
     presentation: ObservableSnapshot<ChatPresentationPolicy>
   }
@@ -330,7 +335,9 @@ export interface ChatViewInjected {
 }
 
 /** Existing Session-owned node sources shared by the view and its flow renderer. */
-export type ChatFlowDataInjected = Pick<ChatViewInjected, 'hooks' | 'keyedHooks'>
+export type ChatFlowDataInjected = Pick<ChatViewInjected, 'keyedHooks'> & {
+  hooks: Pick<ChatViewInjected['hooks'], 'presentation'>
+}
 
 /** Ordered rows and reconciled local echoes rendered inside one Chat viewport. */
 export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
@@ -353,7 +360,7 @@ export type ChatFlowSlotProps =
 /** Full Chat view props. */
 export type ChatViewSlotProps =
   PropsRuntime<'conversation.view'>
-  & PropsRenderSlots<'conversation.chat.flow'>
+  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction'>
   & PropsStore<ChatStore>
   & InjectFace<ChatViewInjected>
   & PropsLocale<'chat'>
@@ -390,6 +397,9 @@ declare module '@xpeach/xph-client-ui-slots' {
   }
 
   interface SlotMap {
+    /** Area-local text gestures and surfaces; each consumer registers its own synchronous admission. */
+    'conversation.chat.text-interaction': { kind: 'keyed'; scope: 'session'; owner: TextInteractionSurface }
+
     /** Ordered Chat rows and local echoes with viewport-bound visibility hooks. */
     'conversation.chat.flow': {
       kind: 'single'

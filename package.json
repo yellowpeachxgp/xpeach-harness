@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-root",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -244,6 +244,7 @@
     "@xpeach/xph-cua": "workspace:*",
     "@xpeach/xph-experimental-claude-code-mods": "workspace:*",
     "@xpeach/xph-llm-replay": "workspace:*",
+    "@xpeach/xph-subagent-dsh-sdk": "workspace:*",
     "@xpeach/xph-mcp-client": "workspace:*",
     "@xpeach/xph-tool-session-query": "workspace:*",
     "@xpeach/xph-web-fetch-http": "workspace:*",

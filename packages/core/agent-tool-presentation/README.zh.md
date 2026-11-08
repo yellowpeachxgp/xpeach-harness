@@ -41,7 +41,7 @@ kind: "package-reference"
 |---|---|---|
 | `mode` | 必填 | `native`——每个 schema；`ptc`——`run_code` 加生成 SDK |
 
-生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-agent-tool-presentation)是每个受支持字段的穷尽式真源。`mode` 是必填而非有默认值，因为不带这一行的 preset 会继承部署默认值。
+生成的[配置目录](../../../docs/config-catalog.zh.md#xpeachxph-agent-tool-presentation)是每个受支持字段的穷尽式真源。`mode` 是必填而非有默认值，因为不带这一行的 preset 会继承部署默认值。
 
 ### PTC 模式需要什么
 

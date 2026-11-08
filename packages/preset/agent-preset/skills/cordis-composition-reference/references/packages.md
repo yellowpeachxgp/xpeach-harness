@@ -110,14 +110,14 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-client-ui-sidebar` | no | Sidebar plugin: session multi-level tree, search, grouping, state dots |
 | `@xpeach/xph-client-ui-sidebar-browser` | no | Sandboxed Web browser tabs for the right Sidebar |
 | `@xpeach/xph-client-ui-sidebar-documentpreview` | yes | Extensible Sidebar previews for Office documents, spreadsheets, Markdown, code, images, PDF, HTML, and plain text |
-| `@xpeach/xph-client-ui-sidebar-files` | no | Workspace file tree tab type for the right Sidebar: lazy directory listing over the workspaceFiles Remote namespace, opening files into the Sidebar |
+| `@xpeach/xph-client-ui-sidebar-files` | no | The workspace files page and one workspace directory tree per pane beside docked and floating file previews, listed lazily over the workspaceFiles Remote namespace |
 | `@xpeach/xph-client-ui-sidebar-right` | no | Right Sidebar: the docking surface's session-bound state, its panel and header expand control, and the navigation service over it |
 | `@xpeach/xph-client-ui-sidebar-terminal` | no | Interactive shell tabs for the right Sidebar |
 | `@xpeach/xph-client-ui-skill` | no | Web skill references and the dedicated skill tool row |
 | `@xpeach/xph-client-ui-subagent` | no | Subagent conversation catalog, continuation routing UI, and '@' reference source |
 | `@xpeach/xph-client-ui-theme` | yes | Theme plugin: Host bootstrap for the pre-plugin palette; DOM-free ThemeRuntime for light/dark/system state; --dsw-* token styles and Appearance settings row |
 | `@xpeach/xph-client-ui-tool` | no | Client Tool call-tree renderer and keyed per-tool presentation slot |
-| `@xpeach/xph-client-ui-trajectory` | no | Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service) |
+| `@xpeach/xph-client-ui-trajectory` | yes | Trajectory event ledger and timing overview with live tool-result inspection |
 | `@xpeach/xph-client-ui-user-questions` | no | Web ask_user_question composer takeover and plan-review presentation UI |
 | `@xpeach/xph-client-ui-workflow-run` | no | Durable workflow-run Conversation Node and nested member disclosure for dsh web |
 | `@xpeach/xph-client-ui-workspace` | no | Workspace picker plugin: one WorkspacePicker registered into the sidebar and empty-state workspace slots |
@@ -198,6 +198,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-claude-code-mods` | yes | Experimental bridge: load Claude Code mods (hooks modules) and run their hook chains on DeepSeek Harness extension points |
 | `@xpeach/xph-experimental-client-ui-agent-team` | no | Web Agent Teams roster, task board, and teammate navigation |
 | `@xpeach/xph-experimental-client-ui-claude-code-mods` | no | Web band above the prompt for Claude Code mods: draws each session's mod tree and sends button presses back to the bridge |
+| `@xpeach/xph-experimental-client-ui-stats` | no | Per-turn and per-step context, timing, cache, and tool-cost table contributed as an experimental conversation View |
 | `@xpeach/xph-experimental-client-ui-cot-translation` | yes | Optional machine translation of expanded reasoning, preserving original Session text |
 | `@xpeach/xph-experimental-client-ui-voice-input` | no | Record speech and insert editable text into the conversation draft |
 | `@xpeach/xph-experimental-computer-use-cua-driver-mcp` | yes | Experimental computer use through an installed Cua Driver MCP executable |
@@ -343,7 +344,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-ptc-runtime-node` | yes | Node PTC execution with per-call sandboxed processes or in-memory REPL state |
+| `@xpeach/xph-ptc-runtime-node` | yes | Node PTC execution with async function, REPL and VM Script evaluators and optional retained state |
 
 ## sandbox
 
@@ -387,7 +388,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-session-log-export` | yes | Web Session-log export command and shared download dialog |
+| `@xpeach/xph-session-log-export` | yes | Web Session-log ZIP export and Session Markdown copy |
 | `@xpeach/xph-session-query-sqlite` | yes | Concrete ctx.sessionQuery backend with SQLite FTS5 search |
 
 ## settings
@@ -520,3 +521,10 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@xpeach/xph-workspace` | no | Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for the DeepSeek Harness |
+
+## xpeach
+
+| Package | Config | Description |
+|---|---|---|
+| `@xpeach/xph-account` | yes | XPeach (New API) account Remote: profile and token listing served to Harness clients |
+| `@xpeach/xph-client-ui` | no | XPeach 🍑Code face for the Web client: peach brand, quota pill, quota notice, and the settings account card |

@@ -5,69 +5,63 @@
 /:
   en: 68ff17b596cbc6aa
   zh: 8c6f3d309403ba81
-/xpeach-xph-headless:
-  en: 4e51a3913299e018
-  zh: bc096790606e3853
-/xpeach-xph-headless/summary:
+/deepseek-ai-dsh-headless:
+  en: 605b67ee9f21d085
+  zh: df2687a69f362493
+/deepseek-ai-dsh-headless/summary:
   en: 2c31f2cf129ed020
   zh: 2b34e3640b011475
-/xpeach-xph-headless/table-of-contents:
+/deepseek-ai-dsh-headless/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
-/xpeach-xph-headless/use-this-package:
+/deepseek-ai-dsh-headless/use-this-package:
   en: 4447012f4c84100d
   zh: faf579ae9f04c096
-/xpeach-xph-headless/use-this-package/running-a-one-shot-task:
-  en: b3d0ddfb56a1ac7f
-  zh: c1762158e49a4851
-/xpeach-xph-headless/use-this-package/credentials:
+/deepseek-ai-dsh-headless/use-this-package/running-a-one-shot-task:
+  en: dca0efaf1e2f8590
+  zh: ff391dfb47e46c46
+/deepseek-ai-dsh-headless/use-this-package/credentials:
   en: ca8217837ee9c698
   zh: fa20daf27d4e09ef
-/xpeach-xph-headless/use-this-package/choosing-the-session-identity:
-  en: 0ef0c533ef9aebea
-  zh: fcb267b61bd23437
-/xpeach-xph-headless/use-this-package/supervising-implementation-tasks:
-  en: b10dee3026e8d999
-  zh: 63eda004e228a48a
-/xpeach-xph-headless/use-this-package/experimental-auto-review:
-  en: ac060bf78cf157b6
-  zh: 5e099abb8c10b96b
-/xpeach-xph-headless/use-this-package/machine-readable-output:
-  en: c8a90b16023eb04a
-  zh: 58eec3550ea70f34
-/xpeach-xph-headless/use-this-package/when-to-use-it:
+/deepseek-ai-dsh-headless/use-this-package/choosing-the-session-identity:
+  en: 666cfdeceb94f569
+  zh: c9b65a807beb4ad6
+/deepseek-ai-dsh-headless/use-this-package/machine-readable-output:
+  en: 2804a96e88857b16
+  zh: fe20dc0fb9962785
+/deepseek-ai-dsh-headless/use-this-package/when-to-use-it:
   en: 5262b93dcef0d489
   zh: 1638965b2aabcd38
-/xpeach-xph-headless/use-this-package/help-and-task-errors:
+/deepseek-ai-dsh-headless/use-this-package/help-and-task-errors:
   en: ecd381558cf7b0e7
   zh: a351efbf4a1a2ac5
-/xpeach-xph-headless/understand-the-implementation:
+/deepseek-ai-dsh-headless/understand-the-implementation:
   en: be1b73a6d0ee3902
   zh: bdba099685d68b27
-/xpeach-xph-headless/understand-the-implementation/run-flow:
-  en: fdef19c52550fdf8
-  zh: c4bab4fb6972cf10
-/xpeach-xph-headless/understand-the-implementation/patch-surface-over-base:
-  en: e192267973792ad1
-  zh: ef78428a68dff9e4
-/xpeach-xph-headless/understand-the-implementation/exit-mapping:
+/deepseek-ai-dsh-headless/understand-the-implementation/run-flow:
+  en: 3729fbdc598637da
+  zh: 254c6961b65b9e2b
+/deepseek-ai-dsh-headless/understand-the-implementation/patch-surface-over-base:
+  en: a22752c052878579
+  zh: 1e42c946d8673eeb
+/deepseek-ai-dsh-headless/understand-the-implementation/exit-mapping:
   en: c2466d3d8a26177a
   zh: b75743bfa2e7723a
-/xpeach-xph-headless/understand-the-implementation/source-map:
-  en: fbda2df5fd109682
-  zh: 3a92aec4d9dfd9c8
-/xpeach-xph-headless/further-exploration:
-  en: 65aebf0f8ab3047c
-  zh: 85616d3859073c4b
-/xpeach-xph-headless/model-experience:
+/deepseek-ai-dsh-headless/understand-the-implementation/source-map:
+  en: d82278600e0efdbd
+  zh: 0f546bdba164ef25
+/deepseek-ai-dsh-headless/further-exploration:
+  en: 5f333286602492af
+  zh: 6876d57c1e8b95bc
+/deepseek-ai-dsh-headless/model-experience:
   en: c5a0991833f64dd7
   zh: 46f9feb255778f11
-/xpeach-xph-headless/model-experience/kv-cache-effect:
+/deepseek-ai-dsh-headless/model-experience/kv-cache-effect:
   en: 0b0f74b412c7c6d8
   zh: 6e8f918d0c4bf342
-/xpeach-xph-headless/known-limitations-and-deferred-work:
-  en: 5de13ddcbed7ee23
-  zh: 90f35cef2f68f90e
-/xpeach-xph-headless/known-limitations-and-deferred-work/dev-note:
+/deepseek-ai-dsh-headless/known-limitations-and-deferred-work:
+  en: 214eec7988e97b17
+  zh: 77e33dca053425a8
+/deepseek-ai-dsh-headless/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

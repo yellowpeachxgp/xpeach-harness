@@ -9,6 +9,7 @@ const PLAN_NEXT_ACTION_EN = 'describe your task to generate plan'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'quote.remove': '移除引用',
   'shortcut.newline': '换行',
   'shortcut.complementary': '使用互补的 Queue／Steer 方式',
   'shortcut.slash': '打开命令菜单',
@@ -327,6 +328,7 @@ export const zh = {
   'tool.title.bash': '运行命令',
   'tool.title.write': '写入',
   'tool.title.edit': '编辑',
+  'tool.title.applyPatch': '应用补丁',
   'tool.title.code': '代码',
   'tool.title.generic': '工具调用',
   'tool.title.inspect': '查询 Cordis 环境',
@@ -397,6 +399,7 @@ export type ConversationKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  'quote.remove': 'Remove quote',
   'shortcut.newline': 'New line',
   'shortcut.complementary': 'Use the complementary Queue / Steer action',
   'shortcut.slash': 'Open command menu',
@@ -715,6 +718,7 @@ export const en = {
   'tool.title.bash': 'Bash',
   'tool.title.write': 'Write',
   'tool.title.edit': 'Edit',
+  'tool.title.applyPatch': 'Apply patch',
   'tool.title.code': 'Code',
   'tool.title.generic': 'Tool call',
   'tool.title.inspect': 'Query Cordis environment',

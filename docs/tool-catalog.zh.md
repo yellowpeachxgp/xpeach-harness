@@ -24,10 +24,10 @@
 | `@xpeach/xph-mcp-resources` | `list_mcp_resource_templates`, `list_mcp_resources`, `read_mcp_resource` | `ctx.tools`, `ctx.mcpResources` | `tool/call`, `tool/result` | - | - |
 | `@xpeach/xph-experimental-browser-use-stagehand-native` | `stagehand_act`、`stagehand_extract`、`stagehand_navigate`、`stagehand_observe`、`stagehand_screenshot`、`stagehand_tabs` | `ctx.browserUse`、`ctx.agents`、`ctx.tools`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | - |
 | `@xpeach/xph-tool-ask-user` | `ask_user_question` | `ctx.tools`、`ctx.userQuestions` | `tool/call`、`tool/result after an answer or timeout`、`late user/message` | - | ask_user_question 默认保持原有阻塞行为；设置 `mode: timed` 后才启用前台超时与 pending 结果，同时问题仍可回答；timed 模式内 `timeout: -1` 让本次调用无限期阻塞。 |
-| `@xpeach/xph-tool-executor-ptc` | `run_code` | `ctx.workingDirectory (Agent executions)`、`ctx.tools`、`ctx.ptcRuntime`、`ctx.systemPrompt` | `tool/call`、`one tool/ptc-dispatch-start + tool/ptc-dispatch pair per bridged sub-call`、`tool/result` | - | PTC 执行器只向模型公开 run_code，并在运行时语言生成的 SDK 中声明其他可见能力。程序绑定按提交顺序进入共享的受守卫工具流水线；并行安全的函数体最多重叠 maxParallelSubCalls 个，嵌套结果保持与外层程序关联。 |
-| `@xpeach/xph-plan-mode` | `exit_plan_mode` | `ctx.tools`、`ctx.systemPrompt`、`ctx.agents`、`ctx.userQuestions (execution time, opportunistic)` | `tool/call`、`plan/mode inactive on an approved review`、`tool/result` | - | 规划未激活时，exit_plan_mode 仍保留在面向模型的 schema 中，这样状态转换不会在规划策略变更之外额外造成工具目录变动。其执行路径会拒绝规划模式之外的调用；在规划模式下，它通过用户交互 seam 提交计划（批准／根据反馈继续规划），批准后会在步骤边界记录规划模式已停用。 |
+| `@xpeach/xph-tools` | `run_code` | `ctx.workingDirectory (Agent executions)`、`ctx.tools`、`ctx.ptcRuntime (execution time)`、`ctx.systemPrompt` | `tool/call`、`one tool/ptc-dispatch-start + tool/ptc-dispatch pair per bridged sub-call`、`tool/result` | - | 在 `mode: ptc` 下，它由工具注册表所有，作为可过滤能力层之外的保留传输机制（参见 PTC mode Agent Note）。在 `ptc` 下，它是注册表对协议格式（wire format）的唯一贡献；其他可见能力在使用已加载运行时语言生成的 SDK 章节中声明。程序通过 binding 调用这些能力，调用按照原生并发约定调度：启动顺序和策略遵循提交顺序，并发安全的函数体最多重叠执行 `maxParallelSubCalls` 个。调用会重新进入完整且受守卫保护的工具流水线，并将每个嵌套执行关联到此外层结果。 |
+| `@xpeach/xph-plan-mode` | `exit_plan_mode` | `ctx.tools`、`ctx.systemPrompt`、`ctx.userQuestions (execution time, opportunistic)` | `tool/call`、`plan/mode inactive on an approved review`、`tool/result` | - | 规划未激活时，exit_plan_mode 仍保留在面向模型的 schema 中，这样状态转换不会在规划策略变更之外额外造成工具目录变动。其执行路径会拒绝规划模式之外的调用；在规划模式下，它通过用户交互 seam 提交计划（批准／根据反馈继续规划），批准后会在步骤边界记录规划模式已停用。 |
 | `@xpeach/xph-tool-bash` | `bash` | `ctx.workingDirectory`、`ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`、`tool/result` | - | bash 工具是 bash 执行器 seam 面向模型的消费方。组合中有 job 注册表时，每次调用一启动就注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具（来自 `@xpeach/xph-tool-jobs`）收集／停止；没有注册表或 `enableRunInBackground: false` 时，工具注册不带 `run_in_background` 参数的纯前台 schema。 |
-| `@xpeach/xph-tool-present` | `present` | `ctx.workingDirectory`、`ctx.tools`, `ctx.fs`, `ctx.agents` | `tool/call`, `deliverables/presented 在成功的最终结果之后`, `tool/result` | - | 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。 |
+| `@xpeach/xph-tool-present` | `present` | `ctx.workingDirectory`、`ctx.tools`, `ctx.fs`, `ctx.sessionProjections` | `tool/call`, `deliverables/presented 在成功的最终结果之后`, `tool/result` | - | 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。 |
 | `@xpeach/xph-tool-pwsh` | `pwsh` | `ctx.workingDirectory`、`ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`、`tool/result` | - | pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@xpeach/xph-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@xpeach/xph-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\...` 形式，变量采用 `$env:NAME`。 |
 | `@xpeach/xph-tool-cordis` | `cordis_inspect_list`, `cordis_inspect_query` | `ctx.tools`, `ctx.cordisInspect` | `tool/call`, `tool/result` | - | 创造模式提供两个只读运行时检查工具。Cordis host runner 提供检查注册表；Client 查询需要已连接页面。持久化变更编写为组合包，再通过 plugin_manager 安装。 |
 | `@xpeach/xph-tool-bash-persistent` | `bash` | `ctx.workingDirectory`、`ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。 |
@@ -42,9 +42,8 @@
 | `@xpeach/xph-tool-ralph` | `ralph` | `ctx.tools`、`ctx.workflowEngine`、`ctx.subagents`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents every fresh round)` | `tool/call`、`tool/result`、`workflow and child session events during execution` | - | 固定的前台工作流会在每个 Round 启动一个全新的结构化子级；模型只能选择不可变目标和可选的 Round 上限。 |
 | `@xpeach/xph-tool-skill` | `skill` | `ctx.workingDirectory`、`ctx.tools`、`ctx.agents`、`ctx.skills` | `tool/call`、`tool/result`、`user/message replacement catalogs via agent.inject()` | - | - |
 | `@xpeach/xph-tool-session-query` | `session_event_read`、`session_event_search`、`session_event_trace`、`session_search`、`session_trace` | `ctx.tools`、`ctx.systemPrompt`、`ctx.sessionQuery`、`a calling Agent for workspace authority` | `tool/call`、`tool/result` | - | 这 5 个只读工具会隐藏提供方游标，并根据不可变的调用 agent 会话为每个结果授权。该包需要选择启用；需要强制截止时间或限制行内输出的组合还会挂载通用超时或 spill 策略。 |
-| `@xpeach/xph-experimental-tool-subagent-oar` | `subagent_oar` | `ctx.tools`, `ctx.subagents` | `tool/call`, `tool/result`, `parent subagent catalog and completion notices` | - | subagent_oar 工具在为外部提供方配置的别名之间选择。本目录展示 Codex 和 Claude Code 别名；每个部署自行选择提供方。原生模型和权限设置由所选提供方的配置决定。 |
-| `@xpeach/xph-tool-subagent` | `list_subagent_models`、`subagent` | `ctx.tools`、`ctx.subagents`、`ctx.systemPrompt`、`ctx.sessionProjections`、`用于模型发现和所选路由校验的 ctx.llm` | `tool/call`、`tool/result`、`child session events through the chosen provider` | `subagent`、`subagent_fork` | 加载时的 `toolName` 选择委派名称（默认为 `subagent`）；`modelSelection` 增加可选路由字段。`modelDiscovery` 默认关闭，每个作用域由一个实例注册共享发现工具。Web 与 Desktop preset 启用 spawn 发现和路由字段，并为 `subagent_fork` 保持路由字段关闭。Host 设置服务为每个新顶层 Session 记录授权；子 Session 继承该授权。没有已记录策略时，发现和显式选择只允许当前父级路由。每次委派都会立即返回子代理 id；本地子代理接受后续消息，外部后端自动汇报单次执行结果。 |
-| `@xpeach/xph-tool-subagent-control` | `interrupt_agent`、`list_agents`、`send_message` | `ctx.tools`、`ctx.subagents`、`ctx.agents` | `tool/call`、`tool/result`、`child session events through ctx.subagents` | - | 这些是用于发现、中断托管 subagent 和向本地子代理发送消息的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包的一个实例注册 `send_message`、`interrupt_agent` 和 `list_agents`。 |
+| `@xpeach/xph-tool-subagent` | `list_subagent_models`、`subagent` | `ctx.tools`、`ctx.subagents`、`ctx.systemPrompt`、`用于模型发现和所选路由校验的 ctx.llm` | `tool/call`、`tool/result`、`child session events through the chosen provider` | `subagent`、`subagent_fork` | 注册的委派工具名称取决于加载时 `toolName` 配置（默认为 `subagent`）；上述默认 schema 关闭模型选择，而发现 schema 则展示为已启用 Session 中可用的固定配套工具。Web preset 会在每个新顶层 Session 创建时读取插件页偏好，并为其子 Session 保留该决定；`subagent_fork` 始终使用固定路由。每个实例通过 `provider` 选择后端，通过 `modelSelectionSettings` 读取模型选择设置。每次委派都会立即返回子代理 id；本地子代理接受后续消息，外部后端自动汇报单次执行结果。 |
+| `@xpeach/xph-tool-subagent-control` | `interrupt_agent`、`list_agents`、`send_message` | `ctx.tools`、`ctx.subagents`、`ctx.agents and ctx.sessionProjections (list_agents only)` | `tool/call`、`tool/result`、`child session events through ctx.subagents` | - | 这些是用于发现、中断托管 subagent 和向本地子代理发送消息的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包注册一次 `send_message` 和 `interrupt_agent`，另由 `list_agents` 通过单独加载的 `/list-agents` 插件提供，其目录行使用 sessionProjections 和实时 Agent 注册表。 |
 | `@xpeach/xph-tool-jobs` | `job_kill`、`job_list`、`job_output` | `ctx.tools`、`ctx.jobs`、`ctx.systemPrompt` | `tool/call`、`tool/result`、`user/message via agent.inject() for background completion notices` | - | 与任务种类无关的后台任务控制器：后台 bash 命令与 PTY 发送 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。 |
 | `@xpeach/xph-experimental-tool-agent-team` | `interrupt_agent`、`list_agents`、`send_message`、`spawn_teammate`、`team_task_create`、`team_task_get`、`team_task_list`、`team_task_update`、`wait_agent` | `ctx.tools`、`ctx.systemPrompt`、`ctx.agentTeams`、`an exact live Team member Agent` | `tool/call`、`team/member`、`team/task`、`agent/inbox/spliced`、`user/message on inbox claim`、`tool/result` | - | 这 9 个工具限定于隐式 Team Lead 与持久 teammate 作用域。随产品发布的 dsh-base bundle 默认禁用该包；文档中的 Agent Teams profile patch 会启用它，并禁用旧 continuable child 的同名控制工具。 |
 | `@xpeach/xph-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
@@ -54,7 +53,7 @@
 | `@xpeach/xph-tool-workspace-dependencies` | `load_workspace_dependencies` | `ctx.tools` | `tool/call`, `tool/result` | - | - |
 | `@xpeach/xph-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
 
-<a id="deepseek-aidsh-plugin-manager"></a>
+<a id="xpeachxph-plugin-manager"></a>
 
 ## `@xpeach/xph-plugin-manager`
 
@@ -124,7 +123,7 @@
 
 来源： [`packages/boot/plugin-manager/src/tools.ts`](../packages/boot/plugin-manager/src/tools.ts)
 
-<a id="deepseek-aidsh-plugin-market"></a>
+<a id="xpeachxph-plugin-market"></a>
 
 ## `@xpeach/xph-plugin-market`
 
@@ -174,7 +173,7 @@
 
 来源： [`packages/boot/plugin-market/src/tools.ts`](../packages/boot/plugin-market/src/tools.ts)
 
-<a id="deepseek-aidsh-mcp-resources"></a>
+<a id="xpeachxph-mcp-resources"></a>
 
 ## `@xpeach/xph-mcp-resources`
 
@@ -254,7 +253,7 @@
 
 来源： [`packages/mcp/mcp-resources/src/tools.ts`](../packages/mcp/mcp-resources/src/tools.ts)
 
-<a id="deepseek-aidsh-experimental-browser-use-stagehand-native"></a>
+<a id="xpeachxph-experimental-browser-use-stagehand-native"></a>
 
 ## `@xpeach/xph-experimental-browser-use-stagehand-native`
 
@@ -501,7 +500,7 @@
 
 来源：[`packages/experimental/browser-use-stagehand-native/src/index.ts`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
 
-<a id="deepseek-aidsh-tool-ask-user"></a>
+<a id="xpeachxph-tool-ask-user"></a>
 
 ## `@xpeach/xph-tool-ask-user`
 
@@ -575,13 +574,13 @@
 
 ask_user_question 默认保持原有阻塞行为；设置 `mode: timed` 后才启用前台超时与 pending 结果，同时问题仍可回答；timed 模式内 `timeout: -1` 让本次调用无限期阻塞。
 
-<a id="deepseek-aidsh-tool-executor-ptc"></a>
+<a id="xpeachxph-tools"></a>
 
-## `@xpeach/xph-tool-executor-ptc`
+## `@xpeach/xph-tools`
 
 ### `run_code`
 
-针对可用工具执行 TypeScript 程序。接受两个必填参数：`code`，异步函数的函数体（仅限可擦除语法，支持顶层 `await` 和 `return`）；以及 `description`，简要说明程序做什么。请按系统提示词中的声明，以 `await tools.name(args)` 调用工具。只有打印或返回的内容构成程序输出，请筛选这些内容。含图片的子工具结果会在运行结束后附加。程序是异步 TypeScript 函数的函数体，只接受可擦除语法，不支持 enum 或 namespace。类型标注只作提示。支持顶层 await 和 return。使用 console.log(...) 或返回无损 JSON 值来输出。只有打印值和返回值成为程序输出。每次调用在新的 Node 进程中运行，可通过 await import(...) 使用 Node API。相对路径以传入的工作目录为准；process.env 初始为空。直接文件系统访问遵循本次执行的沙箱策略。每个程序从 Session 的当前目录启动，运行中保留初始目录。沙箱提权只为本次完整程序执行授权。嵌套工具保留自身策略与审批。只有在获得拒绝证据后才请求更宽访问。先前效果可能已经发生，请在显式重试前检查。程序不会自动重放。
+针对可用工具执行 TypeScript 程序。接受两个必填参数：`code`，要执行的程序；以及 `description`，简要说明该程序做什么。请根据系统提示词中的声明，以 `await tools.name(args)` 形式调用工具。请筛选程序输出。含图片的子工具结果会在运行结束后附加。
 
 ```json
 {
@@ -589,7 +588,7 @@ ask_user_question 默认保持原有阻塞行为；设置 `mode: timed` 后才�
   "properties": {
     "code": {
       "type": "string",
-      "description": "The program: the body of an async TypeScript function."
+      "description": "The TypeScript program to execute, following this tool's execution instructions."
     },
     "description": {
       "type": "string",
@@ -597,7 +596,7 @@ ask_user_question 默认保持原有阻塞行为；设置 `mode: timed` 后才�
     },
     "timeoutMs": {
       "type": "number",
-      "description": "Positive elapsed-time budget in milliseconds, including nested tool and approval waits. Default 120000; capped at 600000. Zero does not disable the deadline."
+      "description": "Positive elapsed-time budget in milliseconds, capped by the deployment maximum."
     },
     "sandbox_permissions": {
       "type": "string",
@@ -619,11 +618,11 @@ ask_user_question 默认保持原有阻塞行为；设置 `mode: timed` 后才�
 }
 ```
 
-来源：[`packages/core/tool-executor-ptc/src/ptc.ts`](../packages/core/tool-executor-ptc/src/ptc.ts)
+来源：[`packages/core/tools/src/ptc.ts`](../packages/core/tools/src/ptc.ts)
 
-PTC 执行器只向模型公开 run_code，并在运行时语言生成的 SDK 中声明其他可见能力。程序绑定按提交顺序进入共享的受守卫工具流水线；并行安全的函数体最多重叠 maxParallelSubCalls 个，嵌套结果保持与外层程序关联。
+在 `mode: ptc` 下，它由工具注册表所有，作为可过滤能力层之外的保留传输机制（参见 PTC mode Agent Note）。在 `ptc` 下，它是注册表对协议格式的唯一贡献；其他可见能力在使用已加载运行时语言生成的 SDK 章节中声明。程序通过 binding 调用这些能力，调用按照原生并发约定调度：启动顺序和策略遵循提交顺序，并发安全的函数体最多重叠执行 `maxParallelSubCalls` 个。调用会重新进入完整且受守卫保护的工具流水线，并将每个嵌套执行关联到此外层结果。
 
-<a id="deepseek-aidsh-plan-mode"></a>
+<a id="xpeachxph-plan-mode"></a>
 
 ## `@xpeach/xph-plan-mode`
 
@@ -650,7 +649,7 @@ PTC 执行器只向模型公开 run_code，并在运行时语言生成的 SDK �
 
 规划未激活时，exit_plan_mode 仍保留在面向模型的 schema 中，这样状态转换不会在规划策略变更之外额外造成工具目录变动。其执行路径会拒绝规划模式之外的调用；在规划模式下，它通过用户交互 seam 提交计划（批准／根据反馈继续规划），批准后会在步骤边界记录规划模式已停用。
 
-<a id="deepseek-aidsh-tool-bash"></a>
+<a id="xpeachxph-tool-bash"></a>
 
 ## `@xpeach/xph-tool-bash`
 
@@ -694,13 +693,13 @@ PTC 执行器只向模型公开 run_code，并在运行时语言生成的 SDK �
 
 bash 工具是 bash 执行器 seam 面向模型的消费方。组合中有 job 注册表时，每次调用一启动就注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具（来自 `@xpeach/xph-tool-jobs`）收集／停止；没有注册表或 `enableRunInBackground: false` 时，工具注册不带 `run_in_background` 参数的纯前台 schema。
 
-<a id="deepseek-aidsh-tool-present"></a>
+<a id="xpeachxph-tool-present"></a>
 
 ## `@xpeach/xph-tool-present`
 
 ### `present`
 
-将已有文件声明为交付给用户的最终交付物。宿主可能只在你的本轮结束后才展示已交付的文件，因此请在文件定稿后再调用。如果用户需要提前审阅文件（例如在等待用户回答的工具调用之前），请改为在消息中链接这些文件。当用户需要独立文件时使用，尤其是 Office 文档、电子表格和演示文稿；如果最终回复已经足够，优先使用最终回复。用户打开的是当前文件；不复制其内容。
+将已有文件声明为交付给用户的最终交付物。当用户需要独立文件时使用，尤其是 Office 文档、电子表格和演示文稿；如果最终回复已经足够，优先使用最终回复。用户打开的是当前文件；不复制其内容。
 
 ```json
 {
@@ -738,7 +737,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。组合中有 job �
 
 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。
 
-<a id="deepseek-aidsh-tool-pwsh"></a>
+<a id="xpeachxph-tool-pwsh"></a>
 
 ## `@xpeach/xph-tool-pwsh`
 
@@ -782,7 +781,7 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。组合中有 job �
 
 pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@xpeach/xph-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@xpeach/xph-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\...` 形式，变量采用 `$env:NAME`。
 
-<a id="deepseek-aidsh-tool-cordis"></a>
+<a id="xpeachxph-tool-cordis"></a>
 
 ## `@xpeach/xph-tool-cordis`
 
@@ -839,7 +838,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 创造模式提供两个只读运行时检查工具。Cordis host runner 提供检查注册表；Client 查询需要已连接页面。持久化变更编写为组合包，再通过 plugin_manager 安装。
 
-<a id="deepseek-aidsh-tool-bash-persistent"></a>
+<a id="xpeachxph-tool-bash-persistent"></a>
 
 ## `@xpeach/xph-tool-bash-persistent`
 
@@ -866,7 +865,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。
 
-<a id="deepseek-aidsh-tool-pwsh-persistent"></a>
+<a id="xpeachxph-tool-pwsh-persistent"></a>
 
 ## `@xpeach/xph-tool-pwsh-persistent`
 
@@ -893,7 +892,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 一个按所有者隔离的持久 pwsh 工具，持久 bash 工具的 Windows 对应物；部署组合提供 pwsh 方言的 PTY 后端，并可覆盖面向模型的环境描述。
 
-<a id="deepseek-aidsh-tool-str-replace-editor"></a>
+<a id="xpeachxph-tool-str-replace-editor"></a>
 
 ## `@xpeach/xph-tool-str-replace-editor`
 
@@ -1001,7 +1000,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 基于文件系统 seam 的独立查看／创建／唯一字面量替换／按行插入工具；可与任何 shell 或终端接口组合。
 
-<a id="deepseek-aidsh-tool-fs"></a>
+<a id="xpeachxph-tool-fs"></a>
 
 ## `@xpeach/xph-tool-fs`
 
@@ -1118,7 +1117,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 先读后写／编辑策略由 `@xpeach/xph-fs-observation-policy` 添加；它是一个 `fs/*` 事件门禁插件，不会改变 schema。加载这些工具的部署按预期也应加载该插件。没有 `ctx.attachments` 时图片工具不会注册；其 schema 与路由无关，执行时除非确切路由的模型声明图片输入，否则拒绝。
 
-<a id="deepseek-aidsh-tool-fs-search"></a>
+<a id="xpeachxph-tool-fs-search"></a>
 
 ## `@xpeach/xph-tool-fs-search`
 
@@ -1178,7 +1177,7 @@ pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费
 
 glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn 随包提供的 ripgrep 二进制文件（`@vscode/ripgrep`），并作为普通前台调用运行，绝不作为后台任务；无需在宿主机安装 `rg`，也不经过 shell 层。本目录使用 `sampleOverCapGlobResults: true`；部署必须显式选择该行为。结果超过上限时，会通过可选的 ctx.spillStore 后端保存完整的格式化列表；在共置部署中，如果后端公开本地路径，返回的定位信息可供后续读取／搜索。
 
-<a id="deepseek-aidsh-experimental-tool-terminal"></a>
+<a id="xpeachxph-tool-terminal"></a>
 
 ## `@xpeach/xph-tool-terminal`
 
@@ -1343,7 +1342,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
 
 这 6 个终端工具需要选择启用，用于补充一次性 bash／文件系统工具。`terminal_send(run_in_background: true)` 会注册到 `ctx.jobs`；schema 不包含 TUI、具名按键序列、BEL、调整尺寸、自动启动和跨 agent 共享。
 
-<a id="deepseek-aidsh-tool-goal"></a>
+<a id="xpeachxph-tool-goal"></a>
 
 ## `@xpeach/xph-tool-goal`
 
@@ -1437,7 +1436,7 @@ glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn �
 
 create、edit、pause 和 resume 要求直接来自人类的根权限；complete 和 blocked 也接受确切的当前 Goal Round。blocked 的默认下限是 3 个获准的 Round。
 
-<a id="deepseek-aidsh-tool-schedule"></a>
+<a id="xpeachxph-tool-schedule"></a>
 
 ## `@xpeach/xph-tool-schedule`
 
@@ -1730,7 +1729,7 @@ Source: [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/to
 
 preset 或 Agent scope 挂载本包；由 preset 决定哪些 agent 获得这四个管理工具。每次调用都作用于调用方 Agent 的 Session。接受 after_seconds、显式绝对 at、有界固定速率 every_seconds、带显式 IANA 时区的每日与每周本地时间，以及作为五字段表达式的 cron。管理使用宿主 storage domain；到期消息会恢复原 Session。
 
-<a id="deepseek-aidsh-tool-lsp"></a>
+<a id="xpeachxph-tool-lsp"></a>
 
 ## `@xpeach/xph-tool-lsp`
 
@@ -1778,7 +1777,7 @@ preset 或 Agent scope 挂载本包；由 preset 决定哪些 agent 获得这四
 
 lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，因此其模型可见 schema 在更换提供方时保持稳定。运行时要求已注册提供方，例如 `@xpeach/xph-lsp-stdio`；如果没有提供方，查询会返回结构化 `LSP_UNAVAILABLE` 错误，而不会改变 schema。
 
-<a id="deepseek-aidsh-experimental-tool-ralph"></a>
+<a id="xpeachxph-tool-ralph"></a>
 
 ## `@xpeach/xph-tool-ralph`
 
@@ -1809,7 +1808,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 固定的前台工作流会在每个 Round 启动一个全新的结构化子级；模型只能选择不可变目标和可选的 Round 上限。
 
-<a id="deepseek-aidsh-tool-skill"></a>
+<a id="xpeachxph-tool-skill"></a>
 
 ## `@xpeach/xph-tool-skill`
 
@@ -1834,7 +1833,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 来源：[`packages/skill/tool-skill/src/index.ts`](../packages/skill/tool-skill/src/index.ts)
 
-<a id="deepseek-aidsh-tool-session-query"></a>
+<a id="xpeachxph-tool-session-query"></a>
 
 ## `@xpeach/xph-tool-session-query`
 
@@ -2069,58 +2068,13 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 这 5 个只读工具会隐藏提供方游标，并根据不可变的调用 agent 会话为每个结果授权。该包需要选择启用；需要强制截止时间或限制行内输出的组合还会挂载通用超时或 spill 策略。
 
-<a id="deepseek-aidsh-experimental-tool-subagent-oar"></a>
-
-## `@xpeach/xph-experimental-tool-subagent-oar`
-
-### `subagent_oar`
-
-将上下文完整的任务委派给已配置的外部 agent。每次调用选择一个运行时。subagent 在独立上下文中工作，无法看到当前对话。工具返回子级 id，后续完成通知包含其最终回答。subagent 不接受后续消息。并发启动相互独立的任务，并在其运行期间继续其他有用工作。只剩等待结果时结束当前轮次，不要轮询。
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "runtime": {
-      "type": "string",
-      "description": "Configured external runtime for this task.",
-      "enum": [
-        "codex",
-        "claude"
-      ]
-    },
-    "description": {
-      "type": "string",
-      "description": "A short description of the delegated task, for display."
-    },
-    "prompt": {
-      "type": "string",
-      "description": "The complete, self-contained task. Include all context the external agent needs."
-    },
-    "cwd": {
-      "type": "string",
-      "description": "Initial child working directory. Relative paths use your current directory; omission inherits it."
-    }
-  },
-  "required": [
-    "runtime",
-    "description",
-    "prompt"
-  ]
-}
-```
-
-来源：[`packages/experimental/tool-subagent-oar/src/index.ts`](../packages/experimental/tool-subagent-oar/src/index.ts)
-
-subagent_oar 工具在为外部提供方配置的别名之间选择。本目录展示 Codex 和 Claude Code 别名；每个部署自行选择提供方。原生模型和权限设置由所选提供方的配置决定。
-
-<a id="deepseek-aidsh-tool-subagent"></a>
+<a id="xpeachxph-tool-subagent"></a>
 
 ## `@xpeach/xph-tool-subagent`
 
 ### `list_subagent_models`
 
-查询 subagent 可用的模型，不更改当前 Agent。无参数：提供方；`provider`：允许的模型；`provider` + `model`：该模型及其推理强度。选择子级提供方和模型前先在此查询选项，再将返回的 id 用于委派。
+发现 subagent 可用的 LLM 路由，不更改当前 Agent。无参数调用会列出已注册提供方；提供 `provider` 时会列出其公布的模型；同时提供 `provider` 和 `model` 时会检查该精确模型及其推理强度。目录条目只提供建议：adapter 可能接受未列出的模型 id。把返回的 id 用于委派工具的 `provider`、`model` 与 `reasoning_effort` 字段。
 
 ```json
 {
@@ -2142,7 +2096,7 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
 
 ### `subagent`
 
-将一项自包含任务委派给 subagent（在自身上下文中工作的独立 agent），用它卸载聚焦且独立的工作，例如研究、限定范围的实现或分析，以免消耗当前对话的上下文。subagent 会返回结果，但不会返回中间步骤。此工具启动独立管理的 subagent 并立即返回其 id。运行时会在任务结束时通知你。子代理通过 `send_message` 汇报结果；你可以使用 `send_message` 在运行时引导它，或在结束后继续对话。
+将一项自包含任务委派给 subagent（在自身上下文中工作的独立 agent），用它卸载聚焦且独立的工作，例如研究、限定范围的实现或分析，以免消耗当前对话的上下文。subagent 会返回结果，但不会返回中间步骤。请提供完整、独立的提示词，因为它看不到当前对话。此工具启动独立管理的 subagent 并立即返回其 id。运行时会在任务结束时通知你。子代理通过 `send_message` 汇报结果；你可以使用 `send_message` 在运行时引导它，或在结束后继续对话。
 
 ```json
 {
@@ -2170,9 +2124,9 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
 
 来源：[`packages/subagent/tool-subagent/src/index.ts`](../packages/subagent/tool-subagent/src/index.ts)
 
-加载时的 `toolName` 选择委派名称（默认为 `subagent`）；`modelSelection` 增加可选路由字段。`modelDiscovery` 默认关闭，每个作用域由一个实例注册共享发现工具。Web 与 Desktop preset 启用 spawn 发现和路由字段，并为 `subagent_fork` 保持路由字段关闭。Host 设置服务为每个新顶层 Session 记录授权；子 Session 继承该授权。没有已记录策略时，发现和显式选择只允许当前父级路由。每次委派都会立即返回子代理 id；本地子代理接受后续消息，外部后端自动汇报单次执行结果。
+注册的委派工具名称取决于加载时 `toolName` 配置（默认为 `subagent`）；上述默认 schema 关闭模型选择，而发现 schema 则展示为已启用 Session 中可用的固定配套工具。Web preset 会在每个新顶层 Session 创建时读取插件页偏好，并为其子 Session 保留该决定；`subagent_fork` 始终使用固定路由。每个实例通过 `provider` 选择后端，通过 `modelSelectionSettings` 读取模型选择设置。每次委派都会立即返回子代理 id；本地子代理接受后续消息，外部后端自动汇报单次执行结果。
 
-<a id="deepseek-aidsh-tool-subagent-control"></a>
+<a id="xpeachxph-tool-subagent-control"></a>
 
 ## `@xpeach/xph-tool-subagent-control`
 
@@ -2245,9 +2199,9 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
 
 来源：[`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts)
 
-这些是用于发现、中断托管 subagent 和向本地子代理发送消息的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包的一个实例注册 `send_message`、`interrupt_agent` 和 `list_agents`。
+这些是用于发现、中断托管 subagent 和向本地子代理发送消息的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包注册一次 `send_message` 和 `interrupt_agent`，另由 `list_agents` 通过单独加载的 `/list-agents` 插件提供，其目录行使用 sessionProjections 和实时 Agent 注册表。
 
-<a id="deepseek-aidsh-tool-jobs"></a>
+<a id="xpeachxph-tool-jobs"></a>
 
 ## `@xpeach/xph-tool-jobs`
 
@@ -2320,7 +2274,7 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
 
 与任务种类无关的后台任务控制器：后台 bash 命令与 PTY 发送 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。
 
-<a id="deepseek-aidsh-experimental-tool-agent-team"></a>
+<a id="xpeachxph-experimental-tool-agent-team"></a>
 
 ## `@xpeach/xph-experimental-tool-agent-team`
 
@@ -2611,7 +2565,7 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
 这 10 个工具限定于隐式 Team Lead 与持久 teammate 作用域。随产品发布的 dsh-base bundle 默认禁用该包；文档中的 Agent Teams profile patch 会启用它，并禁用旧 continuable child 的同名控制工具。
 
 
-<a id="deepseek-aidsh-tool-todo"></a>
+<a id="xpeachxph-tool-todo"></a>
 
 ## `@xpeach/xph-tool-todo`
 
@@ -2661,7 +2615,7 @@ subagent_oar 工具在为外部提供方配置的别名之间选择。本目录�
 
 todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。
 
-<a id="deepseek-aidsh-tool-working-directory"></a>
+<a id="xpeachxph-tool-working-directory"></a>
 
 ## `@xpeach/xph-tool-working-directory`
 
@@ -2685,7 +2639,7 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 
 读取或改变调用方 Session 的目录。已有 shell 和进程保留自己的目录；原始元数据和权限根目录保持不变。
 
-<a id="deepseek-aidsh-experimental-tool-worktree"></a>
+<a id="xpeachxph-experimental-tool-worktree"></a>
 
 ## `@xpeach/xph-experimental-tool-worktree`
 
@@ -2713,7 +2667,7 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 
 仅通过显式实验组合加载。在现有写权限下从固定的本地提交创建新分支与检出目录，再改变 Session 工作目录。离开时保留分支与检出目录。
 
-<a id="deepseek-aidsh-tool-workflow"></a>
+<a id="xpeachxph-tool-workflow"></a>
 
 ## `@xpeach/xph-tool-workflow`
 
@@ -2809,7 +2763,7 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 
 来源：[`packages/workflow/tool-workflow/src/index.ts`](../packages/workflow/tool-workflow/src/index.ts)
 
-<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+<a id="xpeachxph-tool-workspace-dependencies"></a>
 
 ## `@xpeach/xph-tool-workspace-dependencies`
 
@@ -2826,7 +2780,7 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 
 来源：[`packages/skill/tool-workspace-dependencies/src/index.ts`](../packages/skill/tool-workspace-dependencies/src/index.ts)
 
-<a id="deepseek-aidsh-tool-web"></a>
+<a id="xpeachxph-tool-web"></a>
 
 ## `@xpeach/xph-tool-web`
 

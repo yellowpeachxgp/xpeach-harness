@@ -62,6 +62,7 @@ describe('release families', () => {
       '@xpeach/xph-experimental-client-ui-agent-team',
       '@xpeach/xph-experimental-client-ui-claude-code-mods',
       '@xpeach/xph-experimental-client-ui-cot-translation',
+      '@xpeach/xph-experimental-client-ui-stats',
       '@xpeach/xph-experimental-client-ui-voice-input',
       '@xpeach/xph-experimental-computer-use-cua-driver-mcp',
       '@xpeach/xph-experimental-computer-use-cua-driver-native',
