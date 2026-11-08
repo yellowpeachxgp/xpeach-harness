@@ -35,6 +35,7 @@ class DeepSeekHarnessConfig:
     shutdown_timeout_seconds: float | None = 1.0
     base_url: str | None = None
     api_key: str | None = None
+    approval_requests: bool = False
 
 
 @dataclass(slots=True)
@@ -110,6 +111,7 @@ class DeepSeekHarness:
             model=self.config.model,
             reasoning_effort=self.config.reasoning_effort,
             max_tokens=self.config.max_tokens,
+            approval_requests=self.config.approval_requests,
         )
         self._initialized = True
 
