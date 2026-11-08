@@ -247,7 +247,7 @@ function requestSections(request: GenerateOptions): Record<string, unknown> {
   return sections
 }
 
-function expectReviewFailure(result: Awaited<ReturnType<Context['tools']['execute']>>, cause?: string): void {
+function expectReviewFailure(result: Awaited<ReturnType<typeof executeToolFixture>>, cause?: string): void {
   if (!result.isError) throw new Error('the reviewed call executed')
   expect(result.error.info).toBeUndefined()
   const prefix = 'Auto review of tool "probe" failed; its body was not executed: auto-review: '
@@ -1406,7 +1406,7 @@ describe('cancellation and integration teardown', () => {
     appendNativeCall(second.session, callId, 'probe', '{}')
     let observedPreset: string | undefined
     let selectionFailure: unknown
-    let competingCall: ReturnType<typeof ctx.tools.execute> | undefined
+    let competingCall: ReturnType<typeof executeToolFixture> | undefined
     ctx.on('session/event', (session, event) => {
       if (session !== first.session || event.type !== 'permission/preset'
         || event.data.preset !== 'danger-full-access') return
