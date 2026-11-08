@@ -68,7 +68,8 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-attachment": "workspace:*",
     "@tanstack/react-virtual": "3.14.10",
-    "diff": "^9.0.0"
+    "diff": "^9.0.0",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",

@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { Context } from '@xpeach/xph-cordis'
 import Loader from '@xpeach/xph-cordis-plugin-loader'
 import Group from '@xpeach/xph-cordis-plugin-group'
@@ -26,6 +27,7 @@ export async function harness(options: { live?: boolean } = {}): Promise<Context
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { personaPrefix: '' })
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   if (options.live) liveRegistries.set(ctx, await liveConfig(ctx, AgentPresets, { default: 'standard' }))

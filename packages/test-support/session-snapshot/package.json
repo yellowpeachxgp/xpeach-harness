@@ -55,6 +55,7 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-user-questions": "workspace:*",
     "@types/js-yaml": "^4.0.9",
-    "@xpeach/xph-http-proxy": "workspace:*"
+    "@xpeach/xph-http-proxy": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

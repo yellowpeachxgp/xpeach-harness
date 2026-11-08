@@ -22,10 +22,11 @@
   config:
     maxBytes: 65536
 
-- id: tools
-  name: '@xpeach/xph-tools'
-  config:
-    mode: ptc
+- id: tool-executor-native
+  disabled: true
+
+- id: tool-executor-ptc
+  disabled: false
 
 - id: system-prompt
   name: '@xpeach/xph-system-prompt'
@@ -34,3 +35,7 @@
       You are a coding assistant powered by the {{model}} model.
 
       Verify your work by running the code or tests. Keep answers brief and factual.
+
+# Keep this recorded composition stable; the sdk profile's plugin management tool is covered separately.
+- id: tool-plugin-manager
+  disabled: true

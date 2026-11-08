@@ -13,6 +13,7 @@ import { parseStoredDraft, resolveDraftInput, snapshotDraft } from '../src/clien
 import { scanTextRefs } from '../src/client/input/decorations.ts'
 import { ReferenceChipNode } from '../src/client/input/editor/chip-node.tsx'
 import { CommandChipNode } from '../src/client/input/editor/command-chip-node.tsx'
+import { QuoteNode } from '../src/client/input/editor/QuoteNode.tsx'
 import { TextRefNode } from '../src/client/input/editor/text-ref.ts'
 import { SessionInputShell, type SessionInputDeps } from '../src/client/input/facade.ts'
 
@@ -300,6 +301,33 @@ describe('draft documents in the input shell', () => {
     expect(commandChips(shell)).toBe(1)
     shell.submit()
     await vi.waitFor(() => { expect(claim.submitted).toEqual(['ship']) })
+  })
+
+  it('restores a command and an atomic quote together without changing their text or offsets', async () => {
+    const original = makeShell()
+    original.setDraft('/goal ')
+    expect(original.insertQuote('selected source text')).toBe(true)
+    expect(original.beginCommand(goalClaim(), { start: 0, end: 6, draftRev: original.snapshot.draftRev })).toBe(true)
+    const stored = parseStoredDraft(JSON.parse(JSON.stringify(original.draftSnapshot)))
+    expect(stored).toEqual({
+      text: '/goal > selected source text ', references: [], command: { token: '/goal ' },
+      quotes: [{ offset: 6, length: 22, text: 'selected source text' }],
+    })
+    if (stored === undefined) throw new Error('Expected a stored draft')
+    const claim = goalClaim()
+    const provider: InputTriggerController = {
+      ...triggerProvider(createSnapshotStore(new Map())),
+      resolveClaim: () => Promise.resolve(claim),
+    }
+    const restored = makeShell({ inputTriggers: () => provider })
+    restored.setDraft(stored)
+    await vi.waitFor(() => { expect(restored.snapshot.phase).toBe('claimed') })
+    expect(commandChips(restored)).toBe(1)
+    expect(restored.editor.getEditorState().read(() => $nodesOfType(QuoteNode).map(node => node.getQuoteText())))
+      .toEqual(['selected source text'])
+    expect(restored.draftSnapshot).toEqual(stored)
+    restored.submit()
+    await vi.waitFor(() => { expect(claim.submitted).toEqual(['> selected source text ']) })
   })
 
   it('waits for the trigger pipeline before resolving a restored command chip', async () => {
@@ -782,5 +810,12 @@ describe('plain-text reference catalogs', () => {
     expect(scanTextRefs('@"some folder/ trailing', new Map())).toEqual([
       { start: 0, end: 14, trigger: '@' },
     ])
+  })
+
+  it('matches whole folder tokens, never the directory prefix of a pasted file path', () => {
+    expect(scanTextRefs('@src/deep/file.txt @"/a/nv/SM100 ISA.html" 看 @"a/ b.md" @src/.env @src/de', new Map())).toEqual([])
+    const text = '@"dir a/" @src/deep/。 @dir/ 请看 @"src/"，然后 @"open dir/ x'
+    expect(scanTextRefs(text, new Map()).map(range => text.slice(range.start, range.end)))
+      .toEqual(['@"dir a/"', '@src/deep/', '@dir/', '@"src/"', '@"open dir/'])
   })
 })

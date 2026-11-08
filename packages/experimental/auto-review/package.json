@@ -24,6 +24,7 @@
   "files": [
     "icon.svg",
     "locale/*.json",
+    "docs",
     "lib/index.js",
     "cordis.patch.yml",
     "lib/types/**/*.d.ts"
@@ -72,7 +73,10 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "publishConfig": {
     "access": "public"

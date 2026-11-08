@@ -42,7 +42,10 @@
     "@xpeach/xph-scope": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-agent": "workspace:*"
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "@xpeach/xph-util-values": "workspace:*"

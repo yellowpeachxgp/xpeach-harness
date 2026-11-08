@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -62,8 +63,10 @@ async function loadYaml(lines: readonly string[]): Promise<Context> {
     ['@xpeach/xph-llm', LlmRuntime],
     ['@xpeach/xph-session', SessionStore],
     ['@xpeach/xph-session-projection', SessionProjectionRegistry],
+
     ['@xpeach/xph-system-prompt', SystemPrompt],
     ['@xpeach/xph-tools', ToolRuntime],
+    ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
     ['@xpeach/xph-agent', AgentRegistry],
     ['@xpeach/xph-llm-retry', retry],
     ['@xpeach/xph-agent-loop', AgentLoop],
@@ -94,6 +97,7 @@ describe('real Loader composition', () => {
       "- name: '@xpeach/xph-session-projection'",
       "- name: '@xpeach/xph-system-prompt'",
       "- name: '@xpeach/xph-tools'",
+      "- name: '@xpeach/xph-tool-executor-native'",
       "- name: '@xpeach/xph-agent'",
       "- name: '@xpeach/xph-llm-retry'",
       "- name: '@xpeach/xph-agent-loop'",

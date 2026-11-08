@@ -27,6 +27,7 @@
   "files": [
     "icon.svg",
     "locale/*.json",
+    "docs",
     "lib/index.js",
     "cordis.patch.yml",
     "lib/types/**/*.d.ts"
@@ -38,6 +39,7 @@
     }
   },
   "dependencies": {
+    "@xpeach/xph-experimental-client-ui-stats": "workspace:*",
     "@xpeach/xph-experimental-inspector": "workspace:*",
     "@xpeach/xph-experimental-session-inspector": "workspace:*"
   },

@@ -57,6 +57,7 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-llm": "workspace:*",
-    "@xpeach/xph-llm-deepseek": "workspace:*"
+    "@xpeach/xph-llm-deepseek": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

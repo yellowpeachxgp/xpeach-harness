@@ -50,7 +50,7 @@ afterEach(() => {
 })
 
 function setup(platform: 'darwin' | 'win32' | 'linux', focused = false) {
-  const window = Object.assign(new EventEmitter(), {
+  const window = Object.assign(new EventEmitter() as BrowserWindow, {
     focused,
     visible: true,
     isFocused() { return this.focused },
@@ -61,7 +61,7 @@ function setup(platform: 'darwin' | 'win32' | 'linux', focused = false) {
   const focusWindow = vi.fn()
   const onSelectSession = vi.fn()
   manager = new DesktopTaskNotificationManager({
-    window: () => window as unknown as BrowserWindow,
+    window: () => window,
     focusWindow,
     onSelectSession,
     iconPath: '/app/icon.png',

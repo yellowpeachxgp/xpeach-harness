@@ -14,10 +14,12 @@ import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntim
 import { carrierKeyOf, type Scoped } from '@xpeach/xph-scope'
 import type { SessionId, SessionLogOffset } from '@xpeach/xph-session'
 import type {} from '@xpeach/xph-working-directory'
+import type {} from '@xpeach/xph-user-approval'
 import type SubagentRuntime from '@xpeach/xph-subagent'
 import type { SubagentRunEndInfo } from '@xpeach/xph-subagent'
 import * as LlmDeepSeek from '@xpeach/xph-llm-deepseek-api-key'
 import type {
+  ApprovalRequestParams,
   InitializeParams,
   InitializeResult,
   JsonRpcTransportPeer,
@@ -93,12 +95,32 @@ export class HarnessSdkJsonRpcServer {
   private shutdownTask: Promise<Record<string, never>> | undefined
   private shuttingDown = false
   private initialized = false
+  private approvalRequests = false
+  private readonly lifetime = new AbortController()
 
   constructor(
     private readonly ctx: Context,
     private readonly transport: JsonRpcTransportPeer,
     private readonly options: HarnessSdkJsonRpcServerOptions = {},
   ) {
+    this.disposers.push(ctx.on('approval/request', async (request, next) => {
+      if (!this.approvalRequests || !this.ownsAgent(request.agent)) return next()
+      const params: ApprovalRequestParams = {
+        sessionId: request.agent.session.id,
+        toolName: request.toolName,
+        ...(request.callId === undefined ? {} : { callId: request.callId }),
+        ...(request.reason === undefined ? {} : { reason: request.reason }),
+      }
+      const signal = request.signal === undefined
+        ? this.lifetime.signal
+        : AbortSignal.any([request.signal, this.lifetime.signal])
+      const result = await this.transport.request('approval/request', params, signal)
+      if (result === null || typeof result !== 'object' || !('outcome' in result)
+        || (result.outcome !== 'allowed-once' && result.outcome !== 'rejected' && result.outcome !== 'cancelled')) {
+        throw new TypeError('approval/request response requires an allowed-once, rejected, or cancelled outcome')
+      }
+      return result.outcome
+    }))
     const serverOptions = this.options
     this.disposers.push(ctx.on('session/event', (session, event) => {
       const record = this.sessions.get(session.id)
@@ -119,7 +141,7 @@ export class HarnessSdkJsonRpcServer {
     }))
     this.disposers.push(ctx.on('session/created', (session) => {
       const parentSession = session.header.parentSession
-      if (parentSession === undefined) return
+      if (session.header.origin !== 'subagent' || parentSession === undefined) return
       const payload: SubagentStartedNotification = {
         parentSessionId: String(parentSession),
         childSessionId: String(session.id),
@@ -153,6 +175,9 @@ export class HarnessSdkJsonRpcServer {
    * @returns server identity for the handshake.
    */
   async initialize(params: InitializeParams): Promise<InitializeResult> {
+    if (params.approvalRequests !== undefined && typeof params.approvalRequests !== 'boolean') {
+      throw new TypeError('initialize approvalRequests must be a boolean')
+    }
     if (params.reasoningEffort !== undefined
       && (typeof params.reasoningEffort !== 'string' || params.reasoningEffort.length === 0)) {
       throw new TypeError('initialize reasoningEffort must be a non-empty string')
@@ -184,6 +209,7 @@ export class HarnessSdkJsonRpcServer {
     this.model = model
     this.reasoningEffort = reasoningEffort
     this.maxTokens = params.maxTokens
+    this.approvalRequests = params.approvalRequests === true
     this.initialized = true
     return { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } }
   }
@@ -256,6 +282,20 @@ export class HarnessSdkJsonRpcServer {
     }
   }
 
+  private ownsAgent(agent: Agent): boolean {
+    const agents = this.ctx.agents
+    if (agents.get(agent.id) !== agent) return false
+    const liveAgents = agents.list()
+    const ancestors = new Set([agent])
+    for (const current of ancestors) {
+      if (this.sessions.get(current.session.id)?.handle.agent === current) return true
+      for (const parent of liveAgents) {
+        if (agents.isOwnedBy(current.id, parent)) ancestors.add(parent)
+      }
+    }
+    return false
+  }
+
   private assertLiveAgent(rec: SessionRecord, sessionId: string): void {
     if (this.ctx.agents.get(rec.handle.agent.id) !== rec.handle.agent) {
       throw new Error(`session agent was disposed outside the server: ${sessionId}`)
@@ -302,6 +342,7 @@ export class HarnessSdkJsonRpcServer {
 
   private async performShutdown(): Promise<Record<string, never>> {
     this.shuttingDown = true
+    this.lifetime.abort(new Error('SDK server is shutting down'))
     const pendingCreations = [...this.sessionCreations.values()]
     await Promise.allSettled(pendingCreations)
     this.sessionCreations.clear()

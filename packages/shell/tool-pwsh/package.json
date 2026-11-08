@@ -67,6 +67,8 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
-    "@xpeach/xph-fs-local": "workspace:*"
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }
