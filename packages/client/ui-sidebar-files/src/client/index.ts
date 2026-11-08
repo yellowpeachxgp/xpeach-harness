@@ -1,4 +1,3 @@
-import type {} from '@xpeach/xph-client-ui-context-menu/client'
 /**
  * Browser half: register `files` as a right-Sidebar tab type, and the
  * workspace navigator beside every file preview. The navigator, the page body,
@@ -20,7 +19,7 @@ import { FileTree } from './FileTree.tsx'
 import { FileNavigator } from './FileNavigator.tsx'
 import { FilesBody } from './FilesBody.tsx'
 import { FilesTitle } from './FilesTitle.tsx'
-import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh } from './locales.ts'
 import { NavigatorToggle } from './NavigatorToggle.tsx'
 import { createFilesStore } from './store.ts'
 

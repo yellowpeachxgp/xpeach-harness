@@ -226,8 +226,8 @@ export class ActionCards extends TypertRemoteService {
       if (skill?.success !== true || ![...this.kinds.values()].some(kind => kind.skill === skill.data.name)) return
       const turn = this.ctx.agents.turnBoundaryOf(agent.session).lastTurn
       const loads = this.turnLoads.get(agent)
-      if (loads?.turn === turn) loads.skills.add(skill.data.name)
-      else this.turnLoads.set(agent, { turn, skills: new Set([skill.data.name]) })
+      if (turn !== null && loads !== undefined && loads.turn === turn) loads.skills.add(skill.data.name)
+      else if (turn !== null) this.turnLoads.set(agent, { turn, skills: new Set([skill.data.name]) })
       this.loaded.set(agent, new Set([...this.loaded.get(agent) ?? [], skill.data.name]))
     })
     this.ctx.on('agent/disposed', ({ agent }) => {
@@ -434,7 +434,7 @@ export class ActionCards extends TypertRemoteService {
     if (kind === undefined) throw new ActionCardError(`Unknown action "${args.action}". Registered actions: ${[...this.kinds.keys()].join(', ') || 'none'}.`, 'ACTION_CARD_UNKNOWN')
     const turn = this.ctx.agents.turnBoundaryOf(agent.session).lastTurn
     const loads = this.turnLoads.get(agent)
-    if (loads?.turn !== turn || !loads.skills.has(kind.skill)) {
+    if (turn === null || loads === undefined || loads.turn !== turn || !loads.skills.has(kind.skill)) {
       throw new ActionCardError(`Load skill ${kind.skill} first, then call propose_action.`, 'ACTION_CARD_SKILL')
     }
     if (args.title.trim() === '' || args.brief.trim() === '') throw new ActionCardError('Write a title and a brief.', 'ACTION_CARD_BLANK')

@@ -12,6 +12,8 @@ import * as FsPolicy from '@xpeach/xph-fs-observation-policy'
 import { ToolCallId } from '@xpeach/xph-llm'
 import SystemPrompt from '@xpeach/xph-system-prompt'
 import ToolRuntime from '@xpeach/xph-tools'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import * as PtcToolExecutor from '@xpeach/xph-tool-executor-ptc'
 import type { ToolExecution, ToolExecutionToken } from '@xpeach/xph-tools'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SandboxPolicyService from '@xpeach/xph-sandbox-policy'
@@ -41,8 +43,8 @@ export async function setup(options: { policy?: boolean; mode?: SandboxMode; pro
   onTestFinished(() => { vi.restoreAllMocks() })
   provideWorkingDirectoryFixture(ctx, workspace)
   await ctx.plugin(SystemPrompt)
-  // The registry's own executor covers both modes; `ptc` collapses model-direct calls to run_code.
-  await ctx.plugin(ToolRuntime, { mode: options.toolMode ?? 'native' })
+  await ctx.plugin(ToolRuntime)
+  await ctx.plugin((options.toolMode ?? 'native') === 'ptc' ? PtcToolExecutor : NativeToolExecutor)
   if (options.mode !== undefined) {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicyService, { mode: options.mode })

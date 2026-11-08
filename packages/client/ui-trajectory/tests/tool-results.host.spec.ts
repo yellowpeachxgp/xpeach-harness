@@ -4,7 +4,7 @@ import TypertRegistry from '@xpeach/xph-typert-registry'
 import { expect, it, onTestFinished } from 'vitest'
 import type { Agent } from '@xpeach/xph-agent'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@xpeach/xph-agent-loop-testkit'
-import { ToolCallId, createToolResultMessage } from '@xpeach/xph-llm'
+import { ToolCallId } from '@xpeach/xph-llm'
 import { SessionId, type SessionEvent } from '@xpeach/xph-session'
 import { defineTool } from '@xpeach/xph-tools'
 import type { JsonValue } from '@xpeach/xph-util-values'
@@ -33,18 +33,10 @@ async function setup(value: JsonValue = { answer: 42 }, config: Partial<Config> 
   ctx.on('session/event', (session, event) => { if (session === agent.session) events.push(event) }, { global: true })
   let call = 0
   async function execute() {
-    const callId = ToolCallId(`value-call-${call++}`)
-    const callEvent = agent.session.append('tool/call', {
-      turn: 1, step: 1, callId, name: 'value', arguments: '{}',
+    await ctx.tools.execute({
+      agent, signal: new AbortController().signal, log: { turn: 1, step: 1 },
+      calls: [{ type: 'tool-call', id: ToolCallId(`value-call-${call++}`), name: 'value', arguments: '{}' }],
     })
-    const result = await ctx.tools.execute({
-      agent, signal: new AbortController().signal,
-      callId, name: 'value', arguments: {},
-    })
-    agent.session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({ callId, content: result.content, isError: result.isError }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [callEvent.seq] })
     const event = events.findLast(event => event.type === 'tool/result')
     if (event === undefined) throw new Error('tool result missing')
     return event
@@ -91,18 +83,10 @@ it('keeps one result per Session with a limit of one, independently of other Ses
   const { ctx, execute, watch } = await setup(null, { maxResultsPerSession: 1 })
   const first = await execute()
   const other = await ctx.agentLoop.create(SessionId('other-values'))
-  const otherCallId = ToolCallId('other-call')
-  const otherCall = other.session.append('tool/call', {
-    turn: 1, step: 1, callId: otherCallId, name: 'value', arguments: '{}',
+  await ctx.tools.execute({
+    agent: other, signal: new AbortController().signal, log: { turn: 1, step: 1 },
+    calls: [{ type: 'tool-call', id: ToolCallId('other-call'), name: 'value', arguments: '{}' }],
   })
-  const otherResult = await ctx.tools.execute({
-    agent: other, signal: new AbortController().signal,
-    callId: otherCallId, name: 'value', arguments: {},
-  })
-  other.session.append('tool/result', {
-    turn: 1, step: 1,
-    message: createToolResultMessage({ callId: otherCallId, content: otherResult.content, isError: otherResult.isError }),
-  }, { surfaceOp: 'append', sourceEventSeqs: [otherCall.seq] })
   expect((await watch(first.seq).next()).value).toEqual({ available: true, value: null })
   const latest = await execute()
   expect((await watch(first.seq).next()).value).toEqual({ available: false })
@@ -120,7 +104,7 @@ it('counts pending PTC results toward the same limit and cannot restore an evict
   for (const id of callIds) {
     await ctx.tools.execute({
       agent, signal: new AbortController().signal,
-      callId: id, name: 'value', arguments: {},
+      calls: [{ type: 'tool-call', id, name: 'value', arguments: '{}' }],
     })
   }
   expect((await evicted).value).toEqual({ available: false })
@@ -163,7 +147,7 @@ it('pairs PTC dispatch values with their committed event sequence', async () => 
   const callId = ToolCallId('nested:ptc:1')
   await ctx.tools.execute({
     agent, signal: new AbortController().signal,
-    callId, name: 'value', arguments: {},
+    calls: [{ type: 'tool-call', id: callId, name: 'value', arguments: '{}' }],
   })
   const event = agent.session.append('tool/ptc-dispatch', {
     rootCallId: ToolCallId('nested'), parentCallId: ToolCallId('nested'), subCallId: callId,
@@ -187,7 +171,7 @@ it('publishes a committed value to concurrent observers and releases only the cl
   const callId = ToolCallId('observed:ptc:1')
   await ctx.tools.execute({
     agent, signal: new AbortController().signal,
-    callId, name: 'value', arguments: {},
+    calls: [{ type: 'tool-call', id: callId, name: 'value', arguments: '{}' }],
   })
   const seq = agent.session.seq
   const first = watch(seq)
@@ -253,7 +237,7 @@ it('discards pending PTC values if the Session unloads before its result is comm
   const callId = ToolCallId('unloaded:ptc:1')
   await ctx.tools.execute({
     agent, signal: new AbortController().signal,
-    callId, name: 'value', arguments: {},
+    calls: [{ type: 'tool-call', id: callId, name: 'value', arguments: '{}' }],
   })
   const observer = watch(agent.session.seq)
   expect((await observer.next()).value).toEqual({ available: false })

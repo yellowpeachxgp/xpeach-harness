@@ -29,6 +29,7 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  "navigation.label": "Navigation",
   'session.new': '新規セッション',
   'session.new.label': '新規セッション',
   'toggle.open': 'サイドバーを開く',
@@ -40,6 +41,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  "navigation.label": "Navigation",
   'session.new': 'Nueva sesión',
   'session.new.label': 'Nueva sesión',
   'toggle.open': 'Abrir barra lateral',
@@ -51,6 +53,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  "navigation.label": "Navigation",
   'session.new': 'Nouvelle séance',
   'session.new.label': 'Nouvelle séance',
   'toggle.open': 'Ouvrir la barre latérale',
@@ -62,6 +65,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  "navigation.label": "Navigation",
   'session.new': 'Neue Sitzung',
   'session.new.label': 'Neue Sitzung',
   'toggle.open': 'Seitenleiste öffnen',
@@ -73,6 +77,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  "navigation.label": "Navigation",
   'session.new': 'Новая сессия',
   'session.new.label': 'Новая сессия',
   'toggle.open': 'Открыть боковую панель',
@@ -84,6 +89,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  "navigation.label": "Navigation",
   'session.new': 'Nova sessão',
   'session.new.label': 'Nova sessão',
   'toggle.open': 'Abrir barra lateral',

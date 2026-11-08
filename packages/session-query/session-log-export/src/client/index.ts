@@ -4,17 +4,16 @@ import type { Context as ClientContext } from '@xpeach/xph-cordis'
 import type { SessionId } from '@xpeach/xph-session/types'
 import type {} from '@xpeach/xph-client-locale/client'
 import type {} from '@xpeach/xph-client-ui-commands/client'
+import type {} from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-client-ui-renderer/client'
+import type {} from '@xpeach/xph-client-ui-session/client'
 import type {} from '@xpeach/xph-client-ui-message-feedback/client'
 import { createSnapshotStore } from '@xpeach/xph-client-store'
-import type {} from '@xpeach/xph-client-ui-context-menu/client'
-import type {} from '@xpeach/xph-client-ui-conversation/client'
-import { IconCopyOutlineRegular, IconDownloadOutlineRegular, IconPaperPlaneOutlineRegular } from '@xpeach/xph-client-ui-primitives'
 import { SessionLogDownloadController } from './controller.ts'
 import { SessionMarkdownCopyController } from './copy-controller.ts'
 import { SessionMarkdownCopyToast, type SessionMarkdownCopyToastInjected } from './CopyToast.tsx'
-import { SessionLogDownloadDialog, type SessionLogDownloadDialogInjected } from './Dialog.tsx'
-import { en, ja, es, fr, de, ru, pt, NS, zh, type SessionLogDownloadKey } from './locales.ts'
+import { SessionLogDownloadHeaderAction, type SessionLogDownloadHeaderInjected } from './HeaderAction.tsx'
+import { de, en, es, fr, ja, NS, pt, ru, zh, type SessionLogDownloadKey } from './locales.ts'
 
 declare module '@xpeach/xph-cordis' {
   interface Context {
@@ -30,11 +29,11 @@ declare module '@xpeach/xph-client-ui-slots' {
 
 export type { SessionLogDownloadEntry, SessionLogDownloadState } from './controller.ts'
 
-export const inject = ['slots', 'locale', 'contextMenus']
+export const inject = ['slots', 'locale']
 
 /**
  * Provide the download controller and mount its modal, the Markdown copy
- * controller and its root toast, and the shared Session menu actions.
+ * controller and its root toast, and both Header actions.
  * @param ctx - browser context carrying slots and locale services.
  */
 export function apply(ctx: ClientContext): void {
@@ -51,34 +50,6 @@ export function apply(ctx: ClientContext): void {
       return () => { feedbackAvailable.set(false) }
     }, 'session-log-download: feedback availability')
   })
-  const t = ctx.locale.bind(NS)
-  ctx.slots.inject('contextMenu.icon', function* () {
-    for (const [key, Icon] of Object.entries({
-      'session-log-download.copy': IconCopyOutlineRegular,
-      'session-log-download.download': IconDownloadOutlineRegular,
-      'session-log-download.feedback': IconPaperPlaneOutlineRegular,
-    })) yield ctx.slots.register({ name: 'contextMenu.icon', key }, Icon)
-  })
-  ctx.effect(() => ctx.contextMenus.register({
-    id: 'session-log-download.export', target: 'sessionHeader', order: 100,
-    observe: () => [controller.store, copyController.store, ctx.locale],
-    resolve: ({ sessionId }) => [
-      { id: 'copy', label: t('menu.copyMarkdown'), icon: { key: 'session-log-download.copy' },
-        disabled: copyController.store.getSnapshot().copying, run: () => copyController.copy(sessionId) },
-      { id: 'download', label: t('menu.download'), icon: { key: 'session-log-download.download' },
-        disabled: controller.store.getSnapshot().bySession[sessionId]?.status === 'downloading',
-        run: () => controller.download(sessionId) },
-    ],
-  }), 'session-log-download: Header exports')
-  ctx.effect(() => ctx.contextMenus.register({
-    id: 'session-log-download.feedback', target: 'sessionHeader', order: 600,
-    observe: () => [feedbackAvailable, ctx.locale],
-    resolve: ({ sessionId }) => feedbackAvailable.getSnapshot() ? [{
-      id: 'feedback', label: t('menu.feedback'), icon: { key: 'session-log-download.feedback' }, separatorBefore: true,
-      // The feedback plugin can unload between menu preparation and selection.
-      run: () => { ctx.get('feedbackUi')?.openSession(sessionId) },
-    }] : [],
-  }), 'session-log-download: Header feedback')
   ctx.on('command/executed', (sessionId, commandName, result) => {
     if (commandName === 'export' && result.kind === 'success') void controller.download(sessionId)
   })
@@ -91,15 +62,23 @@ export function apply(ctx: ClientContext): void {
       dismiss: () => { copyController.dismiss() },
     }),
   }, SessionMarkdownCopyToast))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay',
+  ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
+    name: 'conversation.session.header.utilities',
     id: 'session-log-download',
     locale: NS,
-    inject: (): SessionLogDownloadDialogInjected => ({
-      hooks: { sessionLogDownload: controller.store },
+    inject: (): SessionLogDownloadHeaderInjected => ({
+      hooks: {
+        sessionLogDownload: controller.store,
+        sessionMarkdownCopy: copyController.store,
+        feedbackAvailable,
+      },
+      request: (sessionId: SessionId) => controller.download(sessionId),
+      copyMarkdown: (sessionId: SessionId) => copyController.copy(sessionId),
       dismiss: (sessionId: SessionId) => { controller.dismiss(sessionId) },
+      // The feedback plugin can unload between the menu render and this click.
+      openFeedback: (sessionId: SessionId) => { ctx.get('feedbackUi')?.openSession(sessionId) },
     }),
-  }, SessionLogDownloadDialog))
+  }, SessionLogDownloadHeaderAction))
 }
 
 export type { SessionLogDownloadDialogInjected, SessionLogDownloadDialogProps } from './Dialog.tsx'

@@ -17,7 +17,12 @@ const BINARY_PROBE_BYTES = 8000
  * @returns one file per patch section in patch order.
  */
 export function parseDiff(patch: string): ForgeDiffFile[] {
-  return parsePatch(patch).flatMap((section) => {
+  return parsePatch(patch).flatMap((section: ReturnType<typeof parsePatch>[number] & {
+    readonly isCreate?: boolean
+    readonly isDelete?: boolean
+    readonly isRename?: boolean
+    readonly isBinary?: boolean
+  }) => {
     const before = pathOf(section.oldFileName, 'a/')
     const after = pathOf(section.newFileName, 'b/')
     const path = after ?? before

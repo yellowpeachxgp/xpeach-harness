@@ -184,10 +184,10 @@ describe('retry projection', () => {
     const { ctx } = await harness(new ScriptedAdapter([]), undefined, (inner) => {
       const projections = inner.sessionProjections
       const register = projections.register.bind(projections)
-      projections.register = (spec: Definition) => {
+      projections.register = ((spec: Definition) => {
         definitions.push(spec)
         return register(spec as never)
-      }
+      }) as typeof projections.register
     })
     const definition = definitions.find(spec => spec.key === 'llmRetry')!
     const event: SessionEvent = {

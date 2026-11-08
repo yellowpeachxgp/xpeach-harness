@@ -24,7 +24,7 @@ import {
 import { RetryId } from '@xpeach/xph-llm-retry'
 import type {} from '@xpeach/xph-llm-retry/types'
 import { SessionSeq, type SessionEventMap, type SessionEventType } from '@xpeach/xph-session/types'
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/types'
 import {
   CALL_LIMIT, fallbackState, foldEvent, isCodeMode, newState, promptOf, stepMetrics, toolSpanUnion, triggerSenderOf,
 } from '../src/client/stats-fold.ts'

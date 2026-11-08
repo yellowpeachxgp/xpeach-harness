@@ -6,7 +6,7 @@
 // under the standard discipline: turn 1 produces a bash call plus two
 // parallel reads in one assistant message (tool-call density for the
 // trajectory ledger/timing lanes), turn 2 a markdown-rich reply.
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page, Response } from 'playwright'
@@ -30,10 +30,12 @@ const SEED = join(SNAPSHOT_DIR, 'session.v3.jsonl')
 const TRAJECTORY_EXPECTED = join(SNAPSHOT_DIR, 'trajectory.expected.md')
 const TIMING_EXPECTED = join(SNAPSHOT_DIR, 'timing.expected.md')
 const SEARCH_EXPECTED = join(SNAPSHOT_DIR, 'search-results.expected.md')
+const ID_SEARCH_EXPECTED = join(SNAPSHOT_DIR, 'search-id-results.expected.md')
 const TERMINAL_EXPECTED = join(SNAPSHOT_DIR, 'terminal-card.expected.md')
 const CODE_CARD_DIR = fileURLToPath(new URL('./expected/navigation-panes', import.meta.url))
 const COMMAND_WRAP_EXPECTED = join(CODE_CARD_DIR, 'command-wrap.expected.md')
 const CODE_CARD_EXPECTED = join(CODE_CARD_DIR, 'code-card.expected.md')
+const COPY_MARKDOWN_EXPECTED = join(CODE_CARD_DIR, 'copy-markdown.expected.md')
 const EVICTED_RESULT_EXPECTED = join(CODE_CARD_DIR, 'live-result-evicted.expected.md')
 const LIVE_RESULT_EXPECTED = join(CODE_CARD_DIR, 'live-result.expected.md')
 const RUNNING_RESULT_EXPECTED = join(CODE_CARD_DIR, 'live-result-running.expected.md')
@@ -208,9 +210,20 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       { timeout: 10_000 },
     ).toBe(0)
 
-    await search.fill('WATERFALL')
     const resultTree = page.getByRole('tree', { name: 'Search results' })
     const result = resultTree.getByRole('treeitem')
+    // The seed log carries its id only in the header, so this mid-id,
+    // differently cased fragment can match only through local id matching.
+    await search.fill('PANES-WEB')
+    await expect.poll(() => result.count(), { timeout: 10_000 }).toBe(1)
+    await page.getByRole('status', { name: 'Searching session history…' }).waitFor({ state: 'detached', timeout: 30_000 })
+    await compareOrRefreshGolden(
+      ID_SEARCH_EXPECTED,
+      await captureStableAria(page, '[class*="listArea"]', scaffold.workspaceCwd),
+      MODE,
+    )
+
+    await search.fill('WATERFALL')
     await expect.poll(() => result.count(), { timeout: 30_000 }).toBe(1)
     await expect.poll(() => result.getByText('WATERFALL', { exact: false }).count(), {
       timeout: 10_000,
@@ -313,7 +326,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     const toolbar = page.getByRole('toolbar')
     const search = toolbar.getByRole('searchbox')
     try {
-      for (const locale of ['en', 'zh']) {
+      for (const locale of ['en', 'zh', 'ja', 'es', 'fr', 'de', 'ru', 'pt']) {
         await scaffold.ctx.settings.update('locale', { preference: locale })
         await expect.poll(() => page.evaluate(() => document.documentElement.lang))
           .toBe(locale === 'zh' ? 'zh-CN' : locale)
@@ -457,6 +470,66 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     }
   }, 120_000)
 
+  it.skipIf(MODE === 'record')('copies the complete Session as Markdown from the Session Header', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-copy-markdown'))
+    await ensureSeedOpen(page)
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    expect(await page.evaluate(() => typeof ClipboardItem)).toBe('function')
+    expect(await page.evaluate(() => typeof navigator.clipboard.write)).toBe('function')
+    await page.evaluate(() => {
+      const clipboard = navigator.clipboard
+      const originalWrite = clipboard.write.bind(clipboard)
+      Reflect.set(globalThis, '__dshClipboardWrites', 0)
+      Object.defineProperty(clipboard, 'write', {
+        configurable: true,
+        value: (...args: Parameters<typeof originalWrite>) => {
+          Reflect.set(globalThis, '__dshClipboardWrites', Number(Reflect.get(globalThis, '__dshClipboardWrites')) + 1)
+          return originalWrite(...args)
+        },
+      })
+    })
+    const markdownResponse = page.waitForResponse(response =>
+      response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/session.markdown', { timeout: 30_000 })
+    const copyButton = page.getByRole('button', { name: 'More actions' })
+    await copyButton.click()
+    await page.getByRole('menuitem', { name: 'Copy Session as Markdown' }).click()
+    const response = await markdownResponse
+    expect(response.status()).toBe(200)
+    expect(response.headers()['content-type']).toBe('text/markdown; charset=utf-8')
+    await page.getByText('Session copied as Markdown.', { exact: true }).waitFor({ timeout: 30_000 })
+    expect(await page.evaluate(() => Number(Reflect.get(globalThis, '__dshClipboardWrites')))).toBe(1)
+
+    const sourcePath = (await scaffold.ctx.sessionPersistence.stat(SessionId(SEED_ID)))?.location?.path
+    if (sourcePath === undefined) throw new Error('seeded Session has no materialized artifact location')
+    expect((await stat(sourcePath)).isFile()).toBe(true)
+    expect(sourcePath.startsWith(`${scaffold.persistenceRoot}/`)).toBe(true)
+    const markdown = await page.evaluate(() => navigator.clipboard.readText())
+    expect(markdown).toContain(`Session file:\n\n\`\`\`text\n${sourcePath}\n\`\`\``)
+    const normalized = markdown
+      .split(sourcePath).join('{{sessionFile}}')
+      .split(scaffold.workspaceCwd).join('{{cwd}}')
+    // compareOrRefreshGolden appends its own newline; the clipboard text already ends with exactly one.
+    await compareOrRefreshGolden(COPY_MARKDOWN_EXPECTED, normalized.replace(/\n$/u, ''), MODE)
+    expect(normalized).toContain('Session file:\n\n```text\n{{sessionFile}}\n```')
+    expect(normalized).toContain('# NavScenario: first run bash to')
+    expect(normalized).toContain('> NavScenario: first run bash to print exactly NAVIGATION_OK')
+    expect(normalized).toContain('<details><summary>3 previous messages</summary>')
+    expect(normalized).toContain('**Tool: `bash`**')
+    expect(normalized).toContain('NAVIGATION_OK')
+    expect(normalized).toContain('FIRST_DONE')
+    expect(normalized).toContain('Navigation Summary')
+    expect(normalized).not.toContain('The user wants me to follow')
+    expect(normalized).not.toContain('{{system}}')
+    expect(normalized).not.toContain('request/header')
+    expect(normalized.endsWith('\n')).toBe(true)
+    expect(normalized.endsWith('\n\n')).toBe(false)
+
+    await copyButton.click()
+    expect(await page.getByRole('menuitem', { name: 'Copy Session as Markdown' }).isDisabled()).toBe(false)
+    await page.keyboard.press('Escape')
+  }, 60_000)
+
   it.skipIf(MODE === 'record')('focuses the ledger by dragging an overview interval', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-timeline'))
     await ensureSeedOpen(page)
@@ -595,11 +668,11 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
 
   it.skipIf(MODE === 'record')('keeps the recorded fixture inventory exact', async () => {
     await assertFixtureInventory(CODE_CARD_DIR, [
-      'code-card.expected.md', 'command-wrap.expected.md',
+      'code-card.expected.md', 'command-wrap.expected.md', 'copy-markdown.expected.md',
       'live-result-evicted.expected.md', 'live-result.expected.md', 'live-result-running.expected.md',
     ])
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.v3.jsonl', 'search-results.expected.md', 'trajectory.expected.md',
+      'session.v3.jsonl', 'search-id-results.expected.md', 'search-results.expected.md', 'trajectory.expected.md',
       'terminal-card.expected.md', 'timing.expected.md',
     ])
   })
@@ -619,18 +692,11 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       if (event.type === 'tool/result' && event.data.message.toolCallId === callId) resultEvent = event
     }, { global: true })
     onTestFinished(() => { off() })
-    const call = agent.session.append('tool/call', {
-      turn: 2, step: 1, callId, name: 'live_result_probe', arguments: '{}',
+    const batch = await scaffold.ctx.tools.execute({
+      agent, signal: new AbortController().signal, log: { turn: 2, step: 1 },
+      calls: [{ type: 'tool-call', id: callId, name: 'live_result_probe', arguments: '{}' }],
     })
-    const result = await scaffold.ctx.tools.execute({
-      agent, signal: new AbortController().signal,
-      callId, name: 'live_result_probe', arguments: {},
-    })
-    expect(result.isError).toBe(false)
-    agent.session.append('tool/result', {
-      turn: 2, step: 1,
-      message: createToolResultMessage({ callId, content: result.content, isError: result.isError }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [call.seq] })
+    expect(batch.results[0]?.result.isError).toBe(false)
     expect(resultEvent).toBeDefined()
     expect(resultEvent?.data).not.toHaveProperty('value')
     const abort = new AbortController()
@@ -660,19 +726,11 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       execute: async () => Array.from({ length: 80 }, (_, index) => index),
     }))
     onTestFinished(unregisterJson)
-    const jsonCallId = ToolCallId('json-result-probe')
-    const jsonCall = agent.session.append('tool/call', {
-      turn: 2, step: 1, callId: jsonCallId, name: 'json_result_probe', arguments: '{}',
+    const jsonBatch = await scaffold.ctx.tools.execute({
+      agent, signal: new AbortController().signal, log: { turn: 2, step: 1 },
+      calls: [{ type: 'tool-call', id: ToolCallId('json-result-probe'), name: 'json_result_probe', arguments: '{}' }],
     })
-    const jsonResult = await scaffold.ctx.tools.execute({
-      agent, signal: new AbortController().signal,
-      callId: jsonCallId, name: 'json_result_probe', arguments: {},
-    })
-    expect(jsonResult.isError).toBe(false)
-    agent.session.append('tool/result', {
-      turn: 2, step: 1,
-      message: createToolResultMessage({ callId: jsonCallId, content: jsonResult.content, isError: jsonResult.isError }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [jsonCall.seq] })
+    expect(jsonBatch.results[0]?.result.isError).toBe(false)
     await page.locator('tr[data-kind="tool"]').filter({ hasText: 'json_result_probe' }).click()
     await rawSection.getByRole('tree').waitFor()
     await renderedSection.getByRole('tree').waitFor()
@@ -706,13 +764,14 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     }
     await page.locator('tr[data-kind="tool"]').filter({ hasText: 'live_result_probe' }).click()
     await expect.poll(() => rawSection.textContent()).toContain('answer:')
-    const newer = await Promise.all(Array.from({ length: 1000 }, (_, index) =>
-      scaffold.ctx.tools.execute({
-        agent, signal: new AbortController().signal,
-        callId: ToolCallId(`newer-result-${index}`), name: 'live_result_probe', arguments: {},
-      })))
-    expect(newer).toHaveLength(1000)
-    expect(newer.every(result => !result.isError)).toBe(true)
+    const newer = await scaffold.ctx.tools.execute({
+      agent, signal: new AbortController().signal,
+      calls: Array.from({ length: 1000 }, (_, index) => ({
+        type: 'tool-call' as const, id: ToolCallId(`newer-result-${index}`), name: 'live_result_probe', arguments: '{}',
+      })),
+    })
+    expect(newer.results).toHaveLength(1000)
+    expect(newer.results.every(entry => !entry.result.isError)).toBe(true)
     await details.getByText('Raw results are only available for live tool calls', { exact: true }).waitFor()
     // Keep hover and focus tooltips out of the recorded result panel.
     await details.getByText('Raw results are only available for live tool calls', { exact: true }).click()
@@ -770,19 +829,11 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
         execute: async () => probe.value,
       }))
       onTestFinished(unregister)
-      const probeCallId = ToolCallId(probe.name)
-      const probeCall = agent.session.append('tool/call', {
-        turn: 3, step: 1, callId: probeCallId, name: probe.name, arguments: '{}',
+      const batch = await scaffold.ctx.tools.execute({
+        agent, signal: new AbortController().signal, log: { turn: 3, step: 1 },
+        calls: [{ type: 'tool-call', id: ToolCallId(probe.name), name: probe.name, arguments: '{}' }],
       })
-      const probeResult = await scaffold.ctx.tools.execute({
-        agent, signal: new AbortController().signal,
-        callId: probeCallId, name: probe.name, arguments: {},
-      })
-      expect(probeResult.isError).toBe(false)
-      agent.session.append('tool/result', {
-        turn: 3, step: 1,
-        message: createToolResultMessage({ callId: probeCallId, content: probeResult.content, isError: probeResult.isError }),
-      }, { surfaceOp: 'append', sourceEventSeqs: [probeCall.seq] })
+      expect(batch.results[0]?.result.isError).toBe(false)
     }
     const viewport = page.viewportSize()!
     try {

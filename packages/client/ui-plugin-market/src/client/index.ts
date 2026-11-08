@@ -12,7 +12,7 @@ import type {} from '@xpeach/xph-plugin-manager/types'
 import type {} from '@xpeach/xph-plugin-market/types'
 import type {} from '@xpeach/xph-client-ui-plugin-manager/client'
 import { DiscoverSection } from './DiscoverSection.tsx'
-import { en, ja, es, fr, de, ru, pt, zh, type PluginMarketLocaleKey } from './locales.ts'
+import { de, en, es, fr, ja, pt, ru, zh, type PluginMarketLocaleKey } from './locales.ts'
 import { DiscoverController } from './market-store.ts'
 
 export type { DiscoverFace, DiscoverState } from './market-store.ts'

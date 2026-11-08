@@ -1,3 +1,4 @@
+import type { FlatSubagentActivationSpec } from './types.ts'
 /**
  * Service Definition for the subagent capability seam (`ctx.subagents`): a named-provider registry plus a
  * capability-validating asynchronous start API. Providers establish a
@@ -252,21 +253,16 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param spec - local task, reserved child id, and result recipient.
    * @returns activation with its accepted initial message id.
    */
+  startActivation(spec: FlatSubagentActivationSpec & { readonly childId: SessionId }):
+  Promise<SubagentActivation & { readonly messageId: MessageId }>
+  startActivation(spec: FlatSubagentActivationSpec): Promise<SubagentActivation>
   startActivation(spec: SubagentActivationSpec & { readonly childId: SessionId }):
   Promise<SubagentActivation & { readonly messageId: MessageId }>
-  /**
-   * Start a local or external child.
-   * @param spec - task, backend, and result recipient.
-   * @returns activation with a message id only for local children.
-   */
   startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>
-  /**
-   * Establish a managed child with backend-specific execution capabilities.
-   * @param spec - task, backend, and result recipient.
-   * @returns identities, execution result, and exact-activation disposal. A reserved
-   * childId requires a local backend and guarantees an accepted messageId.
-   */
-  async startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation> {
+  async startActivation( rawSpec: SubagentActivationSpec | FlatSubagentActivationSpec ): Promise<SubagentActivation> {
+    const spec: SubagentActivationSpec = 'request' in rawSpec && rawSpec.request !== undefined
+      ? rawSpec
+      : { ...rawSpec, request: rawSpec as Omit<SubagentStartRequest, 'label' | 'signal'> }
     const provider = this.expectProvider(spec.provider)
     if (spec.childId !== undefined && provider.prepareContinuable === undefined) {
       throw new SubagentError('reserved child ids require a local backend', 'UNSUPPORTED_CAPABILITY')
@@ -653,3 +649,5 @@ export class SubagentRuntime extends TypertRemoteService {
 }
 
 export default SubagentRuntime
+
+export type { FlatSubagentActivationSpec } from './types.ts'
