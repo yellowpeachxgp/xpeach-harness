@@ -11,7 +11,7 @@ import type {} from '@xpeach/xph-plugin-manager/types'
 import type {} from '@xpeach/xph-plugin-market/types'
 import type {} from '@xpeach/xph-client-ui-plugin-manager/client'
 import { DiscoverSection } from './DiscoverSection.tsx'
-import { en, zh, type PluginMarketLocaleKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, zh, type PluginMarketLocaleKey } from './locales.ts'
 import { DiscoverController } from './market-store.ts'
 
 export type { DiscoverFace, DiscoverState } from './market-store.ts'
@@ -35,7 +35,7 @@ export const inject = ['slots', 'locale', 'remote', 'remote.pluginMarket']
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-plugin-market: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-plugin-market: dictionaries')
   const controller = new DiscoverController(ctx)
   ctx.effect(() => () => { controller.dispose() }, 'ui-plugin-market: controller')
   ctx.effect(() => {

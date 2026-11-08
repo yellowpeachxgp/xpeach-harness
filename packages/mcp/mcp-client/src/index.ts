@@ -120,14 +120,14 @@ const Reconnect: z<ReconnectConfig> = z.object({
   maxAttempts: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(RECONNECT_DEFAULTS.maxAttempts),
 })
 
-const commonConfigFields = {
+const commonConfig = z.object({
   serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
   toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
   failOnStartupError: z.boolean().default(false),
   backgroundStartup: z.boolean().default(false),
   maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
   reconnect: Reconnect,
-}
+})
 
 export const Config = z.union([
   z.object({
@@ -136,13 +136,13 @@ export const Config = z.union([
     args: z.array(String).default([]),
     env: z.dict(String).default({}),
     cwd: z.string().default(''),
-    ...commonConfigFields,
+    ...commonConfig.dict,
   }),
   z.object({
     transport: z.const('streamable-http'),
     url: z.string().required(),
     headers: z.dict(String).default({}),
-    ...commonConfigFields,
+    ...commonConfig.dict,
   }),
 ]) as z<ConfigInput, Config>
 

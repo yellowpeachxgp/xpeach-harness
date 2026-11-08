@@ -53,7 +53,7 @@ import { XPeachSkillsIcon, XPeachSkillsPage } from './XPeachSkills.tsx'
 import { XPeachMcpIcon, XPeachMcpPage } from './XPeachMcp.tsx'
 import { footerBridge } from './FooterAction.tsx'
 import { XPeachCostPill } from './XPeachCostPill.tsx'
-import { en, NS, zh } from './locales.ts'
+import { en, es, fr, de, ru, pt, ja, NS, zh } from './locales.ts'
 import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
 import { PaletteRow } from './PaletteRow.tsx'
@@ -815,7 +815,7 @@ function registerUi(ctx: Context): Array<() => void> {
   undo.push(ctx.slots.inject('conversation.input.model.label', () => ctx.slots.register(
     { name: 'conversation.input.model.label', priority: -10 },
     XPeachModelLabel)))
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-xpeach: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-xpeach: dictionaries')
   undo.push(ctx.slots.inject('sidebar.brand.mark', () => ctx.slots.register(
     { name: 'sidebar.brand.mark', priority: -10 }, XPeachMark)))
   undo.push(ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register(
