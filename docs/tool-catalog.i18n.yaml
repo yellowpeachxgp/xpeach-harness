@@ -10,22 +10,22 @@
   zh: 1c0e6cb4ba2ed637
 /tool-schema-catalog/tool-package-map:
   en: 674ec1d8ddfabe7e
-  zh: a2d3ffb90f64b180
+  zh: de4d9d04acb94fd0
 /tool-schema-catalog/xpeach-xph-plugin-manager:
   en: 4012f9aefd79a2fa
-  zh: e0143916bb634762
+  zh: 4012f9aefd79a2fa
 /tool-schema-catalog/xpeach-xph-plugin-manager/plugin-manager:
   en: 02188f95f89b3a74
   zh: c251d9a93448b54a
 /tool-schema-catalog/xpeach-xph-plugin-market:
   en: 0e235889a5e833b0
-  zh: 1ec7b4cbc3d98e28
+  zh: 0e235889a5e833b0
 /tool-schema-catalog/xpeach-xph-plugin-market/plugin-market:
   en: 1e700791c71c613c
   zh: ce4a6d1e164562ee
 /tool-schema-catalog/xpeach-xph-mcp-resources:
   en: 7dd82030be2c9217
-  zh: dd78bd55ec83a539
+  zh: 7dd82030be2c9217
 /tool-schema-catalog/xpeach-xph-mcp-resources/list-mcp-resource-templates:
   en: 96275ece9d040944
   zh: 1fa9744642601ece
@@ -37,7 +37,7 @@
   zh: ccb18880e22d0b66
 /tool-schema-catalog/xpeach-xph-experimental-browser-use-stagehand-native:
   en: 83b814084a9f10aa
-  zh: 19e7df8d692b4375
+  zh: 83b814084a9f10aa
 /tool-schema-catalog/xpeach-xph-experimental-browser-use-stagehand-native/stagehand-act:
   en: c4b27bf62c534dcc
   zh: 70c53824ed57ac23
@@ -58,43 +58,43 @@
   zh: 5de1171651a7847a
 /tool-schema-catalog/xpeach-xph-tool-ask-user:
   en: 350ab0b1c6146e88
-  zh: e713a4a11a15d13c
+  zh: 350ab0b1c6146e88
 /tool-schema-catalog/xpeach-xph-tool-ask-user/ask-user-question:
   en: 8b5414a29b2599c9
   zh: 6490698e0c3a4261
 /tool-schema-catalog/xpeach-xph-tools:
   en: 07e316b971a8933f
-  zh: 76fbbf0fe38aef10
+  zh: 07e316b971a8933f
 /tool-schema-catalog/xpeach-xph-tools/run-code:
   en: 00ba4d3e0491eb8f
   zh: d42881e99cb3adca
 /tool-schema-catalog/xpeach-xph-plan-mode:
   en: 273f1323f7fa3867
-  zh: b500b530845e26a9
+  zh: 273f1323f7fa3867
 /tool-schema-catalog/xpeach-xph-plan-mode/exit-plan-mode:
   en: 5def11e894d9b3bb
   zh: e345887cb76a4c7d
 /tool-schema-catalog/xpeach-xph-tool-bash:
   en: fa2a2ef2cde16e04
-  zh: 408ff0a5189bd7ec
+  zh: fa2a2ef2cde16e04
 /tool-schema-catalog/xpeach-xph-tool-bash/bash:
   en: 7606defb9eb55bdc
-  zh: 67b22ad098325db3
+  zh: bcccac166babe1f6
 /tool-schema-catalog/xpeach-xph-tool-present:
   en: 8396cf741746c02f
-  zh: f656575e6df094f6
+  zh: 8396cf741746c02f
 /tool-schema-catalog/xpeach-xph-tool-present/present:
   en: 57cf85b14a7c1b2c
   zh: b2241e63b700699c
 /tool-schema-catalog/xpeach-xph-tool-pwsh:
   en: b7bdc348dd778832
-  zh: b222fc05f3f8ee4a
+  zh: b7bdc348dd778832
 /tool-schema-catalog/xpeach-xph-tool-pwsh/pwsh:
   en: 2ea024c4ce72d12d
-  zh: 6a66fb0062060af0
+  zh: f3a615601c299b34
 /tool-schema-catalog/xpeach-xph-tool-cordis:
   en: 79102d550a1d2fe4
-  zh: 76c7c62f9029b6f5
+  zh: 79102d550a1d2fe4
 /tool-schema-catalog/xpeach-xph-tool-cordis/cordis-inspect-list:
   en: 594e5b42047969cc
   zh: 72189ca21345c210
@@ -103,25 +103,25 @@
   zh: 1c26b81183df2252
 /tool-schema-catalog/xpeach-xph-tool-bash-persistent:
   en: 57788c6447523171
-  zh: bdd9e88c49029e05
+  zh: 57788c6447523171
 /tool-schema-catalog/xpeach-xph-tool-bash-persistent/bash:
   en: a2cd72f067fd1c33
   zh: 21251a49e000297d
 /tool-schema-catalog/xpeach-xph-tool-pwsh-persistent:
   en: 66328bd243385871
-  zh: 40a053607298a4c5
+  zh: 66328bd243385871
 /tool-schema-catalog/xpeach-xph-tool-pwsh-persistent/pwsh:
   en: 9c1b6cd4b0a230b7
   zh: 0a1077c9003f920d
 /tool-schema-catalog/xpeach-xph-tool-str-replace-editor:
   en: 46386e62846296f3
-  zh: 591f6e54dbbc38fe
+  zh: 46386e62846296f3
 /tool-schema-catalog/xpeach-xph-tool-str-replace-editor/str-replace-editor:
   en: 7edd8cece5571367
   zh: 84f836968efb8347
 /tool-schema-catalog/xpeach-xph-tool-fs:
   en: 15a9b30c4e32aa3d
-  zh: 07d595ce1f1a5184
+  zh: 15a9b30c4e32aa3d
 /tool-schema-catalog/xpeach-xph-tool-fs/edit:
   en: 5b6a252adde51af6
   zh: 7aa172a5d8b9cbd2
@@ -133,10 +133,10 @@
   zh: d528e01a0939795a
 /tool-schema-catalog/xpeach-xph-tool-fs/write:
   en: c5488649f5ce5416
-  zh: 70e62f2df3e7138b
+  zh: 74673bddfbfeb60c
 /tool-schema-catalog/xpeach-xph-tool-fs-search:
   en: e0e749e2e0d98ef6
-  zh: 703fea005ce84c50
+  zh: e0e749e2e0d98ef6
 /tool-schema-catalog/xpeach-xph-tool-fs-search/glob:
   en: 3ba734ba7852cdd5
   zh: c6ce31ff2c195520
@@ -145,7 +145,7 @@
   zh: 1a00513abb5ecac7
 /tool-schema-catalog/xpeach-xph-tool-terminal:
   en: 4227cf301b099e96
-  zh: 77501c1b592b6a88
+  zh: 4227cf301b099e96
 /tool-schema-catalog/xpeach-xph-tool-terminal/terminal-close:
   en: 4da73ab1c95aadc6
   zh: 998471bc4f5af00a
@@ -166,7 +166,7 @@
   zh: 99c654b6a9c4051e
 /tool-schema-catalog/xpeach-xph-tool-goal:
   en: 64495bf131d6b977
-  zh: 74fff3741e7c13de
+  zh: 64495bf131d6b977
 /tool-schema-catalog/xpeach-xph-tool-goal/create-goal:
   en: 9ae877cdf8a641a3
   zh: f83c3c09e80e4190
@@ -178,7 +178,7 @@
   zh: f8e3b600da3b4e4a
 /tool-schema-catalog/xpeach-xph-tool-schedule:
   en: 9bb635f0e6ca3fa4
-  zh: 9fd2eccb1ee51372
+  zh: 9bb635f0e6ca3fa4
 /tool-schema-catalog/xpeach-xph-tool-schedule/schedule-create:
   en: 606fc2b8d62ba044
   zh: 7523e106168c2ab2
@@ -193,25 +193,25 @@
   zh: 218d8a9387558223
 /tool-schema-catalog/xpeach-xph-tool-lsp:
   en: 7a52f88c819a618d
-  zh: 32982123b1f0e5bc
+  zh: 7a52f88c819a618d
 /tool-schema-catalog/xpeach-xph-tool-lsp/lsp:
   en: a7ace75cb6a98080
-  zh: 4768833f7e7e7977
+  zh: da87b27b4e1fd02e
 /tool-schema-catalog/xpeach-xph-tool-ralph:
   en: dae701eba85aa315
-  zh: 45bd083870e2c92d
+  zh: dae701eba85aa315
 /tool-schema-catalog/xpeach-xph-tool-ralph/ralph:
   en: 92920202e2617281
   zh: bdd1c6755e0c42e4
 /tool-schema-catalog/xpeach-xph-tool-skill:
   en: 6d012f819549ceb8
-  zh: 927a5ac0974b7642
+  zh: 6d012f819549ceb8
 /tool-schema-catalog/xpeach-xph-tool-skill/skill:
   en: 67d52c51cb4873ca
   zh: 5c4708ad033f5437
 /tool-schema-catalog/xpeach-xph-tool-session-query:
   en: cb5cc164ce0b6273
-  zh: eac1dff4b6d9e195
+  zh: cb5cc164ce0b6273
 /tool-schema-catalog/xpeach-xph-tool-session-query/session-event-read:
   en: 285bab0bd6b50949
   zh: 9c839e05237a7226
@@ -229,7 +229,7 @@
   zh: 63cc8c4ffd8ae3c9
 /tool-schema-catalog/xpeach-xph-tool-subagent:
   en: 0da0aa7773a36d3e
-  zh: 841abe0dd5913ea7
+  zh: 0da0aa7773a36d3e
 /tool-schema-catalog/xpeach-xph-tool-subagent/list-subagent-models:
   en: c89084b31ffccbce
   zh: d7b3b7000f2d2be9
@@ -238,7 +238,7 @@
   zh: 16bcfbae369f4210
 /tool-schema-catalog/xpeach-xph-tool-subagent-control:
   en: 9da51bbb62087dcd
-  zh: ab82e130c3413f04
+  zh: 9da51bbb62087dcd
 /tool-schema-catalog/xpeach-xph-tool-subagent-control/interrupt-agent:
   en: 9190a32df5e10ddd
   zh: 48e1b05956d63e26
@@ -250,7 +250,7 @@
   zh: 241713a35324e58e
 /tool-schema-catalog/xpeach-xph-tool-jobs:
   en: 7fbb0f054300b02f
-  zh: 9be673b1604d0114
+  zh: 7fbb0f054300b02f
 /tool-schema-catalog/xpeach-xph-tool-jobs/job-kill:
   en: 14294cc1988ae768
   zh: 80a9152bdc02723f
@@ -262,7 +262,7 @@
   zh: 60cb2c2091414f24
 /tool-schema-catalog/xpeach-xph-experimental-tool-agent-team:
   en: 2d7e836620dc9f2d
-  zh: 6b1106f417b50db6
+  zh: 2d7e836620dc9f2d
 /tool-schema-catalog/xpeach-xph-experimental-tool-agent-team/interrupt-agent:
   en: c3c7af05ceb9f8c9
   zh: ec379e0b42110c6a
@@ -292,37 +292,37 @@
   zh: bcbeb77570f09f38
 /tool-schema-catalog/xpeach-xph-tool-todo:
   en: 0a009c53732a5f74
-  zh: dea62d26fb18ff68
+  zh: 0a009c53732a5f74
 /tool-schema-catalog/xpeach-xph-tool-todo/todo-write:
   en: c632bbe99c1f3bfd
   zh: 40aaccc76dc1935c
 /tool-schema-catalog/xpeach-xph-tool-working-directory:
   en: 4ab1a5a01db49403
-  zh: 1bdc4627ca4fff29
+  zh: 4ab1a5a01db49403
 /tool-schema-catalog/xpeach-xph-tool-working-directory/working-directory:
   en: 02d850f899feebf2
   zh: 5e3b69a7c3a5f625
 /tool-schema-catalog/xpeach-xph-experimental-tool-worktree:
   en: 5c4b1721e866d017
-  zh: d5f5679abe86e316
+  zh: 5c4b1721e866d017
 /tool-schema-catalog/xpeach-xph-experimental-tool-worktree/create-worktree:
   en: 9559a8ae2534f613
   zh: 79addde008517ba3
 /tool-schema-catalog/xpeach-xph-tool-workflow:
   en: 6e8a724393ac1c69
-  zh: bb38a9d29f46563c
+  zh: 6e8a724393ac1c69
 /tool-schema-catalog/xpeach-xph-tool-workflow/workflow:
   en: 3daa307978db1189
   zh: e50a79483168534f
 /tool-schema-catalog/xpeach-xph-tool-workspace-dependencies:
   en: dad966476752ed7d
-  zh: 96bffc40b80df4b8
+  zh: dad966476752ed7d
 /tool-schema-catalog/xpeach-xph-tool-workspace-dependencies/load-workspace-dependencies:
   en: 2bfa7afa5a6e2972
   zh: 0f00390f679646c6
 /tool-schema-catalog/xpeach-xph-tool-web:
   en: 0578ac3f7d53639a
-  zh: 4b9918342d3aa931
+  zh: 0578ac3f7d53639a
 /tool-schema-catalog/xpeach-xph-tool-web/web-fetch:
   en: 8673f203aea9bdf2
   zh: 4e17783ffdf34c83
