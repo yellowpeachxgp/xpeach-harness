@@ -25,6 +25,8 @@ import { Context, Service } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@xpeach/xph-typert-protocol'
 import { credentialRef, type CredentialRef } from '@xpeach/xph-credentials'
+// Type-only: merges the forwarded `xpeach/playground-chunk` member onto cordis Events.
+import type {} from '@xpeach/xph-api-remotes/types'
 import { deepEqualJson, type JsonValue } from '@xpeach/xph-util-values'
 import { launchEnvironmentOf } from '@xpeach/xph-launch-environment'
 import { XPeachApi, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
@@ -99,7 +101,6 @@ import type {
   XPeachModelPricingChange, XPeachModelSyncResult, XPeachSiteCatalog, XPeachSelfLogPage,
   XPeachSelfLogStat, XPeachNetworkPoint, XPeachNetworkSnapshot, XPeachModelPricingSnapshot,
   XPeachModelPerfDetail, XPeachModelPerfSummary,
-  XPeachPlaygroundChunk,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -2620,8 +2621,7 @@ export class XPeachAccount extends TypertRemoteService {
   /** Broadcast one streamed delta on the forwarded playground event. */
   private emitChunk(callId: string, delta: string): void {
     try {
-      const emit = this.ctx.emit.bind(this.ctx) as (name: string, payload: XPeachPlaygroundChunk) => void
-      emit('xpeach/playground-chunk', { callId, delta })
+      this.ctx.emit('xpeach/playground-chunk', { callId, delta })
     } catch (_err) {
       // Event fan-out is best-effort; the assembled reply is the contract.
     }
