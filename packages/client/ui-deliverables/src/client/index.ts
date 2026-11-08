@@ -32,6 +32,8 @@ import {
   deliverablesDefinition, presentedForClosing, producedFileMentions, selectProducedFiles,
 } from './turn-deliverables.ts'
 
+export type { PresentedOpenOutcome, PresentedOpenFailure } from './present-open.ts'
+
 declare module '@xpeach/xph-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Changed-files card, review tab, delivery card, and file-mention copy. */
