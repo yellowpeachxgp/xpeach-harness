@@ -66,8 +66,15 @@ describe('Python SDK dsh profile keyless smoke', () => {
     { label: 'reports max-token turns with mapping enabled through env', envValue: 'true', editorEnabled: false },
     { label: 'reports max-token turns with mapping disabled through env', envValue: 'false', editorEnabled: false },
     { label: 'allows an explicit patch to enable str_replace_editor', envValue: undefined, editorEnabled: true },
-  ])('$label', async ({ envValue, editorEnabled }) => {
+    // The shipped sdk profile mounts no observation policy: an edit of a file the model never read lands on disk.
+    { label: 'edits a file the model never read through the shipped profile', envValue: undefined, editorEnabled: false, unreadEdit: true },
+  ])('$label', async (scenario) => {
+    const { envValue, editorEnabled } = scenario
+    const unreadEdit = 'unreadEdit' in scenario && scenario.unreadEdit
+
     const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-smoke-'))
+    const unreadFile = join(root, 'notes.txt')
+    if (unreadEdit) await writeFile(unreadFile, 'alpha\n')
     const editorPatch = join(root, 'editor.patch.yml')
     if (editorEnabled) await writeFile(editorPatch, [
       '- insert:',
@@ -83,7 +90,14 @@ describe('Python SDK dsh profile keyless smoke', () => {
       request.on('end', () => {
         modelRequests.push(JSON.parse(body) as Record<string, unknown>)
         response.writeHead(200, { 'content-type': 'text/event-stream' })
-        response.end(messagesResponse({ type: 'text', text: 'done' }, 'max_tokens'))
+        if (unreadEdit && modelRequests.length === 1) {
+          response.end(messagesResponse({
+            type: 'tool_use', id: 'unread-edit', name: 'edit',
+            input: { file_path: 'notes.txt', old_string: 'alpha', new_string: 'beta' },
+          }, 'tool_use'))
+          return
+        }
+        response.end(messagesResponse({ type: 'text', text: 'done' }, unreadEdit ? 'end_turn' : 'max_tokens'))
       })
     })
     await new Promise<void>(resolve => modelServer.listen(0, '127.0.0.1', resolve))
@@ -167,10 +181,14 @@ describe('Python SDK dsh profile keyless smoke', () => {
           sessionId: 'main',
           event: {
             type: 'turn/end',
-            data: { reason: { kind: 'max-tokens' } },
+            data: { reason: { kind: unreadEdit ? 'completed' : 'max-tokens' } },
           },
         },
       })
+      if (unreadEdit) {
+        expect(modelRequests).toHaveLength(2)
+        expect(await readFile(unreadFile, 'utf8')).toBe('beta\n')
+      }
       expect(modelRequests[0]?.tools).toEqual(expect.any(Array))
       const tools = modelRequests[0]?.tools as { name?: string }[]
       const toolNames = tools.map(tool => tool.name)

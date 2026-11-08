@@ -291,6 +291,7 @@
 
     - id: fs-observation-policy
       name: '@xpeach/xph-fs-observation-policy'
+      disabled: true
 
     - id: tool-fs
       name: '@xpeach/xph-tool-fs'

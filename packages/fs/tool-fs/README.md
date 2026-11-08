@@ -39,7 +39,7 @@ A backend, the policy plugin, then the tools; the attachment store is optional a
 - name: '@deepseek-ai/dsh-tool-fs'
 ```
 
-The policy plugin is optional: without it the tools run against the bare provider (unconditional write, overwrite, and edit with no observed-state). A deployment that loads these tools is expected to also load it, so the behavior is read-before-write/edit. `read_image` registers only while a durable `ctx.attachments` service is mounted; execution additionally refuses on a route whose exact model does not declare image input, so a text route's durable history stays free of image blocks.
+The policy plugin is optional: without it the tools run against the bare provider (unconditional write, overwrite, and edit with no observed-state), which is how the shipped compositions run — [`dsh-base`](../../bundle/base/cordis.patch.yml) lists the `fs-observation-policy` row `disabled: true`; set it to `false` to require prior reads and reject stale versions for every mutating tool. `read_image` registers only while a durable `ctx.attachments` service is mounted; execution additionally refuses on a route whose exact model does not declare image input, so a text route's durable history stays free of image blocks.
 
 ### The tools
 
@@ -153,13 +153,13 @@ Use the read tool — not shell commands like cat — to inspect text files. Use
 ##### Write guidance
 
 ```markdown
-Read an existing file before overwriting it with write (the default fs-observation-policy requires it) and prefer edit for targeted changes.
+Read an existing file before overwriting it with write and prefer edit for targeted changes.
 ```
 
 ##### Edit guidance
 
 ```markdown
-Read a file before editing it (the default fs-observation-policy requires it), unless you just created or edited it in this session.
+Read a file before editing it unless you just created or edited it in this session.
 ```
 
 #### Token effect

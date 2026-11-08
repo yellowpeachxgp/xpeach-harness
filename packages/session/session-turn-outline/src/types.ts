@@ -8,6 +8,7 @@
  */
 
 import type { SessionSeq } from '@xpeach/xph-session/types'
+import type { SessionProjectionSummaryExcluded } from '@xpeach/xph-session-projection/types'
 
 export {}
 
@@ -43,7 +44,12 @@ declare module '@xpeach/xph-session-projection/types' {
     turnOutline: TurnOutlineState
   }
   interface SessionProjectionMap {
-    /** Every started turn with its `turn/start` seq and bounded previews, strictly increasing by turn; see {@link TurnOutlineEntry}. */
-    turnOutline: readonly TurnOutlineEntry[]
+    /**
+     * Every started turn with its `turn/start` seq and bounded previews,
+     * strictly increasing by turn; see {@link TurnOutlineEntry}. Excluded from
+     * Session summary payloads: the outline grows with the whole log and no
+     * list row renders it.
+     */
+    turnOutline: SessionProjectionSummaryExcluded<readonly TurnOutlineEntry[]>
   }
 }

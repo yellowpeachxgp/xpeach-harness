@@ -11,6 +11,12 @@
 /session-projections/the-snapshot-and-the-change-feed:
   en: a49a57c600c3cbd0
   zh: c92f00b8a9d71bad
+/session-projections/summary-reads:
+  en: d2bc9bcc775acfb7
+  zh: b1d2ba74496305b8
+/session-projections/summary-reads/summary-vocabulary:
+  en: 5920d94f98fb323a
+  zh: a0e24d6ad2a6b739
 /session-projections/the-registry-ctx-sessionprojections:
   en: 50e79c1bc16abb63
   zh: 200ecbf0e4ab19d2
