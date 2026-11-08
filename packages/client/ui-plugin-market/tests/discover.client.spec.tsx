@@ -199,6 +199,7 @@ describe('DiscoverSection', () => {
       expect(screen.queryByRole('menuitem', { name: en.sortRelevance })).toBeNull()
       expect(actions.search).toHaveBeenCalledTimes(4)
     } finally {
+      cleanup()
       vi.useRealTimers()
     }
   })

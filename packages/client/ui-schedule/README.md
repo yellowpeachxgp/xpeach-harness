@@ -62,6 +62,8 @@ Time-zone inventory and localization are offline. `Intl` reads ICU/CLDR tables e
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
+Task menus use the [standard menu geometry](../../../docs/ui-radius.md#nested-hover), including keyboard-highlighted rows. Portaled task menus and date/time pickers use `useAnchoredPosition` to follow their triggers during browser zoom, scrolling, and resizing, while preserving viewport margins and the desktop frame clearance. Task-menu labels and clock values ellipsize when the visual viewport is too narrow. Clock columns shrink within the panel and scroll vertically within its available height; task menus scroll vertically to reach every choice. The Session-header popover follows the same viewport constraints and stays hidden until its first position resolves.
+
 <details>
 <summary>Implementation internals — click to expand</summary>
 
