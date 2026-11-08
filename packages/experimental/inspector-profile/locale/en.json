@@ -1,6 +1,7 @@
 {
   "meta": {
     "title": "Developer Tools",
-    "description": "For troubleshooting: view what XPeach Harness recorded for a session in Session log, and debug the XPeach Harness backend in Chrome DevTools."
+    "description": "For troubleshooting: view what XPeach Harness recorded for a session in Session log, and debug the XPeach Harness backend in Chrome DevTools.",
+    "detail": "docs/DETAIL.md"
   }
 }
