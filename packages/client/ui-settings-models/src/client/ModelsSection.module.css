@@ -506,6 +506,7 @@
 }
 
 .modelEntry {
+  container: model-row / inline-size;
   border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-lg);
   padding: 6px;
@@ -516,6 +517,36 @@
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 6px;
+}
+
+.modelName {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.modelNameLabel {
+  display: none;
+}
+
+@container model-row (max-width: 440px) {
+  .modelRow {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .modelRow .modelName {
+    display: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 2px 4px 0;
+  }
+
+  .modelRow[data-expanded] .modelName {
+    display: flex;
+  }
+
+  .modelNameLabel {
+    display: block;
+  }
 }
 
 /* Square, label-free affordances: the row's own inputs carry the meaning, so
@@ -556,9 +587,10 @@
 
 .modelAdvanced {
   display: grid;
+  grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  padding: 8px 4px 2px;
+  padding: 2px 4px;
 }
 
 .modelField {

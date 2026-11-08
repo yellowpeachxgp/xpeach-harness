@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Model row reordering: the profile array order is the order the picker shows. */
 import { useState } from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModelListEditor, type ModelDraft } from '../src/client/ModelListEditor.tsx'
 import { en } from '../src/client/locales.ts'
@@ -47,6 +47,21 @@ describe('model row order', () => {
     expect(move(rows, 0, 2)).toEqual(['b', 'c', 'a'])
     expect(move(rows, 2, 0)).toEqual(['c', 'a', 'b'])
     expect(move(rows, 1, 1)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('keeps name editing expanded after blur and restores disclosure focus on collapse', () => {
+    render(<Harness initial={[{ id: 'first', name: 'First' }]} />)
+    const name = screen.getByLabelText<HTMLInputElement>(`${en.modelName} 1`)
+    const toggle = screen.getByRole('button', { name: `${en.modelAdvanced} 1` })
+    act(() => { name.focus() })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    act(() => { screen.getByLabelText(`${en.modelId} 1`).focus() })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    act(() => { name.focus() })
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(toggle)
+    expect(screen.getByLabelText(`${en.modelName} 1`)).toBe(name)
   })
 
   it('ignores a move outside the list', () => {
