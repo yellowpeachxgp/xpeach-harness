@@ -6,24 +6,32 @@
  */
 
 import type { Context } from '@xpeach/xph-cordis'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { resolve } from 'node:path'
+import { QueryActivity } from './query-activity.ts'
+import { SdkUserQuestionBridge } from './user-questions.ts'
+import { queryCommand } from './query-input.ts'
+import { queryCommandImages, queryContent } from './query-content.ts'
 import { brandString } from '@xpeach/xph-brand'
 import type { Agent, AgentHandle } from '@xpeach/xph-agent'
 import { admitEncodedImages, type EncodedImageAttachment, type ImageAttachmentRef } from '@xpeach/xph-attachment'
 import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntime } from '@xpeach/xph-llm'
-import { carrierKeyOf, type Scoped } from '@xpeach/xph-scope'
 import type { SessionId, SessionLogOffset } from '@xpeach/xph-session'
 import type {} from '@xpeach/xph-working-directory'
 import type {} from '@xpeach/xph-user-approval'
-import type SubagentRuntime from '@xpeach/xph-subagent'
+
+import type {} from '@xpeach/xph-schedule'
 import type { SubagentRunEndInfo } from '@xpeach/xph-subagent'
 import * as LlmDeepSeek from '@xpeach/xph-llm-deepseek-api-key'
 import type {
   ApprovalRequestParams,
+  CommandExecution,
   InitializeParams,
   InitializeResult,
   JsonRpcTransportPeer,
   SessionEventNotification,
+  SessionQueryParams,
+  SessionQueryResult,
   SessionPromptParams,
   SessionPromptResult,
   SessionResumeParams,
@@ -54,16 +62,12 @@ async function durablePromptContent(ctx: Context, blocks: SessionPromptParams['c
   const refs = await admitEncodedImages(attachments, images.map((image): EncodedImageAttachment => ({
     data: image.data,
     mediaType: image.mimeType,
+    ...image.name === undefined ? {} : { name: image.name },
   })))
   let next = 0
   return blocks.map(block => encodedImage(block)
     ? { type: 'image', attachment: refs[next++] as ImageAttachmentRef }
     : block)
-}
-
-/** Recover the delegating parent from the service-owned scoped carrier. */
-function subagentParentOf(carrier: Scoped<SubagentRuntime>): Agent {
-  return carrierKeyOf(carrier) as Agent
 }
 
 /** Deployment-specific status mapping for SDK turn and subagent outcomes. */
@@ -91,18 +95,31 @@ export class HarnessSdkJsonRpcServer {
   private llmFiber: { dispose(): Promise<void> } | undefined
   private readonly sessions = new Map<string, SessionRecord>()
   private readonly sessionCreations = new Map<string, Promise<SessionRecord>>()
+  private readonly commandTasks = new Set<Promise<CommandExecution | undefined>>()
+  private readonly queryInvocation = new AsyncLocalStorage<QueryActivity>()
+  private readonly queryActivities = new Set<QueryActivity>()
+  private readonly goalLifetime: { dispose(): Promise<void> }
   private readonly disposers: (() => void)[] = []
   private shutdownTask: Promise<Record<string, never>> | undefined
   private shuttingDown = false
   private initialized = false
   private approvalRequests = false
   private readonly lifetime = new AbortController()
+  private readonly userQuestions: SdkUserQuestionBridge
+  private readonly initialization = Promise.withResolvers<void>()
+  /** Restored by a reminder and available for the client's first resume. */
+  private readonly scheduledSessions = new Map<string, Promise<SessionRecord>>()
 
   constructor(
     private readonly ctx: Context,
     private readonly transport: JsonRpcTransportPeer,
     private readonly options: HarnessSdkJsonRpcServerOptions = {},
   ) {
+    this.goalLifetime = ctx.inject(['goals'], (goalCtx) => {
+      goalCtx.effect(() => () => {
+        for (const activity of this.queryActivities) activity.goalUnavailable()
+      })
+    })
     this.disposers.push(ctx.on('approval/request', async (request, next) => {
       if (!this.approvalRequests || !this.ownsAgent(request.agent)) return next()
       const params: ApprovalRequestParams = {
@@ -122,6 +139,28 @@ export class HarnessSdkJsonRpcServer {
       return result.outcome
     }))
     const serverOptions = this.options
+    this.userQuestions = new SdkUserQuestionBridge(ctx, transport, agent =>
+      this.sessions.get(agent.session.id)?.handle.agent === agent)
+    this.disposers.push(ctx.on('schedule/resolve-agent', async (sessionId) => {
+      // Startup delivery must wait for the SDK model route and output limit.
+      await this.initialization.promise
+      if (this.shuttingDown) throw new Error('SDK server is shutting down')
+      const existing = this.sessions.get(sessionId)
+      const pending = this.sessionCreations.get(sessionId)
+      if (existing !== undefined) {
+        this.assertLiveAgent(existing, sessionId)
+        return existing.handle.agent
+      }
+      if (pending !== undefined) return (await pending).handle.agent
+      const restoration = this.openSession(sessionId, true)
+      this.scheduledSessions.set(sessionId, restoration)
+      try {
+        return (await restoration).handle.agent
+      } catch (error) {
+        this.scheduledSessions.delete(sessionId)
+        throw error
+      }
+    }))
     this.disposers.push(ctx.on('session/event', (session, event) => {
       const record = this.sessions.get(session.id)
       if (event.type === 'turn/end' && record?.handle.agent.session === session
@@ -148,8 +187,7 @@ export class HarnessSdkJsonRpcServer {
       }
       this.transport.notify('subagent.started', payload)
     }))
-    this.disposers.push(ctx.on('subagent/end', function (this: Scoped<SubagentRuntime>, info: SubagentRunEndInfo) {
-      const parent = subagentParentOf(this)
+    this.disposers.push(ctx.on('subagent/end', (info: SubagentRunEndInfo) => {
       // This protocol reports only in-process child sessions. The service
       // snapshots the provider name and local flag through child disposal;
       // matching ids or parent lineage alone never establishes locality.
@@ -157,7 +195,7 @@ export class HarnessSdkJsonRpcServer {
       const payload: SubagentFinishedNotification = {
         provider: info.provider,
         agentId: String(info.id),
-        parentSessionId: String(parent.session.id),
+        parentSessionId: String(info.parentSessionId),
         childSessionId: String(info.id),
         status: successStatus(info.stopReason, serverOptions),
         stopReason: info.stopReason,
@@ -210,7 +248,9 @@ export class HarnessSdkJsonRpcServer {
     this.reasoningEffort = reasoningEffort
     this.maxTokens = params.maxTokens
     this.approvalRequests = params.approvalRequests === true
+    this.userQuestions.enabled = params.capabilities?.userQuestions === true
     this.initialized = true
+    this.initialization.resolve()
     return { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } }
   }
 
@@ -222,11 +262,13 @@ export class HarnessSdkJsonRpcServer {
   async prompt(params: SessionPromptParams): Promise<SessionPromptResult> {
     if (!this.initialized) throw new Error('SDK server is not initialized')
     const rec = await this.getOrCreateSession(params.sessionId)
+    this.lifetime.signal.throwIfAborted()
     // An agent-loop-only reload disposes the loop's agents while this record
     // survives; a retained agent accepts followup() silently, so validate the
     // record against the live registry before delivery.
     this.assertLiveAgent(rec, params.sessionId)
     const content = await durablePromptContent(this.ctx, params.contentBlocks)
+    this.lifetime.signal.throwIfAborted()
     // Attachment admission crosses an async boundary where shutdown or an
     // agent-loop reload may detach the retained handle.
     this.assertLiveAgent(rec, params.sessionId)
@@ -239,9 +281,60 @@ export class HarnessSdkJsonRpcServer {
   }
 
   /**
+   * Dispatch text as a Desktop-style input; native commands own Session state changes.
+   * @param params - ordered content blocks and receiving Session.
+   * @returns a prompt receipt or native command acknowledgment; command activity completes by notification.
+   * @throws on runtime failure; a recognized command failure never falls back to a prompt.
+   */
+  async query(params: SessionQueryParams): Promise<SessionQueryResult> {
+    if (!this.initialized) throw new Error('SDK server is not initialized')
+    if (this.shuttingDown) throw new Error('SDK server is shutting down')
+    const text = params.contentBlocks.find(block => block.type === 'text')
+    if (text?.text.trim().startsWith('/')) {
+      const commands = this.ctx.get('commands')
+      if (commands !== undefined) {
+        const rec = await this.getOrCreateSession(params.sessionId)
+        this.lifetime.signal.throwIfAborted()
+        this.assertLiveAgent(rec, params.sessionId)
+        const line = queryCommand(text.text, commands.list(rec.handle.agent))
+        if (line !== undefined) {
+          const images = queryCommandImages(params.contentBlocks, text)
+          const activity: QueryActivity = new QueryActivity(this.ctx, rec.handle.agent, this.transport,
+            () => this.queryInvocation.getStore() === activity, this.lifetime.signal,
+            (current) => { this.queryActivities.delete(current) })
+          this.queryActivities.add(activity)
+          try {
+            const task = this.queryInvocation.run(activity, () => commands.execute(rec.handle.agent, line, images.map(image => ({
+              type: 'image', data: image.data, mediaType: image.mimeType,
+              ...image.name === undefined ? {} : { name: image.name },
+            })), this.lifetime.signal))
+            this.commandTasks.add(task)
+            try {
+              const execution = await task
+              if (execution === undefined) throw new Error('The selected command is unavailable in this SDK profile')
+              activity.accept(execution)
+              return { kind: 'command', execution }
+            } finally {
+              this.commandTasks.delete(task)
+            }
+          } catch (error) {
+            activity.close()
+            throw error
+          }
+        }
+      }
+    }
+    const receipt = await this.prompt({
+      sessionId: params.sessionId,
+      contentBlocks: params.contentBlocks,
+    })
+    return { kind: 'prompt', ...receipt }
+  }
+
+  /**
    * Restore a persisted session and repair its interrupted final turn without sending input.
    * Uses the initialized model route while preserving the stored session identity and directory.
-   * Rejects missing, unreadable, or already owned sessions; never creates a replacement.
+   * Rejects subagent, missing, unreadable, or already owned sessions; never creates a replacement.
    * @param params - persisted session identity in the configured persistence store.
    * @returns an empty result after the Agent is ready for prompts.
    */
@@ -249,6 +342,13 @@ export class HarnessSdkJsonRpcServer {
     if (!this.initialized) throw new Error('SDK server is not initialized')
     if (this.shuttingDown) throw new Error('SDK server is shutting down')
     const sessionId = params.sessionId
+    const restoration = this.scheduledSessions.get(sessionId)
+    if (restoration !== undefined) {
+      this.scheduledSessions.delete(sessionId)
+      const record = await restoration
+      this.assertLiveAgent(record, sessionId)
+      return {}
+    }
     if (this.sessions.has(sessionId) || this.sessionCreations.has(sessionId)) {
       throw new Error(`SDK session is already open or opening: ${sessionId}`)
     }
@@ -273,7 +373,7 @@ export class HarnessSdkJsonRpcServer {
       this.assertLiveAgent(rec, params.sessionId)
       await agent.whenIdle()
       const idleSeq = agent.session.seq
-      const children = await subagents?.waitForChildren(agent)
+      const children = await subagents?.waitForTreeWork(agent)
       this.assertLiveAgent(rec, params.sessionId)
       if (!children && agent.status === 'idle' && agent.session.seq === idleSeq) {
         if (rec.failure !== undefined) throw rec.failure.error
@@ -282,18 +382,27 @@ export class HarnessSdkJsonRpcServer {
     }
   }
 
+  /**
+   * Resolves live SDK ownership; root lookup failures other than SubagentError/UNAUTHORIZED propagate.
+   * @param agent - Agent whose requests need routing.
+   * @returns Whether this server owns the Agent or its live subagent tree root.
+   */
   private ownsAgent(agent: Agent): boolean {
     const agents = this.ctx.agents
     if (agents.get(agent.id) !== agent) return false
-    const liveAgents = agents.list()
-    const ancestors = new Set([agent])
-    for (const current of ancestors) {
-      if (this.sessions.get(current.session.id)?.handle.agent === current) return true
-      for (const parent of liveAgents) {
-        if (agents.isOwnedBy(current.id, parent)) ancestors.add(parent)
-      }
+    if (this.sessions.get(agent.session.id)?.handle.agent === agent) return true
+    const subagents = this.ctx.get('subagents')
+    if (subagents === undefined) return false
+    let root: Agent
+    try {
+      root = subagents.rootOf(agent)
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null
+        && 'name' in error && error.name === 'SubagentError'
+        && 'code' in error && error.code === 'UNAUTHORIZED') return false
+      throw error
     }
-    return false
+    return this.sessions.get(root.session.id)?.handle.agent === root
   }
 
   private assertLiveAgent(rec: SessionRecord, sessionId: string): void {
@@ -343,9 +452,14 @@ export class HarnessSdkJsonRpcServer {
   private async performShutdown(): Promise<Record<string, never>> {
     this.shuttingDown = true
     this.lifetime.abort(new Error('SDK server is shutting down'))
+    this.userQuestions.close()
+    this.initialization.resolve()
     const pendingCreations = [...this.sessionCreations.values()]
     await Promise.allSettled(pendingCreations)
+    await Promise.allSettled([...this.commandTasks])
+    this.queryInvocation.disable()
     this.sessionCreations.clear()
+    this.scheduledSessions.clear()
     const records = [...this.sessions.values()]
     this.sessions.clear()
     const failures: unknown[] = []
@@ -362,6 +476,7 @@ export class HarnessSdkJsonRpcServer {
       failures.push(error)
     }
     const teardownResults = await Promise.allSettled([
+      this.goalLifetime.dispose(),
       ...records.map(rec => Promise.resolve().then(() => rec.handle.dispose())),
       ...(this.llmFiber === undefined ? [] : [Promise.resolve().then(() => this.llmFiber?.dispose())]),
     ])
@@ -387,6 +502,15 @@ export class HarnessSdkJsonRpcServer {
         return this.initialize(params as unknown as InitializeParams)
       case 'session/prompt':
         return this.prompt(params as unknown as SessionPromptParams)
+      case 'session/query': {
+        if (typeof params?.sessionId !== 'string' || params.sessionId.length === 0
+          || Object.keys(params).some(key => key !== 'sessionId' && key !== 'contentBlocks')) {
+          throw new TypeError('session/query requires only a non-empty sessionId and contentBlocks')
+        }
+        return this.query({
+          sessionId: brandString<SessionId>(params.sessionId), contentBlocks: queryContent(params.contentBlocks),
+        })
+      }
       case 'session/resume': {
         const sessionId = params?.sessionId
         if (typeof sessionId !== 'string' || sessionId.length === 0) {
@@ -419,6 +543,7 @@ export class HarnessSdkJsonRpcServer {
 
   private async getOrCreateSession(sessionId: string): Promise<SessionRecord> {
     if (this.shuttingDown) throw new Error('SDK server is shutting down')
+    this.scheduledSessions.delete(sessionId)
     const existing = this.sessions.get(sessionId)
     if (existing) return existing
     const pending = this.sessionCreations.get(sessionId)
@@ -437,6 +562,9 @@ export class HarnessSdkJsonRpcServer {
   }
 
   private async createSession(sessionId: string, resume: boolean): Promise<SessionRecord> {
+    if (resume && (await this.ctx.get('sessionPersistence')?.stat(brandString<SessionId>(sessionId)))?.header.origin === 'subagent') {
+      throw new Error(`subagent session "${sessionId}" cannot be resumed directly; resume its root session instead`)
+    }
     // No preset composition: this server's compositions keep the model-facing
     // rows in the host plane, so this agent reads them from the global layer. A
     // deployment that configures a roster has to join one here first
@@ -450,6 +578,17 @@ export class HarnessSdkJsonRpcServer {
     const handle = await (resume ? this.ctx.agents.resume({
       resumeSessionId: brandString<SessionId>(sessionId),
       agentOptions,
+      // The initialized route replaces the restored Session's model selection.
+      setup: (_agentCtx, agent) => {
+        const previous = agent.model.current()
+        const selection = { ...agentOptions }
+        if (selection.reasoningEffort === undefined && previous !== undefined
+          && previous.provider === selection.provider && previous.model === selection.model
+          && previous.reasoningEffort !== undefined) {
+          selection.reasoningEffort = previous.reasoningEffort
+        }
+        agent.model.select(selection)
+      },
     }) : this.ctx.agents.create({
       sessionId: brandString<SessionId>(sessionId),
       meta: { cwd: this.cwd },

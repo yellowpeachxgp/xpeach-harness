@@ -680,6 +680,7 @@
       "@xpeach/xph-workflow/types": ["./packages/workflow/workflow/src/types.ts"],
       "@xpeach/xph-tool-workflow/types": ["./packages/workflow/tool-workflow/src/types.ts"],
       "@xpeach/xph-llm/message": ["./packages/llm/llm/src/message.ts"],
+      "@xpeach/xph-commands/builtin": ["./packages/interaction/commands/src/builtin.ts"],
       "@xpeach/xph-commands/brand": ["./packages/interaction/commands/src/brand.ts"],
       "@xpeach/xph-commands/types": ["./packages/interaction/commands/src/types.ts"],
       "@xpeach/xph-jobs/brand": ["./packages/jobs/jobs/src/brand.ts"],

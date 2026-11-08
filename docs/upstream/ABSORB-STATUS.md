@@ -63,6 +63,16 @@
 | 清理残留 provider 配置 | `f561b6a08f` |
 | 渠道故障重试次数收敛（5 → 2） | `46fc479055` |
 
+## 已完成（续）
+
+| 项 | 提交 | 验证状态 |
+|---|---|---|
+| #6369 sdk-minimal-checkpoints（Python 手动关闭冒烟） | `7d656c0511` → `c59d2e3ff6` | 文件级移植；manual_sdk_shutdown_smoke.py 需真实运行时 |
+| #6523 sdk-approval-rpc（Python 审批 API） | `4fbe6e3f42` → `6592625f1a` | pytest 359 通过；运行时测试依赖 PR #51 的 approval.mjs 与 bin |
+| #7107 sdk-tool-parity（Python 运行时 packageManager） | `8f236fef35` → `24fd711e11` | python-runtime-download.spec 6/6、build-exe.spec 9/9 |
+| #6955 python-sdk slash commands（TS 侧） | `1a8939248a` → `a08f9a1150` | sdk 包单测 300+ 通过（plan/compact/goal/permission parity 全绿） |
+| #6955 python-sdk slash commands（Python 侧） | `1a8939248a` → `1290da4d62` | pytest 359 通过、53 跳过（需构建运行时） |
+
 ## 待吸收项分析：富文本引用 + 草稿恢复（`0e49f443dd`）
 
 上游变更共涉及 139 个文件（+4869 行），按模块拆分如下：

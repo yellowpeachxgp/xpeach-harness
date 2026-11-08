@@ -116,7 +116,7 @@ describe('Python runtime executable builder CLI', () => {
     expect(cliManifest.devDependencies).toHaveProperty('@xpeach/xph-subprocess-local')
     expect(runtimeManifest.dependencies).toHaveProperty('@xpeach/xph-subprocess-local')
     expect(bootstrap).toContain("import('@xpeach/xph-dsh/lib/bin.js')")
-    expect(bootstrap).toContain('await runCli()')
+    expect(bootstrap).toContain('await runCli({ packageManager })')
     expect(bootstrap).toContain("import('@xpeach/xph-subprocess-local/runner')")
     expect(bootstrap).toContain('await runSelectedSubprocessRunner(selection)')
   })
