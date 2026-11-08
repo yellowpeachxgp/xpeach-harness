@@ -11,6 +11,7 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| 六语言语言包（B8：ja/es/fr/de/ru/pt） | `3f9f36e92d` `6238020202` `84edeadc2b` `b5fb03927e` `1552f524f7` `11295990b5` `ed783066e6` `9ce74cda96` | 词典 parity spec、verify-locale-metadata 门禁、desktop locale/installer 38 项、client/locale 68 项、mcp-client 129 项单测全部通过 |
 
 ## 产品侧修复（非上游）
 
