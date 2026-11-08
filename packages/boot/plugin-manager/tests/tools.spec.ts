@@ -86,7 +86,7 @@ it('exposes an absent Official bundle installation target without display metada
   const { manager, call } = await fixture()
   const offered: BundleInfo = {
     name: '@xpeach/xph-subagent-codex', official: true, availability: 'missing',
-    installed: false, enabled: false, optional: false, removable: false, rows: [], overrides: [],
+    installed: false, enabled: false, optional: false, removable: false, updatable: false, rows: [], overrides: [],
     installTarget: { spec: '@xpeach/xph-subagent-codex@1.2.3', version: '1.2.3' },
     meta: { title: 'Codex subagent' },
   }

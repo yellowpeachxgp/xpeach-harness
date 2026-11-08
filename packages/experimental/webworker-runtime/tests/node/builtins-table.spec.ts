@@ -13,7 +13,7 @@
  * evaluates at load, which is why nothing here asserts that a factory is
  * unevaluated.
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createNodeBuiltins, REPLACED_PREFIXES } from '../../src/node/builtins.ts'
 import { WorkerModuleLoader, type WorkerRequire } from '../../src/module-system/module-loader.ts'
 import { MemoryVfs } from '../../src/storage/memory.ts'
@@ -60,6 +60,16 @@ describe('the replacement table', () => {
 })
 
 describe('module identity through the loader', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('resolves REPL imports for image loading and refuses unsupported evaluation', () => {
+    const require = loaderRequire()
+    const repl = require('node:repl') as typeof import('node:repl')
+    expect(require('repl')).toBe(repl)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => repl.start()).toThrow(expect.objectContaining({ code: 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM' }))
+  })
+
   it('exposes async and synchronous resolution through the Cordis internal seam', async () => {
     const vfs = new MemoryVfs()
     vfs.seedDirectory('/dsh/node_modules/example')

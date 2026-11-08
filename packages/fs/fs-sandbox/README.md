@@ -41,7 +41,7 @@ Load the shared policy service, then this backend, then the tools; the read-befo
 - name: '@xpeach/xph-tool-fs'
 ```
 
-The backend's config is unchanged from the local backend's (`cwd` resolution default and `diffBasisMaxBytes` overwrite bound); the [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-fs-sandbox) is the exhaustive source.
+The backend's config is unchanged from the local backend's (`cwd` resolution default and `diffBasisMaxBytes` overwrite bound); the [configuration catalog](../../../docs/config-catalog.md#xpeachxph-fs-sandbox) is the exhaustive source.
 
 ### How the fence behaves
 

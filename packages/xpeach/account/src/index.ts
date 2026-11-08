@@ -25,6 +25,8 @@ import { Context, Service } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { Remote, RemoteError, TypertRemoteService } from '@xpeach/xph-typert-protocol'
 import { credentialRef, type CredentialRef } from '@xpeach/xph-credentials'
+// Type-only: merges the forwarded `xpeach/playground-chunk` member onto cordis Events.
+import type {} from '@xpeach/xph-api-remotes/types'
 import { deepEqualJson, type JsonValue } from '@xpeach/xph-util-values'
 import { launchEnvironmentOf } from '@xpeach/xph-launch-environment'
 import { XPeachApi, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
@@ -99,7 +101,6 @@ import type {
   XPeachModelPricingChange, XPeachModelSyncResult, XPeachSiteCatalog, XPeachSelfLogPage,
   XPeachSelfLogStat, XPeachNetworkPoint, XPeachNetworkSnapshot, XPeachModelPricingSnapshot,
   XPeachModelPerfDetail, XPeachModelPerfSummary,
-  XPeachPlaygroundChunk,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -1564,7 +1565,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     if (groupCat !== undefined) {
       for (const [name, meta] of Object.entries(groupCat)) {
-        const len = Array.isArray(meta?.models) ? meta.models.length : 0
+        const len = Array.isArray(meta.models) ? meta.models.length : 0
         if (len > (counts.get(name) ?? 0)) {
           counts.set(name, len)
         }
@@ -2170,9 +2171,10 @@ export class XPeachAccount extends TypertRemoteService {
       const entries = (await sessionPersistence.list()).slice(0, 50)
       const hasPrimaryScope = primaryGroupModels !== undefined && primaryGroupModels.size > 0
       for (const entry of entries) {
+        // Listing rows may carry only a top-level id; snapshots carry header.id.
         const sessionId = typeof entry === 'string'
           ? entry
-          : entry.header?.id ?? entry.id
+          : (entry as Omit<ReconcileSessionSnapshot, 'header'> & { header?: ReconcileSessionHeader }).header?.id ?? entry.id
         if (typeof sessionId !== 'string' || sessionId.length === 0) continue
         const proj = projectionCache?.get?.(sessionId, 'modelSelection')
         const active = proj?.pending ?? proj?.lastUsed
@@ -2620,8 +2622,7 @@ export class XPeachAccount extends TypertRemoteService {
   /** Broadcast one streamed delta on the forwarded playground event. */
   private emitChunk(callId: string, delta: string): void {
     try {
-      const emit = this.ctx.emit.bind(this.ctx) as (name: string, payload: XPeachPlaygroundChunk) => void
-      emit('xpeach/playground-chunk', { callId, delta })
+      this.ctx.emit('xpeach/playground-chunk', { callId, delta })
     } catch (_err) {
       // Event fan-out is best-effort; the assembled reply is the contract.
     }
@@ -4278,7 +4279,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     if (groupCat !== undefined) {
       for (const [name, meta] of Object.entries(groupCat)) {
-        const len = Array.isArray(meta?.models) ? meta.models.length : 0
+        const len = Array.isArray(meta.models) ? meta.models.length : 0
         if (len > (counts.get(name) ?? 0)) {
           counts.set(name, len)
         }

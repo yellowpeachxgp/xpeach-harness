@@ -5,156 +5,138 @@
 /:
   en: 52b93805befe8077
   zh: 9786e662303f0e2f
-/xpeach-xph-tool-fs:
-  en: 244549c05dc832ac
-  zh: ce4e14c2be238d5f
-/xpeach-xph-tool-fs/summary:
-  en: c324e1f6369b38b9
-  zh: 5e4fd0d5f64b0746
-/xpeach-xph-tool-fs/table-of-contents:
+/deepseek-ai-dsh-tool-fs:
+  en: fc8f28deebe5fa6b
+  zh: 738c6ad45034da88
+/deepseek-ai-dsh-tool-fs/summary:
+  en: c8f608c85c8d6626
+  zh: 4133a867517baca5
+/deepseek-ai-dsh-tool-fs/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
-/xpeach-xph-tool-fs/use-this-package:
+/deepseek-ai-dsh-tool-fs/use-this-package:
   en: c7da73c9e2691ea1
   zh: 0eba82c1c3553ab9
-/xpeach-xph-tool-fs/use-this-package/minimal-composition:
-  en: bcd61964469f1a55
-  zh: bded1de1c747c641
-/xpeach-xph-tool-fs/use-this-package/the-tools:
-  en: 6e12ea9c79039360
-  zh: 7230ad3bda4515d5
-/xpeach-xph-tool-fs/use-this-package/configuration:
-  en: 0a21c4f17d25d1bb
-  zh: 38b848719f8b9ebf
-/xpeach-xph-tool-fs/use-this-package/policy-and-sandbox-behavior:
+/deepseek-ai-dsh-tool-fs/use-this-package/minimal-composition:
+  en: 873de1bbb29a534a
+  zh: 8086784c52840342
+/deepseek-ai-dsh-tool-fs/use-this-package/the-tools:
+  en: 29a1d47e9677f2a3
+  zh: 0ae3c794cc7c54db
+/deepseek-ai-dsh-tool-fs/use-this-package/configuration:
+  en: 7727477bc376f350
+  zh: 9612b8ab60735e07
+/deepseek-ai-dsh-tool-fs/use-this-package/policy-and-sandbox-behavior:
   en: 53d4ac2db089ef39
   zh: 214ea051ed56f500
-/xpeach-xph-tool-fs/use-this-package/failures-and-recovery:
-  en: f7c7834de37e1ece
-  zh: ff08efcf7c08379a
-/xpeach-xph-tool-fs/understand-the-implementation:
+/deepseek-ai-dsh-tool-fs/use-this-package/failures-and-recovery:
+  en: 962b09e21305a04b
+  zh: 382d2b8cce217569
+/deepseek-ai-dsh-tool-fs/understand-the-implementation:
   en: e30f7038c28e93f8
   zh: a3868dbd90367b13
-/xpeach-xph-tool-fs/understand-the-implementation/design-concept:
-  en: 1f4d7213aa3d0d60
-  zh: aa6573f96c8b5220
-/xpeach-xph-tool-fs/understand-the-implementation/source-map:
-  en: 459b773aafc6c163
-  zh: ccd729aded7d98ba
-/xpeach-xph-tool-fs/understand-the-implementation/per-tool-flow:
-  en: 35fbee1ef9811806
-  zh: 17c725e2b742c073
-/xpeach-xph-tool-fs/understand-the-implementation/observation-and-concurrency:
-  en: 2bd1d4eb86c2b360
-  zh: 2a52540af8c85e5f
-/xpeach-xph-tool-fs/further-exploration:
-  en: 485bc55482f576bc
-  zh: fc5fa55b41098bd0
-/xpeach-xph-tool-fs/model-experience:
+/deepseek-ai-dsh-tool-fs/understand-the-implementation/design-concept:
+  en: 454b5291db9ba847
+  zh: 9fe7081dfb416c93
+/deepseek-ai-dsh-tool-fs/understand-the-implementation/source-map:
+  en: ec1517d657fbce14
+  zh: be0038b88f7b68fc
+/deepseek-ai-dsh-tool-fs/understand-the-implementation/per-tool-flow:
+  en: d741e01be9fddb76
+  zh: 7aa1d7ca719a4aac
+/deepseek-ai-dsh-tool-fs/understand-the-implementation/observation-and-concurrency:
+  en: 665d437dc35bf05f
+  zh: 8004334d6a3246b4
+/deepseek-ai-dsh-tool-fs/further-exploration:
+  en: 1af9686c2982a6fa
+  zh: d3d58b2e31813071
+/deepseek-ai-dsh-tool-fs/model-experience:
   en: 215e7ba838619b7b
   zh: a311da3843709f90
-/xpeach-xph-tool-fs/model-experience/system-prompt:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt:
   en: cf78b9dd5596495f
   zh: bd44560f8c2435e8
-/xpeach-xph-tool-fs/model-experience/system-prompt/what-the-model-sees:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt/what-the-model-sees:
   en: f715f25f411d50f5
   zh: 4063a0499dc47466
-/xpeach-xph-tool-fs/model-experience/system-prompt/what-the-model-sees/read-guidance:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt/what-the-model-sees/read-guidance:
   en: f8961df3f3a6a671
   zh: 85c7bd418b40b089
-/xpeach-xph-tool-fs/model-experience/system-prompt/what-the-model-sees/write-guidance:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt/what-the-model-sees/write-guidance:
   en: 7e34af48c583f210
   zh: e39ad6823689c665
-/xpeach-xph-tool-fs/model-experience/system-prompt/what-the-model-sees/edit-guidance:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt/what-the-model-sees/edit-guidance:
   en: 28f07502a411303b
   zh: 437897dc99fc4360
-/xpeach-xph-tool-fs/model-experience/system-prompt/token-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt/token-effect:
   en: 7a44cabe439a879a
   zh: 1adf9bf3de7658b6
-/xpeach-xph-tool-fs/model-experience/system-prompt/kv-cache-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/system-prompt/kv-cache-effect:
   en: 4f1b5639f91405a8
   zh: f90ffe077a2e52a3
-/xpeach-xph-tool-fs/model-experience/tool-schemas:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-schemas:
   en: 3039bc5e7a796b21
   zh: 6b7a9eaf69c9ea53
-/xpeach-xph-tool-fs/model-experience/tool-schemas/what-the-model-sees:
-  en: 6f2a072c474e39e7
-  zh: dbee4c2b206bf68f
-/xpeach-xph-tool-fs/model-experience/tool-schemas/token-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-schemas/what-the-model-sees:
+  en: d83042fa442c2797
+  zh: bad18b3a5081fdb0
+/deepseek-ai-dsh-tool-fs/model-experience/tool-schemas/token-effect:
   en: 68517f7d65ef7e9d
   zh: 544a4b81e8ea16c0
-/xpeach-xph-tool-fs/model-experience/tool-schemas/kv-cache-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-schemas/kv-cache-effect:
   en: 1e6d3da20012762d
   zh: 482f8bc569b8b490
-/xpeach-xph-tool-fs/model-experience/read-result:
+/deepseek-ai-dsh-tool-fs/model-experience/read-result:
   en: ebd38733c0490428
   zh: b45101c325efe784
-/xpeach-xph-tool-fs/model-experience/read-result/what-the-model-sees:
+/deepseek-ai-dsh-tool-fs/model-experience/read-result/what-the-model-sees:
   en: 8f7a10746df88c03
   zh: d4fab398b14db940
-/xpeach-xph-tool-fs/model-experience/read-result/token-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/read-result/token-effect:
   en: 4269b4368622ec2f
   zh: f4df80c1fb6972f1
-/xpeach-xph-tool-fs/model-experience/read-result/kv-cache-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/read-result/kv-cache-effect:
   en: f5d5f97a153f7c70
   zh: 3d6bc05b9eadfbc2
-/xpeach-xph-tool-fs/model-experience/image-read-result:
+/deepseek-ai-dsh-tool-fs/model-experience/image-read-result:
   en: 9dac44e6d0b9d8de
   zh: 7bc4dc1c5df39eaf
-/xpeach-xph-tool-fs/model-experience/image-read-result/what-the-model-sees:
+/deepseek-ai-dsh-tool-fs/model-experience/image-read-result/what-the-model-sees:
   en: 9b5070a15f565c20
   zh: 96043df8c0ae7f76
-/xpeach-xph-tool-fs/model-experience/image-read-result/token-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/image-read-result/token-effect:
   en: 68bd5255f1c9ca48
   zh: 0474213531c1aae3
-/xpeach-xph-tool-fs/model-experience/image-read-result/kv-cache-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/image-read-result/kv-cache-effect:
   en: f5d5f97a153f7c70
   zh: 48e202e396bc5fcc
-/xpeach-xph-tool-fs/model-experience/write-and-edit-results:
+/deepseek-ai-dsh-tool-fs/model-experience/write-and-edit-results:
   en: 1b3b6cfa3605d0b4
   zh: 78e37c2aa4f76d54
-/xpeach-xph-tool-fs/model-experience/write-and-edit-results/what-the-model-sees:
+/deepseek-ai-dsh-tool-fs/model-experience/write-and-edit-results/what-the-model-sees:
   en: 816b07ebfddab5f8
   zh: 0e80580a5902c7ed
-/xpeach-xph-tool-fs/model-experience/write-and-edit-results/token-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/write-and-edit-results/token-effect:
   en: fb4d0b17a99f49cf
   zh: 17460a2a5d72f6cc
-/xpeach-xph-tool-fs/model-experience/write-and-edit-results/kv-cache-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/write-and-edit-results/kv-cache-effect:
   en: f5d5f97a153f7c70
   zh: 3d6bc05b9eadfbc2
-/xpeach-xph-tool-fs/model-experience/tool-errors:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-errors:
   en: 2d4f2c8605eccab3
   zh: 67f1f0218f73c6bf
-/xpeach-xph-tool-fs/model-experience/tool-errors/what-the-model-sees:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-errors/what-the-model-sees:
   en: 4e8fac7bac8ced61
   zh: 7ba921dbcddc9f97
-/xpeach-xph-tool-fs/model-experience/tool-errors/token-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-errors/token-effect:
   en: 681cadd5be7b8ac1
   zh: 65e483f62fb819d9
-/xpeach-xph-tool-fs/model-experience/tool-errors/kv-cache-effect:
+/deepseek-ai-dsh-tool-fs/model-experience/tool-errors/kv-cache-effect:
   en: f5d5f97a153f7c70
   zh: 3d6bc05b9eadfbc2
-/xpeach-xph-tool-fs/model-experience/apply-patch:
-  en: e24083366d909456
-  zh: 003e7533d417bfe5
-/xpeach-xph-tool-fs/model-experience/apply-patch/what-the-model-sees:
-  en: f42d71271fa0e757
-  zh: 3a203266d3406414
-/xpeach-xph-tool-fs/model-experience/apply-patch/what-the-model-sees/system-guidance:
-  en: 3e353846d8e13cdf
-  zh: 3d93eaadc65898b3
-/xpeach-xph-tool-fs/model-experience/apply-patch/what-the-model-sees/result-examples:
-  en: 37d9e89be68e7725
-  zh: fd09eca8f63c7c58
-/xpeach-xph-tool-fs/model-experience/apply-patch/token-effect:
-  en: 886e012dd66f2548
-  zh: a22ea38a243f82db
-/xpeach-xph-tool-fs/model-experience/apply-patch/kv-cache-effect:
-  en: d3a98306460d7f9f
-  zh: 59836b4f59b8214a
-/xpeach-xph-tool-fs/known-limitations-and-deferred-work:
-  en: 61600821252cf29c
-  zh: 65af2a8ca0515906
-/xpeach-xph-tool-fs/known-limitations-and-deferred-work/dev-note:
+/deepseek-ai-dsh-tool-fs/known-limitations-and-deferred-work:
+  en: ce7a91d41d2f7597
+  zh: d4a3c905e124fd7f
+/deepseek-ai-dsh-tool-fs/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98
