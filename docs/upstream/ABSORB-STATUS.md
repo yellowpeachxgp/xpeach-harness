@@ -11,6 +11,8 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| 文件预览：按分栏的工作区目录树 + 文件定位 | `821043d6bf`（#6759；#7362/#7368 为全量回滚对，净零跳过） | ui-sidebar-files 191 + ui-sidebar-right 306 + documentpreview 597 + 相关包 350 项单测通过；build:artifacts/build:check 全绿 |
+| 行内标记与 sourceLines（#6759 前置依赖 `7ab2ddd7`） | 随上项并入 | 同 documentpreview 套件 |
 
 ## 产品侧修复（非上游）
 

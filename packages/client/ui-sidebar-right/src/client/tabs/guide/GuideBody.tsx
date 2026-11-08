@@ -89,6 +89,11 @@ export function GuideBody({ useTabInfo, useGuideEntries, renderSlot, renderSlotC
   const shortcuts = useShortcuts(entries => entries)
   const { tab } = useTabInfo()
   const entries = useGuideEntries(entries => entries)
+  // A new page replaces the guide; a page already in its pane is revealed, and the guide then closes itself.
+  const open = (kind: string): void => {
+    tab.actions.openTab(kind, { replaceTab: true })
+    tab.actions.close()
+  }
   const options = {
     hookContext: useTabInfo,
     fallback: (
@@ -102,7 +107,7 @@ export function GuideBody({ useTabInfo, useGuideEntries, renderSlot, renderSlotC
           }, {
             entryKey: entry.providerId, hookContext: useTabInfo,
             fallback: <EntryBox entry={entry} described={described} shortcut={shortcuts.find(shortcut => shortcut.id === entry.commandId)}
-              onPick={(selected) => { tab.actions.openTab(selected.kind, { replaceTab: true }) }} />,
+              onPick={(selected) => { open(selected.kind) }} />,
           })}
         </div>
       })}</ShippedGuide>

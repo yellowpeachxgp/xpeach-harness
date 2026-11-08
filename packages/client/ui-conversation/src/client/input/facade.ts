@@ -122,6 +122,7 @@ export class SessionInputShell implements SessionInput {
   }
   /** The public provide-channel action face (one stable identity per session). */
   readonly actions: InputActions = {
+    insertQuote: text => this.insertQuote(text),
     captureInsertion: () => ({ ...this.caretSpan(), draftRev: this.rev }),
     insertText: (text, span) => {
       if (this.snapshot.phase === 'adjudicating' || this.snapshot.phase === 'submitting' || this.disposed) return false
@@ -226,6 +227,16 @@ export class SessionInputShell implements SessionInput {
     if (draft.command === undefined) return
     this.pendingCommand = { token: draft.command.token, rev: this.rev }
     this.restoreCommand()
+  }
+
+  /** @param text - selected transcript text. @returns whether the editable draft accepted the quote. */
+  insertQuote(text: string): boolean {
+    if (this.disposed || this.snapshot.phase !== 'plain' || text.trim() === '') return false
+    const quoted = text.replace(/\r\n?/gu, '\n').split('\n').map(line => line === '' ? '>' : `> ${line}`).join('\n')
+    const current = this.snapshot.draft
+    this.setDraft(current === '' ? `${quoted}\n` : `${current}\n\n${quoted}\n`)
+    this.focus()
+    return true
   }
 
   /**

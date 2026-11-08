@@ -105,6 +105,7 @@ const BUILTIN_PROFILE_BUNDLES = new Set([
   '@xpeach/xph-sdk-app',
   '@xpeach/xph-acp-app',
   '@xpeach/xph-sdk-minimal',
+  '@xpeach/xph-experimental-tool-worktree',
 ])
 
 /** The optional bundles the main list always holds, in this order; new bundles join the main list. */
@@ -116,7 +117,6 @@ const EXTENSION_BUNDLES = [
 ]
 /** The optional bundles the main list holds back until the profile picks them; the More list shows them from the start. */
 const MORE_BUNDLES = [
-  '@xpeach/xph-experimental-tool-worktree',
   '@xpeach/xph-experimental-cot-translation-bundle',
   '@xpeach/xph-experimental-terminal-bundle',
   '@xpeach/xph-experimental-session-search',

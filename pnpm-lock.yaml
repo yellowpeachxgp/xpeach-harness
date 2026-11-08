@@ -98,6 +98,15 @@ importers:
       '@xpeach/xph-experimental-cua-macos':
         specifier: workspace:*
         version: link:packages/experimental/cua-macos
+      '@xpeach/xph-experimental-forge':
+        specifier: workspace:*
+        version: link:packages/experimental/forge
+      '@xpeach/xph-experimental-forge-github':
+        specifier: workspace:*
+        version: link:packages/experimental/forge-github
+      '@xpeach/xph-experimental-forge-session':
+        specifier: workspace:*
+        version: link:packages/experimental/forge-session
       '@xpeach/xph-experimental-tool-worktree':
         specifier: workspace:*
         version: link:packages/experimental/tool-worktree
@@ -311,6 +320,9 @@ importers:
       '@xpeach/xph-experimental-cot-translation-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/cot-translation-bundle
+      '@xpeach/xph-experimental-forge-bundle':
+        specifier: workspace:*
+        version: link:../../packages/experimental/forge-bundle
       '@xpeach/xph-experimental-inspector-profile':
         specifier: workspace:*
         version: link:../../packages/experimental/inspector-profile
@@ -918,6 +930,9 @@ importers:
       '@xpeach/xph-experimental-cot-translation-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/cot-translation-bundle
+      '@xpeach/xph-experimental-forge-bundle':
+        specifier: workspace:*
+        version: link:../../packages/experimental/forge-bundle
       '@xpeach/xph-experimental-plugin-market-bundle':
         specifier: workspace:*
         version: link:../../packages/experimental/plugin-market-bundle
@@ -5728,6 +5743,9 @@ importers:
       '@xpeach/xph-client-ui-settings':
         specifier: workspace:*
         version: link:../ui-settings
+      '@xpeach/xph-client-ui-sidebar-files':
+        specifier: workspace:*
+        version: link:../ui-sidebar-files
       '@xpeach/xph-client-ui-sidebar-right':
         specifier: workspace:*
         version: link:../ui-sidebar-right
@@ -8285,6 +8303,148 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
 
+  packages/experimental/client-ui-forge:
+    dependencies:
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      '@xpeach/xph-storage-domain':
+        specifier: workspace:*
+        version: link:../../storage/storage-domain
+      '@xpeach/xph-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      '@xpeach/xph-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@xpeach/xph-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@xpeach/xph-api-remote-access':
+        specifier: workspace:*
+        version: link:../../api/remote-access
+      '@xpeach/xph-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@xpeach/xph-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@xpeach/xph-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@xpeach/xph-client-ui-layout':
+        specifier: workspace:*
+        version: link:../../client/ui-layout
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@xpeach/xph-client-ui-session':
+        specifier: workspace:*
+        version: link:../../client/ui-session
+      '@xpeach/xph-client-ui-sidebar-right':
+        specifier: workspace:*
+        version: link:../../client/ui-sidebar-right
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@xpeach/xph-client-ui-workspace':
+        specifier: workspace:*
+        version: link:../../client/ui-workspace
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-experimental-forge':
+        specifier: workspace:*
+        version: link:../forge
+      '@xpeach/xph-experimental-forge-session':
+        specifier: workspace:*
+        version: link:../forge-session
+      '@xpeach/xph-experimental-worktree':
+        specifier: workspace:*
+        version: link:../worktree
+      '@xpeach/xph-fs':
+        specifier: workspace:*
+        version: link:../../fs/fs
+      '@xpeach/xph-fs-local':
+        specifier: workspace:*
+        version: link:../../fs/fs-local
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-sandbox':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox
+      '@xpeach/xph-sandbox-local':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-local
+      '@xpeach/xph-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@xpeach/xph-session-projection-cache':
+        specifier: workspace:*
+        version: link:../../session/session-projection-cache
+      '@xpeach/xph-session-query':
+        specifier: workspace:*
+        version: link:../../session-query/session-query
+      '@xpeach/xph-subprocess':
+        specifier: workspace:*
+        version: link:../../subprocess/subprocess
+      '@xpeach/xph-subprocess-local':
+        specifier: workspace:*
+        version: link:../../subprocess/subprocess-local
+      '@xpeach/xph-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@xpeach/xph-util-workspace-path':
+        specifier: workspace:*
+        version: link:../../util/workspace-path
+      '@xpeach/xph-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
   packages/experimental/client-ui-voice-input:
     devDependencies:
       '@testing-library/react':
@@ -8682,6 +8842,154 @@ importers:
       sharp:
         specifier: ^0.35.3
         version: 0.35.5(@types/node@22.20.1)
+
+  packages/experimental/forge:
+    dependencies:
+      '@xpeach/xph-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+
+  packages/experimental/forge-bundle:
+    dependencies:
+      '@xpeach/xph-experimental-client-ui-forge':
+        specifier: workspace:*
+        version: link:../client-ui-forge
+      '@xpeach/xph-experimental-forge':
+        specifier: workspace:*
+        version: link:../forge
+      '@xpeach/xph-experimental-forge-github':
+        specifier: workspace:*
+        version: link:../forge-github
+      '@xpeach/xph-experimental-forge-session':
+        specifier: workspace:*
+        version: link:../forge-session
+      '@xpeach/xph-experimental-tool-worktree':
+        specifier: workspace:*
+        version: link:../tool-worktree
+      '@xpeach/xph-experimental-worktree':
+        specifier: workspace:*
+        version: link:../worktree
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+
+  packages/experimental/forge-github:
+    dependencies:
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      execa:
+        specifier: ^10.0.1
+        version: 10.0.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@xpeach/xph-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-experimental-forge':
+        specifier: workspace:*
+        version: link:../forge
+      '@xpeach/xph-subprocess':
+        specifier: workspace:*
+        version: link:../../subprocess/subprocess
+
+  packages/experimental/forge-session:
+    dependencies:
+      '@xpeach/xph-schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      '@xpeach/xph-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@xpeach/xph-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
+      shell-quote:
+        specifier: ^1.12.0
+        version: 1.12.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@xpeach/xph-agent-loop':
+        specifier: workspace:*
+        version: link:../../core/agent-loop
+      '@xpeach/xph-bash-local':
+        specifier: workspace:*
+        version: link:../../shell/bash-local
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-cordis-plugin-include':
+        specifier: workspace:~
+        version: link:../../../vendor/include
+      '@xpeach/xph-cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
+      '@xpeach/xph-experimental-forge':
+        specifier: workspace:*
+        version: link:../forge
+      '@xpeach/xph-experimental-forge-github':
+        specifier: workspace:*
+        version: link:../forge-github
+      '@xpeach/xph-fs-local':
+        specifier: workspace:*
+        version: link:../../fs/fs-local
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@xpeach/xph-shell':
+        specifier: workspace:*
+        version: link:../../shell/shell
+      '@xpeach/xph-shell-env':
+        specifier: workspace:*
+        version: link:../../shell/shell-env
+      '@xpeach/xph-subprocess-local':
+        specifier: workspace:*
+        version: link:../../subprocess/subprocess-local
+      '@xpeach/xph-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@xpeach/xph-tool-bash':
+        specifier: workspace:*
+        version: link:../../shell/tool-bash
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@xpeach/xph-working-directory':
+        specifier: workspace:*
+        version: link:../../session/working-directory
 
   packages/experimental/hook-protocol:
     devDependencies:
@@ -22804,6 +23112,10 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
+  shell-quote@1.12.0:
+    resolution: {integrity: sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q==}
+    engines: {node: '>= 0.4'}
+
   sherpa-onnx-darwin-arm64@1.13.8:
     resolution: {integrity: sha512-FPNgJMgnWVl/KhRTIhG3KL3A4Om63Rn4YKXc9/uHY7SzLcvqLJLc/h7UBWJwduXvv7K18t5NpxHR6XgXn4sjWw==}
     cpu: [arm64]
@@ -30620,6 +30932,8 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
+
+  shell-quote@1.12.0: {}
 
   sherpa-onnx-darwin-arm64@1.13.8:
     optional: true

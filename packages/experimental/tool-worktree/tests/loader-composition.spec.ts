@@ -54,6 +54,7 @@ describe('worktree tool through real Loader composition', () => {
       ['@xpeach/xph-agent', AgentRegistry],
       ['@xpeach/xph-session', SessionStore],
       ['@xpeach/xph-session-projection', SessionProjectionRegistry],
+
       ['@xpeach/xph-system-prompt', SystemPrompt],
       ['@xpeach/xph-llm', LlmRuntime],
       ['@xpeach/xph-tools', ToolRuntime],

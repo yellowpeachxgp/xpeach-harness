@@ -109,7 +109,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-client-ui-sidebar` | no | Sidebar plugin: session multi-level tree, search, grouping, state dots |
 | `@xpeach/xph-client-ui-sidebar-browser` | no | Sandboxed Web browser tabs for the right Sidebar |
 | `@xpeach/xph-client-ui-sidebar-documentpreview` | yes | Extensible Sidebar previews for Office documents, spreadsheets, Markdown, code, images, PDF, HTML, and plain text |
-| `@xpeach/xph-client-ui-sidebar-files` | no | Workspace file tree tab type for the right Sidebar: lazy directory listing over the workspaceFiles Remote namespace, opening files into the Sidebar |
+| `@xpeach/xph-client-ui-sidebar-files` | no | The workspace files page and one workspace directory tree per pane beside docked and floating file previews, listed lazily over the workspaceFiles Remote namespace |
 | `@xpeach/xph-client-ui-sidebar-right` | no | Right Sidebar: the docking surface's session-bound state, its panel and header expand control, and the navigation service over it |
 | `@xpeach/xph-client-ui-sidebar-terminal` | no | Interactive shell tabs for the right Sidebar |
 | `@xpeach/xph-client-ui-skill` | no | Web skill references and the dedicated skill tool row |
@@ -194,10 +194,14 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-client-ui-agent-team` | no | Web Agent Teams roster, task board, and teammate navigation |
 | `@xpeach/xph-experimental-client-ui-claude-code-mods` | no | Web band above the prompt for Claude Code mods: draws each session's mod tree and sends button presses back to the bridge |
 | `@xpeach/xph-experimental-client-ui-cot-translation` | yes | Optional machine translation of expanded reasoning, preserving original Session text |
+| `@xpeach/xph-experimental-client-ui-forge` | yes | Sidebar panel for a Session's change requests, with a worktree option for new Sessions and its Host Remote |
 | `@xpeach/xph-experimental-client-ui-voice-input` | no | Record speech and insert editable text into the conversation draft |
 | `@xpeach/xph-experimental-computer-use-cua-driver-mcp` | yes | Experimental computer use through an installed Cua Driver MCP executable |
 | `@xpeach/xph-experimental-computer-use-cua-driver-native` | no | Experimental computer-use provider embedding the Cua Driver native npm SDK |
 | `@xpeach/xph-experimental-cua-macos` | yes | macOS native provider for shared Computer Use application and window objects |
+| `@xpeach/xph-experimental-forge` | yes | Provider-neutral change request registry with shared status polling |
+| `@xpeach/xph-experimental-forge-github` | yes | GitHub provider for the experimental forge registry, read through the GitHub CLI on the host |
+| `@xpeach/xph-experimental-forge-session` | yes | Binds change requests to the Session that created, pushed, or tracked them |
 | `@xpeach/xph-experimental-inspector` | yes | Experimental cross-realm CDP hub for Host debugging and Client Runtime inspection |
 | `@xpeach/xph-experimental-ptc-runtime-python` | yes | CPython subprocess implementation of the DeepSeek Harness PTC execution seam |
 | `@xpeach/xph-experimental-session-inspector` | no | Experimental virtualized Session log and live Chat group/node inspectors |

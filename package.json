@@ -297,7 +297,10 @@
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-tool-worktree": "workspace:*",
-    "@xpeach/xph-experimental-cua-macos": "workspace:*"
+    "@xpeach/xph-experimental-cua-macos": "workspace:*",
+    "@xpeach/xph-experimental-forge": "workspace:*",
+    "@xpeach/xph-experimental-forge-github": "workspace:*",
+    "@xpeach/xph-experimental-forge-session": "workspace:*"
   },
   "repository": {
     "type": "git",

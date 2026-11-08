@@ -42,6 +42,9 @@ const GATE_FILES: ReadonlySet<string> = new Set([
   'scripts/verify-plugin-record-callers.spec.ts',
 ])
 
+/** The published dependency policy names the restricted function to classify the export's package edge. */
+export const DEPENDENCY_POLICY_FILE = 'scripts/package-dependency-policy.ts'
+
 const SOURCE_EXTENSION = /\.(?:[cm]?[jt]s|[jt]sx)$/u
 
 /** A line continuation, which a string or template literal drops from its value. */
@@ -99,10 +102,11 @@ export function isTestFile(file: string): boolean {
 /**
  * Whether a file may reference the restricted function.
  * @param file - repository-relative path, in POSIX separators.
- * @returns whether the file is experimental source, the owner, a test, or this gate.
+ * @returns whether the file is experimental source, the owner, a test, this gate, or the dependency policy.
  */
 export function isAdmittedCaller(file: string): boolean {
   return file.startsWith(EXPERIMENTAL_PREFIX) || file === OWNER_FILE || isTestFile(file) || GATE_FILES.has(file)
+    || file === DEPENDENCY_POLICY_FILE
 }
 
 function scriptKind(file: string): ts.ScriptKind {

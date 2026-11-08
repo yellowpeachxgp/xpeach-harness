@@ -247,6 +247,14 @@ describe('package dependency scope', () => {
     expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-typert-protocol']).toBeUndefined()
     expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-experimental-translator'])
       .toEqual(['TranslationError'])
+    expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-experimental-forge'])
+      .toEqual(['changeRequestKey'])
+    expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-experimental-worktree'])
+      .toEqual(['generatedWorktreeName'])
+    expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-fs']).toEqual(['FsError'])
+    expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-session'])
+      .toEqual(['SESSION_FORMAT_VERSION', 'appendPluginRecord', 'pluginRecordOf'])
+    expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports['@xpeach/xph-timeout']).toEqual(['deadline'])
   })
 
   it('discovers the Client directory, dsh.client declarations, and configured Host packages', () => {
