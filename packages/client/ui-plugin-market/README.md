@@ -3,7 +3,7 @@ description: "Discover tab of the Web Plugins page: search configured plugin mar
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-plugin-market
+# @xpeach/xph-client-ui-plugin-market
 
 English | [中文](README.zh.md)
 
@@ -26,7 +26,7 @@ Discover is the second tab of the **Plugins** page, after **Installed**. It list
 
 Open **Plugins** and select **Discover**. With no index source, the tab shows an empty state whose **Add index source** button opens the **Index sources** dialog. The dialog lists each source by market title, or by host before the first read, with its URL, the error of its last failed read, and a remove button, and keeps a notice that indexes come from third parties. A refused URL keeps the draft and says why: an unsupported scheme, credentials, or fragment; a URL already listed; or a deployment that cannot save sources. A newly added source becomes the selected market.
 
-The toolbar holds the market menu, which switches markets and ends with **Manage index sources…**; the search field; a **Labels** menu with multi-select checkmarks when the market declares labels; the **Sort** menu; and a refresh button. Category pills, with **All** first, follow when the market declares categories.
+The toolbar holds the market menu, which switches markets and ends with **Manage index sources…**; the search field; a **Labels** menu with multi-select checkmarks when the market declares labels; the **Sort** menu; and a refresh button. Controls wrap onto additional rows when space is limited, keeping search, filtering, sorting, and refresh available on mobile. Category pills, with **All** first, follow when the market declares categories.
 
 Each card shows the icon, localized title, label tags, a one-line description, and the default version, author, and publish date, with one action: **Install** for an installable entry; a disabled **Install** whose tooltip says no version is compatible with the running DSH when the plugin has no default version and its highest version is neither compatible nor exempted; or **Installed**, **Update available**, or **Provided by DSH**, which switches to the Installed tab and opens that bundle's page when that tab lists it. Selecting a card opens the entry's page with its full description, compatibility notice, and the default version's facts: author; homepage and source code repository, as links that open in a new tab, with the package directory beside the repository; the npm package and registry, or the Git repository, full commit, and directory; publish date; category; labels; and market. A **Versions** list follows in descending SemVer order; each row tags the recommended, prerelease, installed, incompatible, and exempted versions and offers **Install** for any other version installation accepts, except for a bundle DSH provides. The page's back link returns to the list with its search, filters, and sort intact.
 
