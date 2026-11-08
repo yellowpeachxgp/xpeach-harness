@@ -1830,10 +1830,7 @@ describe('account state writes on a fresh install', () => {
         },
       }
 
-      const setGroupsOp = Reflect.get(XPeachAccount.prototype, 'setGroupsOp') as (
-        req: { groups: string[] },
-        sig: AbortSignal,
-      ) => Promise<{ ok: boolean; count: number; groups: readonly string[] }>
+      const setGroupsOp = Reflect.get(XPeachAccount.prototype, 'setGroupsOp')
       const syncResult = await setGroupsOp.call(fakeAccount, { groups: ['Claude 渠道'] }, signal)
       expect(syncResult.ok).toBe(true)
       expect(syncResult.groups).toEqual(['Claude 渠道'])

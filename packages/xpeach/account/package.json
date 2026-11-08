@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-account",
   "description": "XPeach (New API) account Remote: profile and token listing served to Harness clients",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -50,6 +50,7 @@
     "@xpeach/xph-launch-environment": "workspace:*"
   },
   "devDependencies": {
+    "@xpeach/xph-api-remotes": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-credentials": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",

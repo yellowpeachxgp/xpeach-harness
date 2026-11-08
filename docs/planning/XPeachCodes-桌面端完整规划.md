@@ -312,7 +312,7 @@ packages/app/src/xpeach/
 
 在 `packages/desktop/src/preload/` 暴露：
 
-```ts
+```ts ignore-check
 window.xpeach = {
   login: (token) => Promise<...>,
   logout: () => Promise<void>,
@@ -334,7 +334,7 @@ window.xpeach = {
 
 使用 Electron：
 
-```ts
+```ts ignore-check
 import { safeStorage } from "electron"
 ```
 

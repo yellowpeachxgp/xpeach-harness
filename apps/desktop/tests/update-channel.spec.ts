@@ -171,7 +171,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
   {
     const events = new EventEmitter()
     let candidateVersion = '0.0.25-alpha'
-    const updater = Object.assign(events, {
+    const updater = Object.assign(events as AppUpdater, {
       checkForUpdates: vi.fn(async () => ({
         isUpdateAvailable: true,
         updateInfo: { version: candidateVersion },
@@ -181,7 +181,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
       channel: 'nightly',
       allowPrerelease: true,
       allowDowngrade: false,
-    }) as unknown as AppUpdater
+    })
     const coordinator = new DesktopUpdateCoordinator(
       state => state,
       async () => true,
@@ -210,7 +210,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
   {
     const events = new EventEmitter()
     let candidateVersion = '0.0.25-alpha'
-    const updater = Object.assign(events, {
+    const updater = Object.assign(events as AppUpdater, {
       checkForUpdates: vi.fn(async () => ({
         isUpdateAvailable: true,
         updateInfo: { version: candidateVersion },
@@ -220,7 +220,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
       channel: 'nightly',
       allowPrerelease: true,
       allowDowngrade: false,
-    }) as unknown as AppUpdater
+    })
     const coordinator = new DesktopUpdateCoordinator(
       state => state,
       async () => true,
@@ -256,7 +256,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
   {
     const events = new EventEmitter()
     let candidateVersion = '0.0.24-alpha'
-    const updater = Object.assign(events, {
+    const updater = Object.assign(events as AppUpdater, {
       checkForUpdates: vi.fn(async () => ({
         isUpdateAvailable: true,
         updateInfo: { version: candidateVersion },
@@ -266,7 +266,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
       channel: 'nightly',
       allowPrerelease: true,
       allowDowngrade: false,
-    }) as unknown as AppUpdater
+    })
     const coordinator = new DesktopUpdateCoordinator(
       state => state,
       async () => true,

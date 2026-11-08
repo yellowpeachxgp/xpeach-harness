@@ -22755,7 +22755,7 @@
       "digest": "17d1afb770d9941936130996da00dc86782cfef731d8d6526162c301256a4ac3",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:428"
+        "packages/core/session/src/types.ts:430"
       ]
     },
     {
@@ -22846,7 +22846,7 @@
       "digest": "1ccb56061942f5ccb0d30c9e4f2883b9d115ff906560029de637b61d3cde896d",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:342"
+        "packages/core/session/src/types.ts:344"
       ]
     },
     {
@@ -23202,7 +23202,7 @@
         "packages/core/session/src/types.ts#SurfaceOp"
       ],
       "sources": [
-        "packages/core/session/src/types.ts:463"
+        "packages/core/session/src/types.ts:465"
       ]
     },
     {
@@ -23697,7 +23697,7 @@
       "digest": "5302e763151277614b97e77f00e3b326694c6c1247b916a20503c344dc970777",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:376"
+        "packages/core/session/src/types.ts:378"
       ]
     },
     {
@@ -23723,7 +23723,7 @@
       "digest": "54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:356"
+        "packages/core/session/src/types.ts:358"
       ]
     },
     {
@@ -24056,7 +24056,7 @@
       "digest": "6bc8e51124d0874bc89e1d0ceff381a9c3cd0fc240667d69f841ce4f60f65fe5",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:331"
+        "packages/core/session/src/types.ts:333"
       ]
     },
     {
@@ -24938,7 +24938,7 @@
       "digest": "a81059ca06999da1e712414520c2c65e491d052fcf9640fae20aa38f0a5dc735",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:384",
+        "packages/core/session/src/types.ts:386",
         "packages/core/tools/src/types.ts:27"
       ]
     },
@@ -25042,7 +25042,7 @@
       "digest": "ad0c38a0adb82a94c925456df41586d9b5f9202fca18593eae2213d4445b4585",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:391"
+        "packages/core/session/src/types.ts:393"
       ]
     },
     {
@@ -25366,7 +25366,7 @@
       "digest": "bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:465"
+        "packages/core/session/src/types.ts:467"
       ]
     },
     {
@@ -25806,7 +25806,7 @@
       "digest": "e4c18e294232c3ba6c9f1999f168263cc55956147cfe4121720899be8e52edd1",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:362"
+        "packages/core/session/src/types.ts:364"
       ]
     },
     {
