@@ -96,7 +96,8 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-settings": "workspace:*",
     "@xpeach/xph-client-shortcuts": "workspace:*",
-    "@xpeach/xph-client-product-analytics": "workspace:*"
+    "@xpeach/xph-client-product-analytics": "workspace:*",
+    "@xpeach/xph-message-quotes": "workspace:*"
   },
   "files": [
     "locale/*.json",

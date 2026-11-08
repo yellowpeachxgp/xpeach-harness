@@ -70,5 +70,8 @@
     "@xpeach/xph-experimental-cot-translation-bundle": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
     "@xpeach/xph-experimental-plugin-market-bundle": "workspace:*"
+  },
+  "dependencies": {
+    "@xpeach/xph-message-quotes": "workspace:*"
   }
 }
