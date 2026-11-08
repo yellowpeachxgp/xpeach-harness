@@ -196,6 +196,7 @@ export class HarnessClient {
   private spawnError: Error | undefined
   private streamsSettled: Promise<void> = Promise.resolve()
   private closeTask: Promise<void> | undefined
+  private requestHandler: ((method: string, params: Record<string, unknown>) => Promise<unknown>) | undefined
 
   /** @param options - dsh profile, patch, home, process, environment, and timeout options. */
   constructor(options?: HarnessClientOptions)
@@ -263,13 +264,32 @@ export class HarnessClient {
       this.transport?.close()
     })
     const transport = new JsonRpcLineTransport(child.stdout, child.stdin)
+    transport.onRequest(async (method, params) => {
+      if (this.requestHandler !== undefined) return this.requestHandler(method, params)
+      throw new SdkProtocolError(`unknown runtime request: ${method}`)
+    })
     transport.onNotification((method, params) => { this.dispatchNotification({ method, params }) })
     transport.start()
     this.transport = transport
   }
 
   /**
-   * Perform the process-wide handshake.
+   * Install the additional-request handler for opt-in server requests.
+   * @param handler - receives wire parameters and returns the JSON-RPC result; rejection sends an error.
+   * @throws when the client has not started or has already closed.
+   */
+  onRequest(handler: (method: string, params: Record<string, unknown>) => Promise<unknown>): void {
+    if (this.closeTask !== undefined) {
+      throw new TransportClosedError('DeepSeek Harness runtime client is closed; create a new client to install a request handler')
+    }
+    if (this.transport === undefined) {
+      throw new TransportClosedError('start the SDK client before installing a request handler')
+    }
+    this.requestHandler = handler
+  }
+
+  /**
+   * Start the runtime if needed, then perform the process-wide handshake.
    * @param params - workspace cwd plus the provider/model route.
    * @returns the runtime's wire identity.
    */

@@ -12083,6 +12083,9 @@ importers:
       '@xpeach/xph-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@xpeach/xph-user-approval':
+        specifier: workspace:*
+        version: link:../../interaction/user-approval
       '@xpeach/xph-working-directory':
         specifier: workspace:*
         version: link:../../session/working-directory

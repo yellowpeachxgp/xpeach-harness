@@ -40,6 +40,7 @@
     "@xpeach/xph-sdk-protocol": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*"
   },
   "devDependencies": {
@@ -57,6 +58,7 @@
     "@xpeach/xph-session-persistence-jsonl": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*"
   }
 }
