@@ -553,6 +553,38 @@ describe('SessionProjectionRegistry drive', () => {
     expect('test/unregistered' in values).toBe(false)
   })
 
+  it('snapshot with keys computes only the selected units', async () => {
+    const { ctx, session } = await harness()
+    mark(session, ['a'])
+    ctx.sessionProjections.register(marksUnit())
+    const unselectedApply = vi.fn((state: StableViewState) => state)
+    ctx.sessionProjections.register({ ...stableViewUnit(state => state.value), apply: unselectedApply })
+    expect(ctx.sessionProjections.snapshot(session, ['test/marks']).values).toEqual({ 'test/marks': { marks: ['a'] } })
+    expect(unselectedApply).not.toHaveBeenCalled()
+  })
+
+  it('snapshot without keys does not compute host-only units', async () => {
+    const { ctx, session } = await harness()
+    mark(session, ['a'])
+    ctx.sessionProjections.register(marksUnit())
+    const hostApply = vi.fn((state: number) => state + 1)
+    ctx.sessionProjections.register({ ...countUnit(), apply: hostApply })
+    expect(ctx.sessionProjections.snapshot(session).values).toEqual({ 'test/marks': { marks: ['a'] } })
+    expect(hostApply).not.toHaveBeenCalled()
+  })
+
+  it('snapshot with keys succeeds while an unselected unit fails to apply', async () => {
+    const { ctx, session } = await harness()
+    mark(session, ['a'])
+    ctx.sessionProjections.register(marksUnit())
+    ctx.sessionProjections.register({
+      ...stableViewUnit(state => state.value),
+      apply: (): StableViewState => { throw new Error('unselected unit failed') },
+    })
+    expect(ctx.sessionProjections.snapshot(session, ['test/marks']).values).toEqual({ 'test/marks': { marks: ['a'] } })
+    expect(() => ctx.sessionProjections.snapshot(session)).toThrow('unselected unit failed')
+  })
+
   it('checkpoints every persisted unit with its stateVersion and per-cell watermark', async () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
