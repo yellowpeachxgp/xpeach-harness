@@ -12013,6 +12013,9 @@ importers:
 
   packages/sdk/protocol:
     devDependencies:
+      '@xpeach/xph-commands':
+        specifier: workspace:*
+        version: link:../../interaction/commands
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
@@ -12025,6 +12028,9 @@ importers:
       '@xpeach/xph-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@xpeach/xph-user-questions':
+        specifier: workspace:*
+        version: link:../../interaction/user-questions
 
   packages/sdk/server:
     dependencies:
@@ -12047,18 +12053,48 @@ importers:
       '@xpeach/xph-attachment':
         specifier: workspace:*
         version: link:../../attachment/attachment
+      '@xpeach/xph-command-compact':
+        specifier: workspace:*
+        version: link:../../compaction/command-compact
+      '@xpeach/xph-command-goal':
+        specifier: workspace:*
+        version: link:../../goal/command-goal
+      '@xpeach/xph-commands':
+        specifier: workspace:*
+        version: link:../../interaction/commands
+      '@xpeach/xph-compaction-basic':
+        specifier: workspace:*
+        version: link:../../compaction/compaction-basic
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
       '@xpeach/xph-cordis-plugin-loader':
         specifier: workspace:~
         version: link:../../../vendor/loader
+      '@xpeach/xph-goal':
+        specifier: workspace:*
+        version: link:../../goal/goal
+      '@xpeach/xph-goal-round-driver':
+        specifier: workspace:*
+        version: link:../../goal/goal-round-driver
       '@xpeach/xph-llm':
         specifier: workspace:*
         version: link:../../llm/llm
       '@xpeach/xph-llm-deepseek-api-key':
         specifier: workspace:*
         version: link:../../llm/llm-deepseek-api-key
+      '@xpeach/xph-permission-presets':
+        specifier: workspace:*
+        version: link:../../interaction/permission-presets
+      '@xpeach/xph-plan-mode':
+        specifier: workspace:*
+        version: link:../../plan/plan-mode
+      '@xpeach/xph-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@xpeach/xph-schedule':
+        specifier: workspace:*
+        version: link:../../schedule/schedule
       '@xpeach/xph-scope':
         specifier: workspace:*
         version: link:../../core/scope
@@ -12074,9 +12110,27 @@ importers:
       '@xpeach/xph-session-projection':
         specifier: workspace:*
         version: link:../../session/session-projection
+      '@xpeach/xph-shell':
+        specifier: workspace:*
+        version: link:../../shell/shell
       '@xpeach/xph-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@xpeach/xph-token-meter':
+        specifier: workspace:*
+        version: link:../../llm/token-meter
+      '@xpeach/xph-tool-goal':
+        specifier: workspace:*
+        version: link:../../goal/tool-goal
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@xpeach/xph-user-approval':
+        specifier: workspace:*
+        version: link:../../interaction/user-approval
+      '@xpeach/xph-user-questions':
+        specifier: workspace:*
+        version: link:../../interaction/user-questions
       '@xpeach/xph-working-directory':
         specifier: workspace:*
         version: link:../../session/working-directory

@@ -26,15 +26,19 @@
   ],
   "license": "MIT",
   "peerDependencies": {
+    "@xpeach/xph-commands": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-user-questions": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~"
   },
   "devDependencies": {
+    "@xpeach/xph-commands": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-user-questions": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~"
   }
 }
