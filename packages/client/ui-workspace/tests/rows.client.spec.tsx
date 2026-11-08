@@ -550,7 +550,7 @@ describe('workspace browser rows', () => {
       expect(screen.getByText('/projects/project')).toBeTruthy()
 
       if (trigger === 'hover') {
-        fireEvent.mouseEnter(create)
+        fireEvent.pointerEnter(create)
         act(() => { vi.advanceTimersByTime(500) })
       } else {
         fireEvent.keyDown(document, { key: 'Tab' })
@@ -559,7 +559,7 @@ describe('workspace browser rows', () => {
       expect(screen.getByRole('tooltip').textContent).toBe('新会话')
       expect(screen.getByText('/projects/project')).toBeTruthy()
 
-      if (trigger === 'hover') fireEvent.mouseLeave(create, { relatedTarget: row })
+      if (trigger === 'hover') fireEvent.pointerLeave(create, { relatedTarget: row })
       else fireEvent.blur(create, { relatedTarget: row })
       expect(screen.queryByRole('tooltip')).toBeNull()
       expect(screen.getByText('/projects/project')).toBeTruthy()
@@ -579,12 +579,12 @@ describe('workspace browser rows', () => {
       const row = screen.getByRole('treeitem')
       const create = screen.getByRole('button', { name: '在“Project”中新建会话' })
       fireEvent.pointerEnter(row.parentElement as HTMLElement)
-      fireEvent.mouseEnter(create)
+      fireEvent.pointerEnter(create)
       act(() => { vi.advanceTimersByTime(1000) })
       expect(screen.getByRole('tooltip').textContent).toBe('新会话')
       expect(screen.getByText('/projects/project')).toBeTruthy()
 
-      fireEvent.mouseLeave(create, { relatedTarget: row })
+      fireEvent.pointerLeave(create, { relatedTarget: row })
       expect(screen.queryByRole('tooltip')).toBeNull()
       expect(screen.getByText('/projects/project')).toBeTruthy()
     } finally {
@@ -830,7 +830,6 @@ describe('workspace browser rows', () => {
 
       fireEvent(title, new MouseEvent('pointerout', { bubbles: true, relatedTarget: archive }))
       fireEvent(archive, new MouseEvent('pointerover', { bubbles: true, relatedTarget: title }))
-      fireEvent.mouseEnter(archive)
       if (dwell === 800) expect(card()).not.toBeNull()
       act(() => { vi.advanceTimersByTime(499) })
       expect(screen.queryByRole('tooltip')).toBeNull()
@@ -845,7 +844,6 @@ describe('workspace browser rows', () => {
 
       fireEvent(archive, new MouseEvent('pointerout', { bubbles: true, relatedTarget: title }))
       fireEvent(title, new MouseEvent('pointerover', { bubbles: true, relatedTarget: archive }))
-      fireEvent.mouseLeave(archive, { relatedTarget: title })
       rerender(<SessionNodeItem node={{ ...node, running: true }} currentId={undefined} now={0}
         onOpen={vi.fn()} renderSlot={renderSlot} t={t} />)
       act(() => { vi.advanceTimersByTime(1000) })
@@ -909,7 +907,7 @@ describe('workspace browser rows', () => {
       expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
       expect(row.textContent).toContain(label)
       expect(title.nextElementSibling?.textContent).toBe(compactLabel)
-      expect(title.nextElementSibling?.getAttribute('aria-hidden')).toBe('true')
+      expect(row.querySelector('[class*="time"]')?.getAttribute('aria-hidden')).toBe('true')
       expect(row.textContent).not.toContain('刚刚')
 
       view.rerender(<SessionNodeItem node={{ ...node, running: false }} currentId={undefined} now={0}
@@ -938,7 +936,7 @@ describe('workspace browser rows', () => {
     render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()} t={tEn} />)
     const row = screen.getByRole('treeitem')
     expect(screen.getByText('Needs input').nextElementSibling?.textContent).toBe(compactLabel)
-    expect(screen.getByText('Needs input').nextElementSibling?.getAttribute('aria-hidden')).toBe('true')
+    expect(screen.getByText(compactLabel).getAttribute('aria-hidden')).toBe('true')
     expect(row.textContent).not.toContain('now')
   })
 
@@ -1132,6 +1130,33 @@ describe('session row schedule seats', () => {
     return render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
       renderSlot={renderSlot} t={t} />)
   }
+
+  it('opens a focused row with Enter or Space without handling its action buttons', () => {
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={idle} currentId={undefined} now={0} onOpen={onOpen} t={t} />)
+    const row = screen.getByRole('treeitem')
+    expect(row.tabIndex).toBe(0)
+    fireEvent.keyDown(row, { key: 'ArrowDown' })
+    expect(onOpen).not.toHaveBeenCalled()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onOpen.mock.calls).toEqual([[idle.id], [idle.id]])
+    fireEvent.keyDown(screen.getByRole('button', { name: '会话“Idle Session”的操作' }), { key: 'Enter' })
+    expect(onOpen).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['Enter', ' '])('leaves modified %j available to global shortcuts', (key) => {
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={idle} currentId={undefined} now={0} onOpen={onOpen} t={t} />)
+    const row = screen.getByRole('treeitem')
+    for (const modifiers of [
+      { altKey: true }, { ctrlKey: true }, { metaKey: true }, { shiftKey: true },
+      { ctrlKey: true, altKey: true, shiftKey: true },
+    ]) {
+      expect(fireEvent.keyDown(row, { key, ...modifiers })).toBe(true)
+    }
+    expect(onOpen).not.toHaveBeenCalled()
+  })
 
   it('offers the leading seat only while the row is idle, and no state dot beside it', () => {
     const renderSlot = seatSpy()
