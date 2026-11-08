@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-acp",
   "description": "Automation-only Agent Client Protocol server for driving DeepSeek Harness agents over JSON-RPC stdio",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -62,6 +62,7 @@
     "@xpeach/xph-subagent": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-user-approval": "workspace:*"
+    "@xpeach/xph-user-approval": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

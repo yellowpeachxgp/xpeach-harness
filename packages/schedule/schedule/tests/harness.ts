@@ -1,4 +1,6 @@
 /** Host Schedule tests use real domain storage and an explicit Session resolver. */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import { Context, Service } from '@xpeach/xph-cordis'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
 import { unsupportedInbox } from '@xpeach/xph-agent-loop-testkit'
@@ -72,9 +74,11 @@ export async function harness(options: {
   const ctx = new Context()
   options.onContext?.(ctx)
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(Storage)
   const pool = options.pool ?? new MemoryMediaPool()
   const backend = options.backend ?? new MemoryStorageBackend(pool)

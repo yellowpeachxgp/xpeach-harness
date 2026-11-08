@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-user-questions",
   "description": "Abstract user-questions seam (ctx.userQuestions) for asking the human during agent runs",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -63,7 +63,8 @@
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-session-persistence-jsonl": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "dependencies": {
     "zod": "4.4.3",

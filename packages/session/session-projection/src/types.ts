@@ -37,6 +37,7 @@ export type SessionProjectionSummaryExcluded<T> = T & {
  * cells, and React hooks. Domain packages merge their client-visible key here;
  * values are wire-JSON whole values. How a value is rendered is the slot
  * system's business, never this layer's.
+ *
  */
 export interface SessionProjectionMap {}
 

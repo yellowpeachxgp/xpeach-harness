@@ -61,6 +61,7 @@
     "@xpeach/xph-client-connection": "workspace:*",
     "@xpeach/xph-client-locale": "workspace:*",
     "@xpeach/xph-client-modules": "workspace:*",
+    "@xpeach/xph-client-product-analytics": "workspace:*",
     "@xpeach/xph-client-store": "workspace:*",
     "@xpeach/xph-client-test-runtime": "workspace:*",
     "@xpeach/xph-client-ui-layout": "workspace:*",

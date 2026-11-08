@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-repeat-tool-reminder",
   "description": "Repeat-tool-call guard plugin: advisory reminders when an agent loops on identical tool calls",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -44,6 +44,7 @@
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

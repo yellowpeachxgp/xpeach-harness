@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-retry",
   "description": "Provider-routed LLM request retry policy for the DeepSeek Harness",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -62,6 +62,8 @@
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-timeout": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
-    "@xpeach/xph-cordis": "workspace:~"
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

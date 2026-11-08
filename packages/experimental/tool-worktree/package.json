@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-tool-worktree",
   "description": "Model tool that creates and enters a new Git worktree",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -55,7 +55,9 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-experimental-worktree": "workspace:*",
-    "@xpeach/xph-agent-loop": "workspace:*"
+    "@xpeach/xph-agent-loop": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "icon": "./icon.svg",
   "dsh": {

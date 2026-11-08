@@ -1,4 +1,3 @@
-import { createUserMessage } from '@xpeach/xph-llm'
 /**
  * Loop-level tool-order determinism: the request/header event — and therefore the frozen
  * request the adapter receives — carries the assembly's canonical tool order (system-prompt's
@@ -6,6 +5,8 @@ import { createUserMessage } from '@xpeach/xph-llm'
  * happened to register in. Registration order is a concurrent loading artifact
  * and must not leak downstream.
  */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import { createUserMessage } from '@xpeach/xph-llm'
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
@@ -13,7 +14,8 @@ import LlmRuntime from '@xpeach/xph-llm'
 import SessionStore, { SessionId, foldRequestHeader } from '@xpeach/xph-session'
 import SystemPrompt, { TOOL_ORDER_REST } from '@xpeach/xph-system-prompt'
 import type { Config as SystemPromptConfig } from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
 
 import AgentLoop from '@xpeach/xph-agent-loop'
@@ -27,6 +29,7 @@ async function harness(adapter: MockAdapter, toolOrder?: SystemPromptConfig['too
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { personaPrefix: 'stable base', ...toolOrder !== undefined ? { toolOrder } : {} })
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)

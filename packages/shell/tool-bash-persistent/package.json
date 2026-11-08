@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-bash-persistent",
   "description": "Model-facing owner-scoped persistent Bash tool backed by the Harness PTY service",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -57,6 +57,8 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-session-projection": "workspace:*",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

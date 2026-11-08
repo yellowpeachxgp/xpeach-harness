@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-preset-registry",
   "description": "Declarative Agent preset registry and profile-backed editing",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -89,6 +89,12 @@
     "@xpeach/xph-sandbox-policy": "workspace:*",
     "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-agent-preset": "workspace:*",
-    "@types/js-yaml": "^4.0.9"
+    "@types/js-yaml": "^4.0.9",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-fs-local": "workspace:*",
+    "@xpeach/xph-ptc-runtime": "workspace:*",
+    "@xpeach/xph-working-directory": "workspace:*"
   }
 }

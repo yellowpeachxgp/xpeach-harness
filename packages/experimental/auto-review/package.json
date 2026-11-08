@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-auto-review",
   "description": "Per-tool LLM authorization review for the DeepSeek Harness Auto permission preset",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "icon": "./icon.svg",
   "repository": {
     "type": "git",
@@ -24,6 +24,7 @@
   "files": [
     "icon.svg",
     "locale/*.json",
+    "docs",
     "lib/index.js",
     "cordis.patch.yml",
     "lib/types/**/*.d.ts"
@@ -72,7 +73,10 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-user-approval": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "publishConfig": {
     "access": "public"

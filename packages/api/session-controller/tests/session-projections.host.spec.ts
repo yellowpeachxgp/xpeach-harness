@@ -21,6 +21,7 @@ import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionLogOffset, Sess
 import type { Session, SessionEvent, SessionHeader, UserMessage } from '@xpeach/xph-session'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import type { ProjectionDefinition } from '@xpeach/xph-session-projection'
+import type { SessionProjectionSummaryExcluded } from '@xpeach/xph-session-projection/types'
 import SessionProjectionCache, { projectionCacheDomainSpec } from '@xpeach/xph-session-projection-cache'
 import { titleProjectionDefinition } from '@xpeach/xph-session-title'
 import Storage from '@xpeach/xph-storage'
@@ -45,9 +46,11 @@ declare module '@xpeach/xph-session-projection/types' {
     'test/last-user': LastUserState
     'test/internal-count': number
     'test/private-prompt': string | null
+    'test/summary-excluded': number
   }
   interface SessionProjectionMap {
     'test/last-user': { text: string } | null
+    'test/summary-excluded': SessionProjectionSummaryExcluded<number>
   }
 }
 
@@ -473,7 +476,7 @@ describe('session.history projections block', () => {
 })
 
 describe('session.list projections column', () => {
-  it('serves every already-materialized wire value from the live registry without folding', async () => {
+  it('serves every summary wire value from the live registry', async () => {
     const { ctx, session } = await harness(true)
     ctx.sessionProjections.register(lastUserUnit())
     const gateway = remote(ctx)
@@ -507,32 +510,41 @@ describe('session.list projections column', () => {
     expect(row?.projections?.values.agentPreset).toBe('minimal')
   })
 
-  it('omits an unmaterialized live projection instead of folding history for listing', async () => {
+  it('computes every summary key for a live row without computing summary-excluded units', async () => {
     const { ctx, session } = await harness(true)
     seedMessages(session, 1)
-    const unit = lastUserUnit()
-    const apply = vi.fn(unit.apply)
-    ctx.sessionProjections.register({ ...unit, apply })
+    ctx.sessionProjections.register(lastUserUnit())
+    const excludedApply = vi.fn((state: number) => state + 1)
+    ctx.sessionProjections.register({
+      key: 'test/summary-excluded',
+      stateSchema: z.number().int().nonnegative(),
+      init: () => 0,
+      apply: excludedApply,
+      wire: { viewSchema: z.number().int().nonnegative(), view: state => state, summary: false },
+      stateVersion: 1,
+    })
 
     const response = await remote(ctx).list(request({}))
     if (!response.ok) throw new Error('unreachable')
     const row = response.value.items.find(item => item.sessionId === session.id)
-    expect(row).toBeDefined()
-    expect('test/last-user' in (row?.projections?.values ?? {})).toBe(false)
-    expect(apply).not.toHaveBeenCalled()
+    expect(row?.projections?.values['test/last-user']).toEqual({ text: 'm0' })
+    expect(row?.projections?.asOfSeq).toBe(session.seq - 1)
+    expect('test/summary-excluded' in (row?.projections?.values ?? {})).toBe(false)
+    expect(excludedApply).not.toHaveBeenCalled()
   })
 
-  it('omits the column entirely when no registry is mounted', async () => {
+  it('carries every registered summary key, which is only its own list metadata when no other unit is registered', async () => {
     const { ctx, session } = await harness(false)
     seedMessages(session, 1)
     const response = await remote(ctx).list(request({}))
     if (!response.ok) throw new Error('unreachable')
     const row = response.value.items.find(item => item.sessionId === session.id)
-    expect(row).toBeDefined()
-    expect(row !== undefined && 'projections' in row).toBe(false)
+    expect(row?.projections?.kind).toBe('sequenced')
+    expect(Object.keys(row?.projections?.values ?? {})).toEqual([...ctx.sessionProjections.summaryKeys()])
+    expect(row?.projections?.values).toHaveProperty('sessionListMetadata')
   })
 
-  it('serves every available cold projection hint from the cache with zero log loads', async () => {
+  it('serves the summary projection hints from the cache with zero log loads', async () => {
     const { ctx } = await harness(true)
     const coldId = SessionId('session-cold-listing')
     const load = () => { throw new Error('list must not load event logs') }
@@ -541,10 +553,12 @@ describe('session.list projections column', () => {
       inspect: load,
       open: load,
     }) as never)
+    let seenKeys: unknown
     ctx.provide('sessionProjectionCache', {
       // The carrier hands the listed header through as the identity witness.
-      cachedSnapshot: (meta: { id: unknown; createdAt: number }) =>
-        (meta.id === coldId && meta.createdAt === 5
+      cachedSnapshot: (meta: { id: unknown; createdAt: number }, keys: unknown) => {
+        seenKeys = keys
+        return meta.id === coldId && meta.createdAt === 5
           ? {
             asOfSeq: SessionSeq(7),
             values: {
@@ -553,7 +567,8 @@ describe('session.list projections column', () => {
               title: 'Cached title',
             },
           }
-          : undefined),
+          : undefined
+      },
     } as never)
     const response = await remote(ctx).list(request({}))
     if (!response.ok) throw new Error('unreachable')
@@ -568,6 +583,8 @@ describe('session.list projections column', () => {
         title: 'Cached title',
       },
     })
+    // The cold branch passes the registry's own summary set, not a fresh list.
+    expect(seenKeys).toBe(ctx.sessionProjections.summaryKeys())
   })
 
   it('keeps persisted host-only state out of a cold session.list response', async () => {

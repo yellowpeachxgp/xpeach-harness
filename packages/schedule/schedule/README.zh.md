@@ -94,7 +94,7 @@ Schedule domain 声明整 unit 布局，因为任务是权威数据。路由到 
 
 #### 模型看到什么
 
-[生成的工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-schedule) 包含 `schedule_create`、`schedule_list`、`schedule_delete` 和 `schedule_update` 的描述与 schema；这些工具由 [`@deepseek-ai/dsh-tool-schedule`](../tool-schedule/README.zh.md) 贡献给挂载它的 preset。
+[生成的工具目录](../../../docs/tool-catalog.zh.md#xpeachxph-tool-schedule) 包含 `schedule_create`、`schedule_list`、`schedule_delete` 和 `schedule_update` 的描述与 schema；这些工具由 [`@deepseek-ai/dsh-tool-schedule`](../tool-schedule/README.zh.md) 贡献给挂载它的 preset。
 
 #### Token 影响
 

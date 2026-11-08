@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-cua-macos",
   "description": "macOS native provider for shared Computer Use application and window objects",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -80,7 +80,10 @@
     "@xpeach/xph-app-boot": "workspace:*",
     "@xpeach/xph-config-editor": "workspace:*",
     "@xpeach/xph-hmr": "workspace:*",
-    "@xpeach/xph-cordis-plugin-timer": "workspace:~"
+    "@xpeach/xph-cordis-plugin-timer": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "scripts": {
     "build:native": "swift build --package-path native --configuration release"

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-trajectory",
   "description": "Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service)",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -68,7 +68,8 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-attachment": "workspace:*",
     "@tanstack/react-virtual": "3.14.10",
-    "diff": "^9.0.0"
+    "diff": "^9.0.0",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "files": [
     "locale/*.json",

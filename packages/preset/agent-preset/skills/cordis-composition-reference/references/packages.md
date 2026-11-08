@@ -78,6 +78,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-client-ui-deliverables` | no | Changed-files card with per-file comparison tabs, delivery cards, and clickable final-response file references for Web |
 | `@xpeach/xph-client-ui-directory-picker-browse` | no | In-app directory browsing surface: the workspace directory-flow owner rendering the host's listing and creation primitives |
 | `@xpeach/xph-client-ui-directory-picker-native` | no | Native directory-picker surface: the renderless workspace directory-flow occupant driving the local Desktop or Host OS chooser |
+| `@xpeach/xph-client-ui-entry-customization` | no | Customize plugin entries in the left sidebar, conversation views, and right sidebar, and quickly create new plugins. |
 | `@xpeach/xph-client-ui-goal` | no | Session goal surface: GoalBar docked above the composer, read from the goal session projection |
 | `@xpeach/xph-client-ui-input-trigger` | no | Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources |
 | `@xpeach/xph-client-ui-jobs` | no | Session-header background-job list with on-demand streaming record panels |
@@ -116,7 +117,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-client-ui-subagent` | no | Subagent conversation catalog, continuation routing UI, and '@' reference source |
 | `@xpeach/xph-client-ui-theme` | yes | Theme plugin: Host bootstrap for the pre-plugin palette; DOM-free ThemeRuntime for light/dark/system state; --dsw-* token styles and Appearance settings row |
 | `@xpeach/xph-client-ui-tool` | no | Client Tool call-tree renderer and keyed per-tool presentation slot |
-| `@xpeach/xph-client-ui-trajectory` | no | Trajectory event ledger with an interactive timing overview: pure-consumer plugin registering into the conversation ViewMap (no service) |
+| `@xpeach/xph-client-ui-trajectory` | yes | Trajectory event ledger and timing overview with live tool-result inspection |
 | `@xpeach/xph-client-ui-user-questions` | no | Web ask_user_question composer takeover and plan-review presentation UI |
 | `@xpeach/xph-client-ui-workflow-run` | no | Durable workflow-run Conversation Node and nested member disclosure for dsh web |
 | `@xpeach/xph-client-ui-workspace` | no | Workspace picker plugin: one WorkspacePicker registered into the sidebar and empty-state workspace slots |
@@ -154,10 +155,12 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-agent` | no | Agent interface, registry, initiator scope, and event vocabulary for the DeepSeek Harness |
 | `@xpeach/xph-agent-default-model` | yes | Default model selection shared by Agent entry points |
 | `@xpeach/xph-agent-loop` | yes | The concrete agent loop plugin for the DeepSeek Harness |
-| `@xpeach/xph-agent-tool-presentation` | yes | Agent-plane presentation selector: composes one agent's tools as PTC mode or native tool calls |
+| `@xpeach/xph-agent-tool-presentation` | yes | Deprecated tool presentation selector; use dsh-tool-executor-native or dsh-tool-executor-ptc directly |
 | `@xpeach/xph-session` | no | Event-sourced session store for the DeepSeek Harness |
 | `@xpeach/xph-system-prompt` | yes | System prompt assembly registry for the DeepSeek Harness |
-| `@xpeach/xph-tools` | yes | Tool registry and execution pipeline for the DeepSeek Harness |
+| `@xpeach/xph-tool-executor-native` | no | Native tool execution plugin |
+| `@xpeach/xph-tool-executor-ptc` | yes | PTC program execution, tool bindings, and generated SDK prompts |
+| `@xpeach/xph-tools` | no | Tool registry and execution pipeline for the DeepSeek Harness |
 
 ## credentials
 
@@ -171,6 +174,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@xpeach/xph-deliverable-file-references` | no | Shared model guidance for file links and deliverables across DeepSeek Harness hosts |
 | `@xpeach/xph-tool-present` | yes | Explicit workspace file delivery declarations for the DeepSeek Harness |
 | `@xpeach/xph-workspace-changes` | yes | Per-turn workspace file changes recorded from git working-tree snapshots and whole-file captures, with per-file comparisons, for the DeepSeek Harness |
 
@@ -184,6 +188,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@xpeach/xph-cua` | no | Shared Computer Use application objects, authorization, and logged tool execution |
 | `@xpeach/xph-experimental-agent-team` | yes | Implicit-root Agent Teams roster, direct peer messaging, and shared task DAG |
 | `@xpeach/xph-experimental-api-speech-to-text` | yes | Authenticated experimental speech transcription for browser clients |
 | `@xpeach/xph-experimental-auto-review` | no | Per-tool LLM authorization review for the DeepSeek Harness Auto permission preset |
@@ -193,6 +198,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-claude-code-mods` | yes | Experimental bridge: load Claude Code mods (hooks modules) and run their hook chains on DeepSeek Harness extension points |
 | `@xpeach/xph-experimental-client-ui-agent-team` | no | Web Agent Teams roster, task board, and teammate navigation |
 | `@xpeach/xph-experimental-client-ui-claude-code-mods` | no | Web band above the prompt for Claude Code mods: draws each session's mod tree and sends button presses back to the bridge |
+| `@xpeach/xph-experimental-client-ui-stats` | no | Per-turn and per-step context, timing, cache, and tool-cost table contributed as an experimental conversation View |
 | `@xpeach/xph-experimental-client-ui-cot-translation` | yes | Optional machine translation of expanded reasoning, preserving original Session text |
 | `@xpeach/xph-experimental-client-ui-forge` | yes | Sidebar panel for a Session's change requests, with a worktree option for new Sessions and its Host Remote |
 | `@xpeach/xph-experimental-client-ui-voice-input` | no | Record speech and insert editable text into the conversation draft |
@@ -207,7 +213,9 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-session-inspector` | no | Experimental virtualized Session log and live Chat group/node inspectors |
 | `@xpeach/xph-experimental-speech-to-text` | yes | Experimental speech recognition with independently selectable providers |
 | `@xpeach/xph-experimental-speech-to-text-sensevoice` | yes | Local SenseVoice ONNX transcription with a managed sherpa-onnx process |
+| `@xpeach/xph-experimental-subagent-oar` | yes | Experimental one-shot subagents through OAR runtimes |
 | `@xpeach/xph-experimental-tool-agent-team` | yes | Scoped model-facing Agent Teams tools over ctx.agentTeams |
+| `@xpeach/xph-experimental-tool-subagent-oar` | yes | Delegate standalone tasks to configured external subagent providers |
 | `@xpeach/xph-experimental-tool-worktree` | no | Model tool that creates and enters a new Git worktree |
 | `@xpeach/xph-experimental-translator` | yes | Machine translation with reusable Session results |
 | `@xpeach/xph-experimental-worktree` | yes | Creates a named Git worktree and changes the calling Session working directory |
@@ -340,7 +348,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-ptc-runtime-node` | yes | Node PTC execution with per-call sandboxed processes or in-memory REPL state |
+| `@xpeach/xph-ptc-runtime-node` | yes | Node PTC execution with async function, REPL and VM Script evaluators and optional retained state |
 
 ## sandbox
 
@@ -366,6 +374,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@xpeach/xph-message-quotes` | no | Selected-text quotation and Markdown blockquote presentation |
 | `@xpeach/xph-session-checkpoint-policy` | no | Semantic session durability checkpoints before model requests and tool side effects |
 | `@xpeach/xph-session-log-deepseek` | yes | Incremental lossless session-log request extension for the official DeepSeek LLM API |
 | `@xpeach/xph-session-persistence-jsonl` | yes | JSONL durable session persistence backend for the DeepSeek Harness |
@@ -383,7 +392,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-session-log-export` | yes | Web Session-log export command and shared download dialog |
+| `@xpeach/xph-session-log-export` | yes | Web Session-log ZIP export and Session Markdown copy |
 | `@xpeach/xph-session-query-sqlite` | yes | Concrete ctx.sessionQuery backend with SQLite FTS5 search |
 
 ## settings
@@ -453,7 +462,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-subagent-fork-in-process` | yes | In-process fork subagent backend: runs a child agent seeded with a prefix of the parent's log |
 | `@xpeach/xph-subagent-spawn-in-process` | yes | In-process spawn subagent backend: runs a fresh child agent on ctx.agents |
 | `@xpeach/xph-tool-subagent` | yes | Model-facing subagent delegation tool over the ctx.subagents seam |
-| `@xpeach/xph-tool-subagent-control` | no | Globally named send_message, interrupt_agent, and list_agents tools over ctx.subagents continuations |
+| `@xpeach/xph-tool-subagent-control` | no | Shared messaging, interruption, and child discovery tools for subagents |
 
 ## subprocess
 
@@ -499,7 +508,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-tool-web` | yes | Model-facing web tools (web_search, web_fetch) over the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web` | yes | Abstract web access capability seam (ctx.web) for the DeepSeek Harness — search/fetch provider registry, registration-order-independent selection, request/result vocabulary, and the WebError taxonomy |
 | `@xpeach/xph-web-deepseek-api` | yes | DeepSeek Search and Fetch API providers for the DeepSeek Harness web capability seam (ctx.web) |
-| `@xpeach/xph-web-fetch-http` | yes | Anonymous public HTTP(S) fetch provider for the DeepSeek Harness web capability seam (ctx.web) |
+| `@xpeach/xph-web-fetch-http` | yes | Anonymous HTTP(S) fetch provider for the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web-search-deepseek` | yes | DeepSeek-backed search provider (native web_search via the Anthropic-compatible API) for the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web-search-exa` | yes | Exa-backed search provider for the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web-search-perplexity` | yes | Perplexity-backed search provider for the DeepSeek Harness web capability seam (ctx.web) |
@@ -516,3 +525,10 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@xpeach/xph-workspace` | no | Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for the DeepSeek Harness |
+
+## xpeach
+
+| Package | Config | Description |
+|---|---|---|
+| `@xpeach/xph-account` | yes | XPeach (New API) account Remote: profile and token listing served to Harness clients |
+| `@xpeach/xph-client-ui` | no | XPeach 🍑Code face for the Web client: peach brand, quota pill, quota notice, and the settings account card |
