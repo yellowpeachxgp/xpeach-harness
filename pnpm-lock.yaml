@@ -2615,9 +2615,21 @@ importers:
 
   packages/bundle/sdk-app:
     dependencies:
+      '@xpeach/xph-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
+      '@xpeach/xph-client-file-upload':
+        specifier: workspace:*
+        version: link:../../client/file-upload
       '@xpeach/xph-cmdline':
         specifier: workspace:*
         version: link:../../boot/cmdline
+      '@xpeach/xph-file-reference-local':
+        specifier: workspace:*
+        version: link:../../context/file-reference-local
+      '@xpeach/xph-schedule':
+        specifier: workspace:*
+        version: link:../../schedule/schedule
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
@@ -2627,9 +2639,24 @@ importers:
       '@xpeach/xph-skill-office':
         specifier: workspace:*
         version: link:../../skill/skill-office
+      '@xpeach/xph-time-context':
+        specifier: workspace:*
+        version: link:../../context/time-context
+      '@xpeach/xph-tool-ask-user':
+        specifier: workspace:*
+        version: link:../../interaction/tool-ask-user
+      '@xpeach/xph-tool-present':
+        specifier: workspace:*
+        version: link:../../deliverables/tool-present
+      '@xpeach/xph-tool-schedule':
+        specifier: workspace:*
+        version: link:../../schedule/tool-schedule
       '@xpeach/xph-tool-workspace-dependencies':
         specifier: workspace:*
         version: link:../../skill/tool-workspace-dependencies
+      '@xpeach/xph-workspace':
+        specifier: workspace:*
+        version: link:../../workspace/workspace
       commander:
         specifier: ^15.0.0
         version: 15.0.0
