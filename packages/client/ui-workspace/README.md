@@ -3,7 +3,7 @@ description: "Shared Workspace browser and picker plugin for the dsh web client:
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-workspace
+# @xpeach/xph-client-ui-workspace
 
 English | [中文](README.zh.md)
 
@@ -31,6 +31,8 @@ Use the sidebar to browse Workspaces and their Sessions, reorder them, and start
 
 History rows without a stored title use the localized unnamed label (未命名 / Untitled), rather than a directory name. The current blank row remains New Session; other blank rows remain hidden. Rename drafts use the stored title, or start empty when unnamed; unnamed rows do not offer title copying.
 
+Without hover, Workspace actions appear only while expanded, Session More buttons stay visible, and search-result actions remain visible. Toolbar tooltips render outside the sidebar so its drawer animation does not crop them. Search and rename inputs use 16px text with a coarse pointer; a fine pointer keeps their compact sizes.
+
 ### Reordering and view options
 
 Pinned Sessions lead ordinary Sessions in both grouped and flat views. **Last updated** sorts each partition strictly by the latest user prompt or steer time, newest first; pin time does not affect it. **Manual** uses the relative positions in one complete Session sequence, including hidden archives. Returning to Last updated discards the manual layout, and entering Manual again freezes the then-current chronological order. The browser defaults to Last updated and remembers the selected mode across reloads.
@@ -49,9 +51,13 @@ On devices without hover, Workspace rows keep their menu and New Session control
 
 ### Search
 
+The search shortcut expands a closed sidebar, including a drawer that retains its wide content, before focusing the search field.
+
 Collapsed search is one header action beside the view and add actions: activating it expands the field across the header. A non-blank query replaces either browsing mode with one flat result list — case-insensitive title and Workspace substring matches appear immediately, while a 250 ms debounced Host request adds ranked current-conversation content matches and snippets. Each new query aborts the preceding request; a failed content search leaves metadata matches visible without an additional warning. The list is capped at 20. Choosing an unarchived result clears and collapses search, opens the Session, and scrolls its row into view in the configured browsing mode; grouped browsing also expands its Workspace and the full Session list when required. Archived results offer Unarchive; attempting to open one explains that restriction without clearing the query or navigating.
 
 ### Managing sessions
+
+Session row actions appear on hover for devices that support hovering. On devices without hover, every non-blank Session keeps More visible alongside its trailing time and static pin marker. Quick-action buttons stay hidden there; the built-in archive and pin actions remain available through More. Workspace row actions appear only while that Workspace is expanded, leaving collapsed folders focused on navigation. An open row menu keeps its action strip visible on either device type.
 
 The final built-in item in a Session row's "..." menu is Copy Session ID. It closes the menu and copies the complete ID directly, without opening a dialog. Clipboard success or failure appears in the global toast; a failed copy can be retried from the menu. Copying does not retain the Session, load its history, or call the Host.
 
@@ -61,7 +67,7 @@ Archive commits without a confirmation dialog for a quiet Session and retains th
 
 Session update times use the tertiary label color, including on archived rows. A Session title wider than its row is clipped with an ellipsis at rest. Hovering the row scrolls the title to its far edge — the incremented title of a fork, for example — and reveals it without the ellipsis; leaving the row returns the title to its start.
 
-The keyboard reference exposes New Session, Search sessions, Add workspace, Rename session, Fork session, and Archive session. Desktop defaults use the platform's primary modifier, with Mod+K for search; Windows and macOS Web use the [shortcut service’s platform defaults](../shortcuts/README.md); Linux Web leaves these commands unbound until configured. Button tooltips and Session row menus display the effective bindings. Clicking a menu item targets that row; pressing its shortcut targets the main Session. Desktop and Windows/macOS Web rename use Mod+Alt+G, leaving Mod+Shift+R to browser reload. Rename requires a nonblank main Conversation with no modal obscuring it; a retained Session behind another main panel is unavailable. Other Windows and macOS Desktop bindings also execute from terminal input and modal dialogs; other environments follow the command's region and modal restrictions. Search and rename requests belong to this package; input drafts remain in the browser. The directory picker rejects another open while selection or Workspace adoption is pending. Fork captures the retained main-view Session, for which navigation has requested history opening, and keeps automatic migration. It uses the row action's Host operation to select its last completed turn, without loading older Client history. Missing or blank Sessions are unavailable; the Host rejects a source with no completed turn. A rejected shortcut fork preserves the current selection, displays a localized notification, and can be retried; unexpected failures also retain diagnostic logging. Its notification shares the frame-wide Workspace notice channel: only the latest notice remains visible, and removing the browsing region does not dismiss it.
+The keyboard reference exposes New Session, Search sessions, Add workspace, Rename session, Fork session, and Archive session. Desktop defaults use the platform's primary modifier, with Mod+K for search; Windows and macOS Web use the [shortcut service’s platform defaults](../shortcuts/README.md); Linux Web leaves these commands unbound until configured. Button tooltips and Session row menus display the effective bindings. Clicking a menu item targets that row; pressing its shortcut targets the main Session. Desktop and Windows/macOS Web rename use Mod+Alt+G, leaving Mod+Shift+R to browser reload. The navigation drawer allows these commands; other dialogs follow the command’s modal restrictions. Rename requires a nonblank main Conversation with no other modal obscuring it; a retained Session behind another main panel is unavailable. Other Windows and macOS Desktop bindings also execute from terminal input and modal dialogs; other environments follow the command's region and modal restrictions. Search and rename requests belong to this package; input drafts remain in the browser. The directory picker rejects another open while selection or Workspace adoption is pending. Fork captures the retained main-view Session, for which navigation has requested history opening, and keeps automatic migration. It uses the row action's Host operation to select its last completed turn, without loading older Client history. Missing or blank Sessions are unavailable; the Host rejects a source with no completed turn. A rejected shortcut fork preserves the current selection, displays a localized notification, and can be retried; unexpected failures also retain diagnostic logging. Its notification shares the frame-wide Workspace notice channel: only the latest notice remains visible, and removing the browsing region does not dismiss it.
 
 ### Pending interactions
 
@@ -114,20 +120,20 @@ The existing notice overlay dispatches `workspace.toast` by notice kind. Keyed r
 Declare `ui-workspace`, `ui-slots`, `ui-renderer`, `client-locale`, and `ui-primitives` as browser/type development dependencies according to the Client dependency policy. The type-only `ui-workspace/client` import loads this package's `SlotMap` declaration; without it, an independently compiled plugin does not know the slot keys. Keep the Component at module scope and own visible copy in the contributing package's locale namespace.
 
 ```tsx
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import { MenuItemButton } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { Context } from '@xpeach/xph-cordis'
+import type { SessionId } from '@xpeach/xph-session/types'
+import type {} from '@xpeach/xph-client-locale/client'
+import type {} from '@xpeach/xph-client-ui-renderer/client'
+import type {} from '@xpeach/xph-client-ui-workspace/client'
+import { MenuItemButton } from '@xpeach/xph-client-ui-primitives'
 import type {
   InjectFace, LocaleDictOf, PropsLocale, PropsRuntime,
-} from '@deepseek-ai/dsh-client-ui-slots'
+} from '@xpeach/xph-client-ui-slots'
 import { exportSession } from './export-session.ts'
 
 const NS = 'acme.sessionActions'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@xpeach/xph-client-ui-slots' {
   interface LocaleNamespaceMap {
     'acme.sessionActions': 'export'
   }
@@ -174,7 +180,7 @@ export function apply(ctx: Context): void {
 
 #### Dynamic client package
 
-A dynamically loaded browser half follows the same component contract; which modules it can reach depends on its lane. A Module Loader package (`factory(require)`, as in the real Loader/Web fixture) gets `@deepseek-ai/dsh-client-ui-primitives` as an implicit baseline external: resolve `MenuItemButton` through the loader's `require`, do not list the primitive as a runtime dependency or bundle another copy, and declare a development dependency only when source compilation needs its types. A `cordis-client-runner` closure (the audience of the generated Client Slot catalog) cannot import anything: it renders its own `role="menuitem"` `<button>` with `React.createElement`, styles it through `styles.insert`, and dismisses the menu through the same `useMenuOpenState` hook, as the catalog's example shows.
+A dynamically loaded browser half follows the same component contract; which modules it can reach depends on its lane. A Module Loader package (`factory(require)`, as in the real Loader/Web fixture) gets `@xpeach/xph-client-ui-primitives` as an implicit baseline external: resolve `MenuItemButton` through the loader's `require`, do not list the primitive as a runtime dependency or bundle another copy, and declare a development dependency only when source compilation needs its types. A `cordis-client-runner` closure (the audience of the generated Client Slot catalog) cannot import anything: it renders its own `role="menuitem"` `<button>` with `React.createElement`, styles it through `styles.insert`, and dismisses the menu through the same `useMenuOpenState` hook, as the catalog's example shows.
 
 ### View state
 
