@@ -7820,6 +7820,55 @@ importers:
         specifier: workspace:*
         version: link:../../core/session
 
+  packages/experimental/action-cards:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@xpeach/xph-agent-loop':
+        specifier: workspace:*
+        version: link:../../core/agent-loop
+      '@xpeach/xph-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@xpeach/xph-api-remote-access':
+        specifier: workspace:*
+        version: link:../../api/remote-access
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@xpeach/xph-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
+      '@xpeach/xph-tool-skill':
+        specifier: workspace:*
+        version: link:../../skill/tool-skill
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@xpeach/xph-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      '@xpeach/xph-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
+
   packages/experimental/agent-team:
     dependencies:
       '@xpeach/xph-brand':
@@ -8376,6 +8425,60 @@ importers:
         specifier: workspace:*
         version: link:../../session/working-directory
 
+  packages/experimental/client-ui-action-cards:
+    devDependencies:
+      '@xpeach/xph-action-cards':
+        specifier: workspace:*
+        version: link:../action-cards
+      '@xpeach/xph-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-chat':
+        specifier: workspace:*
+        version: link:../../client/ui-chat
+      '@xpeach/xph-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@xpeach/xph-client-ui-session':
+        specifier: workspace:*
+        version: link:../../client/ui-session
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@xpeach/xph-client-ui-tool':
+        specifier: workspace:*
+        version: link:../../client/ui-tool
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      '@xpeach/xph-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+
   packages/experimental/client-ui-agent-team:
     devDependencies:
       '@testing-library/react':
@@ -8559,6 +8662,105 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+
+  packages/experimental/client-ui-creation-recommendations:
+    devDependencies:
+      '@xpeach/xph-action-cards':
+        specifier: workspace:*
+        version: link:../action-cards
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@xpeach/xph-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-action-cards':
+        specifier: workspace:*
+        version: link:../client-ui-action-cards
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-creation-recommendations':
+        specifier: workspace:*
+        version: link:../creation-recommendations
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/experimental/client-ui-plugin-recommendations:
+    devDependencies:
+      '@xpeach/xph-action-cards':
+        specifier: workspace:*
+        version: link:../action-cards
+      '@xpeach/xph-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@xpeach/xph-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-action-cards':
+        specifier: workspace:*
+        version: link:../client-ui-action-cards
+      '@xpeach/xph-client-ui-plugin-manager':
+        specifier: workspace:*
+        version: link:../../client/ui-plugin-manager
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-package-manifest':
+        specifier: workspace:*
+        version: link:../../util/package-manifest
+      '@xpeach/xph-plugin-recommendations':
+        specifier: workspace:*
+        version: link:../plugin-recommendations
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/experimental/client-ui-voice-input:
     devDependencies:
@@ -8757,6 +8959,64 @@ importers:
       js-yaml:
         specifier: ^4.3.2
         version: 4.3.2
+
+  packages/experimental/creation-recommendations:
+    dependencies:
+      '@xpeach/xph-action-cards':
+        specifier: workspace:*
+        version: link:../action-cards
+      '@xpeach/xph-client-ui-action-cards':
+        specifier: workspace:*
+        version: link:../client-ui-action-cards
+      '@xpeach/xph-client-ui-creation-recommendations':
+        specifier: workspace:*
+        version: link:../client-ui-creation-recommendations
+      resolve.exports:
+        specifier: ^2.0.3
+        version: 2.0.3
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@xpeach/xph-api-remote-access':
+        specifier: workspace:*
+        version: link:../../api/remote-access
+      '@xpeach/xph-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-plugin-manager':
+        specifier: workspace:*
+        version: link:../../boot/plugin-manager
+      '@xpeach/xph-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../sandbox/sandbox-policy
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@xpeach/xph-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
+      '@xpeach/xph-subagent':
+        specifier: workspace:*
+        version: link:../../subagent/subagent
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
 
   packages/experimental/cua:
     dependencies:
@@ -9211,6 +9471,73 @@ importers:
         specifier: ^4.3.2
         version: 4.3.2
 
+  packages/experimental/personalized-recommendations:
+    dependencies:
+      '@xpeach/xph-action-cards':
+        specifier: workspace:*
+        version: link:../action-cards
+      '@xpeach/xph-client-ui-action-cards':
+        specifier: workspace:*
+        version: link:../client-ui-action-cards
+      '@xpeach/xph-client-ui-creation-recommendations':
+        specifier: workspace:*
+        version: link:../client-ui-creation-recommendations
+      '@xpeach/xph-client-ui-plugin-recommendations':
+        specifier: workspace:*
+        version: link:../client-ui-plugin-recommendations
+      '@xpeach/xph-creation-recommendations':
+        specifier: workspace:*
+        version: link:../creation-recommendations
+      '@xpeach/xph-plugin-recommendations':
+        specifier: workspace:*
+        version: link:../plugin-recommendations
+    devDependencies:
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@xpeach/xph-api-remote-access':
+        specifier: workspace:*
+        version: link:../../api/remote-access
+      '@xpeach/xph-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-cordis-plugin-include':
+        specifier: workspace:~
+        version: link:../../../vendor/include
+      '@xpeach/xph-cordis-plugin-timer':
+        specifier: workspace:~
+        version: link:../../../vendor/timer
+      '@xpeach/xph-hmr':
+        specifier: workspace:*
+        version: link:../../boot/hmr
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-plugin-manager':
+        specifier: workspace:*
+        version: link:../../boot/plugin-manager
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@xpeach/xph-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
+      '@xpeach/xph-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
+
   packages/experimental/plugin-market-bundle:
     dependencies:
       '@xpeach/xph-client-ui-plugin-market':
@@ -9223,6 +9550,49 @@ importers:
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+
+  packages/experimental/plugin-recommendations:
+    dependencies:
+      '@xpeach/xph-action-cards':
+        specifier: workspace:*
+        version: link:../action-cards
+      '@xpeach/xph-client-ui-action-cards':
+        specifier: workspace:*
+        version: link:../client-ui-action-cards
+      '@xpeach/xph-client-ui-plugin-recommendations':
+        specifier: workspace:*
+        version: link:../client-ui-plugin-recommendations
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@xpeach/xph-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@xpeach/xph-api-remote-access':
+        specifier: workspace:*
+        version: link:../../api/remote-access
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-package-manifest':
+        specifier: workspace:*
+        version: link:../../util/package-manifest
+      '@xpeach/xph-plugin-manager':
+        specifier: workspace:*
+        version: link:../../boot/plugin-manager
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-skill':
+        specifier: workspace:*
+        version: link:../../skill/skill
+      '@xpeach/xph-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
 
   packages/experimental/ptc-runtime-python:
     dependencies:

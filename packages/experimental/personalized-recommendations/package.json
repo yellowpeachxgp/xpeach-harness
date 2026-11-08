@@ -1,0 +1,69 @@
+{
+  "name": "@xpeach/xph-personalized-recommendations",
+  "description": "Personalized pages and built-in plugin recommendations offered as cards below answers",
+  "version": "0.0.32-alpha",
+  "icon": "./icon.svg",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/experimental/personalized-recommendations"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "icon.svg",
+    "locale/*.json",
+    "docs",
+    "lib/index.js",
+    "cordis.patch.yml",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@xpeach/xph-action-cards": "workspace:*",
+    "@xpeach/xph-client-ui-action-cards": "workspace:*",
+    "@xpeach/xph-creation-recommendations": "workspace:*",
+    "@xpeach/xph-client-ui-creation-recommendations": "workspace:*",
+    "@xpeach/xph-plugin-recommendations": "workspace:*",
+    "@xpeach/xph-client-ui-plugin-recommendations": "workspace:*"
+  },
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-cordis-plugin-include": "workspace:~",
+    "js-yaml": "^4.3.2",
+    "@xpeach/xph-cordis-plugin-timer": "workspace:~",
+    "@xpeach/xph-agent": "workspace:*",
+    "@xpeach/xph-api-remote-access": "workspace:*",
+    "@xpeach/xph-app-boot": "workspace:*",
+    "@xpeach/xph-hmr": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-plugin-manager": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-skill": "workspace:*",
+    "@xpeach/xph-system-prompt": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
