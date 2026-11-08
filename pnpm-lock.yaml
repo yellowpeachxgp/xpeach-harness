@@ -8285,6 +8285,75 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
 
+  packages/experimental/client-ui-stats:
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@xpeach/xph-api-session-controller':
+        specifier: workspace:*
+        version: link:../../api/session-controller
+      '@xpeach/xph-attachment':
+        specifier: workspace:*
+        version: link:../../attachment/attachment
+      '@xpeach/xph-client-locale':
+        specifier: workspace:*
+        version: link:../../client/locale
+      '@xpeach/xph-client-store':
+        specifier: workspace:*
+        version: link:../../client/store
+      '@xpeach/xph-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@xpeach/xph-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../../client/ui-conversation
+      '@xpeach/xph-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../../client/ui-primitives
+      '@xpeach/xph-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../../client/ui-renderer
+      '@xpeach/xph-client-ui-session':
+        specifier: workspace:*
+        version: link:../../client/ui-session
+      '@xpeach/xph-client-ui-slots':
+        specifier: workspace:*
+        version: link:../../client/ui-slots
+      '@xpeach/xph-compaction':
+        specifier: workspace:*
+        version: link:../../compaction/compaction
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-llm-retry':
+        specifier: workspace:*
+        version: link:../../llm/llm-retry
+      '@xpeach/xph-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@xpeach/xph-session-stats':
+        specifier: workspace:*
+        version: link:../../session/session-stats
+      '@xpeach/xph-token-meter':
+        specifier: workspace:*
+        version: link:../../llm/token-meter
+      '@xpeach/xph-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@xpeach/xph-user-approval':
+        specifier: workspace:*
+        version: link:../../interaction/user-approval
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
   packages/experimental/client-ui-voice-input:
     devDependencies:
       '@testing-library/react':
@@ -8892,6 +8961,9 @@ importers:
 
   packages/experimental/inspector-profile:
     dependencies:
+      '@xpeach/xph-experimental-client-ui-stats':
+        specifier: workspace:*
+        version: link:../client-ui-stats
       '@xpeach/xph-experimental-inspector':
         specifier: workspace:*
         version: link:../inspector
