@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-settings-general",
   "description": "Settings ownerless-copy and product onboarding plugin: the General section, shell trigger/header chrome content, settings dictionaries, and the versioned welcome notice",
-  "version": "0.0.33-alpha",
+  "version": "0.0.32-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -61,6 +61,7 @@
     "@xpeach/xph-client-connection": "workspace:*",
     "@xpeach/xph-client-locale": "workspace:*",
     "@xpeach/xph-client-modules": "workspace:*",
+    "@xpeach/xph-client-product-analytics": "workspace:*",
     "@xpeach/xph-client-store": "workspace:*",
     "@xpeach/xph-client-test-runtime": "workspace:*",
     "@xpeach/xph-client-ui-layout": "workspace:*",

@@ -423,6 +423,11 @@
     - id: ui-agent-preset
       name: '@xpeach/xph-client-ui-agent-preset'
 
+    # Region-local More menus: pin or unpin plugin launchers and start a
+    # plugin draft.
+    - id: entry-customization
+      name: '@xpeach/xph-client-ui-entry-customization'
+
     - id: ui-settings-session-log
       name: '@xpeach/xph-client-ui-settings-session-log'
 

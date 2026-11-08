@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-agent-preset",
   "description": "Agent-preset surfaces: the default for later sessions, this session's seat, and the composition editor",
-  "version": "0.0.33-alpha",
+  "version": "0.0.32-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -56,6 +56,7 @@
     "@xpeach/xph-api-session-controller": "workspace:*",
     "@xpeach/xph-client-connection": "workspace:*",
     "@xpeach/xph-client-locale": "workspace:*",
+    "@xpeach/xph-client-product-analytics": "workspace:*",
     "@xpeach/xph-client-store": "workspace:*",
     "@xpeach/xph-client-test-runtime": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
