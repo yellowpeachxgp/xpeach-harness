@@ -66,9 +66,14 @@ describe('Python SDK dsh profile keyless smoke', () => {
     { label: 'reports max-token turns with mapping enabled through env', envValue: 'true', editorEnabled: false },
     { label: 'reports max-token turns with mapping disabled through env', envValue: 'false', editorEnabled: false },
     { label: 'allows an explicit patch to enable str_replace_editor', envValue: undefined, editorEnabled: true },
-  ])('$label', async ({ envValue, editorEnabled }) => {
+    { label: 'allows an explicit patch to enable apply_patch', envValue: undefined, editorEnabled: false, patchEnabled: true },
+  ])('$label', async (scenario) => {
+    const { envValue, editorEnabled } = scenario
+    const patchEnabled = 'patchEnabled' in scenario && scenario.patchEnabled
     const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-smoke-'))
     const editorPatch = join(root, 'editor.patch.yml')
+    const fsPatch = join(root, 'fs.patch.yml')
+    if (patchEnabled) await writeFile(fsPatch, '- {id: tool-fs, config: {applyPatch: true}}\n')
     if (editorEnabled) await writeFile(editorPatch, [
       '- insert:',
       '    - id: tool-str-replace-editor',
@@ -96,6 +101,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       '--profile',
       'sdk',
       ...(editorEnabled ? ['--patch', editorPatch] : []),
+      ...(patchEnabled ? ['--patch', fsPatch] : []),
     ], {
       cwd: repoRoot,
       env: {
@@ -177,6 +183,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(modelRequests[0]?.output_config).toEqual({ effort: 'max' })
       expect(modelRequests[0]?.max_tokens).toBe(1234)
       expect(toolNames).toEqual(expect.arrayContaining(['read', 'write', 'edit', 'web_fetch', 'web_search']))
+      expect(toolNames.includes('apply_patch')).toBe(patchEnabled)
       expect(toolNames.includes('str_replace_editor')).toBe(editorEnabled)
       expect(toolNames).not.toContain('list_subagent_models')
 
