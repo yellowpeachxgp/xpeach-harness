@@ -884,6 +884,7 @@
       "@xpeach/xph-fs": ["./packages/fs/fs/src"],
       "@xpeach/xph-fs-local": ["./packages/fs/fs-local/src"],
       "@xpeach/xph-fs-observation-policy": ["./packages/fs/fs-observation-policy/src"],
+      "@xpeach/xph-fs-patch": ["./packages/fs/fs-patch/src"],
       "@xpeach/xph-fs-sandbox": ["./packages/fs/fs-sandbox/src"],
       "@xpeach/xph-fs-ssh": ["./packages/ssh/fs-ssh/src"],
       "@xpeach/xph-goal": ["./packages/goal/goal/src"],

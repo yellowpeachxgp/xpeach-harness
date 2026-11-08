@@ -3,7 +3,7 @@
 
 # Shared-instance dependency graph
 
-Peer dependencies among the `@deepseek-ai/dsh-*` harness packages. A peer means the consumer requires a shared instance; ordinary runtime dependencies and development-only relationships are not shown. The graph is grouped by the `packages/<group>/<pkg>` hierarchy. An edge `a --> b` means package `a` has package `b` as a peer. Names omit the `@deepseek-ai/dsh-` prefix.
+Peer dependencies among the `@xpeach/xph-*` harness packages. A peer means the consumer requires a shared instance; ordinary runtime dependencies and development-only relationships are not shown. The graph is grouped by the `packages/<group>/<pkg>` hierarchy. An edge `a --> b` means package `a` has package `b` as a peer. Names omit the `@xpeach/xph-` prefix.
 
 ```mermaid
 flowchart TD
@@ -58,6 +58,7 @@ flowchart TD
     pkg_fs["fs"]
     pkg_fs_local["fs-local"]
     pkg_fs_observation_policy["fs-observation-policy"]
+    pkg_fs_patch["fs-patch"]
     pkg_fs_sandbox["fs-sandbox"]
     pkg_tool_fs["tool-fs"]
     pkg_tool_fs_search["tool-fs-search"]
@@ -1452,6 +1453,7 @@ flowchart TD
 | [`deepseek-llm-api-extensions`](../packages/llm/deepseek-llm-api-extensions) | `llm` | — |
 | [`llm`](../packages/llm/llm) | `llm` | — |
 | [`scope`](../packages/core/scope) | `core` | — |
+| [`fs-patch`](../packages/fs/fs-patch) | `fs` | — |
 | [`api-gateway`](../packages/api/gateway) | `api` | — |
 | [`api-job-controller`](../packages/api/job-controller) | `api` | — |
 | [`api-remote-access`](../packages/api/remote-access) | `api` | — |

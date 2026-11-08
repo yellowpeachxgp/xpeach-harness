@@ -3,13 +3,13 @@ description: "强制沙箱的 `ctx.fs` 后端：面向把模型文件变更限�
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-fs-sandbox
+# @xpeach/xph-fs-sandbox
 
 [English](README.md) | 中文
 
 ## 概述
 
-`dsh-fs-sandbox` 按各会话的沙箱模式限制模型对文件的写入与编辑，同时保留本地文件系统的读取行为。`read-only` 拒绝所有变更；`workspace-write` 只允许目标位于会话工作区或平台临时根目录内；`danger-full-access` 不限制变更。当会话需要将文件变更限制在工作区内时，使用它代替 `fs-local`，并加载 `ctx.sandboxPolicy`。被拒绝的操作返回 `FS_SANDBOX_DENIED`，文件系统工具会显示当前模式和同轮次升级提示。
+`dsh-fs-sandbox` 按各会话的沙箱模式限制模型对文件的写入、编辑、打补丁、删除与移动，同时保留本地文件系统的读取行为。`read-only` 拒绝所有变更；`workspace-write` 只允许目标位于会话工作区或平台临时根目录内；`danger-full-access` 不限制变更。当会话需要将文件变更限制在工作区内时，使用它代替 `fs-local`，并加载 `ctx.sandboxPolicy`。被拒绝的操作返回 `FS_SANDBOX_DENIED`，文件系统工具会显示当前模式和同轮次升级提示。
 
 ## 目录
 
@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+围栏覆盖 `writeText`、`editText`、`patchText`、`deleteFile` 和 `moveFile`。移动在任何效果发生前检查源与目标，因此任一路径被拒都会使两端文件保持不变。
+
 当模型的文件写入与编辑必须受会话沙箱模式约束、而读取保持不受约束时，挂载此后端以替代 `fs-local`。围栏按调用生效：工具层把调用会话的模式与工作区根目录解析为与 bash runner 收到的相同策略，因此文件系统与 shell 两个能力族绝不会约束到不同根目录。
 
 ### 最小组合
@@ -32,11 +34,11 @@ kind: "package-reference"
 先加载共享策略服务，再加载此后端，最后加载工具；编辑前读取策略插件仍为可选。
 
 ```yaml
-- name: '@deepseek-ai/dsh-sandbox-policy'
-- name: '@deepseek-ai/dsh-fs-sandbox'
+- name: '@xpeach/xph-sandbox-policy'
+- name: '@xpeach/xph-fs-sandbox'
   config:
     cwd: /absolute/path/to/workspace
-- name: '@deepseek-ai/dsh-tool-fs'
+- name: '@xpeach/xph-tool-fs'
 ```
 
 后端的配置与本地后端完全相同（`cwd` 解析默认值与 `diffBasisMaxBytes` 覆写上限）；[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-fs-sandbox)是完整配置的真源。
@@ -67,7 +69,7 @@ kind: "package-reference"
 
 | 文件 | 职责 |
 |---|---|
-| [`src/index.ts`](src/index.ts) | `SandboxedFileSystem`：`writeText`/`editText` 上的模式围栏、`sandboxMode` 事实 |
+| [`src/index.ts`](src/index.ts) | `SandboxedFileSystem`：`writeText`/`editText`/`patchText`/`deleteFile`/`moveFile` 上的模式围栏、`sandboxMode` 事实 |
 | [`src/containment.ts`](src/containment.ts) | 祖先包含检查，带词法快速路径与基于身份的兜底 |
 
 ### 变更如何被围栏

@@ -7513,6 +7513,9 @@ importers:
       '@xpeach/xph-fs-local':
         specifier: workspace:*
         version: link:../../fs/fs-local
+      '@xpeach/xph-fs-observation-policy':
+        specifier: workspace:*
+        version: link:../../fs/fs-observation-policy
       '@xpeach/xph-llm':
         specifier: workspace:*
         version: link:../../llm/llm
@@ -7525,6 +7528,9 @@ importers:
       '@xpeach/xph-subprocess-local':
         specifier: workspace:*
         version: link:../../subprocess/subprocess-local
+      '@xpeach/xph-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
       '@xpeach/xph-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs
@@ -10020,6 +10026,10 @@ importers:
         version: link:../../typert/protocol
 
   packages/fs/fs:
+    dependencies:
+      '@xpeach/xph-fs-patch':
+        specifier: workspace:*
+        version: link:../fs-patch
     devDependencies:
       '@xpeach/xph-brand':
         specifier: workspace:*
@@ -10036,6 +10046,9 @@ importers:
 
   packages/fs/fs-local:
     dependencies:
+      '@xpeach/xph-fs-patch':
+        specifier: workspace:*
+        version: link:../fs-patch
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
@@ -10068,6 +10081,12 @@ importers:
         specifier: workspace:*
         version: link:../../llm/llm
 
+  packages/fs/fs-patch:
+    devDependencies:
+      '@xpeach/xph-cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+
   packages/fs/fs-sandbox:
     devDependencies:
       '@xpeach/xph-cordis':
@@ -10091,12 +10110,18 @@ importers:
 
   packages/fs/tool-fs:
     dependencies:
+      '@xpeach/xph-fs-patch':
+        specifier: workspace:*
+        version: link:../fs-patch
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
       '@xpeach/xph-util-code-language':
         specifier: workspace:*
         version: link:../../util/code-language
+      '@xpeach/xph-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
       diff:
         specifier: ^9.0.0
         version: 9.0.0
@@ -10125,6 +10150,9 @@ importers:
       '@xpeach/xph-fs-observation-policy':
         specifier: workspace:*
         version: link:../fs-observation-policy
+      '@xpeach/xph-fs-sandbox':
+        specifier: workspace:*
+        version: link:../fs-sandbox
       '@xpeach/xph-llm':
         specifier: workspace:*
         version: link:../../llm/llm
