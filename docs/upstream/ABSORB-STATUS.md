@@ -11,6 +11,8 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| 工具执行器插件化（tool-executor-plugins） | `1c6c558432` (#6539) | 新建 `tool-executor-native`/`tool-executor-ptc`/`tool-testkit`，单元测试 206+696 项通过，`product-subagent-oar` 快照重放通过 |
+| subagent_oar（外部 Codex/Claude 委派） | `e5cac772de` (#6325) | 新建 `subagent-oar`/`tool-subagent-oar`（experimental，opt-in 组合），单测通过，快照重放通过；#6450 仅取用 OAR fixture 的 sandbox-policy 行，跳过其 Auto-policy 报告 |
 
 ## 产品侧修复（非上游）
 

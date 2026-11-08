@@ -54,7 +54,7 @@ const publicationSourceAllowlist: Readonly<Record<string, readonly string[]>> = 
   '@xpeach/xph-node-addon-system': ['src/main.c', 'src/flock.c'],
 }
 /** Public source home recorded in maintained package manifests. */
-const publishedRepositoryUrl = 'git+https://github.com/yellowpeachxgp/xpeach-harness.git'
+const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harness.git'
 /** Packages that participate in the experimental policy. */
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** Private reference tool run from the repository; it publishes no files. */
@@ -256,11 +256,59 @@ function sameStringList(actual: readonly string[] | undefined, expected: readonl
 }
 
 /**
+ * A locale `meta.detail` value: a `/`-separated Markdown path relative to the package root that cannot leave it.
+ * @param value - the declared `meta.detail` value, or `undefined` when the locale file omits it.
+ * @param label - the locale file path used in a failure message.
+ * @returns the validated path, or `undefined` when the value is absent.
+ * @throws Error for another value.
+ */
+function detailPath(value: unknown, label: string): string | undefined {
+  if (value === undefined) return undefined
+  const invalid = (rule: string): Error => new Error(`${label} ${rule}`)
+  if (typeof value !== 'string' || value.trim() === '') throw invalid('must be a non-empty string')
+  if (value.includes('\\') || /^[A-Za-z][A-Za-z\d+.-]*:/u.test(value) || value.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
+    throw invalid('must be a relative path inside the package')
+  }
+  if (!/\.(?:md|markdown)$/iu.test(value)) throw invalid('must name a Markdown file')
+  return value
+}
+
+/**
+ * List the publication entries that locale `meta.detail` documents need: the top-level directory holding
+ * each document and its images.
+ * @param packageDir - absolute package directory.
+ * @returns sorted, deduplicated entries.
+ * @throws Error when a declared document is not a package-relative Markdown file in a subdirectory or does not exist,
+ * so a typo cannot publish a directory that holds no document.
+ */
+export function detailDocumentFiles(packageDir: string): readonly string[] {
+  const entries = new Set<string>()
+  for (const file of globSync('locale/*.json', { cwd: packageDir })) {
+    let meta: unknown
+    try {
+      meta = (JSON.parse(readFileSync(join(packageDir, file), 'utf8')) as { meta?: unknown } | null)?.meta
+    } catch (error: unknown) {
+      // SyntaxError: verify-package-meta reports malformed locale files; this check only adds publication entries.
+      void error
+      continue
+    }
+    const label = `${join(packageDir, file)}: meta.detail`
+    const detail = detailPath(typeof meta === 'object' && meta !== null ? (meta as { detail?: unknown }).detail : undefined, label)
+    if (detail === undefined) continue
+    const slash = detail.indexOf('/')
+    if (slash < 0) throw new Error(`${label} ${JSON.stringify(detail)} must name a file in a subdirectory such as docs/`)
+    if (!existsSync(join(packageDir, detail))) throw new Error(`${label} ${JSON.stringify(detail)} does not exist`)
+    entries.add(detail.slice(0, slash))
+  }
+  return [...entries].sort()
+}
+
+/**
  * Compute canonical publication patterns, including declared and exported icon paths and exported locale JSON resources.
  * @param manifest - workspace package manifest.
  * @returns the icon and deduplicated locale targets followed by runtime and declaration payloads.
  */
-export function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
+export function expectedDshPackageFiles(manifest: PackageManifest, detailFiles: readonly string[] = []): readonly string[] {
   const localeFiles = new Set<string>()
   for (const resource of Object.keys(manifest.exports ?? {})) {
     if (!/^\.\/(?:.+\/)?locale\/[^/]+\.json$/u.test(resource)) continue
@@ -284,6 +332,7 @@ export function expectedDshPackageFiles(manifest: PackageManifest): readonly str
   return [
     ...new Set(icons),
     ...[...localeFiles].sort(),
+    ...detailFiles,
     'lib/index.js',
     ...manifest.bin ? ['lib/bin.js'] : [],
     // Worker-thread packages ship a CJS worker entry; the browser worker

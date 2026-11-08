@@ -1,13 +1,13 @@
 {
   "name": "@xpeach/xph-experimental-subagent-oar",
   "description": "Experimental one-shot subagents through OAR runtimes",
-  "version": "0.2.1-rc.2",
+  "version": "0.0.32-alpha",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
     "directory": "packages/experimental/subagent-oar"
   },
   "type": "module",

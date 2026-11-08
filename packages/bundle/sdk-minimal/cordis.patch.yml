@@ -170,6 +170,9 @@
 
     - id: sessions
       name: '@xpeach/xph-session-persistence-jsonl'
+
+    - id: session-checkpoint-policy
+      name: '@xpeach/xph-session-checkpoint-policy'
       config:
         root: !!js dshHomePath('sessions')
         compression: none

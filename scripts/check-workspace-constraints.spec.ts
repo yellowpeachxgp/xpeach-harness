@@ -16,6 +16,7 @@ import {
   checkExperimentalDependencyIsolation,
   checkExperimentalManifest,
   checkExperimentalNameExceptions,
+  detailDocumentFiles,
   expectedDshPackageFiles,
   readWorkspaceManifests,
   type WorkspaceManifest,
