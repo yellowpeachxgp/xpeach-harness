@@ -50,6 +50,7 @@
     "@xpeach/xph-launch-environment": "workspace:*"
   },
   "devDependencies": {
+    "@xpeach/xph-api-remotes": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-credentials": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",

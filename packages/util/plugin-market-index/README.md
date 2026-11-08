@@ -36,7 +36,7 @@ Install one version with `marketInstallTarget(name, version)`: it returns the ex
 ## API
 
 ```ts
-import { MarketIndexError, marketInstallTarget, parseMarketIndex } from '@deepseek-ai/dsh-plugin-market-index'
+import { MarketIndexError, marketInstallTarget, parseMarketIndex } from '@xpeach/xph-plugin-market-index'
 ```
 
 | Export | Role |

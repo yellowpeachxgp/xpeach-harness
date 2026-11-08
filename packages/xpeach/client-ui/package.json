@@ -47,6 +47,7 @@
     "@xpeach/xph-client-ui-theme": "workspace:*",
     "@xpeach/xph-client-ui-sidebar": "workspace:*",
     "@xpeach/xph-client-ui-layout": "workspace:*",
+    "@xpeach/xph-client-ui-model-selection": "workspace:*",
     "@xpeach/xph-client-ui-chat": "workspace:*",
     "@xpeach/xph-client-ui-sidebar-right": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
@@ -65,6 +66,7 @@
         "@xpeach/xph-client-ui-slots",
         "@xpeach/xph-client-ui-theme",
         "@xpeach/xph-client-ui-layout",
+        "@xpeach/xph-client-ui-model-selection",
         "@xpeach/xph-client-ui-sidebar-right"
       ],
       "platform": "web"
