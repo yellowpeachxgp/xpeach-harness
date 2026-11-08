@@ -122,7 +122,7 @@
             name: '@xpeach/xph-tool-present'
           - id: tool-plugin-manager
             name: '@xpeach/xph-plugin-manager/tools'
-            disabled: true
+            disabled: !!js "!ctx.get('profileContext')"
           - id: tool-plugin-market
             name: '@xpeach/xph-plugin-market/tools'
             disabled: true
