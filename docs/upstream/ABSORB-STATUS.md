@@ -11,6 +11,10 @@
 | 侧栏固定（panel-pins） | `813b7db6f4` | 2494 项单测通过，界面渲染已核对 |
 | 主题图标 sprite | `38497b347c` | 图标渲染已核对 |
 | 模型重排序 | `afcb6709cd` | 3 项单测通过 |
+| sdk-minimal 检查点（#6369） | `7d656c0511` | sdk-minimal.spec 1/1 通过（port/sdk-parity） |
+| SDK 审批 RPC（#6523） | `4fbe6e3f42` | approval.spec 21/21、sdk-client 52/52、transport 19/19；user-question 桥未移植（属 #6351） |
+| 会话流快照（#7154） | `ca4c00de46` | session-controller 1060/1060、gateway 30/30、ui-plan 55/55；tsc 通过 |
+| SDK 工具对齐（#7107） | `8f236fef35` | tool-parity.spec 3/3、sdk 快照回放 29/29；expected-e2e 依赖未移植项 |
 
 ## 产品侧修复（非上游）
 
