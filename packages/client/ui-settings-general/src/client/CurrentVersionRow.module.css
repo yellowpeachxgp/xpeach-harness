@@ -100,11 +100,6 @@
   transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
 }
 
-.updateButton:hover:not(:disabled) {
-  border-color: var(--dsw-alias-brand-primary);
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
-}
-
 .updateButton:disabled {
   opacity: 0.65;
   cursor: default;
@@ -116,9 +111,16 @@
   color: var(--dsw-alias-brand-primary-invert, #ffffff);
 }
 
-.updateButtonPrimary:hover:not(:disabled) {
-  background: var(--dsw-alias-brand-primary);
-  opacity: 0.92;
+@media (hover: hover) {
+  .updateButton:hover:not(:disabled) {
+    border-color: var(--dsw-alias-brand-primary);
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
+  }
+
+  .updateButtonPrimary:hover:not(:disabled) {
+    background: var(--dsw-alias-brand-primary);
+    opacity: 0.92;
+  }
 }
 
 .spinner {

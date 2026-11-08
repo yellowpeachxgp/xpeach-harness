@@ -11,7 +11,7 @@
  * session and workspace hover cards are suppressed while a menu is open.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+import type { PointerEvent, RefObject } from 'react'
 import clsx from 'clsx'
 import type { PropsRenderSlots } from '@xpeach/xph-client-ui-slots'
 import {
@@ -100,11 +100,15 @@ function restTitle(title: HTMLSpanElement): void {
  * @param title - ref to the row's clipping title element.
  * @returns stable pointer enter/leave handlers for the row.
  */
-function useTitleMarquee(title: RefObject<HTMLSpanElement | null>): { enter: () => void; leave: () => void } {
+function useTitleMarquee(title: RefObject<HTMLSpanElement | null>): {
+  enter: (event: PointerEvent) => void
+  leave: () => void
+} {
   const frame = useRef(0)
   useEffect(() => () => { cancelAnimationFrame(frame.current) }, [])
   return useMemo(() => ({
-    enter: (): void => {
+    enter: (event: PointerEvent): void => {
+      if (event.pointerType === 'touch') return
       /* v8 ignore next -- defensive: the title span renders unconditionally. */
       if (title.current === null) return
       const element = title.current
@@ -662,7 +666,14 @@ export function SessionNodeItem({
       role="treeitem"
       aria-selected={selected}
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
+      tabIndex={0}
       onClick={() => { onOpen(node.id) }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+        event.preventDefault()
+        onOpen(node.id)
+      }}
       onPointerEnter={marquee.enter}
       onPointerLeave={marquee.leave}
       draggable={draggable}
@@ -724,16 +735,16 @@ export function SessionNodeItem({
           (rename/fork/archive) would all act on content that does not
           exist — both trailing cells stay off until the first prompt. */}
       {!row.blank && (
-        <span
-          className={css.time}
-          aria-hidden={primaryStatus.trailingLabel === undefined ? undefined : true}
-        >
-          {primaryStatus.trailingLabel ?? timeLabel(row.updatedAt, now, t)}
+        <span className={css.rowResting}>
+          <span
+            className={clsx(css.time, primaryStatus.trailingLabel === undefined && css.timestamp)}
+            aria-hidden={primaryStatus.trailingLabel === undefined ? undefined : true}
+          >
+            {primaryStatus.trailingLabel ?? timeLabel(row.updatedAt, now, t)}
+          </span>
+          {row.pinned && !row.archived && <PinnedIndicator t={t} />}
         </span>
       )}
-      {/* Trails the time so the marker occupies the same right-edge cell as
-          the hover pin button that replaces it. */}
-      {row.pinned && !row.archived && <PinnedIndicator t={t} />}
       {/* The strip's clicks stay in the strip: the trigger and every
           row.action entry act without also opening the row, so an entry's
           button needs no propagation handling of its own. */}
@@ -761,7 +772,9 @@ export function SessionNodeItem({
               { hookContext: menuOpenState },
             )}
           </Menu>
-          {renderSlot('sidebar.workspaces.session.row.action', { sessionId: node.id, displayTitle: row.title })}
+          <span className={css.rowQuickActions}>
+            {renderSlot('sidebar.workspaces.session.row.action', { sessionId: node.id, displayTitle: row.title })}
+          </span>
         </span>
       )}
     </div>
