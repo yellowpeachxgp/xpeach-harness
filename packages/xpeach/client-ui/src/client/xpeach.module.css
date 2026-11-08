@@ -4592,6 +4592,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 4px;
   padding: 1px 6px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -4623,6 +4624,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   width: 6px;
   height: 6px;
   border-radius: 999px;
+  corner-shape: round;
   background: currentColor;
   flex-shrink: 0;
 }
@@ -4726,6 +4728,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   appearance: none;
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 999px;
+  corner-shape: round;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 500;
@@ -4763,6 +4766,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 5px;
   padding: 4px 10px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
@@ -4860,6 +4864,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   gap: 4px;
   padding: 2px 7px;
   border-radius: 999px;
+  corner-shape: round;
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -4891,6 +4896,7 @@ body[data-ds-dark-theme] .mark img.markDark {
   width: 6px;
   height: 6px;
   border-radius: 999px;
+  corner-shape: round;
   background: currentColor;
   flex-shrink: 0;
 }
