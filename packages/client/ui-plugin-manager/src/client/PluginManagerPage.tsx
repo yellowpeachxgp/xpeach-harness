@@ -109,11 +109,12 @@ const BUILTIN_PROFILE_BUNDLES = new Set([
 const EXTENSION_BUNDLES = [
   '@xpeach/xph-experimental-agent-team-profile',
   '@xpeach/xph-experimental-voice-input-bundle',
+  '@xpeach/xph-experimental-plugin-market-bundle',
   '@xpeach/xph-experimental-auto-review',
-  '@xpeach/xph-experimental-inspector-profile',
 ]
 /** The optional bundles the main list holds back until the profile picks them; the More list shows them from the start. */
 const MORE_BUNDLES = [
+  '@xpeach/xph-experimental-inspector-profile',
   '@xpeach/xph-experimental-tool-worktree',
   '@xpeach/xph-experimental-cot-translation-bundle',
   '@xpeach/xph-experimental-terminal-bundle',
@@ -121,7 +122,6 @@ const MORE_BUNDLES = [
   '@xpeach/xph-experimental-session-titles-bundle',
   '@xpeach/xph-experimental-badge-skill-bundle',
   '@xpeach/xph-experimental-ralph-bundle',
-  '@xpeach/xph-experimental-plugin-market-bundle',
   '@xpeach/xph-subagent-codex',
   '@xpeach/xph-subagent-claude-code',
 ]

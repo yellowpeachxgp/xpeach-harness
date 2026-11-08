@@ -31,13 +31,13 @@
     - text: 实验性 在本机使用 SenseVoice 转写录音，首次使用需安装依赖。
     - switch "启用 语音输入"
   - listitem:
+    - button "查看 自定义插件市场": 自定义插件市场
+    - text: 实验性 在插件页添加「发现」标签页，从你添加的插件索引中浏览和安装插件。
+    - switch "启用 自定义插件市场"
+  - listitem:
     - button "查看 自动授权审查": 自动授权审查
     - text: 实验性 提供自动审查权限模式，由模型在每次工具调用前判断是否授权。
     - switch "启用 自动授权审查"
-  - listitem:
-    - button "查看 开发者工具": 开发者工具
-    - text: 实验性 用于排查问题：在“会话数据诊断”中查看 XPeach Harness 为会话记录的内容，并在 Chrome DevTools 中调试 XPeach Harness 后端。
-    - switch "启用 开发者工具"
 - heading "已安装插件" [level=3]
 - list:
   - listitem:
