@@ -379,7 +379,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-session-log-export` | yes | Web Session-log export command and shared download dialog |
+| `@xpeach/xph-session-log-export` | yes | Web Session-log ZIP export and Session Markdown copy |
 | `@xpeach/xph-session-query-sqlite` | yes | Concrete ctx.sessionQuery backend with SQLite FTS5 search |
 
 ## settings
@@ -512,3 +512,10 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@xpeach/xph-workspace` | no | Workspace entity registry (ctx.workspaceRegistry): durable workspace records with validated session attachment over the domain data form for the DeepSeek Harness |
+
+## xpeach
+
+| Package | Config | Description |
+|---|---|---|
+| `@xpeach/xph-account` | yes | XPeach (New API) account Remote: profile and token listing served to Harness clients |
+| `@xpeach/xph-client-ui` | no | XPeach 🍑Code face for the Web client: peach brand, quota pill, quota notice, and the settings account card |
