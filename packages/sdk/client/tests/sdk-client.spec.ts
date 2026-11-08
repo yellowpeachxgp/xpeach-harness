@@ -316,6 +316,7 @@ describe('DeepSeekHarness', () => {
       model: 'custom-model',
       reasoningEffort: ReasoningEffortId('max'),
       maxTokens: 4096,
+      approvalRequests: true,
     })
     cleanups.push(() => harness.close())
     await harness.run([{ type: 'text', text: 'one' }])
@@ -328,6 +329,7 @@ describe('DeepSeekHarness', () => {
       model: 'custom-model',
       reasoningEffort: 'max',
       maxTokens: 4096,
+      approvalRequests: true,
     }])
   })
 
@@ -702,7 +704,12 @@ describe('HarnessClient', () => {
     inject('session.event', { sessionId: 'grandchild', event: { type: 'noop' } })
     inject('session.event', { sessionId: 'stranger', event: { type: 'noop' } })
     inject('subagent.started', { parentSessionId: 'other-root', childSessionId: 'other-child' })
+    const subtree = client.subscribeSessionTree('child')
+    inject('subagent.finished', { parentSessionId: 'root', childSessionId: 'child' })
     inject('subagent.finished', { parentSessionId: 'child', childSessionId: 'grandchild' })
+    expect((await subtree.next()).params.childSessionId).toBe('child')
+    expect((await subtree.next()).params).toMatchObject({ parentSessionId: 'child', childSessionId: 'grandchild' })
+    subtree.close()
     // Self-loop and empty edges must not corrupt the lineage map.
     inject('subagent.started', { parentSessionId: 'loop', childSessionId: 'loop' })
     inject('subagent.started', { parentSessionId: '', childSessionId: 'x' })
@@ -712,6 +719,7 @@ describe('HarnessClient', () => {
     expect((await tree.next()).method).toBe('subagent.started')
     expect((await tree.next()).method).toBe('subagent.started')
     expect((await tree.next()).params.sessionId).toBe('grandchild')
+    expect((await tree.next()).params.childSessionId).toBe('child')
     expect((await tree.next()).method).toBe('subagent.finished')
     // The foreign-root edge and stranger event were filtered; next is the root-child edge.
     expect((await tree.next()).params.childSessionId).toBe('root')
@@ -780,6 +788,26 @@ describe('pure helpers', () => {
       { type: 'assistant/message', seq: 0, time: 0, data: { message: { content: [{ type: 'text', text: 'first' }] } } } as never,
       { type: 'assistant/message', seq: 1, time: 0, data: { message: { content: [{ type: 'text', text: 'a' }, { type: 'tool-call' }, { type: 'text', text: 'b' }] } } } as never,
     ])).toBe('ab')
+  })
+})
+
+describe('server-to-client SDK requests', () => {
+  it('requires a started client and returns client decisions over the wire', async () => {
+    const client = processClient(fakeLaunch({ FAKE_APPROVAL: '1' }))
+    cleanups.push(() => client.close())
+    expect(() => { client.onRequest(async () => ({})) }).toThrow('start the SDK client')
+    client.start()
+    client.onRequest(async (method, params) => {
+      expect(method).toBe('approval/request')
+      expect(params).toEqual({ sessionId: 'main', toolName: 'bash' })
+      return { outcome: 'rejected' }
+    })
+    const notifications = client.subscribe()
+    await client.initialize({ cwd: process.cwd(), provider: 'mock', model: 'mock', approvalRequests: true })
+    expect(await notifications.next()).toMatchObject({ method: 'approval/response', params: { result: { outcome: 'rejected' } } })
+    notifications.close()
+    await client.close()
+    expect(() => { client.onRequest(async () => ({})) }).toThrow('client is closed; create a new client')
   })
 })
 

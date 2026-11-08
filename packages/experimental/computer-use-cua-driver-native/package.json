@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-computer-use-cua-driver-native",
   "description": "Experimental computer-use provider embedding the Cua Driver native npm SDK",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -54,6 +54,8 @@
     "@xpeach/xph-session": "workspace:*",
     "@xpeach/xph-session-projection": "workspace:*",
     "@xpeach/xph-system-prompt": "workspace:*",
-    "@xpeach/xph-tools": "workspace:*"
+    "@xpeach/xph-tools": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

@@ -43,7 +43,7 @@ Settings visibility and section selection live in the shell owner store. The she
 
 The current release version appears at the bottom of General Settings in Web and Desktop, using the build’s `DSH_CLIENT_VERSION` metadata and the active language. Partial builds without version metadata omit the row.
 
-The Coding Tools switch controls the shared `ui-settings.enabled` preference described by [ui-settings](../ui-settings/README.md#use-this-package). It is available in both Web and desktop, follows accepted changes immediately, and disables duplicate input while a write settles. A failed write displays localized retry guidance.
+The Coding Tools switch controls the shared `ui-settings.enabled` preference described by [ui-settings](../ui-settings/README.md#use-this-package). It is available in both Web and desktop, follows accepted changes immediately, and disables duplicate input while a write settles. A failed write displays localized retry guidance. On Desktop, a change made with this switch reports `code_work_view_toggle` with the new value through the optional [product analytics](../product-analytics/README.md) service, timestamped at the click. Only a write that changes a known value and leaves the preference at the requested value reports; requesting the current value, an unknown previous value, a failed write, and preference updates made elsewhere report nothing.
 
 The General section holds the built-in Coding Tools and Current version rows alongside rows registered into `settings.general.item` by feature packages. Each registrant owns its row copy and behavior. The Appearance row, for example, lives in ui-theme.
 
@@ -69,7 +69,7 @@ The shell owns the chrome and the projections; it contributes the Coding Tools a
 
 ### Ledger projections
 
-The navigation is a projection of the `settings.section` ledger; nav labels may be locale-following thunks, resolved through `resolveSlotLabel` and re-rendered on the section ledger bump or the locale revision (an optional `ctx.get('locale')` read; no hard locale dependency). The onboarding ledger projects in ascending order; the active registrant receives its id, `complete()`, and an `openSection(id)` callback, and completing or skipping transfers ownership to the next entry.
+The navigation is a projection of the `settings.section` ledger; nav labels may be locale-following thunks, resolved through `resolveSlotLabel` and re-rendered on the section ledger bump or the locale revision (an optional `ctx.get('locale')` read; no hard locale dependency). Each row renders its matching `settings.section.icon` contribution; without one, known built-in sections use their own glyph and other ids use the settings gear. The onboarding ledger projects in ascending order; the active registrant receives its id, `complete()`, and an `openSection(id)` callback, and completing or skipping transfers ownership to the next entry.
 
 ### Connection recovery
 

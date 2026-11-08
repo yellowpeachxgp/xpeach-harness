@@ -3,7 +3,7 @@ description: "为 Web profile 添加实验性逐调用 Auto review，在工具�
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-experimental-auto-review
+# @xpeach/xph-experimental-auto-review
 
 [English](README.md) | 中文
 
@@ -40,8 +40,26 @@ CLI 会在需要时初始化 profile，并将本包声明的 patch 追加到 bas
 通过同一 CLI 移除此层：
 
 ```sh
-pnpm dsh plugin --profile web remove @deepseek-ai/dsh-experimental-auto-review
+pnpm dsh plugin --profile web remove @xpeach/xph-experimental-auto-review
 ```
+
+<a id="headless-supervision"></a>
+### Headless supervision
+
+为 headless profile 显式启用实验层：
+
+```sh
+dsh plugin --profile headless add @xpeach/xph-experimental-auto-review
+dsh headless --permission-mode auto --approval-policy never --json - < task.txt > run.jsonl
+```
+
+如需从此 checkout 单次运行，可传入 `--patch /absolute/path/to/packages/experimental/auto-review/cordis.patch.yml`，无需安装 profile 层。Auto integration 不可用时，权限预设选择会在读取 stdin 或开始模型工作前失败。Auto 使用完全主机访问权限；此模式不需要 `--add-dir`。原生工具让每个工具 body 都经过审查；PTC 的直接 Node 效果仍不在审查范围内。
+
+Auto 将 `source.kind: 'user'` 的文本视为 `user-instruction`，不区分传输方式，也不要求消息到达时 Auto 已生效。这包括已有的 user-source 历史、SDK/ACP 调用者，以及以用户身份提交内容的插件。Child 自身的创建 prompt 和直接父级消息保留从属指令角色；继承的创建 prompt 与无法验证的创建 prompt 仍是事实。请明确动作、准确目标与范围。项目文件、工具结果和 checkpoint 不能授权动作。
+
+在选择 Auto 后设置 `--approval-policy never`，使拒绝成为最终结果，并在 `tool_result.error` 中保留 `AUTO_REVIEW_DENIED` 及可选原始理由。`AUTO_REVIEW_FAILED` 标识不合法的 reviewer 输出或技术失败。两者都不执行 body。即使 `final.reason` 为 completed，也需审查任务报告：调用被拒绝后模型仍可结束。
+
+恢复时使用相同工作目录与 `--session-id`。省略两个策略选项会保留已保存的策略，也可同时传入两者以显式选择无人值守 Auto。监督者可在拒绝后发送明确且限定范围的指令；新调用会重新接受审查。Headless 没有审批待执行调用的通道。`ask` 使用已组合的审批应答者，没有可用应答者时按拒绝处理；它不会把 stdin 变成审批通道。应用关闭保留 Auto。恢复其 Session 时必须加载同一 integration，即使要选择其他预设也是如此。从运行中的应用移除插件仍会将其存活 Auto Session 迁移到 Full access。
 
 ### 获得的能力
 

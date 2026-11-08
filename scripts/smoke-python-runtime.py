@@ -256,7 +256,8 @@ def write_advanced_profile_patch(
 ) -> Path:
     """Write the shared custom, snapshot, and restart profile patch."""
     return write_profile_patch(root, name, sessions, [
-        {"id": "tools", "config": {"mode": mode}},
+        {"id": "tool-executor-native", "disabled": mode != "native"},
+        {"id": "tool-executor-ptc", "disabled": mode != "ptc"},
         {
             "id": "system-prompt",
             "config": {
@@ -275,9 +276,9 @@ def write_advanced_profile_patch(
             },
         },
         {"insert": [
-            {"id": "ptc-runtime", "name": "@deepseek-ai/dsh-ptc-runtime-node"},
-            {"id": "cordis-host-runner", "name": "@deepseek-ai/dsh-cordis-host-runner"},
-            {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis"},
+            {"id": "ptc-runtime", "name": "@xpeach/xph-ptc-runtime-node"},
+            {"id": "cordis-host-runner", "name": "@xpeach/xph-cordis-host-runner"},
+            {"id": "cordis-tool", "name": "@xpeach/xph-tool-cordis"},
         ]},
     ])
 
@@ -287,7 +288,7 @@ def write_mcp_patch(root: Path, sessions: Path, server_script: Path) -> Path:
     return write_profile_patch(root, "mcp.patch.yml", sessions, [{
         "insert": [{
             "id": "mcp-fixture",
-            "name": "@deepseek-ai/dsh-mcp-client",
+            "name": "@xpeach/xph-mcp-client",
             "config": {
                 "serverName": "fixture",
                 "transport": "stdio",
@@ -1664,11 +1665,11 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
             "private": True,
             "type": "module",
             "exports": "./index.js",
-            "peerDependencies": {"@deepseek-ai/cordis": "*"},
+            "peerDependencies": {"@xpeach/xph-cordis": "*"},
             "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
         }, indent=2))
         (plugin / "index.js").write_text(
-            "import { Context } from '@deepseek-ai/cordis'\n"
+            "import { Context } from '@xpeach/xph-cordis'\n"
             "export const name = 'python-sdk-blackbox-plugin'\n"
             "export const inject = ['systemPrompt']\n"
             "export function apply(ctx) {\n"
@@ -1761,7 +1762,7 @@ def smoke_sdk_snapshot_mode(
                 "parentSessionId": SNAPSHOT_SESSION_ID, "prompt": SNAPSHOT_WORKFLOW_CHILD_PROMPT,
                 "direct": {"prompt": SNAPSHOT_DIRECT_CHILD_PROMPT, "callId": "advanced-direct-child"},
             }},
-            {"id": "snapshot-message-feedback", "name": "@deepseek-ai/dsh-message-feedback",
+            {"id": "snapshot-message-feedback", "name": "@xpeach/xph-message-feedback",
              "config": {"maxNoteBytes": 1024}},
             {"id": "snapshot-feedback-producer", "name": (
                 Path(__file__).resolve().parent.parent / "snapshots/sdk/text-turn/feedback-producer.mjs"

@@ -1,5 +1,5 @@
 - bundle: Developer Tools
-  description: Inspect and debug raw session data, grouped chat messages, and the NodeJS backend.
+  description: For troubleshooting: view what XPeach Harness recorded for a session in Session log, and debug the XPeach Harness backend in Chrome DevTools.
 - component: NodeJS Inspector
   description: Press Ctrl/Cmd+Shift+. to open Chrome DevTools in the bottom panel for development and debugging.
 - component: Session Log

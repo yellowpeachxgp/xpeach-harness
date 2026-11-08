@@ -1,0 +1,71 @@
+{
+  "name": "@xpeach/xph-client-ui-entry-customization",
+  "version": "0.0.32-alpha",
+  "description": "Customize plugin entries in the left sidebar, conversation views, and right sidebar, and quickly create new plugins.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/client/ui-entry-customization"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@xpeach/xph-cordis": "workspace:~"
+  },
+  "devDependencies": {
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-client-locale": "workspace:*",
+    "@xpeach/xph-client-product-analytics": "workspace:*",
+    "@xpeach/xph-client-ui-sidebar": "workspace:*",
+    "@xpeach/xph-client-ui-conversation": "workspace:*",
+    "@xpeach/xph-client-ui-sidebar-right": "workspace:*",
+    "@xpeach/xph-client-ui-plugin-manager": "workspace:*",
+    "@xpeach/xph-client-ui-workspace": "workspace:*",
+    "@xpeach/xph-client-ui-primitives": "workspace:*",
+    "@xpeach/xph-client-ui-renderer": "workspace:*",
+    "@xpeach/xph-client-ui-slots": "workspace:*",
+    "@xpeach/xph-client-test-runtime": "workspace:*",
+    "clsx": "^2.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@testing-library/react": "^16.3.3"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@xpeach/xph-client-locale",
+        "@xpeach/xph-client-ui-plugin-manager",
+        "@xpeach/xph-client-ui-workspace"
+      ]
+    }
+  },
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  }
+}

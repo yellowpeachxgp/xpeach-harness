@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-computer-use-cua-driver-mcp",
   "description": "Experimental computer use through an installed Cua Driver MCP executable",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -48,6 +48,8 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-agent-loop": "workspace:*",
     "@xpeach/xph-attachment-local": "workspace:*",
-    "@xpeach/xph-session-projection": "workspace:*"
+    "@xpeach/xph-session-projection": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

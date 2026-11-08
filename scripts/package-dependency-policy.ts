@@ -61,6 +61,8 @@ const SAFE_HOST_DEPENDENCY_EXPORTS = {
 
 /** Runtime exports that require every consumer to resolve the provider's shared peer instance. */
 const PEER_REQUIRED_HOST_EXPORTS = {
+  // Profile settings must match the installed Node provider's configuration schema.
+  '@xpeach/xph-ptc-runtime-node/configuration': ['resolvePersistentExecution'],
   // `instanceof` checks need the translator's own class instance.
   '@xpeach/xph-experimental-translator': ['TranslationError'],
   '@xpeach/xph-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],

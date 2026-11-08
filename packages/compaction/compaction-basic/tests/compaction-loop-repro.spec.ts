@@ -4,7 +4,7 @@ import { toolPairingBalancedAfter, toolPairingBalancedBefore } from '@xpeach/xph
 import { createUserMessage, createSystemMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, resolveRetryPolicy , createMessage } from '@xpeach/xph-llm'
 import type { ContentBlock, GenerateOptions, LlmResolvedModelInfo, ResolvedRetryPolicy, StreamChunk } from '@xpeach/xph-llm'
 import { ToolCallId, LlmAdapter } from '@xpeach/xph-llm'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import type { Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import { mountAgentLoopTestDependencies } from '@xpeach/xph-agent-loop-testkit'

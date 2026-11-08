@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-mcp-client",
   "description": "MCP client bridge: connects to MCP servers and registers their tools on ctx.tools",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -58,7 +58,9 @@
     "@modelcontextprotocol/node": "2.0.0",
     "zod": "4.4.3",
     "@xpeach/xph-mcp-resources": "workspace:*",
-    "@xpeach/xph-system-prompt": "workspace:*"
+    "@xpeach/xph-system-prompt": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@xpeach/xph-mcp-resources": {

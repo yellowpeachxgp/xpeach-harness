@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-workspace-dependencies",
   "description": "The load_workspace_dependencies tool: absolute paths into a bundled Python, Node.js, and pnpm payload",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -36,7 +36,9 @@
     "@xpeach/xph-cordis-plugin-include": "workspace:~",
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
-    "@xpeach/xph-system-prompt": "workspace:*"
+    "@xpeach/xph-system-prompt": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "@xpeach/xph-schemastery": "workspace:~"

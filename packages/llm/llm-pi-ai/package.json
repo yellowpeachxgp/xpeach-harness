@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-pi-ai",
   "description": "pi-ai-backed DeepSeek adapter for the DeepSeek Harness LLM seam (design-verification twin of dsh-llm-deepseek)",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -58,7 +58,11 @@
     "@xpeach/xph-timeout": "workspace:*",
     "@xpeach/xph-http-proxy": "workspace:*",
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",
-    "@xpeach/xph-settings": "workspace:*"
+    "@xpeach/xph-settings": "workspace:*",
+    "@xpeach/xph-agent-loop-testkit": "workspace:*",
+    "@xpeach/xph-session": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
+    "@xpeach/xph-tools": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@xpeach/xph-cordis-plugin-loader": {

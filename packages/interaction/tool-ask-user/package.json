@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-ask-user",
   "description": "Model-facing ask_user_question tool over the ctx.userQuestions seam",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -40,7 +40,9 @@
     "@xpeach/xph-system-prompt": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-user-questions": "workspace:*",
-    "@xpeach/xph-cordis": "workspace:~"
+    "@xpeach/xph-cordis": "workspace:~",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   },
   "dependencies": {
     "@xpeach/xph-schemastery": "workspace:~"

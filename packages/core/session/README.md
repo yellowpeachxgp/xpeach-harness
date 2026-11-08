@@ -29,7 +29,7 @@ Mount `dsh-session` wherever a session must exist. It creates and holds event-so
 
 ### Create and inspect sessions
 
-`ctx.sessions.create()` builds a live session bound to the calling fiber; `get(id)` and `list()` find sessions, and `fork()` creates a child session from a stable prefix of a live one.
+`ctx.sessions.create()` builds a live session bound to the calling fiber; `get(id)` and `list()` find sessions, and `fork()` creates an independent session from a stable prefix of a live one. It copies history, `cwd`, `isSeeded`, and the inherited event count without recording a source relationship. `parentSession` records a subagent’s direct creator; historical ordinary forks may retain their source there, so classification uses `origin`.
 
 ```text
 const session = ctx.sessions.create(sessionId, { meta: { cwd: '/workspace' } })

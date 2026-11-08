@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-client-ui-user-questions",
   "description": "Web ask_user_question composer takeover and plan-review presentation UI",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -71,7 +71,8 @@
     "clsx": "^2.0.0",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-client-ui-chat": "workspace:*",
-    "@xpeach/xph-client-ui-tool": "workspace:*"
+    "@xpeach/xph-client-ui-tool": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   },
   "files": [
     "locale/*.json",

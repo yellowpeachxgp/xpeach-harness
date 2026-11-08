@@ -1,13 +1,13 @@
 {
   "name": "@xpeach/xph-fs",
-  "description": "Abstract filesystem capability seam (ctx.fs) for the DeepSeek Harness — vocabulary types, the FileSystem service (text IO + optional version-guarded atomic mutations), and the fs/* policy event vocabulary",
-  "version": "0.0.32-alpha",
+  "description": "Abstract filesystem capability seam (ctx.fs) for the XPeach Harness — vocabulary types, the FileSystem service (text IO + optional version-guarded atomic mutations), and the fs/* policy event vocabulary",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/yellowpeachxgp/xpeach-harness.git",
     "directory": "packages/fs/fs"
   },
   "type": "module",
@@ -37,5 +37,8 @@
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-sandbox": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~"
+  },
+  "dependencies": {
+    "@xpeach/xph-fs-patch": "workspace:*"
   }
 }

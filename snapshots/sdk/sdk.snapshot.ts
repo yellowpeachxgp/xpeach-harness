@@ -32,6 +32,7 @@ import {
   redactSessionSnapshotIds,
   refreshFixtureReplacements,
   reconcileCatalogCreationTimes,
+  REPLAY_CREDENTIAL_ENV,
   restorePinnedToolSchemas,
   scrubModelRequestBulk,
   scrubSessionSnapshot,
@@ -60,6 +61,8 @@ import {
   type NotificationSubscription,
   type RunResult,
   type SdkPromptContentBlock,
+  type SdkUserQuestionRequest,
+  type SdkUserQuestionResult,
 } from '@xpeach/xph-sdk-client'
 import { SESSION_FORMAT_VERSION } from '@xpeach/xph-session'
 import { deriveReplayScript, parseSessionLog } from '@xpeach/xph-llm-replay'
@@ -101,6 +104,8 @@ function dirOf(url: string): string {
 }
 
 interface SdkAssertions {
+  /** Client decisions for the internal approval protocol recording. */
+  approvalOutcomes?: readonly ('allowed-once' | 'rejected')[]
   /** Additional profile patches applied after the shared composition. */
   patches?: readonly string[]
   /** Captured model-request JSONL filename under this scenario's private DSH home. */
@@ -109,6 +114,8 @@ interface SdkAssertions {
   replayStandaloneCommands?: boolean
   /** Submit all manifest images with each standalone command, including rejected invocations. */
   commandAttachments?: boolean
+  /** Native plan-review choices in the order the fixture requests them. */
+  planReviews?: readonly ('keep' | 'approve' | 'dismiss')[]
   /** Wait for the recorded provider title before sending each subsequent prompt. */
   waitForProviderTitle?: boolean
   /** Final response required from a completed turn before updating goldens. */
@@ -133,6 +140,28 @@ interface SdkAssertions {
 }
 
 const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
+  'team-default-enabled': {
+    expectedFinalResponse: 'TEAM_CONFIG_OK',
+    patches: [
+      fileURLToPath(new URL('../../apps/cli/config/examples/team-mode.yml', import.meta.url)),
+      fileURLToPath(new URL('./team-default-enabled/capture.cordis.yml', import.meta.url)),
+    ],
+    modelRequestsFile: 'team-requests.jsonl',
+  },
+  'approval': {
+    approvalOutcomes: ['allowed-once', 'rejected'],
+    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    patches: [fileURLToPath(new URL('./approval/runtime.cordis.yml', import.meta.url))],
+  },
+
+  'desktop-context': {
+    expectedFinalResponse: 'SDK snapshot OK',
+    runtimeContext: {
+      includes: ['Current working directory:'],
+      excludes: ['Current DeepSeek Harness implementation checkout:', 'Current DeepSeek Harness Web GUI URL:'],
+    },
+  },
+  'desktop-ptc-context': { expectedFinalResponse: 'SDK snapshot OK' },
   'manual-compact': {
     expectedFinalResponse: 'SDK_COMPACT_OK',
     patches: [fileURLToPath(new URL('./manual-compact/capture.cordis.yml', import.meta.url))],
@@ -152,6 +181,14 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
     patches: [fileURLToPath(new URL('./command-identity/runtime.cordis.yml', import.meta.url))],
     modelRequestsFile: 'command-identity-requests.jsonl',
     replayStandaloneCommands: true,
+  },
+  'plan-review': {
+    expectedFinalResponse: 'SDK_PLAN_OK',
+    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    patches: [fileURLToPath(new URL('./plan-review/capture.cordis.yml', import.meta.url))],
+    modelRequestsFile: 'plan-requests.jsonl',
+    replayStandaloneCommands: true,
+    planReviews: ['keep', 'approve', 'dismiss'],
   },
   'goal-rounds': {
     environment: { DSH_PERMISSION_MODE: 'workspace-write' },
@@ -180,6 +217,9 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
   'tool-error-details': {
     patches: [fileURLToPath(new URL('./tool-error-details/runtime.cordis.yml', import.meta.url))],
     expectedFinalResponse: 'ERROR_DETAILS_OK',
+  },
+  'ptc-cancel': {
+    patches: [fileURLToPath(new URL('./ptc-cancel/runtime.cordis.yml', import.meta.url))],
   },
   'ptc-turn': {
     patches: [fileURLToPath(new URL('./ptc-turn/runtime.cordis.yml', import.meta.url))],
@@ -660,6 +700,31 @@ function collectCommandNotifications(
   throw new Error('SDK command response arrived without its preceding command lifecycle notifications')
 }
 
+// These recorded compositions also pin pre-desktop SDK or headless headers.
+// New desktop-context cases exercise the shipped SDK defaults without this patch.
+const legacySdkCompositions = new Set([
+  'default',
+  'dynamic-tool-updates',
+  'image',
+  'ptc',
+  'sdk-account-provider-signout',
+  'sdk-default',
+  'sdk-dsh-sdk-diagnostic',
+  'sdk-dsh-sdk-dynamic-route',
+  'sdk-minimal',
+  'sdk-serial-created',
+  'sdk-team-session-mode',
+  'sdk-upload',
+  'session-title',
+  'session-title-stability',
+  'subagent-activation-limit',
+  'subagent-continuable-inheritance',
+  'subagent-durability-failure',
+  'subagent-send-message',
+  'system-prompt-in-history',
+])
+const legacySdkContextPatch = fileURLToPath(new URL('./legacy-context.patch.yml', import.meta.url))
+
 function authoredPatches(scenario: CorpusScenario, replaying: boolean): string[] {
   const owner = compositionOwner(scenario)
   if (scenario.manifest.composition.startsWith('sdk-')) {
@@ -706,17 +771,23 @@ async function runScenario(scenario: CorpusScenario): Promise<{
   const patchRoot = join(cwd, '.snapshot-patches')
   await mkdir(patchRoot, { recursive: true })
   const assertions = SDK_ASSERTIONS[scenario.name] ?? {}
-  const patches = [...authoredPatches(scenario, !recording), ...assertions.patches ?? []]
+  const patches = [
+    ...legacySdkCompositions.has(scenario.manifest.composition) ? [legacySdkContextPatch] : [],
+    ...authoredPatches(scenario, !recording),
+    ...assertions.patches ?? [],
+    ...scenario.name === 'session-resume' && !recording ? [join(scenario.dir, 'replay.cordis.yml')] : [],
+  ]
     .map((patch, index) => materializeProfilePatch(patch, cwd, scenario.manifest.profile, patchRoot, index))
   let childSessionsRoot: string | undefined
   let childEnvironment: Record<string, string> = {}
   if (assertions.dshSdkChild !== undefined) {
     const childHome = join(cwd, '.child-dsh')
-    const childPatch = materializeProfilePatch(assertions.dshSdkChild.config, cwd, 'sdk', patchRoot, patches.length)
+    const legacyChildPatch = materializeProfilePatch(legacySdkContextPatch, cwd, 'sdk', patchRoot, patches.length)
+    const childPatch = materializeProfilePatch(assertions.dshSdkChild.config, cwd, 'sdk', patchRoot, patches.length + 1)
     await mkdir(childHome, { recursive: true })
     childSessionsRoot = join(childHome, 'sessions')
     childEnvironment = {
-      DSH_TEST_CHILD_PATCHES: JSON.stringify([childPatch]),
+      DSH_TEST_CHILD_PATCHES: JSON.stringify([legacyChildPatch, childPatch]),
       DSH_TEST_CHILD_HOME: childHome,
     }
   }
@@ -743,6 +814,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
   if (firstTurn !== undefined) await prepareTurnReplay(firstTurn.turn)
   const env: Record<string, string> = {
     ...Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== undefined)) as Record<string, string>,
+    ...recording ? {} : REPLAY_CREDENTIAL_ENV,
     DSH_SNAPSHOT: mode,
     DSH_SNAPSHOT_PROVIDER: route.provider,
     DSH_SNAPSHOT_MODEL: route.model,
@@ -762,8 +834,23 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     ...resumeReplayFile === undefined ? {} : { DSH_SNAPSHOT_OVERRIDE: resumeReplayFile },
   }
 
+  const planReviews = assertions.planReviews === undefined ? undefined : [...assertions.planReviews]
+  const onUserQuestion = planReviews === undefined ? undefined
+    : async (request: SdkUserQuestionRequest): Promise<SdkUserQuestionResult> => {
+      expect(request.questions).toHaveLength(1)
+      const question = request.questions[0]
+      if (question === undefined) throw new Error('plan review has no question')
+      expect(question.intent?.kind).toBe('plan-review')
+      expect(question.detail).toMatch(/^# /u)
+      const choice = planReviews.shift()
+      if (choice === undefined) throw new Error('unexpected extra plan review')
+      if (choice === 'dismiss') return { cancelled: true }
+      return { answers: [{ id: question.id, selected: [choice === 'approve' ? 'Approve' : 'Keep planning'],
+        ...choice === 'keep' ? { custom: 'Add rollback.' } : {} }] }
+    }
   const createHarness = (model = route.model): DeepSeekHarness => new DeepSeekHarness({
     profile: scenario.manifest.profile,
+    ...(assertions.approvalOutcomes === undefined ? {} : { approvalRequests: true }),
     patches,
     dshHome,
     processCwd: cwd,
@@ -773,6 +860,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     cwd,
     provider: route.provider,
     model,
+    ...onUserQuestion === undefined ? {} : { onUserQuestion },
   })
   let harness = createHarness()
   try {
@@ -781,6 +869,17 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     const results: RunResult[] = []
     const sessionId = 'fixture-root-session'
     const liveSessions: (string | undefined)[] = [sessionId]
+    if (assertions.approvalOutcomes !== undefined) {
+      const outcomes = [...assertions.approvalOutcomes]
+      harness.client.start()
+      harness.client.onRequest(async (method, params) => {
+        expect(method).toBe('approval/request')
+        expect(params).toMatchObject({ sessionId, toolName: 'fixture-write' })
+        const outcome = outcomes.shift()
+        if (outcome === undefined) throw new Error('unexpected approval request')
+        return { outcome }
+      })
+    }
     await harness.start()
     let subscription = harness.client.subscribeSessionTree(sessionId)
     const titleSubscription = assertions.waitForProviderTitle === true
@@ -842,7 +941,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
           subscription.close()
           await harness.close()
           await prepareTurnReplay(action.turn)
-          harness = createHarness()
+          harness = createHarness('deepseek-v4-pro')
           await harness.start()
           subscription = harness.client.subscribeSessionTree(sessionId)
           await expect(harness.resumeSession('missing-session')).rejects.toThrow()
@@ -940,6 +1039,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     const modelRequests = assertions.modelRequestsFile !== undefined
       ? records(await readFile(join(dshHome, assertions.modelRequestsFile), 'utf8'))
       : []
+    if (planReviews !== undefined) expect(planReviews).toEqual([])
     return { results, notifications, observedMethods, logs, initialWorkspace, finalWorkspace, cwd, modelRequests }
   } finally {
     await harness.close()
@@ -1113,6 +1213,32 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       )
       reconcileCatalogCreationTimes(ordered.map(log => log.content), 'validate')
       const actualContext = contextOf(ordered, cwd)
+      if (scenario.name === 'team-default-enabled') {
+        const parent = ordered[0]!
+        const events = parseSessionLog(parent.content)
+        expect(events.filter(event => event.type === 'team/mode').map(event => event.data.enabled)).toEqual([true])
+        expect(events.findIndex(event => event.type === 'team/mode'))
+          .toBeLessThan(events.findIndex(event => event.type === 'step/start'))
+        expect(modelRequests).toHaveLength(6)
+        const first = modelRequests[0]!
+        expect((first.tools as JsonObject[]).map(tool => tool.name)).toEqual(expect.arrayContaining([
+          'team_task_create', 'team_task_get', 'team_task_list', 'team_task_update',
+        ]))
+        expect(JSON.stringify(first.messages)).toContain('shared task board')
+        expect(events.filter(event => event.type === 'team/task').map(event => event.data.task))
+          .toEqual([expect.objectContaining({ subject: 'Configured Team', status: 'pending' })])
+        expect(events.filter(event => event.type === 'tool/result').map(event => event.data.message.isError))
+          .toEqual([false, false, false])
+        const child = parseSessionLog(ordered[1]!.content)
+        expect(child.filter(event => event.type === 'team/mode')).toEqual([])
+        const childResults = child.filter(event => event.type === 'tool/result')
+        expect(childResults.map(event => event.data.message.isError)).toEqual([false])
+        expect(JSON.stringify(childResults)).toContain('Configured Team')
+        for (const request of modelRequests) {
+          expect((request.tools as JsonObject[]).map(tool => tool.name)).toContain('team_task_list')
+          expect(JSON.stringify(request.messages)).toContain('shared task board')
+        }
+      }
       if (scenario.name === 'command-attachments') {
         const parent = ordered[0]
         if (parent === undefined) throw new Error('command attachments have no persisted Session')
@@ -1178,6 +1304,35 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           const event = notificationEvent(notification)
           return event?.type === 'goal/change' ? [event] : []
         })).toEqual(events.filter(event => event.type === 'goal/change'))
+      }
+      if (scenario.name === 'plan-review') {
+        const parent = ordered[0]
+        if (parent === undefined) throw new Error('plan review has no persisted Session')
+        const events = parseSessionLog(parent.content)
+        expect(events.filter(event => event.type === 'plan/mode').map(event => event.data.active))
+          .toEqual([true, false, true, false])
+        expect(events.filter(event => event.type === 'command/run').map(event => ({ name: event.data.name, args: event.data.args })))
+          .toEqual([{ name: 'plan', args: ' Prepare a plan through exit_plan_mode; revise after feedback and acknowledge approval.' },
+            { name: 'plan', args: '' }, { name: 'plan', args: ' off' }])
+        expect(events.filter(event => event.type === 'permission/preset').map(event => event.data.preset)).toEqual(['workspace-write'])
+        expect(events.filter(event => event.type === 'sandbox/mode').map(event => event.data.mode)).toEqual(['workspace-write'])
+        expect(events.filter(event => event.type === 'approval/policy').map(event => event.data.policy)).toEqual(['ask'])
+        expect(events.filter(event => event.type === 'turn/start')).toHaveLength(4)
+        expect(events.filter(event => event.type === 'step/start')).toHaveLength(6)
+        expect(modelRequests).toHaveLength(6)
+        const active = modelRequests.map((request) => {
+          const messages = request.messages as JsonObject[]
+          const system = messages.filter(message => message.role === 'system').at(-1)
+          return JSON.stringify(system).includes('You are in plan mode.')
+        })
+        expect(active).toEqual([false, true, true, false, true, false])
+        expect(modelRequests.map(request => (request.tools as JsonObject[]).some(tool => tool.name === 'exit_plan_mode')))
+          .toEqual([false, true, true, true, true, true])
+        const toolResults = events.filter(event => event.type === 'tool/result')
+        expect(toolResults).toHaveLength(3)
+        expect(JSON.stringify(toolResults[0]?.data)).toContain('Add rollback.')
+        expect(JSON.stringify(toolResults[1]?.data)).toContain('Plan approved')
+        expect(JSON.stringify(toolResults[2]?.data)).toContain('The user dismissed the plan review')
       }
       if (scenario.name === 'command-identity') {
         const parent = ordered[0]
@@ -1313,6 +1468,8 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       }
       if (scenario.name === 'minimal-image-compaction') {
         const events = results.flatMap(result => result.events)
+        const failures = events.filter(event => event.type === 'turn/end' && event.data.reason.kind === 'error')
+        expect(failures, 'minimal profile completes its checkpointed turn').toEqual([])
         const image = events.find(event => event.type === 'tool/result')
         expect(image).toMatchObject({ data: { message: {
           toolCallId: 'minimal-image-read',
@@ -1429,7 +1586,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
         const events = results.flatMap(result => result.events)
         const headers = events.filter(event => event.type === 'request/header')
           .map(event => (event.data.header as { tools: { name: string }[] }).tools.map(tool => tool.name))
-        expect(headers).toHaveLength(2)
+        expect(headers, JSON.stringify(events.filter(event => event.type === 'turn/end' || event.type === 'tool/result'))).toHaveLength(2)
         expect(headers[0]).toContain('bash')
         expect(headers[0]).not.toContain('run_code')
         expect(headers[1]).toEqual(['run_code'])
@@ -1447,7 +1604,8 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
         }
       }
       if (assertions.expectedFinalResponse !== undefined) {
-        expect(results.at(-1)?.finalResponse, `${scenario.name}: final response`).toBe(assertions.expectedFinalResponse)
+        const failures = results.flatMap(result => result.events).filter(event => event.type === 'turn/end' || event.type === 'tool/result')
+        expect(results.at(-1)?.finalResponse, `${scenario.name}: final response; outcomes: ${JSON.stringify(failures)}`).toBe(assertions.expectedFinalResponse)
         const parent = ordered[0]
         if (parent === undefined) throw new Error(`${scenario.name}: no primary session log`)
         const turnEnds = records(parent.content).filter(record => record.type === 'turn/end')
@@ -1594,9 +1752,16 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           for (const clause of assertions.runtimeContext.includes) expect(system).not.toContain(clause)
         }
       }
+      if (scenario.name === 'serial-created') {
+        expect(observedMethods.has('subagent.started')).toBe(false)
+      }
       if (ordered.length > 1 && assertions.dshSdkChild === undefined) {
         expect(observedMethods.has('subagent.started')).toBe(true)
         expect(observedMethods.has('subagent.finished')).toBe(true)
+        for (const notification of notifications.filter(item => item.method === 'subagent.finished')) {
+          const child = ordered.find(log => log.header.id === notification.params.childSessionId)
+          expect(notification.params.parentSessionId).toBe(child?.header.parentSession)
+        }
       }
     })
   }

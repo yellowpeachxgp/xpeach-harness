@@ -16,7 +16,8 @@ import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SystemPrompt from '@xpeach/xph-system-prompt'
 import type { Config as SystemPromptConfig } from '@xpeach/xph-system-prompt'
 import ToolRuntime from '@xpeach/xph-tools'
-import type { Config as ToolRuntimeConfig } from '@xpeach/xph-tools'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import * as PtcToolExecutor from '@xpeach/xph-tool-executor-ptc'
 import FsLocal from '@xpeach/xph-fs-local'
 import WorkingDirectory from '@xpeach/xph-working-directory'
 
@@ -54,7 +55,7 @@ export interface AgentLoopTestDependenciesOptions {
   /** Configuration for the system-prompt registry. */
   readonly systemPrompt?: SystemPromptConfig
   /** Configuration for the tool registry. */
-  readonly tools?: ToolRuntimeConfig
+  readonly tools?: { mode?: 'native' | 'ptc'; maxParallelSubCalls?: number }
 }
 
 /**
@@ -81,7 +82,9 @@ export async function mountAgentLoopTestDependencies(
     if (ctx.get('fs') === undefined) await ctx.plugin(FsLocal)
     await ctx.plugin(WorkingDirectory)
   }
-  await ctx.plugin(ToolRuntime, options.tools ?? {})
+  await ctx.plugin(ToolRuntime)
+  if (options.tools?.mode === 'ptc') await ctx.plugin(PtcToolExecutor, { ...options.tools.maxParallelSubCalls !== undefined ? { maxParallelSubCalls: options.tools.maxParallelSubCalls } : {} })
+  else await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
 }
 

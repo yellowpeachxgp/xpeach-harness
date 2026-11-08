@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-base",
   "description": "The shared dsh core as a profile bundle: the first patch layer of base-backed profiles, inserting core rows over the empty profile root",
-  "version": "0.0.32-alpha",
+  "version": "0.0.33-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -128,7 +128,9 @@
     "@xpeach/xph-otel": "workspace:*",
     "@xpeach/xph-working-directory": "workspace:*",
     "@xpeach/xph-tool-working-directory": "workspace:*",
-    "@xpeach/xph-web-deepseek-api": "workspace:*"
+    "@xpeach/xph-web-deepseek-api": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~"

@@ -1,5 +1,5 @@
 import type { SessionEvent } from '@xpeach/xph-session/types'
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/client'
 import type {
   ConversationNode, RunningToolCall, ToolCallBlock, ToolResultNode,
 } from '@xpeach/xph-client-ui-conversation/client'

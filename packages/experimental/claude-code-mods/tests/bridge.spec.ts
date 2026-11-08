@@ -1,3 +1,4 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -23,7 +24,7 @@ import Storage from '@xpeach/xph-storage'
 import * as StorageDomain from '@xpeach/xph-storage-domain'
 import * as StorageJson from '@xpeach/xph-storage-json'
 import LocalSubprocessRuntime from '@xpeach/xph-subprocess-local'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import UserQuestionService from '@xpeach/xph-user-questions'
 import ClaudeCodeMods, { defineMod, MODS_API_VERSION, type Config, type ModPlugin, type ModRegister } from '../src/index.ts'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
@@ -416,7 +417,7 @@ describe('tool.call: answers and rewrites', () => {
       'claude-code-mods: reroute-mod: tool.call hook skipped: rerouted the call from echo to Read; the logged call runs the tool it named',
     )
     // A call without an agent (a host-side execute) is answered by the same schema rule.
-    const direct = await h.ctx.tools.execute({ callId: ToolCallIdOf('direct'), name: 'greet', arguments: {}, signal: new AbortController().signal })
+    const direct = await executeToolFixture(h.ctx, { callId: ToolCallIdOf('direct'), name: 'greet', arguments: {}, signal: new AbortController().signal })
     expect(direct.isError).toBe(false)
     expect(direct.content).toEqual([{ type: 'text', text: 'rendered hello from answer-mod' }])
     const refusals = h.warn.mock.calls.map(call => String(call[0])).filter(line => line.includes('rewrote the arguments of echo'))
@@ -786,7 +787,7 @@ describe('subagents, programmatic calls, and malformed tool arguments', () => {
       'watch-mod: tool.call echo agent=root n=1',
       'watch-mod: turn.complete agent=root inputs=[{}]',
     ])
-    const direct = await h.ctx.tools.execute({ callId: ToolCallIdOf('direct'), name: 'echo', arguments: { command: 'direct' }, signal: new AbortController().signal })
+    const direct = await executeToolFixture(h.ctx, { callId: ToolCallIdOf('direct'), name: 'echo', arguments: { command: 'direct' }, signal: new AbortController().signal })
     expect(direct.isError).toBe(false)
     // The nested `$.tool.call` reaches only mods loaded before watch-mod, so its own hook is not re-entered.
     expect(h.info).toHaveBeenCalledWith('watch-mod: direct saw echo and {"result":"ran nested"}')

@@ -2,6 +2,13 @@
 
 /** Existing npm names retained by capabilities now housed under experimental/. */
 export const EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS: Readonly<Record<string, string>> = {
+  "packages/experimental/action-cards": "@xpeach/xph-action-cards",
+  "packages/experimental/client-ui-action-cards": "@xpeach/xph-client-ui-action-cards",
+  "packages/experimental/creation-recommendations": "@xpeach/xph-creation-recommendations",
+  "packages/experimental/client-ui-creation-recommendations": "@xpeach/xph-client-ui-creation-recommendations",
+  "packages/experimental/plugin-recommendations": "@xpeach/xph-plugin-recommendations",
+  "packages/experimental/client-ui-plugin-recommendations": "@xpeach/xph-client-ui-plugin-recommendations",
+  "packages/experimental/personalized-recommendations": "@xpeach/xph-personalized-recommendations",
   'packages/experimental/cua': '@xpeach/xph-cua',
   'packages/experimental/tool-session-query': '@xpeach/xph-tool-session-query',
   'packages/experimental/session-title-all-prompts-llm': '@xpeach/xph-session-title-all-prompts-llm',
