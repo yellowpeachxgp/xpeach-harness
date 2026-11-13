@@ -1152,7 +1152,14 @@ export function XPeachTab({
 
             {(siteCat !== undefined || availableGroups.length > 0) && (
               <div className={css.groupBar}>
-                <span className={css.groupPickLabel}>{t('market.tokenGroups')}</span>
+                <span className={css.groupPickLabel}>
+                  {t('market.tokenGroups')}
+                  {(siteCat?.tokenName !== undefined || siteCat?.keyTail !== undefined) && (
+                    <em className={css.groupNow}>
+                      ·{siteCat.tokenName ?? '…' + (siteCat.keyTail ?? '')}
+                    </em>
+                  )}
+                </span>
                 {(availableGroups.length > 0 ? availableGroups : (siteCat?.groups.filter(g => g.models > 0) ?? [])).map((g) => {
                   const on = groupSel.includes(g.name)
                   return (

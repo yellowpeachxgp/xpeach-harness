@@ -170,6 +170,10 @@ export interface XPeachSiteCatalog {
   readonly models: readonly string[]
   /** Token row id when known. */
   readonly tokenId?: number
+  /** Bound token's display name when the record carries one. */
+  readonly tokenName?: string
+  /** Last characters of the bound relay key, for confirming which credential a group edit targets. */
+  readonly keyTail?: string
 }
 
 /** Outcome of a model-catalog sync into the llm-pi-ai settings section. */
@@ -178,6 +182,10 @@ export interface XPeachModelSyncResult {
   readonly count: number
   readonly groups: readonly string[]
   readonly error?: string
+  /** Token row id a group write targeted, when one ran. */
+  readonly tokenId?: number
+  /** Bound token's display name a group write targeted, when one ran. */
+  readonly tokenName?: string
 }
 
 /** One relay log row as /api/log/token returns it. */

@@ -37,6 +37,8 @@ Host plugin exposing the XPeach site's New API surface to Harness clients over t
 ## Key file, credentials record, and unbind semantics
 
 - `xpeach.key` (`0600`) is the profile-local secret copy; on bind it is also published to the runtime credentials record under the provider's `apiKeyEnv` (`XPEACH_RELAY_KEY`) so `llm-pi-ai` resolves it.
+- `xpeach.token` records the relay token's `id`, `name`, and `groups` together with the relay `key` they belong to. Key and token record move as one credential: an SSO refresh that returns a different key drops the previous record rather than keeping a stale identity. When local identity cannot be verified, it is re-resolved by revealing each candidate token's key — never guessed by name or creation time — and remote group writes stay confined to the explicit `setGroups` remote; catalog refreshes are read-only.
+- Model catalog sync mounts each catalog model under every endpoint it advertises: chat completions (`xpeach`), Responses (`xpeach-openai-responses`), and Anthropic messages (`xpeach-anthropic`) each get their own provider list, so the picker selects an (endpoint, model) pair. A sync that observes a credential change mid-flight discards its result instead of publishing stale state.
 - Unbind runs through the `unbindKey` remote, which deletes `xpeach.key`, `xpeach.admin`, `xpeach.session`, `xpeach.keys`, and `xpeach.token`, clears runtime environment variables, and revokes the runtime credential record.
 
 <a id="price-sync-table"></a>

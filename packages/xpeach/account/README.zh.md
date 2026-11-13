@@ -37,6 +37,8 @@ Host 插件，通过生成的 `xpeach` Remote 命名空间向 Harness 客户端�
 ## 密钥文件、凭据记录与解绑语义
 
 - `xpeach.key`（`0600`）是 profile 本地的密钥副本；绑定时还会发布到运行时凭据记录中提供方的 `apiKeyEnv`（`XPEACH_RELAY_KEY`）下，供 `llm-pi-ai` 解析。
+- `xpeach.token` 记录中继令牌的 `id`、`name`、`groups`，并与所属的 relay `key` 绑定保存。key 与令牌记录作为同一份凭据一起更新：SSO 刷新返回不同的 key 时会丢弃旧记录，而不会保留过期身份。本地身份无法核实时，会通过逐一揭示候选令牌的 key 来重新确认——绝不按名称或创建时间猜测——远端分组写入只发生在显式的 `setGroups` remote 中，目录刷新为纯读取。
+- 模型目录同步会把每个目录模型挂载到它所声明的全部端点下：chat completions（`xpeach`）、Responses（`xpeach-openai-responses`）与 Anthropic messages（`xpeach-anthropic`）各自拥有独立的 provider 列表，因此选择器选定的是（端点, 模型）组合。同步过程中若发现凭据已变化，会丢弃计算结果而不是发布过期状态。
 - 解绑通过 `unbindKey` remote 执行，会删除 `xpeach.key`、`xpeach.admin`、`xpeach.session`、`xpeach.keys` 与 `xpeach.token`，清理运行时环境变量，并撤销运行时凭据记录。
 
 <a id="price-sync-table"></a>

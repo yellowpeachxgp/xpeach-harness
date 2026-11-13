@@ -5,6 +5,7 @@ import {
   isAnthropicClaudeModel,
   modelCapabilities,
   modelContextWindow,
+  modelEndpoints,
   modelInputs,
   modelProtocol,
   parseModelMetadataRegistry,
@@ -136,6 +137,19 @@ describe('catalogue capabilities', () => {
     expect(modelProtocol({ supported_endpoint_types: ['anthropic'] })).toBe('anthropic-messages')
     expect(modelProtocol({ supported_endpoint_types: ['openai-response'] })).toBe('openai-responses')
     expect(modelProtocol({})).toBe('openai-completions')
+  })
+
+  it('mounts one catalog model under every endpoint it advertises', () => {
+    // The picker selects an (endpoint, model) pair, so a multi-wire entry lands
+    // in every provider bucket it supports rather than one shared endpoint.
+    expect(modelEndpoints({ supported_endpoint_types: ['openai'] })).toEqual(['openai-completions'])
+    expect(modelEndpoints({ supported_endpoint_types: ['openai', 'openai-response', 'anthropic'] }))
+      .toEqual(['openai-completions', 'openai-responses', 'anthropic-messages'])
+    expect(modelEndpoints({ supported_endpoint_types: ['anthropic'] })).toEqual(['anthropic-messages'])
+    expect(modelEndpoints({ supported_endpoint_types: ['openai-response'] })).toEqual(['openai-responses'])
+    // Undeclared and unrecognized wires keep the chat-completions default.
+    expect(modelEndpoints({})).toEqual(['openai-completions'])
+    expect(modelEndpoints({ supported_endpoint_types: ['gopher'] })).toEqual(['openai-completions'])
   })
 
   it('routes Anthropic Claude model identifiers to anthropic-messages (/v1/messages)', () => {

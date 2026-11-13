@@ -30,6 +30,7 @@ import {
   validateSsoBaseUrl,
   validateVerificationUrl,
 } from '../src/index.ts'
+import type { XPeachSiteCatalog } from '../src/types.ts'
 
 const roots: string[] = []
 
@@ -1310,7 +1311,7 @@ describe('account state writes on a fresh install', () => {
     Reflect.deleteProperty(process.env, 'XPEACH_TEST_SLOT_RELAY_KEY')
   })
 
-  it('enriches unlimited-quota tokenUsage with the signed-in user account balance and prunes forbidden token groups in siteCatalogOp', async () => {
+  it('enriches unlimited-quota tokenUsage with the signed-in user account balance and keeps siteCatalogOp reads side-effect free', async () => {
     const profile = freshProfile()
     const keyFile = join(profile, 'xpeach.key')
     const adminKeyFile = join(profile, 'xpeach.admin')
@@ -1400,8 +1401,10 @@ describe('account state writes on a fresh install', () => {
 
     const cat = await fakeAccount.siteCatalogOp({}, signal)
     expect(cat.groups.map(g => g.name)).toEqual(['SWE', 'DeepSeek Flash'])
-    expect(cat.tokenGroups).toEqual(['SWE'])
-    expect(adminTokenUpdate).toHaveBeenCalledTimes(1)
+    // Reading the catalog is pure: it reports the stored groups verbatim and
+    // never repairs remote token state — group writes belong to setGroups.
+    expect(cat.tokenGroups).toEqual(['SWE', 'DeepSeek Pro'])
+    expect(adminTokenUpdate).not.toHaveBeenCalled()
   })
 
   it('reconciles a stale agent-default-model after syncing the model catalog and keeps SSO unbound if no relay key can be minted', async () => {
@@ -1747,8 +1750,15 @@ describe('account state writes on a fresh install', () => {
       expect(calledUrls.some(u => u.endsWith('/v1/chat/completions'))).toBe(true)
 
       const profile = freshProfile()
+      const keyFile = join(profile, 'xpeach.key')
+      const adminKeyFile = join(profile, 'xpeach.admin')
+      const sessionKeyFile = join(profile, 'xpeach.session')
+      const ssoStateFile = join(profile, 'xpeach.sso.json')
+      const routeFile = join(profile, 'xpeach.route.json')
       const tokenFile = join(profile, 'xpeach.token')
-      writeState(tokenFile, JSON.stringify({ id: 9, name: 'xph-auto', groups: ['SWE'] }))
+      writeState(keyFile, 'sk-rtqkClaudeSwitch001\n')
+      writeState(adminKeyFile, 'adm-claudeSwitch001\n')
+      writeState(tokenFile, JSON.stringify({ id: 9, name: 'xph-auto', groups: ['SWE'], key: 'sk-rtqkClaudeSwitch001' }))
 
       let savedProviders: Record<string, { api?: string; baseURL?: string; models?: { id: string }[] }> = {}
       let defaultSel = { provider: 'xpeach', model: 'swe-2-max' }
@@ -1756,6 +1766,13 @@ describe('account state writes on a fresh install', () => {
 
       const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
       fakeAccount['tokenInfoFile'] = tokenFile
+      fakeAccount['keyFile'] = keyFile
+      fakeAccount['adminKeyFile'] = adminKeyFile
+      fakeAccount['adminKeyVar'] = 'XPEACH_TEST_CLAUDE_SWITCH_ADMIN_KEY'
+      fakeAccount['sessionKeyFile'] = sessionKeyFile
+      fakeAccount['sessionKeyVar'] = 'XPEACH_TEST_CLAUDE_SWITCH_SESSION_KEY'
+      fakeAccount['ssoStateFile'] = ssoStateFile
+      fakeAccount['routeFile'] = routeFile
       fakeAccount['keyVar'] = 'XPEACH_RELAY_KEY'
       fakeAccount['protocolPreference'] = 'auto'
       fakeAccount['enabledFamilies'] = []
@@ -1770,6 +1787,8 @@ describe('account state writes on a fresh install', () => {
         siteBaseURL: 'https://fast.xpeach.codes',
         adminTokenGet: vi.fn(async () => ({ id: 9, name: 'xph-auto', status: 1, groups: ['SWE'] })),
         adminTokenUpdate: vi.fn(async () => {}),
+        userTokenKey: vi.fn(async () => ({ key: 'sk-rtqkClaudeSwitch001' })),
+        adminTokenKey: vi.fn(async () => ({ key: 'nyylNmqckjXubxux852' })),
         models: vi.fn(async () => [
           { id: 'swe-2-max', groups: ['SWE'], supported_endpoint_types: ['openai'] },
           { id: 'claude-sonnet-4-6', groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
@@ -1795,7 +1814,13 @@ describe('account state writes on a fresh install', () => {
               update: async (_ns: string, patch: { providers?: typeof savedProviders }) => {
                 if (patch.providers !== undefined) savedProviders = patch.providers
               },
-              mutate: async () => {},
+              mutate: async (_ns: string, ops: { op: string; path: string[]; value?: unknown }[]) => {
+                for (const op of ops) {
+                  if (op.path[0] !== 'providers' || op.path.length !== 2) continue
+                  if (op.op === 'unset') Reflect.deleteProperty(savedProviders, op.path[1] as string)
+                  else savedProviders[op.path[1] as string] = op.value as (typeof savedProviders)[string]
+                }
+              },
             }
           }
           if (name === 'agentDefaultModel') {
@@ -1844,5 +1869,105 @@ describe('account state writes on a fresh install', () => {
     } finally {
       fetchSpy.mockRestore()
     }
+  })
+
+  it('never resolves onto a newer foreign token and writes groups only to the key-bound token', async () => {
+    // Issue #65: a Gemini token minted on the web is newer than ours. Nothing
+    // may read groups from it, and group writes must land on the bound token.
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+    const tokenFile = join(profile, 'xpeach.token')
+
+    writeState(keyFile, 'sk-mineRelayKey001\n')
+    writeState(adminKeyFile, 'adm-mineRelayKey001\n')
+    writeState(tokenFile, JSON.stringify({ id: 10, name: 'xph-deepseek', groups: ['DeepSeek Pro'], key: 'sk-mineRelayKey001' }))
+
+    const updatedIds: number[] = []
+    const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      enabledFamilies: [],
+      keyFile,
+      keyVar: 'XPEACH_TEST_GEM_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_GEM_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_GEM_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        adminTokens: vi.fn(async () => ({
+          items: [
+            { id: 20, name: 'gemini-pro', key: 'geminiKey9999', status: 1, created_time: 300 },
+            { id: 10, name: 'xph-deepseek', key: 'mineRelayKey001', status: 1, created_time: 100 },
+          ],
+          total: 2,
+        })),
+        adminTokenGet: vi.fn(async (id: number) => ({
+          id,
+          name: id === 10 ? 'xph-deepseek' : 'gemini-pro',
+          groups: id === 10 ? ['DeepSeek Pro'] : ['Gemini'],
+        })),
+        adminTokenUpdate: vi.fn(async (payload: { id?: number }) => {
+          updatedIds.push(payload.id ?? -1)
+          return { success: true }
+        }),
+        userTokenKey: vi.fn(async (id: number) => ({ key: id === 10 ? 'sk-mineRelayKey001' : 'sk-geminiKey9999' })),
+        adminTokenKey: vi.fn(async (id: number) => ({ key: id === 10 ? 'sk-mineRelayKey001' : 'sk-geminiKey9999' })),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'deepseek-v4.1', enable_groups: ['DeepSeek Pro'] },
+            { model_name: 'gemini-3-pro', enable_groups: ['Gemini'] },
+          ],
+          groupRatio: { 'DeepSeek Pro': 1, Gemini: 1 },
+          usableGroup: { 'DeepSeek Pro': 'DS', Gemini: 'G' },
+        })),
+        models: vi.fn(async () => [{ id: 'deepseek-v4.1' }, { id: 'gemini-3-pro' }]),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: (name: string) => name === 'settings'
+          ? {
+            describe: () => ({ namespaces: [{ ns: 'llm-pi-ai', value: { providers: {} } }] }),
+            update: vi.fn(async () => {}),
+            mutate: vi.fn(async () => {}),
+          }
+          : undefined,
+      },
+    })
+
+    const siteCatalogOp = Reflect.get(XPeachAccount.prototype, 'siteCatalogOp') as (
+      request: unknown,
+      sig: AbortSignal,
+    ) => Promise<XPeachSiteCatalog>
+    const setGroupsOp = Reflect.get(XPeachAccount.prototype, 'setGroupsOp')
+    const signal = new AbortController().signal
+    const cat = await siteCatalogOp.call(fakeAccount, {}, signal)
+    expect(cat.tokenId).toBe(10)
+    expect(cat.tokenName).toBe('xph-deepseek')
+    expect(cat.tokenGroups).toEqual(['DeepSeek Pro'])
+    expect(updatedIds).toEqual([])
+
+    // A stale record bound to a different key is rebuilt by revealing each
+    // candidate's key — never by name or creation time.
+    writeState(tokenFile, JSON.stringify({ id: 20, name: 'gemini-pro', groups: ['Gemini'], key: 'sk-staleOtherKey001' }))
+    const cat2 = await siteCatalogOp.call(fakeAccount, {}, signal)
+    expect(cat2.tokenId).toBe(10)
+    expect(cat2.tokenGroups).toEqual(['DeepSeek Pro'])
+    expect(updatedIds).toEqual([])
+
+    const res = await setGroupsOp.call(fakeAccount, { groups: ['DeepSeek Pro', 'SWE'] }, signal)
+    expect(res.ok).toBe(true)
+    expect(res.tokenId).toBe(10)
+    expect(res.tokenName).toBe('xph-deepseek')
+    expect(updatedIds).toEqual([10])
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_GEM_RELAY_KEY')
   })
 })

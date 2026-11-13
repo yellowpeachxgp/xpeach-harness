@@ -144,6 +144,8 @@ export interface XPeachSiteCatalog {
   readonly tokenGroups: readonly string[]
   readonly models: readonly string[]
   readonly tokenId?: number
+  readonly tokenName?: string
+  readonly keyTail?: string
 }
 
 /** Outcome of a model-catalog sync. */
@@ -152,6 +154,8 @@ export interface XPeachModelSyncResult {
   readonly count: number
   readonly groups: readonly string[]
   readonly error?: string
+  readonly tokenId?: number
+  readonly tokenName?: string
 }
 
 /** Supported local conversation source identifier. */

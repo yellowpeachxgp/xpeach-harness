@@ -232,7 +232,14 @@ export function XPeachSection({
             </div>
             {siteCat !== undefined && siteCat.groups.some(g => g.models > 0) && (
               <div className={css.groupBar}>
-                <span className={css.groupPickLabel}>{t('market.tokenGroups')}</span>
+                <span className={css.groupPickLabel}>
+                  {t('market.tokenGroups')}
+                  {(siteCat.tokenName !== undefined || siteCat.keyTail !== undefined) && (
+                    <em className={css.groupNow}>
+                      ·{siteCat.tokenName ?? '…' + (siteCat.keyTail ?? '')}
+                    </em>
+                  )}
+                </span>
                 {siteCat.groups.filter(g => g.models > 0).map((g) => {
                   const on = groupSel.includes(g.name)
                   return (

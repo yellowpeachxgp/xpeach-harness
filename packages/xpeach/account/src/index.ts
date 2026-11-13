@@ -979,6 +979,13 @@ export class XPeachAccount extends TypertRemoteService {
   private sharedCredentialsAdopted = false
   private lastAccountSettingsSnapshot: ReturnType<typeof readAccountSettings> | undefined
   private lastEnsureTokenInfoAt = 0
+  /**
+   * Monotonic credential generation: bumped every time the relay key or its
+   * bound token record changes. A catalog sync that observes a newer epoch
+   * than the one it started with discards its computed result instead of
+   * overwriting settings with stale credential state.
+   */
+  private credentialEpoch = 0
   private usageCache: { at: number; key: string; usage: XPeachTokenUsage } | undefined
   private usageInFlight: Promise<XPeachTokenUsage> | undefined
   private perfSummaryCache: { at: number; hours: number; items: readonly XPeachModelPerfSummary[] } | undefined
@@ -1411,9 +1418,9 @@ export class XPeachAccount extends TypertRemoteService {
     return process.env.XPH_HOME ?? process.env.DSH_HOME ?? join(homedir(), '.xph')
   }
 
-  /** Relay-token metadata (id / name / groups) beside the key file. */
+  /** Relay-token metadata (id / name / groups / bound key) beside the key file. */
   private tokenInfoFile(): string { return this.keyFile.replace(/\.key$/, '.token') }
-  private readTokenInfo(): { id?: number; name?: string; groups?: string[] } {
+  private readTokenInfo(): { id?: number; name?: string; groups?: string[]; key?: string } {
     let raw = ''
     try { raw = readFileSync(this.tokenInfoFile(), 'utf8') } catch (_err) { return {} }
     let parsed: Record<string, unknown> | undefined
@@ -1424,14 +1431,29 @@ export class XPeachAccount extends TypertRemoteService {
       ...(Array.isArray(parsed.groups)
         ? { groups: parsed.groups.filter((g): g is string => typeof g === 'string' && g.length > 0) }
         : {}),
+      ...(typeof parsed.key === 'string' && parsed.key.length > 0 ? { key: parsed.key } : {}),
     }
   }
-  private writeTokenInfo(info: { id?: number; name?: string; groups?: string[] }): void {
+  private writeTokenInfo(info: { id?: number; name?: string; groups?: string[]; key?: string }): void {
     mkdirSync(dirname(this.tokenInfoFile()), { recursive: true })
     const serialized = JSON.stringify(info)
     this.writeState(this.tokenInfoFile(), serialized)
     this.mirrorCredentialFile('xpeach.token', serialized)
     this.lastEnsureTokenInfoAt = Date.now()
+    this.credentialEpoch = (typeof this.credentialEpoch === 'number' ? this.credentialEpoch : 0) + 1
+  }
+
+  /** Strip the vendor prefix so a raw relay key compares equal across forms. */
+  private normalizeRelayKey(key: string | undefined): string {
+    return (key ?? '').replace(/^(?:xpk|sk)-/u, '').trim()
+  }
+
+  /** Whether the stored token record is bound to (verified against) this key. */
+  private tokenInfoMatchesKey(
+    info: { id?: number; name?: string; groups?: string[]; key?: string },
+    activeKey: string | undefined,
+  ): boolean {
+    return activeKey !== undefined && info.key !== undefined && this.normalizeRelayKey(info.key) === this.normalizeRelayKey(activeKey)
   }
 
   /**
@@ -1451,96 +1473,180 @@ export class XPeachAccount extends TypertRemoteService {
     return []
   }
 
+  /** Name prefixes this harness itself gives the relay tokens it mints. */
+  private static readonly MINTED_TOKEN_PREFIXES = ['xph-', 'dsh-'] as const
+
   /**
-   * Select the active relay token from a site token page: match by raw key value
-   * first, then by managed name prefix (`xph-`, `dsh-`, `sso-`, `peachcode`,
-   * `xpeach`), then fall back to the newest enabled token.
+   * Candidate order for key verification: managed-name prefixes first
+   * (`xph-`, `dsh-`, `sso-`, `peachcode`, `xpeach`), then the remaining
+   * enabled tokens newest-first. The order only decides which token's key gets
+   * revealed first — it never selects a token on its own.
    */
-  private selectMatchingAdminToken(
-    items: readonly XPeachAdminToken[],
-    activeRelayKey: string | undefined,
-    allowAnyFallback: boolean,
-  ): XPeachAdminToken | undefined {
+  private tokenResolveOrder(items: readonly XPeachAdminToken[]): XPeachAdminToken[] {
     const enabled = items
-      .filter(t => t.status === 1)
+      .filter(t => t.status === undefined || t.status === 1)
       .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))
-    if (enabled.length === 0) return undefined
-    const normActive = activeRelayKey?.replace(/^(?:xpk|sk)-/u, '').trim()
-    if (normActive !== undefined && normActive.length > 0) {
-      const byKey = enabled.find((t) => {
-        if (typeof t.key !== 'string' || t.key.length === 0) return false
-        return t.key.replace(/^(?:xpk|sk)-/u, '').trim() === normActive
-      })
-      if (byKey !== undefined) return byKey
-    }
-    const byPrefix = enabled.find((t) => {
+    const isManagedName = (t: XPeachAdminToken): boolean => {
       const lower = (t.name ?? '').toLowerCase()
       return lower.startsWith('xph-')
         || lower.startsWith('dsh-')
         || lower.startsWith('sso-')
         || lower.startsWith('peachcode')
         || lower.startsWith('xpeach')
-    })
-    if (byPrefix !== undefined) return byPrefix
-    return allowAnyFallback ? enabled[0] : undefined
+    }
+    return [...enabled.filter(isManagedName), ...enabled.filter(t => !isManagedName(t))]
+  }
+
+  /** Fetch the newest token page across whichever management channel is bound. */
+  private async listTokenPage(signal: AbortSignal): Promise<readonly XPeachAdminToken[]> {
+    try {
+      const page = await this.api.adminTokens(0, 100, signal)
+      return page.items
+    } catch (err) {
+      if (signal.aborted) throw err
+    }
+    try {
+      const page = await this.api.userTokens(0, signal)
+      return page.items.map(item => ({ ...item, user_id: 0 }))
+    } catch {
+      signal.throwIfAborted()
+      return []
+    }
   }
 
   /**
-   * Backfill and self-heal the token metadata: find the active relay token,
-   * prune any retired/unauthorized groups against the site's `usable_group` set,
-   * and persist its id/name/groups.
+   * Reveal one token's stored key through whichever credential channel works.
+   * Both surfaces hit `POST /api/token/{id}/key` — the PAT surface also serves
+   * the session cookie, the admin surface requires the access token.
    */
-  private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number; name?: string; groups?: string[] }> {
+  private async revealTokenKey(id: number, signal: AbortSignal): Promise<{ key?: string } | undefined> {
+    const attempts: (() => Promise<{ key?: string }>)[] = []
+    if (typeof this.api.userTokenKey === 'function') {
+      attempts.push(() => this.api.userTokenKey(id, signal))
+    }
+    if (typeof this.api.adminTokenKey === 'function') {
+      attempts.push(() => this.api.adminTokenKey(id, signal))
+    }
+    for (const attempt of attempts) {
+      try {
+        return await attempt()
+      } catch (err) {
+        if (signal.aborted) throw err
+      }
+    }
+    return undefined
+  }
+
+  /** Upper bound of key reveals per resolution pass — identity checks must not stampede the site. */
+  private static readonly TOKEN_REVEAL_LIMIT = 16
+
+  /**
+   * Identify the site token the active relay key belongs to. An exact key match
+   * on the token page wins; otherwise each candidate's stored key is revealed
+   * and compared, in `tokenResolveOrder` order. No name or creation-time
+   * fallback: `undefined` means the active key's token is unknown, which keeps
+   * group writes from ever landing on a token the key does not own.
+   */
+  private async resolveTokenForKey(
+    activeKey: string | undefined,
+    signal: AbortSignal,
+  ): Promise<{ id: number; name?: string; groups?: string[] } | undefined> {
+    const normKey = this.normalizeRelayKey(activeKey)
+    if (normKey.length === 0) return undefined
+    const items = await this.listTokenPage(signal)
+    const ordered = this.tokenResolveOrder(items)
+    const byKey = ordered.find(t => this.normalizeRelayKey(t.key) === normKey)
+    if (byKey !== undefined) {
+      const groups = this.extractTokenGroups(byKey)
+      return {
+        id: byKey.id,
+        ...(byKey.name !== undefined ? { name: byKey.name } : {}),
+        ...(groups.length > 0 ? { groups } : {}),
+      }
+    }
+    for (const candidate of ordered.slice(0, XPeachAccount.TOKEN_REVEAL_LIMIT)) {
+      const revealed = await this.revealTokenKey(candidate.id, signal)
+      if (revealed !== undefined && this.normalizeRelayKey(revealed.key) === normKey) {
+        const groups = this.extractTokenGroups(candidate)
+        return {
+          id: candidate.id,
+          ...(candidate.name !== undefined ? { name: candidate.name } : {}),
+          ...(groups.length > 0 ? { groups } : {}),
+        }
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Backfill the token metadata: confirm which site token the active relay key
+   * belongs to and persist its id/name/groups bound to that key. Read-only
+   * against the site — remote group writes live exclusively in the explicit
+   * `setGroups` operation, so refreshing the catalog can no longer edit
+   * whichever token happened to be newest or share a managed prefix.
+   */
+  private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number; name?: string; groups?: string[]; key?: string }> {
+    const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
     const info = this.readTokenInfo()
+    const bound = this.tokenInfoMatchesKey(info, activeKey)
     if (
-      info.id !== undefined
+      bound
+      && info.id !== undefined
       && Array.isArray(info.groups)
       && info.groups.length > 0
       && Date.now() - this.lastEnsureTokenInfoAt < 300_000
     ) {
       return info
     }
-    let tokenId = info.id
-    let tokenName = info.name
-    let matchedToken: XPeachAdminToken | undefined
+    let tokenId = bound ? info.id : undefined
+    let tokenName = bound ? info.name : undefined
+    let resolvedGroups: string[] | undefined
     if (tokenId === undefined) {
-      let page: XPeachAdminPage<XPeachAdminToken> | undefined
-      try { page = await this.api.adminTokens(0, 100, signal) } catch (_err) { return info }
-      const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
-      const live = this.selectMatchingAdminToken(page.items, activeKey, true)
-      if (live === undefined) return info
-      matchedToken = live
+      const live = await this.resolveTokenForKey(activeKey, signal)
+      if (live === undefined) {
+        // Identity unresolved: never guess a token. A record bound to another
+        // key is stale — strip its id/name so no later write can target it.
+        const displayGroups = bound || info.key === undefined ? info.groups : undefined
+        const next = {
+          ...(activeKey !== undefined ? { key: activeKey } : {}),
+          ...(displayGroups !== undefined ? { groups: displayGroups } : {}),
+        }
+        if (!deepEqualJson(info, next)) this.writeTokenInfo(next)
+        return next
+      }
       tokenId = live.id
       tokenName = live.name
+      resolvedGroups = live.groups
     }
     let detail: Record<string, JsonValue> | undefined
-    try { detail = await this.api.adminTokenGet(tokenId, signal) } catch (_err) { return info }
-    const detailGroups = this.extractTokenGroups(detail)
-    const rawGroups = detailGroups.length > 0
-      ? detailGroups
-      : matchedToken !== undefined
-        ? this.extractTokenGroups(matchedToken)
-        : (info.groups ?? [])
-    let groups = rawGroups
     try {
-      const counts = await this.groupModelCounts(signal)
-      if (counts.size > 0) {
-        const valid = rawGroups.filter(g => (counts.get(g) ?? 0) > 0)
-        if (rawGroups.length === 0 || valid.length !== rawGroups.length) {
-          const fallback = valid.length > 0 ? valid : await this.defaultGroups(signal)
-          if (fallback.length > 0) {
-            groups = fallback
-            await this.api.adminTokenUpdate({ ...detail, groups, group: groups[0] ?? '' }, signal).catch(() => {})
-          }
-        }
+      detail = await this.api.adminTokenGet(tokenId, signal)
+    } catch (err) {
+      if (signal.aborted) throw err
+      // Detail unavailable: keep only confirmed fields. An id just resolved by
+      // key is trustworthy; groups fall back to the resolved (or a same-key
+      // stored) set — never to a record bound to another key.
+      const fallbackGroups = resolvedGroups !== undefined
+        ? resolvedGroups
+        : (bound || info.key === undefined ? info.groups : undefined)
+      return {
+        id: tokenId,
+        ...(tokenName !== undefined ? { name: tokenName } : {}),
+        ...(fallbackGroups !== undefined ? { groups: fallbackGroups } : {}),
+        ...(activeKey !== undefined ? { key: activeKey } : {}),
       }
-    } catch (_err) {
-      // Keep raw token groups when pricing catalog lookup is unavailable.
     }
+    const detailGroups = this.extractTokenGroups(detail)
+    const groups = detailGroups.length > 0
+      ? detailGroups
+      : resolvedGroups !== undefined
+        ? resolvedGroups
+        : (bound || info.key === undefined ? (info.groups ?? []) : [])
     const next = {
       id: tokenId,
       ...(tokenName !== undefined ? { name: tokenName } : {}),
       groups,
+      ...(activeKey !== undefined ? { key: activeKey } : {}),
     }
     this.writeTokenInfo(next)
     return next
@@ -1660,10 +1766,6 @@ export class XPeachAccount extends TypertRemoteService {
     const updatedProviders: Record<string, object> = {}
     let changed = false
 
-    const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
-    const anthropicBase = siteRoot.replace(/\/v1$/u, '')
-    const migratedAnthropicModels: Record<string, unknown>[] = []
-
     for (const [key, provider] of Object.entries(existingProviders)) {
       if (!key.startsWith('xpeach')) continue
       if (!Array.isArray(provider['models']) || provider['models'].length === 0) continue
@@ -1718,11 +1820,6 @@ export class XPeachAccount extends TypertRemoteService {
             providerChanged = true
           }
 
-          if (key === 'xpeach' && this.protocolPreference !== 'compatible' && isAnthropicClaudeModel(id)) {
-            migratedAnthropicModels.push(upgradedEntry)
-            providerChanged = true
-            continue
-          }
           nextModels.push(upgradedEntry)
         }
         if (providerChanged) {
@@ -1734,43 +1831,6 @@ export class XPeachAccount extends TypertRemoteService {
         updatedProviders[key] = nextProvider
         changed = true
       }
-    }
-
-    if (migratedAnthropicModels.length > 0) {
-      const existingAnthropic = (updatedProviders['xpeach-anthropic'] ?? existingProviders['xpeach-anthropic'] ?? {}) as Record<string, unknown>
-      const existingAnthropicModels = Array.isArray(existingAnthropic['models'])
-        ? [...(existingAnthropic['models'] as unknown[])]
-        : []
-      const seenIds = new Set<string>(
-        existingAnthropicModels
-          .map(m => (typeof m === 'object' && m !== null ? (m as { id?: unknown }).id : undefined))
-          .filter((id): id is string => typeof id === 'string'),
-      )
-      for (const m of migratedAnthropicModels) {
-        const id = typeof m['id'] === 'string' ? m['id'] : ''
-        if (id.length > 0 && !seenIds.has(id)) {
-          existingAnthropicModels.push(m)
-          seenIds.add(id)
-        }
-      }
-      const existingTracking = typeof existingAnthropic['conversationTracking'] === 'boolean'
-        ? existingAnthropic['conversationTracking']
-        : (typeof existingProviders['xpeach']?.['conversationTracking'] === 'boolean'
-          ? existingProviders['xpeach']['conversationTracking']
-          : unwrapConfigValue(this.liveConfig.conversationTracking))
-      updatedProviders['xpeach-anthropic'] = {
-        displayName: '🍑Code anthropic-messages',
-        apiKeyEnv: this.keyVar,
-        defaultInput: ['text', 'image'],
-        reasoning: 'high',
-        ...(existingTracking !== undefined ? { conversationTracking: existingTracking } : {}),
-        retryPolicy: { mode: 'normal', maxRetries: 2 },
-        ...existingAnthropic,
-        api: 'anthropic-messages',
-        baseURL: anthropicBase,
-        models: existingAnthropicModels,
-      }
-      changed = true
     }
 
     if (changed) {
@@ -1811,7 +1871,10 @@ export class XPeachAccount extends TypertRemoteService {
       if (options?.forceGroupSwitch === true) {
         await this.catalogSyncPromise.catch(() => undefined)
       } else {
-        return await this.catalogSyncPromise
+        const joined = await this.catalogSyncPromise
+        // A joined run discarded for staleness leaves this caller's catalog
+        // unpublished — run once more against the current credential.
+        if (joined.ok || joined.error !== 'credential changed during sync') return joined
       }
     }
     const run = this.runSyncModelCatalog(signal, manual, options).finally(() => {
@@ -1826,7 +1889,11 @@ export class XPeachAccount extends TypertRemoteService {
     manual = false,
     options?: { readonly forceGroupSwitch?: boolean },
   ): Promise<XPeachModelSyncResult> {
+    // Token resolution IS credential state establishment: the epoch baseline
+    // is taken after it, so the guard below only rejects changes that arrive
+    // while the remote catalog is being computed — never the resolution itself.
     const info = await this.ensureTokenInfo(signal)
+    const epochAtStart = this.credentialEpoch
     try {
       const settings = this.ctx.get('settings') as
         | {
@@ -2000,45 +2067,62 @@ export class XPeachAccount extends TypertRemoteService {
         protocol === 'anthropic-messages' ? anthropicBase : openAIBase
       const existingProviders = readProviderMap(described)
       const providers: Record<string, object> = {}
+      // Every model mounts under each endpoint it advertises — chat
+      // completions, Responses, and Anthropic messages each get their own
+      // provider bucket so the picker selects an (endpoint, model) pair
+      // instead of pushing every model through one shared endpoint.
       for (const model of models) {
         const sourceEntry = list.find(m => m.id === model.id)
-        const protocol = modelProtocol(
-          {
-            id: model.id,
-            ...(sourceEntry?.supported_endpoint_types !== undefined
-              ? { supported_endpoint_types: sourceEntry.supported_endpoint_types }
-              : {}),
-          },
-          this.protocolPreference,
-        )
-        const key = protocol === 'openai-completions' ? 'xpeach' : `xpeach-${protocol.replace(/-messages$/u, '')}`
-        const existingTracking = liveAccountSettings.conversationTracking
-          ?? (typeof existingProviders[key]?.['conversationTracking'] === 'boolean' ? existingProviders[key]['conversationTracking'] : undefined)
-          ?? (typeof existingProviders['xpeach']?.['conversationTracking'] === 'boolean' ? existingProviders['xpeach']['conversationTracking'] : undefined)
-          ?? unwrapConfigValue(this.liveConfig.conversationTracking)
-        providers[key] ??= {
-          displayName: protocol === 'openai-completions' ? '🍑Code' : `🍑Code ${protocol}`,
-          apiKeyEnv: this.keyVar,
-          api: protocol,
-          baseURL: baseURLFor(protocol),
-          defaultInput: ['text', 'image'],
-          reasoning: 'high',
-          ...(existingTracking !== undefined ? { conversationTracking: existingTracking } : {}),
-          retryPolicy: { mode: 'normal', maxRetries: 2 },
-          models: [],
+        const endpoints = modelEndpoints({
+          id: model.id,
+          ...(sourceEntry?.supported_endpoint_types !== undefined
+            ? { supported_endpoint_types: sourceEntry.supported_endpoint_types }
+            : {}),
+        })
+        for (const endpoint of endpoints) {
+          const key = endpoint === 'openai-completions' ? 'xpeach' : 'xpeach-' + endpoint.replace(/-messages$/u, '')
+          const existingTracking = liveAccountSettings.conversationTracking
+            ?? (typeof existingProviders[key]?.['conversationTracking'] === 'boolean' ? existingProviders[key]['conversationTracking'] : undefined)
+            ?? (typeof existingProviders['xpeach']?.['conversationTracking'] === 'boolean' ? existingProviders['xpeach']['conversationTracking'] : undefined)
+            ?? unwrapConfigValue(this.liveConfig.conversationTracking)
+          providers[key] ??= {
+            displayName: endpoint === 'openai-completions' ? '🍑Code' : '🍑Code ' + endpoint,
+            apiKeyEnv: this.keyVar,
+            api: endpoint,
+            baseURL: baseURLFor(endpoint),
+            defaultInput: ['text', 'image'],
+            reasoning: 'high',
+            ...(existingTracking !== undefined ? { conversationTracking: existingTracking } : {}),
+            retryPolicy: { mode: 'normal', maxRetries: 2 },
+            models: [],
+          }
+          ;(providers[key] as { models: object[] }).models.push(model)
         }
-        ;(providers[key] as { models: object[] }).models.push(model)
       }
       const live = Object.keys(existingProviders)
       const stale = live.filter(key => key.startsWith('xpeach') && !(key in providers))
-      if (stale.length > 0 && settings.mutate !== undefined) {
-        await settings.mutate('llm-pi-ai', stale.map(key => ({ op: 'unset', path: ['providers', key] })))
-      }
       const providersChanged = stale.length > 0 || Object.entries(providers).some(
         ([k, v]) => !deepEqualJson(existingProviders[k] ?? null, v),
       )
+      // The credential may have rotated while the catalog was being computed
+      // (SSO refresh, key-slot switch). Writing the stale result would push a
+      // catalog scoped to a key that is no longer active — discard it and let
+      // the sync the credential change triggered publish its own.
+      if (this.credentialEpoch !== epochAtStart) {
+        return { ok: false, count: 0, groups: info.groups ?? [], error: 'credential changed during sync' }
+      }
       if (providersChanged) {
-        await settings.update('llm-pi-ai', { providers })
+        if (settings.mutate !== undefined) {
+          // One mutate call retires stale providers and installs the new ones —
+          // a failure leaves the previous catalog untouched rather than empty.
+          const ops: { op: 'set' | 'unset'; path: string[]; value?: unknown }[] = [
+            ...stale.map(key => ({ op: 'unset' as const, path: ['providers', key] })),
+            ...Object.entries(providers).map(([key, value]) => ({ op: 'set' as const, path: ['providers', key], value })),
+          ]
+          await settings.mutate('llm-pi-ai', ops)
+        } else {
+          await settings.update('llm-pi-ai', { providers })
+        }
       }
       await this.reconcileDefaultModelSelection(providers, {
         primaryGroupModels,
@@ -2083,26 +2167,46 @@ export class XPeachAccount extends TypertRemoteService {
     const hasPrimaryScope = primarySet !== undefined && primarySet.size > 0
     const forceSwitch = options?.forceGroupSwitch === true
 
+    // Provider preference per endpoint: 'compatible' keeps chat completions
+    // first, 'native' prefers the Responses/Messages wires, 'auto' follows the
+    // site order. Claude ids keep their Messages mount as the default pick
+    // even though they may now also list under chat completions.
+    const preferredProviderOrder = (): readonly string[] => {
+      switch (this.protocolPreference) {
+        case 'native': return ['xpeach-openai-responses', 'xpeach-anthropic', 'xpeach']
+        case 'auto': return ['xpeach', 'xpeach-openai-responses', 'xpeach-anthropic']
+        default: return ['xpeach', 'xpeach-anthropic', 'xpeach-openai-responses']
+      }
+    }
+    const providerRank = (key: string, modelId: string): number => {
+      if (isAnthropicClaudeModel(modelId) && key === 'xpeach-anthropic') return -1
+      const order = preferredProviderOrder()
+      const idx = order.indexOf(key)
+      return idx === -1 ? order.length : idx
+    }
     const pickPreferredSelection = (): { provider: string; model: string } | undefined => {
-      const allXpeachModels: { provider: string; id: string }[] = []
-      const orderedKeys = ['xpeach', ...providerEntries.map(([k]) => k).filter(k => k !== 'xpeach' && k.startsWith('xpeach'))]
-      for (const key of orderedKeys) {
-        const rawList = providers[key]?.models
+      const byId = new Map<string, { provider: string; rank: number }>()
+      for (const [key, provObj] of providerEntries) {
+        if (!key.startsWith('xpeach')) continue
+        const rawList = provObj.models
         if (!Array.isArray(rawList)) continue
         for (const item of rawList) {
-          if (typeof item === 'object' && item !== null && typeof (item as { id?: unknown }).id === 'string') {
-            const id = (item as { id: string }).id
-            if (id.length > 0) allXpeachModels.push({ provider: key, id })
-          }
+          if (typeof item !== 'object' || item === null || typeof (item as { id?: unknown }).id !== 'string') continue
+          const id = (item as { id: string }).id
+          if (id.length === 0) continue
+          const rank = providerRank(key, id)
+          const existing = byId.get(id)
+          if (existing === undefined || rank < existing.rank) byId.set(id, { provider: key, rank })
         }
       }
-      if (allXpeachModels.length === 0) return undefined
+      if (byId.size === 0) return undefined
+      const pool = [...byId.entries()].map(([id, v]) => ({ provider: v.provider, id }))
       const scoped = hasPrimaryScope
-        ? allXpeachModels.filter(m => primarySet.has(m.id))
-        : allXpeachModels
-      const pool = scoped.length > 0 ? scoped : allXpeachModels
-      const swe = pool.find(m => m.id === 'swe-2-max')
-      const chosen = swe ?? pool[0]
+        ? pool.filter(m => primarySet.has(m.id))
+        : pool
+      const usable = scoped.length > 0 ? scoped : pool
+      const swe = usable.find(m => m.id === 'swe-2-max')
+      const chosen = swe ?? usable[0]
       return chosen !== undefined ? { provider: chosen.provider, model: chosen.id } : undefined
     }
 
@@ -2235,6 +2339,7 @@ export class XPeachAccount extends TypertRemoteService {
     process.env[this.apiKeyEnv] = key
     this.markOnboardedAndClearSignOut()
     void this.publishCredential(key)
+    this.credentialEpoch = (typeof this.credentialEpoch === 'number' ? this.credentialEpoch : 0) + 1
   }
 
   /**
@@ -2484,6 +2589,8 @@ export class XPeachAccount extends TypertRemoteService {
       const next = slots[0]
       if (next !== undefined) {
         this.persistKey(next.key)
+        this.lastEnsureTokenInfoAt = 0
+        try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
       } else {
         try { unlinkSync(this.keyFile) } catch (_err) { /* absent */ }
         for (const dir of this.sharedMirrorDirs()) {
@@ -3492,42 +3599,62 @@ export class XPeachAccount extends TypertRemoteService {
         if (nextAccessToken !== undefined && nextAccessToken.length > 0 && nextAccessToken !== this.resolveAdmin()) {
           this.persistAdmin(nextAccessToken)
         }
+        const bridgeGroups = Array.isArray(peach?.tokenGroups)
+          ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.trim().length > 0).map(g => g.trim())
+          : typeof peach?.group === 'string' && peach.group.trim().length > 0
+            ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
+            : []
         let keyChanged = false
-        let nextApiKey = peach?.apiKey?.trim()
-        if (nextApiKey !== undefined && nextApiKey.length > 0) {
-          if (nextApiKey.match(/^(?:xpk|sk)-/u) === null) nextApiKey = 'sk-' + nextApiKey
-          if (nextApiKey !== this.readKeyFile()) {
-            this.persistKey(nextApiKey)
-            this.notifyKeyChanged()
-            keyChanged = true
-          }
-        } else if ((this.readKeyFile() ?? process.env[this.keyVar]?.trim()) === undefined && this.resolveAdmin() !== undefined) {
+        const rawNextKey = peach?.apiKey?.trim()
+        const nextApiKey = rawNextKey !== undefined && rawNextKey.length > 0
+          ? (rawNextKey.match(/^(?:xpk|sk)-/u) === null ? 'sk-' + rawNextKey : rawNextKey)
+          : undefined
+        const currentKey = this.readKeyFile()
+        if (nextApiKey !== undefined && nextApiKey !== currentKey) {
+          // Key and token record move as one credential: never carry the
+          // previous token's id/name/groups over a different key — that stale
+          // identity is what let group edits land on the wrong site token.
+          this.persistKey(nextApiKey)
+          this.writeTokenInfo({
+            ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
+            ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
+            ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
+            key: nextApiKey,
+          })
+          this.notifyKeyChanged()
+          keyChanged = true
+        } else if (
+          nextApiKey === undefined
+          && (currentKey ?? process.env[this.keyVar]?.trim()) === undefined
+          && this.resolveAdmin() !== undefined
+        ) {
           const minted = await this.mintKeyWithAccessToken(effectiveSignal).catch(() => ({ ok: false }))
           if (minted.ok) {
             this.notifyKeyChanged()
             keyChanged = true
           }
         }
-        const bridgeGroups = Array.isArray(peach?.tokenGroups)
-          ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.trim().length > 0).map(g => g.trim())
-          : typeof peach?.group === 'string' && peach.group.trim().length > 0
-            ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
-            : []
-        if (peach?.tokenId !== undefined || peach?.tokenName !== undefined || bridgeGroups.length > 0) {
+        if ((nextApiKey === undefined || nextApiKey === currentKey)
+          && (peach?.tokenId !== undefined || peach?.tokenName !== undefined || bridgeGroups.length > 0)) {
+          // Same-key refresh: bridge fields update the record bound to THIS
+          // key. Fields the bridge omits are inherited only from a record that
+          // is already key-bound; an unbound record's id/name stay dropped.
           const prevInfo = this.readTokenInfo()
-          const shouldSyncGroups = bridgeGroups.length > 0 && (
-            keyChanged
+          const sameRecord = this.tokenInfoMatchesKey(prevInfo, currentKey)
+          const applyBridgeGroups = bridgeGroups.length > 0 && (
+            !sameRecord
             || (peach?.tokenId !== undefined && peach.tokenId !== prevInfo.id)
             || !Array.isArray(prevInfo.groups)
             || prevInfo.groups.length === 0
           )
-          const nextInfo: { id?: number; name?: string; groups?: string[] } = {
-            ...(prevInfo.id !== undefined ? { id: prevInfo.id } : {}),
-            ...(prevInfo.name !== undefined ? { name: prevInfo.name } : {}),
-            ...(Array.isArray(prevInfo.groups) && prevInfo.groups.length > 0 ? { groups: prevInfo.groups } : {}),
+          const nextInfo: { id?: number; name?: string; groups?: string[]; key?: string } = {
+            ...(sameRecord && prevInfo.id !== undefined ? { id: prevInfo.id } : {}),
+            ...(sameRecord && prevInfo.name !== undefined ? { name: prevInfo.name } : {}),
+            ...(sameRecord && Array.isArray(prevInfo.groups) && prevInfo.groups.length > 0 ? { groups: prevInfo.groups } : {}),
             ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
             ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
-            ...(shouldSyncGroups ? { groups: bridgeGroups } : {}),
+            ...(applyBridgeGroups ? { groups: bridgeGroups } : {}),
+            ...(currentKey !== undefined ? { key: currentKey } : {}),
           }
           if (!deepEqualJson(prevInfo, nextInfo)) {
             this.writeTokenInfo(nextInfo)
@@ -3808,6 +3935,7 @@ export class XPeachAccount extends TypertRemoteService {
         ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
         ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
         ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
+        key: apiKey,
       })
       this.persistKey(apiKey)
       preview = apiKey.slice(0, 5) + '…' + apiKey.slice(-4)
@@ -4028,7 +4156,7 @@ export class XPeachAccount extends TypertRemoteService {
       let key = revealed.key
       if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
       if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
-      this.writeTokenInfo({ id, name })
+      this.writeTokenInfo({ id, name, key })
       this.persistKey(key)
       this.notifyKeyChanged()
       await this.syncModelCatalog(signal).catch(() => {})
@@ -4050,7 +4178,14 @@ export class XPeachAccount extends TypertRemoteService {
       let name: string | undefined
       const page = await this.api.adminTokens(0, 100, signal)
       const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
-      const live = this.selectMatchingAdminToken(page.items, activeKey, false)
+      const normKey = this.normalizeRelayKey(activeKey)
+      const enabled = page.items
+        .filter(t => t.status === undefined || t.status === 1)
+        .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))
+      // Reuse only a token this harness can own: the one already holding the
+      // active key, else the newest token it minted itself (xph-/dsh- names).
+      const live = enabled.find(t => this.normalizeRelayKey(t.key) === normKey && normKey.length > 0)
+        ?? enabled.find(t => XPeachAccount.MINTED_TOKEN_PREFIXES.some(p => (t.name ?? '').startsWith(p)))
       if (live !== undefined) {
         id = live.id
         name = live.name
@@ -4078,11 +4213,11 @@ export class XPeachAccount extends TypertRemoteService {
         await this.api.adminTokenUpdate({ ...detail, groups: defaults, group: defaults[0] ?? '' }, signal)
       }
       const groups = usable ? currentGroups : defaults
-      this.writeTokenInfo({ id, ...(name !== undefined ? { name } : {}), groups })
       const revealed = await this.api.adminTokenKey(id, signal)
       let key = revealed.key
       if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
       if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
+      this.writeTokenInfo({ id, ...(name !== undefined ? { name } : {}), groups, key })
       this.persistKey(key)
       void this.syncModelCatalog(signal).catch(() => {})
       return { ok: true, preview: key.slice(0, 5) + '…' + key.slice(-4) }
@@ -4301,32 +4436,76 @@ export class XPeachAccount extends TypertRemoteService {
         }
       })
       .sort((a, b) => b.models - a.models)
+    const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
     return {
       groups,
       tokenGroups: info.groups ?? [],
       models: list.map(m => m.id),
-      ...(info.id !== undefined ? { tokenId: info.id } : {}),
+      ...(info.id !== undefined && this.tokenInfoMatchesKey(info, activeKey) ? { tokenId: info.id } : {}),
+      ...(info.name !== undefined && this.tokenInfoMatchesKey(info, activeKey) ? { tokenName: info.name } : {}),
+      ...(activeKey !== undefined && activeKey.length > 4 ? { keyTail: activeKey.slice(-4) } : {}),
     }
   }
 
   /**
-   * Reassign the relay token's groups, then re-sync the model picker.
+   * Reassign the relay token's groups, then re-sync the model picker. This is
+   * the only operation that edits a site token's groups, and it only runs when
+   * the stored token record is verified against the active relay key — an
+   * unconfirmed identity fails closed instead of editing whichever token the
+   * record might have drifted onto.
    *
    * @param request - group names to assign to the relay token.
    * @param signal - carrier cancellation.
-   * @returns model catalog sync outcome.
+   * @returns model catalog sync outcome plus the token the write targeted.
    */
   @Remote('setGroups')
   async setGroupsOp(request: { groups: string[] }, signal: AbortSignal): Promise<XPeachModelSyncResult> {
     signal.throwIfAborted()
+    const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
     const info = await this.ensureTokenInfo(signal)
-    if (info.id === undefined) return { ok: false, count: 0, groups: [], error: 'no relay token bound' }
     const groups = request.groups.filter(g => typeof g === 'string' && g.length > 0)
-    if (groups.length === 0) return { ok: false, count: 0, groups: [], error: 'pick at least one group' }
-    const detail = await this.api.adminTokenGet(info.id, signal)
-    await this.api.adminTokenUpdate({ ...detail, groups, group: groups[0] ?? '' }, signal)
+    if (groups.length === 0) return { ok: false, count: 0, groups: info.groups ?? [], error: 'pick at least one group' }
+    if (info.id === undefined || !this.tokenInfoMatchesKey(info, activeKey)) {
+      return {
+        ok: false,
+        count: 0,
+        groups: info.groups ?? [],
+        error: 'xpeach: cannot confirm which site token the active key belongs to; sync models first',
+      }
+    }
+    // The stored binding may predate a remote rotation: the site must still
+    // reveal THIS key for the stored token row before we edit its groups.
+    const revealed = await this.revealTokenKey(info.id, signal)
+    if (revealed !== undefined && this.normalizeRelayKey(revealed.key) !== this.normalizeRelayKey(activeKey)) {
+      this.writeTokenInfo({
+        ...(activeKey !== undefined ? { key: activeKey } : {}),
+        ...(info.groups !== undefined ? { groups: info.groups } : {}),
+      })
+      return {
+        ok: false,
+        count: 0,
+        groups: info.groups ?? [],
+        error: 'xpeach: stored token no longer holds the active key; sync models to rebind it',
+      }
+    }
+    if (this.resolveAdmin() !== undefined) {
+      const detail = await this.api.adminTokenGet(info.id, signal)
+      await this.api.adminTokenUpdate({ ...detail, groups, group: groups[0] ?? '' }, signal)
+    } else {
+      const page = await this.api.userTokens(0, signal)
+      const row = page.items.find(t => t.id === info.id)
+      if (row === undefined) {
+        throw new RemoteError('xpeach/request-failed', 'xpeach: relay token row not found in the user token list', { status: 404, message: 'token row missing' })
+      }
+      await this.api.userTokenUpdate(info.id, { ...row, groups, group: groups[0] ?? '' }, signal)
+    }
     this.writeTokenInfo({ ...info, groups })
-    return await this.syncModelCatalog(signal, true, { forceGroupSwitch: true })
+    const synced = await this.syncModelCatalog(signal, true, { forceGroupSwitch: true })
+    return {
+      ...synced,
+      tokenId: info.id,
+      ...(info.name !== undefined ? { tokenName: info.name } : {}),
+    }
   }
 
   /**
@@ -6366,6 +6545,29 @@ export function modelProtocol(
   if (offered.has('openai') || offered.size === 0) return 'openai-completions'
   if (offered.has('openai-response')) return 'openai-responses'
   return 'anthropic-messages'
+}
+
+/** Wire protocols a model can be mounted under, keyed to llm-pi-ai provider buckets. */
+export type XPeachModelEndpoint = 'openai-completions' | 'openai-responses' | 'anthropic-messages'
+
+/**
+ * Every wire protocol a catalog entry supports — the model is mounted under
+ * each of them so the picker can select the same model on the endpoint that
+ * actually serves it instead of forcing one shared endpoint for all models.
+ *
+ * @param model - one catalogue entry.
+ * @returns protocol identifiers the pi-ai adapter accepts.
+ */
+export function modelEndpoints(
+  model: { id?: string; supported_endpoint_types?: readonly string[] },
+): readonly XPeachModelEndpoint[] {
+  const offered = new Set(model.supported_endpoint_types ?? [])
+  const out: XPeachModelEndpoint[] = []
+  if (offered.has('openai') || offered.size === 0) out.push('openai-completions')
+  if (offered.has('openai-response')) out.push('openai-responses')
+  if (offered.has('anthropic')) out.push('anthropic-messages')
+  if (out.length === 0) out.push('openai-completions')
+  return out
 }
 
 function moveDirectory(src: string, dst: string): void {
