@@ -78,7 +78,7 @@ export function referencedProjectsCompilerArgs(
     throw new Error(`compile-referenced-projects: ${configPath} requires noEmit: true to exclude its aggregate program`)
   }
   return [
-    ...hostHeapArgs(face),
+    ...aggregateHeapArgs(),
     fileURLToPath(import.meta.resolve('typescript/bin/tsc')),
     '-b',
     ...mode === 'benchmark-emit' ? ['--noCheck'] : [],
@@ -95,7 +95,7 @@ export function referencedProjectsCompilerArgs(
  * @returns Arguments for `process.execPath`, run from the repository root.
  */
 export function aggregateCheckArgs(face: 'host' | 'client'): string[] {
-  return [...hostHeapArgs(face), fileURLToPath(import.meta.resolve('typescript/bin/tsc')), '-p', `tsconfig.${face}.json`]
+  return [...aggregateHeapArgs(), fileURLToPath(import.meta.resolve('typescript/bin/tsc')), '-p', `tsconfig.${face}.json`]
 }
 
 /**
@@ -106,11 +106,15 @@ export function aggregateCheckArgs(face: 'host' | 'client'): string[] {
  * @returns Arguments for `process.execPath`, run from the repository root.
  */
 export function aggregateBuildArgs(face: 'host' | 'client'): string[] {
-  return [...hostHeapArgs(face), fileURLToPath(import.meta.resolve('typescript/bin/tsc')), '-b', `tsconfig.${face}.json`]
+  return [...aggregateHeapArgs(), fileURLToPath(import.meta.resolve('typescript/bin/tsc')), '-b', `tsconfig.${face}.json`]
 }
 
-function hostHeapArgs(face: 'host' | 'client'): string[] {
-  return face === 'host' ? ['--max-old-space-size=8192'] : []
+/**
+ * Both aggregate programs type-check every package test and script against
+ * emitted declarations; either face OOMs at the default 4GB on CI runners.
+ */
+function aggregateHeapArgs(): string[] {
+  return ['--max-old-space-size=8192']
 }
 
 /**
