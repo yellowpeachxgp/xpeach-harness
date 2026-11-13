@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-forge-github",
   "description": "GitHub provider for the experimental forge registry, read through the GitHub CLI on the host",
-  "version": "0.0.34-alpha",
+  "version": "0.0.35-alpha",
   "publishConfig": {
     "access": "public"
   },
