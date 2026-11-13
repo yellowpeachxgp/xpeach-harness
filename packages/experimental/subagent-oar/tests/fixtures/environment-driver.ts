@@ -11,7 +11,7 @@ for (const runtimeId of ['codex', 'claude']) {
     OAR_FIXTURE_EXPLICIT_TOKEN: 'explicit-fixture-value',
     OAR_FIXTURE_DELETE: null,
   })
-  const installation = await runtime.installation?.({ env })
+  const installation = await runtime.installation?.()
   if (installation?.kind !== 'available') throw new Error('Fixture installation unavailable')
   if (runtimeId !== 'claude') continue
   const session = await runtime.session(installation, {

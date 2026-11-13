@@ -250,7 +250,7 @@ export async function startOarRun(
 
   let installation: InstallationSnapshot | undefined
   try {
-    installation = await spec.runtime.installation?.({ env: oarEnvironment(spec.env) })
+    installation = await spec.runtime.installation?.()
   } catch (error: unknown) {
     const failure = new OarFailure('installation', 'unknown', { cause: error })
     reportFailure(spec, failure)
