@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-forge-bundle",
   "description": "Experimental change request panel and worktree option for Sessions in Git repositories",
-  "version": "0.0.32-alpha",
+  "version": "0.0.34-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"

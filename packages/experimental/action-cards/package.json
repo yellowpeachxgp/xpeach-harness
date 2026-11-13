@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-action-cards",
   "description": "Optional action cards below answers: one shared proposal tool, card state, user actions and status notices",
-  "version": "0.0.32-alpha",
+  "version": "0.0.34-alpha",
   "publishConfig": {
     "access": "public"
   },

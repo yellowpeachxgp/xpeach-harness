@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-fs-patch",
   "description": "Pure Codex-style patch parser and LF text updater with structured match failures",
-  "version": "0.0.32-alpha",
+  "version": "0.0.34-alpha",
   "publishConfig": {
     "access": "public"
   },

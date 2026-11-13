@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-subagent-oar",
   "description": "Experimental one-shot subagents through OAR runtimes",
-  "version": "0.0.32-alpha",
+  "version": "0.0.34-alpha",
   "publishConfig": {
     "access": "public"
   },

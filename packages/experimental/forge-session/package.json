@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-forge-session",
   "description": "Binds change requests to the Session that created, pushed, or tracked them",
-  "version": "0.0.32-alpha",
+  "version": "0.0.34-alpha",
   "publishConfig": {
     "access": "public"
   },

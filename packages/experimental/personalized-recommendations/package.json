@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-personalized-recommendations",
   "description": "Personalized pages and built-in plugin recommendations offered as cards below answers",
-  "version": "0.0.32-alpha",
+  "version": "0.0.34-alpha",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
