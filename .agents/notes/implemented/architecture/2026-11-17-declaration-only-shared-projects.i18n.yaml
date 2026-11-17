@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-11-17-declaration-only-shared-projects.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-11-17-declaration-only-shared-projects.md
+/agent-note-declaration-only-shared-projects:
+  en: ace89b303efed873
+  zh: 90f98f2ec128cd40
+/agent-note-declaration-only-shared-projects/problem:
+  en: 69699ab3ccdb3c89
+  zh: 5446665202d42d99
+/agent-note-declaration-only-shared-projects/decision:
+  en: 5adc3bd7b1b6cf56
+  zh: 14dffce43b45e0e4
+/agent-note-declaration-only-shared-projects/alternatives-considered:
+  en: 7063813f421c2a5b
+  zh: 5c96380b7fb7f38c
+/agent-note-declaration-only-shared-projects/consequences:
+  en: f316c61fa3416eab
+  zh: e3d1085ad9641700

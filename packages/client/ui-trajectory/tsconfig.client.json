@@ -6,6 +6,7 @@
     "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
   "references": [
+    { "path": "./tsconfig.shared.json" },
     {
       "path": "../../../vendor/cordis"
     },
@@ -60,7 +61,6 @@
   ],
   "include": [
     "src/client",
-    "src/css-modules.d.ts",
-    "src/types.ts"
+    "src/css-modules.d.ts"
   ]
 }
