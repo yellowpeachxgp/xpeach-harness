@@ -50,6 +50,8 @@ jobs:
       - name: Resolve the release version
         id: resolve
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           CURRENT=$(node -p "require('./version.json').version")
@@ -98,12 +100,95 @@ jobs:
             echo "::error::resolved version $VERSION is not a semantic version"
             exit 1
           fi
+          XPEACH_RELEASE_VERSION="$VERSION" node scripts/release/assert-xpeach-tag-available.ts
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
 
+  acceptance:
+    name: 验收源码与 SDK
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+      DSH_GATE_CONCURRENCY: '2'
+      DSH_OXLINT_THREADS: '2'
+      DSH_COVERAGE_TEST_TIMEOUT_MS: '90000'
+      DSH_SNAPSHOT: replay
+      DSH_EXAMPLE_MODE: lib
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: '3.10'
+      - name: 安装验收依赖
+        run: |
+          node scripts/version/bump.mjs "${{ needs.version.outputs.version }}"
+          pnpm install --frozen-lockfile
+          python -m pip install uv==0.11.23
+      - name: 隔离测试用户目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHECK_HOME=$(mktemp -d "$RUNNER_TEMP/xpeach-acceptance.XXXXXX")
+          for name in HOME USERPROFILE; do echo "$name=$CHECK_HOME" >> "$GITHUB_ENV"; done
+          echo "XDG_CONFIG_HOME=$CHECK_HOME/config" >> "$GITHUB_ENV"
+          echo "DSH_AGENTS_HOME=$CHECK_HOME/agents" >> "$GITHUB_ENV"
+      - name: 构建并检查聚合类型
+        run: pnpm run build:official
+      - name: 全仓静态及文档验收
+        run: |
+          pnpm run lint:contracts-ready
+          pnpm run doc-sync
+          pnpm run hygiene
+      - name: 账号安装器及核心行为回归
+        run: >-
+          pnpm exec vitest run
+          packages/xpeach/account/tests
+          packages/llm/llm-pi-ai/tests/exact-routing.spec.ts
+          packages/llm/llm-pi-ai/tests/catalog.spec.ts
+          packages/llm/llm-pi-ai/tests/empty-catalog.spec.ts
+          packages/sdk/server/tests
+          packages/core/agent/tests
+          packages/schedule/schedule/tests
+          packages/schedule/tool-schedule/tests
+          packages/api/session-controller/tests/*.host.spec.ts
+          packages/core/agent-loop/tests
+          packages/core/system-prompt/tests
+          packages/core/tools/tests
+          packages/core/tool-executor-ptc/tests/ptc.spec.ts
+          packages/experimental/action-cards/tests/tool.spec.ts
+          packages/experimental/browser-use-runtime/tests/mcp.spec.ts
+          apps/cli/tests/xph.spec.ts apps/cli/tests/xph-resource.spec.ts
+          apps/desktop-host/tests/cli-profile.spec.ts
+          apps/desktop/tests/xpeach-profile-resource.spec.ts
+          scripts/xpeach-release-policy.spec.ts --maxWorkers=2
+      - name: SDK 持久化与检查点
+        run: >-
+          pnpm exec vitest run --config vitest.expected.config.ts
+          apps/cli/tests/profiles/sdk/persistence.expected.e2e.ts
+          apps/cli/tests/profiles/sdk/checkpoints.expected.e2e.ts --maxWorkers=1
+      - name: SDK 跨进程提醒恢复
+        run: pnpm exec vitest run --config vitest.expected.config.ts apps/cli/tests/profiles/sdk/schedule-recovery.expected.e2e.ts --maxWorkers=1
+      - name: 完整 TypeScript SDK 回放
+        run: pnpm exec vitest run --config vitest.snapshot.config.ts snapshots/sdk/sdk.snapshot.ts --maxWorkers=2
+      - name: Python SDK 恢复与动态工具
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --group test --project python/sdk pytest python/sdk/tests/test_account_provider_snapshot.py
+          for scenario in sdk-minimal sdk-minimal-in-history sdk-dynamic-tools sdk-restart sdk-recovery; do
+            uv run --group test --project python/sdk python scripts/smoke-python-runtime.py --scenario "$scenario" --exe apps/cli/lib/bin.js
+          done
+
   build:
     name: Build ${{ matrix.target }}
-    needs: version
+    needs: [version, acceptance]
     strategy:
       fail-fast: false
       matrix:
@@ -241,28 +326,24 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: out/*
-          if-no-files-found: warn
+          if-no-files-found: error
 
   release:
     name: Publish release
-    needs: [version, build]
+    needs: [version, acceptance, build]
     runs-on: ubuntu-latest
-    # Publish whatever built: one failing target must not withhold the installers
-    # that did succeed.
+    # 所有验收与平台构建均成功后才允许发布。
     if: >-
-      !cancelled() &&
       needs.version.result == 'success' &&
-      needs.version.outputs.version != '' &&
-      needs.build.result != 'skipped' &&
-      needs.build.result != 'cancelled' &&
-      (startsWith(github.ref, 'refs/tags/v')
-        || github.event_name == 'workflow_dispatch'
-        || github.ref == 'refs/heads/alpha'
-        || github.ref == 'refs/heads/beta')
+      needs.acceptance.result == 'success' &&
+      needs.build.result == 'success'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -277,8 +358,12 @@ jobs:
             echo "::error::No installer artifacts found in artifacts/; refusing to bump counter or publish an empty release"
             exit 1
           fi
+      - name: 检查不可变发布目标
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XPEACH_RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: node scripts/release/assert-xpeach-tag-available.ts
       - name: Commit the bumped counter
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -294,9 +379,7 @@ jobs:
           fi
           node scripts/version/bump.mjs "${{ needs.version.outputs.version }}"
           git -c user.name=yellowpeachxgp -c user.email=yellowpeachxgp@users.noreply.github.com commit -am "release: v${{ needs.version.outputs.version }}"
-          if ! git push; then
-            git reset --hard HEAD~1
-          fi
+          git push
       - name: Compose the changelog
         shell: bash
         run: |
@@ -353,6 +436,12 @@ jobs:
             echo "::error::No installer artifacts found in artifacts/; refusing to publish an empty release"
             exit 1
           fi
+          for PREFIX in macos linux windows; do
+            if ! compgen -G "artifacts/$PREFIX-*" >/dev/null; then
+              echo "::error::缺少 $PREFIX 安装产物，已停止发布"
+              exit 1
+            fi
+          done
           TAG="v${{ needs.version.outputs.version }}"
           PRERELEASE_ARGS=()
           IS_PRERELEASE=0
@@ -362,12 +451,14 @@ jobs:
               IS_PRERELEASE=1
               ;;
           esac
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release delete "$TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+          XPEACH_RELEASE_VERSION="${{ needs.version.outputs.version }}" node scripts/release/assert-xpeach-tag-available.ts
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$(git rev-parse HEAD)"
           fi
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
-          gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release create "$TAG" --draft --verify-tag --repo "$GITHUB_REPOSITORY" --title "XPeach Harness $TAG" "${PRERELEASE_ARGS[@]}" --notes-file CHANGELOG.md
+          gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY"
           ASSETS=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
           if [ "$IS_PRERELEASE" -eq 0 ] && echo "$ASSETS" | grep -qx 'latest-mac.yml' && echo "$ASSETS" | grep -qx 'latest.yml'; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest
             echo "promoted $TAG to latest (update metadata present)"
