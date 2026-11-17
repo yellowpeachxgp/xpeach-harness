@@ -831,10 +831,16 @@ importers:
       '@xpeach/xph-workspace':
         specifier: workspace:*
         version: link:../../packages/workspace/workspace
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
       koffi:
         specifier: 3.1.1
         version: 3.1.1
     devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@xpeach/xph-cordis-plugin-include':
         specifier: workspace:~
         version: link:../../vendor/include
@@ -13411,9 +13417,6 @@ importers:
       '@xpeach/xph-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
-      '@xpeach/xph-api-session-controller':
-        specifier: workspace:*
-        version: link:../../api/session-controller
       '@xpeach/xph-brand':
         specifier: workspace:*
         version: link:../../util/brand
@@ -17223,28 +17226,61 @@ importers:
 
   packages/xpeach/account:
     dependencies:
+      '@xpeach/xph-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
       '@xpeach/xph-schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
       '@xpeach/xph-util-values':
         specifier: workspace:*
         version: link:../../util/values
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
     devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@xpeach/xph-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes
+      '@xpeach/xph-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@xpeach/xph-config-editor':
+        specifier: workspace:*
+        version: link:../../boot/config-editor
       '@xpeach/xph-cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@xpeach/xph-cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
       '@xpeach/xph-credentials':
         specifier: workspace:*
         version: link:../../credentials/credentials
       '@xpeach/xph-launch-environment':
         specifier: workspace:*
         version: link:../../util/launch-environment
+      '@xpeach/xph-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@xpeach/xph-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../../llm/llm-pi-ai
+      '@xpeach/xph-settings':
+        specifier: workspace:*
+        version: link:../../settings/settings
       '@xpeach/xph-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
+      '@xpeach/xph-typert-registry':
+        specifier: workspace:*
+        version: link:../../typert/registry
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/xpeach/client-ui:
     devDependencies:

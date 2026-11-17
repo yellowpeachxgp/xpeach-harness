@@ -55,6 +55,11 @@ const publicationSourceAllowlist: Readonly<Record<string, readonly string[]>> = 
 }
 /** Public source home recorded in maintained package manifests. */
 const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harness.git'
+/** 发布成员可以保留上游来源或使用本 fork，包目录始终必须精确匹配。 */
+const releaseRepositoryUrls: readonly string[] = [
+  publishedRepositoryUrl,
+  'git+https://github.com/yellowpeachxgp/xpeach-harness.git',
+]
 /** Packages that participate in the experimental policy. */
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** Private reference tool run from the repository; it publishes no files. */
@@ -71,7 +76,7 @@ const standardReleaseMemberDirectory = new RegExp(
 const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
-  '@xpeach/xph-dsh': ['lib/*.js', 'lib/types/*.d.ts'],
+  '@xpeach/xph-dsh': ['lib/*.js', 'lib/types/*.d.ts', 'resources/xpeach.profile.yml'],
   '@xpeach/xph-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],
@@ -205,7 +210,10 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@xpeach/xph-experimental-ptc-runtime-python': ['py/**/*.py'],
   '@xpeach/xph-experimental-speech-to-text-sensevoice': ['runtime/assets.json'],
   // Node execution modes each launch a separately bundled bootstrap.
-  '@xpeach/xph-ptc-runtime-node': ['lib/process.js', 'lib/persistent-process.js'],
+  '@xpeach/xph-ptc-runtime-node': ['lib/configuration.js', 'lib/process.js', 'lib/persistent-process.js'],
+  // 技能加载器和 Creator 子代理通过相对路径读取这些发布资源。
+  '@xpeach/xph-creation-recommendations': ['references/*.md', 'skills/*.md'],
+  '@xpeach/xph-plugin-recommendations': ['skills/*.md'],
   // The Inspector owns a Worker and a mirrored frontend outside package export paths.
   '@xpeach/xph-experimental-inspector': ['lib/client.*.js', 'lib/worker.js', 'lib/devtools/**'],
   // Creator's composition guidance travels with the declaration package.
@@ -532,9 +540,9 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
       errors.push(`${label}: release member must set publishConfig.access to "public"`)
     }
     if (manifest.repository?.type !== 'git'
-      || manifest.repository.url !== publishedRepositoryUrl
+      || !releaseRepositoryUrls.includes(manifest.repository.url ?? '')
       || manifest.repository.directory !== dir) {
-      errors.push(`${label}: release member repository must use ${publishedRepositoryUrl} with directory ${dir}`)
+      errors.push(`${label}: release member repository must use ${releaseRepositoryUrls.join(' or ')} with directory ${dir}`)
     }
   } else if (!experimentalPackageDirectory.test(dir) && manifest.private !== true) {
     errors.push(`${label}: package.json must set "private": true`)

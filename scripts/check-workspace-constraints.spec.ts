@@ -366,6 +366,24 @@ describe('package payload constraints', () => {
     ])
   })
 
+  it('补齐首个语种后仍检查后续语种的详情文件', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-detail-languages-'))
+    onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+    mkdirSync(join(dir, 'locale'))
+    mkdirSync(join(dir, 'docs'))
+    for (const language of ['de', 'es']) {
+      writeFileSync(join(dir, `locale/${language}.json`), JSON.stringify({
+        meta: { detail: `docs/DETAIL.${language}.md` },
+      }))
+    }
+
+    expect(() => detailDocumentFiles(dir)).toThrow(/DETAIL\.de\.md.*does not exist/)
+    writeFileSync(join(dir, 'docs/DETAIL.de.md'), 'Deutsch\n')
+    expect(() => detailDocumentFiles(dir)).toThrow(/DETAIL\.es\.md.*does not exist/)
+    writeFileSync(join(dir, 'docs/DETAIL.es.md'), 'Español\n')
+    expect(detailDocumentFiles(dir)).toEqual(['docs'])
+  })
+
   it('rejects a detail document that is missing, outside the package, or at the package root', () => {
     const dir = mkdtempSync(join(tmpdir(), 'dsh-detail-invalid-'))
     onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
@@ -462,11 +480,49 @@ describe('package payload constraints', () => {
   })
 })
 
-it('publishes CLI runtime declarations and rejects a payload that omits them', () => {
+it('CLI 必须同时发布运行时声明与默认 profile 资源', () => {
   const manifest = JSON.parse(readFileSync(new URL('../apps/cli/package.json', import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
   expect(checkWorkspaceManifest({ dir: 'apps/cli', manifest })).toEqual([])
-  expect(checkWorkspaceManifest({ dir: 'apps/cli', manifest: { ...manifest, files: ['lib/*.js'] } }))
-    .toEqual([expect.stringContaining('@xpeach/xph-dsh: package.json files must be ["lib/*.js","lib/types/*.d.ts"]')])
+  for (const omitted of ['lib/types/*.d.ts', 'resources/xpeach.profile.yml']) {
+    expect(checkWorkspaceManifest({ dir: 'apps/cli', manifest: {
+      ...manifest, files: manifest.files!.filter(file => file !== omitted),
+    } })).toEqual([expect.stringContaining('@xpeach/xph-dsh: package.json files must be ["lib/*.js","lib/types/*.d.ts","resources/xpeach.profile.yml"]')])
+  }
+})
+
+it('发布成员只接受上游或本 fork 的 Git 来源且要求精确包目录', () => {
+  const dir = 'packages/experimental/forge-bundle'
+  const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+  for (const url of [
+    'git+https://github.com/deepseek-ai/deepseek-harness.git',
+    'git+https://github.com/yellowpeachxgp/xpeach-harness.git',
+  ]) {
+    expect(checkWorkspaceManifest({ dir, manifest: {
+      ...manifest, repository: { type: 'git', url, directory: dir },
+    } })).toEqual([])
+  }
+  for (const repository of [
+    { type: 'git', url: 'git+https://github.com/unrelated/project.git', directory: dir },
+    { type: 'svn', url: 'git+https://github.com/yellowpeachxgp/xpeach-harness.git', directory: dir },
+    { type: 'git', url: 'git+https://github.com/yellowpeachxgp/xpeach-harness.git', directory: 'packages/experimental/other' },
+  ]) {
+    expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, repository } })).toEqual([
+      expect.stringContaining('release member repository must use'),
+    ])
+  }
+})
+
+it.each([
+  ['creation-recommendations', 'references/*.md'],
+  ['creation-recommendations', 'skills/*.md'],
+  ['plugin-recommendations', 'skills/*.md'],
+])('推荐包 %s 的发布资源必须包含 %s', (name, resource) => {
+  const dir = `packages/experimental/${name}`
+  const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+  expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+  expect(checkWorkspaceManifest({ dir, manifest: {
+    ...manifest, files: manifest.files!.filter(file => file !== resource),
+  } })).toEqual([expect.stringContaining('package.json files must be')])
 })
 
 it('requires the shared Web injection entry in the published payload', () => {
@@ -495,11 +551,11 @@ it('requires the local speech worker and locked runtime in the published payload
   }
 })
 
-it('requires both Node execution bootstraps in the published payload', () => {
+it('Node 执行包必须发布配置入口及两个执行引导文件', () => {
   const dir = 'packages/ptc-runtime/ptc-runtime-node'
   const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
   expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
-  for (const omitted of ['lib/process.js', 'lib/persistent-process.js']) {
+  for (const omitted of ['lib/configuration.js', 'lib/process.js', 'lib/persistent-process.js']) {
     const files = expectedDshPackageFiles(manifest).filter(file => file !== omitted)
     expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files } }))
       .toEqual([expect.stringContaining('package.json files must be')])

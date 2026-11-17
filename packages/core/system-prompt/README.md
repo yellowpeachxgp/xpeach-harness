@@ -97,6 +97,8 @@ This section explains how the package realizes the behavior above; the observabl
 
 ### Design concept
 
+For the AgentLoop preparation path, `prepare(context)` runs the original assembly waterfall once and returns eager sections, variables, and runtime context. Contributions marked `deferUntilTools: true` wait for the returned `bindTools(context)`: tools and SDK sections then use the same admitted tools as dispatch. The supplied scope and signal remain those of preparation; binding is single-use. Experts that read, filter, or order delayed tool content must return `finalizeTools(assembly)`, composing any earlier callback; ordinary extra contributions remain, while configured `complete` sections still win after finalization. `assemble()` keeps eager behavior. Provider `knownNames` metadata can validate configured tool order before admission without running tool conditions. See the [migration guide](../../../docs/upgrade-guide/v0.0.35-alpha/prepared-tool-binding/guide.md).
+
 The package is a registry plus a cooperative assembly pipeline. One `assemble()` call merges the global layer with the requested scope's layer, detaches tool parameters, canonicalizes section order by number and then name, runs the scope-filtered `system-prompt/assemble` waterfall, restores an effective complete section as the sole prompt section, and applies any active runtime-context suppressor. Sections and dynamic contexts are separate inputs: sections become prompt text, while contexts become sourced user-role snapshots in model history under the loop. Tool schemas are part of the assembly by design — "what the model is told it can do" is one coherent thing, even though adapters transmit schemas as a separate wire field.
 
 ### Source map
@@ -157,7 +159,7 @@ Prefix-stable while identity, persona, variables, section text, and order render
 
 #### What the model sees
 
-For shipped tools, the model receives the per-agent-visible subset of the [generated tool schemas](../../../docs/tool-catalog.md#xpeachxph-tool-executor-ptc), ordered by configuration or lexicographically after restrictions and assembly interception. Extensions can contribute additional definitions through the same registry. Sections and schema providers are separate assembly inputs. A restriction does not remove a section registration: tool-guidance plugins use `text({ scope })` and `ctx.tools.get(name, scope)` to return empty text or select applicable fragments. Arbitrary static sections are not automatically rewritten.
+For shipped tools, the model receives the per-agent-visible subset of the [generated tool schemas](../../../docs/tool-catalog.md#tool-package-map), ordered by configuration or lexicographically after restrictions and assembly interception. Extensions can contribute additional definitions through the same registry. Sections and schema providers are separate assembly inputs. A restriction does not remove a section registration: tool-guidance plugins use `text({ scope })` and `ctx.tools.get(name, scope)` to return empty text or select applicable fragments. Arbitrary static sections are not automatically rewritten.
 
 #### Token effect
 

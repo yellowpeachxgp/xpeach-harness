@@ -66,6 +66,7 @@
     model: swe-2-max
 - id: llm-pi-ai
   name: "@xpeach/xph-llm-pi-ai"
+  inject: [xpeachAccount]
   config:
     providers:
       xpeach:
@@ -133,4 +134,3 @@
   config:
     root: !!js dshHomePath('sessions')
     listConcurrency: 32
-

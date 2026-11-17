@@ -136,6 +136,32 @@ interface PriceCacheEntry {
   groups: GroupCatalog
 }
 
+/** 校验模型列表实际被同步逻辑消费的字段，未知扩展字段保持兼容。 */
+function isModelEntry(value: unknown): value is XPeachModel {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const fields = value as Record<string, unknown>
+  return typeof fields.id === 'string' && fields.id.trim().length > 0
+    && ['name', 'object', 'owned_by', 'provider', 'defaultReasoningEffort']
+      .every(key => fields[key] === undefined || typeof fields[key] === 'string')
+    && ['created', 'contextWindow', 'maxTokens']
+      .every(key => fields[key] === undefined || (typeof fields[key] === 'number' && Number.isFinite(fields[key])))
+    && ['groups', 'supported_endpoint_types'].every(key => fields[key] === undefined
+      || (Array.isArray(fields[key]) && fields[key].every(item => typeof item === 'string')))
+    && (fields.inputModalities === undefined || (Array.isArray(fields.inputModalities)
+      && fields.inputModalities.every(item => item === 'text' || item === 'image')))
+}
+
+/** 校验公开用量字段；负余额与无限期有效，未知扩展字段保持兼容。 */
+function isTokenUsage(value: unknown): value is XPeachTokenUsage {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const fields = value as Record<string, unknown>
+  return typeof fields.name === 'string'
+    && ['total_granted', 'total_used', 'total_available', 'expires_at']
+      .every(key => typeof fields[key] === 'number' && Number.isFinite(fields[key]))
+    && typeof fields.unlimited_quota === 'boolean'
+    && typeof fields.model_limits_enabled === 'boolean'
+}
+
 /** HTTP adapter for XPeach relay, session, and site-administration endpoints. */
 export class XPeachApi {
   private baseURL: string
@@ -396,10 +422,15 @@ export class XPeachApi {
    * Fetch usage totals for the calling relay API token.
    *
    * @param signal - request cancellation signal.
-   * @returns token usage summary.
+   * @returns 字段已校验的令牌用量；无效 JSON、缺失或错误字段拒绝读取。
    */
-  tokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
-    return this.keyGet('/api/usage/token/', signal)
+  async tokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
+    const usage = await this.keyGet<unknown>('/api/usage/token/', signal)
+    signal.throwIfAborted()
+    if (!isTokenUsage(usage)) {
+      throw new RemoteError('xpeach/request-failed', '令牌用量响应无效，未能验证密钥；请检查中转服务后重试。', { status: 0, message: 'invalid-token-usage' })
+    }
+    return usage
   }
 
   /**
@@ -517,12 +548,15 @@ export class XPeachApi {
    * Fetch the `/v1/models` catalog visible to the calling relay API token.
    *
    * @param signal - request cancellation signal.
-   * @returns model catalog entries.
+   * @returns 经过字段校验的模型目录；空数组有效，解析或字段错误拒绝读取。
    */
   async models(signal: AbortSignal): Promise<readonly XPeachModel[]> {
     const list = await this.keyGet<unknown>('/v1/models', signal)
     const items = (list as { data?: unknown } | null | undefined)?.data ?? list
-    return Array.isArray(items) ? items as readonly XPeachModel[] : []
+    if (!Array.isArray(items) || !items.every(isModelEntry)) {
+      throw new RemoteError('xpeach/request-failed', '模型目录响应无效，已停止同步并保留原目录；请稍后重试或检查中转服务。', { status: 0, message: 'invalid-model-catalog' })
+    }
+    return items
   }
 
   /**

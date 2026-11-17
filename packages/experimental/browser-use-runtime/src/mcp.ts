@@ -214,7 +214,12 @@ export function mountSessionMcp(ctx: Context, options: SessionMcpOptions): void 
   })
   ctx.on('system-prompt/assemble', async (_assembly, { agent }, next) => {
     const assembly = await next()
-    if (agent === undefined || clients.get(agent)?.status === 'ready') return assembly
-    return { ...assembly, sections: assembly.sections.filter(section => section.name !== `mcp:${options.name}`) }
+    if (agent === undefined) return assembly
+    const previous = assembly.finalizeTools
+    return { ...assembly, finalizeTools: (bound) => {
+      const accepted = previous === undefined ? bound : previous(bound)
+      if (clients.get(agent)?.status === 'ready') return accepted
+      return { ...accepted, sections: accepted.sections.filter(section => section.name !== `mcp:${options.name}`) }
+    } }
   })
 }

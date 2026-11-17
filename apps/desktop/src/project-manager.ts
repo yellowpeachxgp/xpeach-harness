@@ -19,6 +19,7 @@ import {
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { copyFileSync, cpSync } from 'node:fs'
+import * as yaml from 'js-yaml'
 import {
   DESKTOP_HOST_PACKAGE,
   desktopCorePackageOverrides,
@@ -28,7 +29,7 @@ import type { DesktopPaths } from './paths.ts'
 import type { DesktopRelease } from './release.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
 import {
-  initProfile, PROFILE_PATCH_FILENAME, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
+  initProfile, loadOptionalPatches, PROFILE_PATCH_FILENAME, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
 } from '@xpeach/xph-app-boot'
 
 const PROJECT_NAME = 'xpeach-desktop-runtime'
@@ -44,6 +45,10 @@ export const XPEACH_PROFILE_BUNDLES = ['@xpeach/xph-account', '@xpeach/xph-clien
  */
 const XPEACH_BUNDLES = [...WEB_PROFILE.bundles]
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
+const productPatchSchema = yaml.JSON_SCHEMA.extend(new yaml.Type('tag:yaml.org,2002:js', {
+  kind: 'scalar', resolve: (expression: unknown) => typeof expression === 'string',
+  construct: (expression: string) => expression,
+}))
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
 }
@@ -250,17 +255,18 @@ export function adoptSharedSiteCredentials(profileDir: string): void {
 }
 
 /**
- * Seed the shipped XPeach product patch when the profile has no patch entries yet.
- * @param profileDir - Desktop profile directory.
- * @param source - Packaged product patch, when this build shipped one.
+ * 仅为缺失、空文档或空数组的产品补丁播种；表达式不求值，非空补丁保留原文件。
+ * @param profileDir - 桌面 profile 目录。
+ * @param source - 随包产品补丁；未提供或文件缺失时不播种。
+ * @throws 用户补丁语法或顶层条目无效时失败，不覆盖目标文件。
  */
 export function seedProductProfilePatch(profileDir: string, source: string | undefined): void {
   if (source === undefined || !existsSync(source)) return
   const target = join(profileDir, PROFILE_PATCH_FILENAME)
   if (existsSync(target)) {
-    // An empty placeholder patch carries no product configuration yet.
     const text = readFileSync(target, 'utf8')
-    if (text.split('\n').some(line => line.trim().startsWith('-'))) return
+    const parsed: unknown = yaml.load(text, { schema: productPatchSchema, filename: target })
+    if (parsed !== undefined && parsed !== null && (loadOptionalPatches('xph', target)?.length ?? 0) > 0) return
   }
   copyFileSync(source, target)
 }

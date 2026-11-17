@@ -49,7 +49,7 @@ describe('SessionController facade', () => {
       agent,
       frame: { type: 'start', attemptId: LlmAttemptId('boot-attempt'), revision: 1, turn: 1, step: 1 },
     })
-    const controller = await mounting
+    const controller = mounting
     const frames = controller.follow({
       address: { kind: 'session', sessionId: session.id }, assistantStream: true,
     }, new AbortController().signal)[Symbol.asyncIterator]()
@@ -66,7 +66,7 @@ describe('SessionController facade', () => {
     await mountAgentLoopTestHarness(ctx)
     const gateway: Partial<TypertGatewayService> = { getPendingRemoteEvents: () => [] }
     ctx.provide('typertGateway', gateway as TypertGatewayService)
-    const controller = await createSessionTestController(ctx, defaults)
+    const controller = createSessionTestController(ctx, defaults)
     const sessionId = SessionId('passive-facade')
     ctx.sessions.create(sessionId, { meta: { cwd: '/workspace' } })
     const address = { kind: 'session' as const, sessionId }

@@ -19,6 +19,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { homedir, release, tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { Context, Service } from '@xpeach/xph-cordis'
@@ -44,6 +45,9 @@ import {
   type XPeachMcpPatchEntry,
 } from './onboarding.ts'
 import { ROUTES, chooseBest, probeRoutes } from './network.ts'
+import { DEFAULT_TOKEN_LOOKUP_LIMITS, scanTokenPages, type TokenLookupLimits, type TokenScan } from './token-lookup.ts'
+import { RelayState, RelayStateError, type RelaySnapshot, type RelayTokenInfo } from './relay-state.ts'
+import { isTemporaryCredentialDirectory } from './credential-paths.ts'
 import {
   inspectMacosInstallerStatus,
   runMacosInstallerAction,
@@ -149,6 +153,8 @@ import {
 
 declare module '@xpeach/xph-typert-protocol' {
   interface RemoteErrorDetailsMap {
+    /** 令牌身份尚未确认，调用方应在凭据稳定后重试。 */
+    'xpeach/identity-incomplete': { readonly reason: 'identity-unknown' | 'identity-budget-exhausted' | 'credential-changed' | 'credential-write-incomplete' }
     /** No credential resolved for the configured reference. */
     'xpeach/missing-credential': { readonly ref: string }
     /** The site rejected or failed the management request. */
@@ -201,6 +207,16 @@ export interface Config {
   readonly sessionKeyVar?: string
   /** Per-request timeout in milliseconds (default 15000). */
   readonly timeoutMs?: number
+  /** 身份解析和写组查行的最大分页数，默认 10。 */
+  readonly tokenPageLimit?: number
+  /** 管理接口每页令牌条数，默认 100。 */
+  readonly tokenPageSize?: number
+  /** 每次身份解析最多 reveal 的令牌数，默认 16。 */
+  readonly tokenRevealLimit?: number
+  /** Relay 原子状态文件；未指定时位于既有共享凭据根目录。 */
+  readonly relayStateFile?: string
+  /** 等待凭据事务锁的最长时间，默认 5000 毫秒。 */
+  readonly credentialLockWaitMs?: number
   /**
    * Harness-configured model ids the section cross-checks against the site
    * catalog — the "is my model actually available" answer.
@@ -399,6 +415,14 @@ interface StoredSsoState {
   } | undefined
   readonly peachcodeUserId?: number | undefined
   readonly boundAt?: number | string | undefined
+}
+
+interface CredentialSnapshot {
+  relay: RelaySnapshot
+}
+
+function isAccountModelProvider(provider: string): boolean {
+  return provider === 'xpeach' || provider === 'xpeach-openai-responses' || provider === 'xpeach-anthropic'
 }
 
 /** Requesting UI identity metadata for `DeepSeekAccount` operations. */
@@ -926,6 +950,11 @@ export class XPeachAccount extends TypertRemoteService {
     autoSyncModels: z.boolean().default(true).volatile(),
     modelMetadataUrl: z.string().default('https://raw.githubusercontent.com/yellowpeachxgp/xpeach-harness/main/resources/model-metadata.json').volatile(),
     timeoutMs: z.natural().min(1000).default(15000).volatile(),
+    tokenPageLimit: z.natural().min(1).default(DEFAULT_TOKEN_LOOKUP_LIMITS.pages),
+    tokenPageSize: z.natural().min(1).default(DEFAULT_TOKEN_LOOKUP_LIMITS.pageSize),
+    tokenRevealLimit: z.natural().min(1).default(DEFAULT_TOKEN_LOOKUP_LIMITS.reveals),
+    relayStateFile: z.string(),
+    credentialLockWaitMs: z.natural().min(1).default(5000),
     watchModels: z.array(z.string()).default([
       'swe-2-max',
     ]).volatile(),
@@ -975,17 +1004,11 @@ export class XPeachAccount extends TypertRemoteService {
   private revokingPromise: Promise<void> | undefined
   private ssoVerifyPromise: Promise<XPeachSsoSessionStatus> | undefined
   private lastSsoVerifyAt = 0
-  private probingSlotKey = false
   private sharedCredentialsAdopted = false
   private lastAccountSettingsSnapshot: ReturnType<typeof readAccountSettings> | undefined
   private lastEnsureTokenInfoAt = 0
-  /**
-   * Monotonic credential generation: bumped every time the relay key or its
-   * bound token record changes. A catalog sync that observes a newer epoch
-   * than the one it started with discards its computed result instead of
-   * overwriting settings with stale credential state.
-   */
-  private credentialEpoch = 0
+  private relayState: RelayState | undefined
+  private relayReady: Promise<void> | undefined
   private usageCache: { at: number; key: string; usage: XPeachTokenUsage } | undefined
   private usageInFlight: Promise<XPeachTokenUsage> | undefined
   private perfSummaryCache: { at: number; hours: number; items: readonly XPeachModelPerfSummary[] } | undefined
@@ -1017,12 +1040,9 @@ export class XPeachAccount extends TypertRemoteService {
     this.adminKeyVar = resolved.adminKeyVar
     this.sessionKeyFile = resolveProfileFile(resolved.sessionKeyFile, 'xpeach.session')
     this.sessionKeyVar = resolved.sessionKeyVar
-    this.adoptSharedCredentials()
-    this.sharedCredentialsAdopted = true
     const storedRoute = this.readRouteFile()
     this.activeBaseURL = (storedRoute.url ?? this.baseURL).replace(/\/+$/, '')
     this.networkAuto = storedRoute.auto ?? true
-    this.bootstrapKey()
 
     this.api = new XPeachApi({
       baseURL: this.activeBaseURL,
@@ -1034,6 +1054,11 @@ export class XPeachAccount extends TypertRemoteService {
       onAuthRejected: (status) => {
         void this.handleAuthRejected(status)
       },
+    })
+
+    this.relayReady = this.initializeRelay()
+    void this.relayReady.catch((error: unknown) => {
+      console.error('[xpeach] 凭据启动失败：', error instanceof RelayStateError ? error.message : '无法初始化账号凭据')
     })
 
     if (this.ctx.get('deepseekAccount') === undefined) {
@@ -1074,18 +1099,18 @@ export class XPeachAccount extends TypertRemoteService {
       callback: (ctx: Context) => void,
     ) => void
     injectServices(['credentials'], () => {
-      const boundKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
-      if (boundKey !== undefined && boundKey.length > 0) {
-        void this.publishCredential(boundKey)
-      }
+      void this.relayReady?.then(async () => {
+        const boundKey = this.readKeyFile()
+        if (boundKey !== undefined) await this.publishCredential(boundKey)
+      }).catch(() => {})
     })
     injectServices(['settings'], () => {
-      if (this.isBound() || existsSync(join(this.ownHome(), '.xpeach-onboarded')) || existsSync(join(this.profileRootHome(), '.xpeach-onboarded'))) {
-        void this.ensureDesktopOnboardingCompleted().catch(() => {})
-      }
-      if (this.isBound()) {
-        this.syncCatalogOnce()
-      }
+      void this.relayReady?.then(async () => {
+        if (this.isBound() || existsSync(join(this.ownHome(), '.xpeach-onboarded')) || existsSync(join(this.profileRootHome(), '.xpeach-onboarded'))) {
+          await this.ensureDesktopOnboardingCompleted()
+        }
+        if (this.isBound()) this.syncCatalogOnce()
+      }).catch(() => {})
     })
     injectServices(['sessionPersistence', 'sessionProjectionCache', 'workspaceRegistry'], () => {
       void this.reconcileSessionsAndWorkspaces().catch(() => {})
@@ -1117,6 +1142,61 @@ export class XPeachAccount extends TypertRemoteService {
     })
   }
 
+  /** 等待启动修复及环境/凭据引用发布，失败阻止服务激活。 */
+  async [Service.init](): Promise<void> {
+    await this.relayReady
+  }
+
+  private async initializeRelay(): Promise<void> {
+    await this.getRelayState().repair()
+    await this.bootstrapKey()
+  }
+
+  private getRelayState(): RelayState {
+    if (this.relayState !== undefined) return this.relayState
+    const mirrors = this.sharedMirrorDirs()
+    const root = mirrors.length === 0 ? dirname(this.keyFile) : this.profileRootHome()
+    const sharedRoot = mirrors.length === 0 || isTemporaryCredentialDirectory(root) ? root : join(homedir(), '.xph')
+    const defaultFile = join(sharedRoot, 'xpeach.relay.json')
+    const configured = this.liveConfig.relayStateFile
+    if (configured !== undefined && !isAbsolute(configured)) {
+      throw new Error('relayStateFile 必须是绝对路径，以确保所有实例使用同一权威文件。')
+    }
+    if (configured !== undefined && resolve(configured) !== resolve(defaultFile) && mirrors.length > 0) {
+      throw new Error('共享凭据镜像必须使用同一个 xpeach.relay.json；自定义状态文件仅支持不参与镜像的 keyFile。')
+    }
+    if (configured !== undefined && mirrors.length === 0 && dirname(configured) !== resolve(dirname(this.keyFile))) {
+      throw new Error('隔离的 relayStateFile 必须与自定义 keyFile 位于同一目录。')
+    }
+    this.relayState = new RelayState({
+      filename: resolve(configured ?? defaultFile),
+      legacyKeyFile: this.keyFile,
+      legacyTokenFile: this.tokenInfoFile(),
+      projectionDirs: mirrors,
+      lockWaitMs: this.liveConfig.credentialLockWaitMs ?? 5000,
+    })
+    return this.relayState
+  }
+
+  private captureCredentialSnapshot(): CredentialSnapshot {
+    return { relay: this.getRelayState().read() }
+  }
+
+  private assertCredentialSnapshot(snapshot: CredentialSnapshot): void {
+    this.getRelayState().assertCurrent(snapshot.relay)
+  }
+
+  private async commitRelay(
+    snapshot: CredentialSnapshot,
+    next: { readonly key?: string; readonly token?: { id?: number; name?: string; groups?: readonly string[]; key?: string } },
+    signal?: AbortSignal,
+  ): Promise<void> {
+    this.assertCredentialSnapshot(snapshot)
+    const committed = await this.getRelayState().commit(snapshot.relay, next, signal)
+    this.getRelayState().assertCurrent(committed)
+    snapshot.relay = committed
+  }
+
   /**
    * Resolve the home root that owns `this.keyFile` (`<home>/profiles/<name>/xpeach.key` -> `<home>`).
    */
@@ -1146,7 +1226,7 @@ export class XPeachAccount extends TypertRemoteService {
     const parentDir = dirname(profileDir)
     if (basename(parentDir) !== 'profiles') return []
     const rootHome = dirname(parentDir)
-    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const inTmp = isTemporaryCredentialDirectory(rootHome)
     const defaultHome = join(homedir(), '.xph')
     const candidates = [
       rootHome,
@@ -1175,7 +1255,7 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private mirrorCredentialFile(filename: string, body: string): void {
     const rootHome = this.profileRootHome()
-    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const inTmp = isTemporaryCredentialDirectory(rootHome)
     const defaultHome = join(homedir(), '.xph')
     for (const dir of this.sharedMirrorDirs()) {
       const isRootDir = resolve(dir) === resolve(rootHome) || (!inTmp && resolve(dir) === resolve(defaultHome))
@@ -1192,7 +1272,7 @@ export class XPeachAccount extends TypertRemoteService {
   private markOnboardedAndClearSignOut(): void {
     const stamp = new Date().toISOString() + '\n'
     const rootHome = this.profileRootHome()
-    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const inTmp = isTemporaryCredentialDirectory(rootHome)
     const homes = new Set<string>([rootHome, this.ownHome()])
     if (!inTmp) homes.add(join(homedir(), '.xph'))
     for (const home of homes) {
@@ -1242,18 +1322,16 @@ export class XPeachAccount extends TypertRemoteService {
   private adoptSharedCredentials(): void {
     const rootHome = this.profileRootHome()
     if (existsSync(this.signedOutMarker(rootHome))) return
-    const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
+    const inTmp = isTemporaryCredentialDirectory(rootHome)
     if (!inTmp && ! this.isBound() && existsSync(this.signedOutMarker(join(homedir(), '.xph')))) return
     const mirrorDirs = this.sharedMirrorDirs()
     if (mirrorDirs.length === 0) return
 
     const targets: readonly [string, string][] = [
-      [this.keyFile, 'xpeach.key'],
       [this.adminKeyFile, 'xpeach.admin'],
       [this.sessionKeyFile, 'xpeach.session'],
       [this.ssoStateFile, 'xpeach.sso.json'],
       [this.slotsFile(), 'xpeach.keys'],
-      [this.tokenInfoFile(), 'xpeach.token'],
       [this.routeFile, 'xpeach.route.json'],
     ]
 
@@ -1281,22 +1359,28 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Our independent key channel: profile-local file → process.env export for
-   * the LLM providers → never the shared credentials.yaml. Seeding from the
-   * shared store happens exactly once (tracked by the .seeded sentinel); an
-   * explicit unbind never resurrects.
+   * 从共享 authority 建立账号状态并发布凭据引用；旧文件仅供初次迁移。
+   * 已存在的空 authority 表示撤销，不允许环境、槽位或旧引用反向恢复。
    */
-  private bootstrapKey(): void {
+  private async bootstrapKey(): Promise<void> {
     if (!this.sharedCredentialsAdopted) {
       this.adoptSharedCredentials()
       this.sharedCredentialsAdopted = true
     }
     let key = this.readKeyFile()
-    if (key === undefined) {
+    const hasAuthority = this.getRelayState().read().revision > 0
+    if (key === undefined && hasAuthority) {
+      Reflect.deleteProperty(process.env, this.keyVar)
+      Reflect.deleteProperty(process.env, this.apiKeyEnv)
+      await this.revokeCredential()
+      this.writeState(this.seededMarker(), '')
+      return
+    }
+    if (key === undefined && !hasAuthority) {
       const slots = this.readSlots()
       if (slots[0]?.key !== undefined) {
         key = slots[0].key
-        this.writeKeyFile(key)
+        await this.persistKey(key)
       }
     }
     const admin = this.resolveAdmin()
@@ -1333,18 +1417,22 @@ export class XPeachAccount extends TypertRemoteService {
         return () => { clearTimeout(bootMintTimer) }
       })
     }
-    if (key === undefined && !existsSync(this.seededMarker())) {
+    if (key === undefined && !hasAuthority && !existsSync(this.seededMarker())) {
       const ambient = process.env[this.keyVar] ?? process.env[this.apiKeyEnv]
       if (ambient !== undefined && ambient.trim().length > 0) {
         key = ambient.trim()
-        this.persistKey(key)
+        await this.persistKey(key)
       }
       this.writeState(this.seededMarker(), '')
     }
     if (key !== undefined) {
+      const snapshot = this.captureCredentialSnapshot()
+      if (snapshot.relay.revision === 0) {
+        await this.commitRelay(snapshot, { key, ...(snapshot.relay.token === undefined ? {} : { token: snapshot.relay.token }) })
+      }
       process.env[this.keyVar] = key
       process.env[this.apiKeyEnv] = key
-      void this.publishCredential(key)
+      await this.publishCredential(key)
     }
     if (this.isBound()) {
       this.markOnboardedAndClearSignOut()
@@ -1380,17 +1468,7 @@ export class XPeachAccount extends TypertRemoteService {
 
   /** Read the profile-local key file; absent or empty → undefined. */
   private readKeyFile(): string | undefined {
-    if (!existsSync(this.keyFile)) return undefined
-    const value = readFileSync(this.keyFile, 'utf8').trim()
-    return value.length > 0 ? value : undefined
-  }
-
-  /** Write the key file with 0600 permissions, mkdir -p its parent. */
-  private writeKeyFile(key: string): void {
-    mkdirSync(dirname(this.keyFile), { recursive: true })
-    const content = key + '\n'
-    this.writeState(this.keyFile, content)
-    this.mirrorCredentialFile('xpeach.key', content)
+    return this.getRelayState().read().key
   }
 
   /** Multi-slot key store: xpeach.keys JSON [{name,key}] next to keyFile. */
@@ -1421,26 +1499,17 @@ export class XPeachAccount extends TypertRemoteService {
   /** Relay-token metadata (id / name / groups / bound key) beside the key file. */
   private tokenInfoFile(): string { return this.keyFile.replace(/\.key$/, '.token') }
   private readTokenInfo(): { id?: number; name?: string; groups?: string[]; key?: string } {
-    let raw = ''
-    try { raw = readFileSync(this.tokenInfoFile(), 'utf8') } catch (_err) { return {} }
-    let parsed: Record<string, unknown> | undefined
-    try { parsed = JSON.parse(raw) as Record<string, unknown> } catch (_err) { return {} }
-    return {
-      ...(typeof parsed.id === 'number' ? { id: parsed.id } : {}),
-      ...(typeof parsed.name === 'string' ? { name: parsed.name } : {}),
-      ...(Array.isArray(parsed.groups)
-        ? { groups: parsed.groups.filter((g): g is string => typeof g === 'string' && g.length > 0) }
-        : {}),
-      ...(typeof parsed.key === 'string' && parsed.key.length > 0 ? { key: parsed.key } : {}),
-    }
+    const token = this.getRelayState().read().token
+    if (token === undefined) return {}
+    const { groups, ...fields } = token
+    return { ...fields, ...(groups === undefined ? {} : { groups: [...groups] }) }
   }
-  private writeTokenInfo(info: { id?: number; name?: string; groups?: string[]; key?: string }): void {
-    mkdirSync(dirname(this.tokenInfoFile()), { recursive: true })
-    const serialized = JSON.stringify(info)
-    this.writeState(this.tokenInfoFile(), serialized)
-    this.mirrorCredentialFile('xpeach.token', serialized)
+  private async writeTokenInfo(
+    info: { id?: number; name?: string; groups?: string[]; key?: string },
+    snapshot = this.captureCredentialSnapshot(),
+  ): Promise<void> {
+    await this.commitRelay(snapshot, { ...(snapshot.relay.key === undefined ? {} : { key: snapshot.relay.key }), token: info })
     this.lastEnsureTokenInfoAt = Date.now()
-    this.credentialEpoch = (typeof this.credentialEpoch === 'number' ? this.credentialEpoch : 0) + 1
   }
 
   /** Strip the vendor prefix so a raw relay key compares equal across forms. */
@@ -1473,9 +1542,6 @@ export class XPeachAccount extends TypertRemoteService {
     return []
   }
 
-  /** Name prefixes this harness itself gives the relay tokens it mints. */
-  private static readonly MINTED_TOKEN_PREFIXES = ['xph-', 'dsh-'] as const
-
   /**
    * Candidate order for key verification: managed-name prefixes first
    * (`xph-`, `dsh-`, `sso-`, `peachcode`, `xpeach`), then the remaining
@@ -1497,48 +1563,71 @@ export class XPeachAccount extends TypertRemoteService {
     return [...enabled.filter(isManagedName), ...enabled.filter(t => !isManagedName(t))]
   }
 
-  /** Fetch the newest token page across whichever management channel is bound. */
-  private async listTokenPage(signal: AbortSignal): Promise<readonly XPeachAdminToken[]> {
-    try {
-      const page = await this.api.adminTokens(0, 100, signal)
-      return page.items
-    } catch (err) {
-      if (signal.aborted) throw err
-    }
-    try {
-      const page = await this.api.userTokens(0, signal)
-      return page.items.map(item => ({ ...item, user_id: 0 }))
-    } catch {
-      signal.throwIfAborted()
-      return []
+  /** 将部署配置解析为一次扫描使用的固定限额。 */
+  private resolveTokenLookupLimits(): TokenLookupLimits {
+    return {
+      pages: this.liveConfig.tokenPageLimit ?? DEFAULT_TOKEN_LOOKUP_LIMITS.pages,
+      pageSize: this.liveConfig.tokenPageSize ?? DEFAULT_TOKEN_LOOKUP_LIMITS.pageSize,
+      reveals: this.liveConfig.tokenRevealLimit ?? DEFAULT_TOKEN_LOOKUP_LIMITS.reveals,
     }
   }
 
-  /**
-   * Reveal one token's stored key through whichever credential channel works.
-   * Both surfaces hit `POST /api/token/{id}/key` — the PAT surface also serves
-   * the session cookie, the admin surface requires the access token.
-   */
-  private async revealTokenKey(id: number, signal: AbortSignal): Promise<{ key?: string } | undefined> {
+  /** 管理通道不可用时改用用户通道；预算耗尽不伪装成完整目录。 */
+  private async listTokenPages(signal: AbortSignal, userOnly = false, snapshot = this.captureCredentialSnapshot()): Promise<TokenScan> {
+    const limits = this.resolveTokenLookupLimits()
+    const readUser = async (page: number): Promise<{ items: XPeachAdminToken[]; total: number }> => {
+      const result = await this.api.userTokens(page, signal)
+      return { items: result.items.map(item => ({ ...item, user_id: 0 })), total: result.total }
+    }
+    const assertCurrent = (): void => { this.assertCredentialSnapshot(snapshot) }
+    const scan = async (readPage: Parameters<typeof scanTokenPages>[0]): Promise<TokenScan> => {
+      let expectedTotal = 0
+      const result = await scanTokenPages(async (...args) => {
+        const page = await readPage(...args)
+        expectedTotal = Math.max(expectedTotal, page.total)
+        return page
+      }, limits, signal, assertCurrent)
+      // 提前返回空页不代表已读完站点声明的全部令牌。
+      return result.status === 'complete' && result.items.length < expectedTotal
+        ? { ...result, status: 'unavailable' }
+        : result
+    }
+    if (userOnly) return await scan(readUser)
+    const admin = await scan((page, size) => this.api.adminTokens(page, size, signal))
+    if (admin.status !== 'unavailable') return admin
+    const user = await scan(readUser)
+    const items = new Map(admin.items.map(item => [item.id, item]))
+    for (const item of user.items) items.set(item.id, item)
+    return { items: [...items.values()], status: user.status }
+  }
+
+  /** 揭示令牌密钥；控制台限定用户认证通道，其他调用可使用管理通道补充验证。 */
+  private async revealTokenKey(
+    id: number,
+    signal: AbortSignal,
+    snapshot = this.captureCredentialSnapshot(),
+    userOnly = false,
+  ): Promise<{ key?: string } | undefined> {
     const attempts: (() => Promise<{ key?: string }>)[] = []
     if (typeof this.api.userTokenKey === 'function') {
       attempts.push(() => this.api.userTokenKey(id, signal))
     }
-    if (typeof this.api.adminTokenKey === 'function') {
+    if (!userOnly && typeof this.api.adminTokenKey === 'function') {
       attempts.push(() => this.api.adminTokenKey(id, signal))
     }
     for (const attempt of attempts) {
       try {
-        return await attempt()
+        this.assertCredentialSnapshot(snapshot)
+        const revealed = await attempt()
+        this.assertCredentialSnapshot(snapshot)
+        if (revealed.key !== undefined && revealed.key.length > 0) return revealed
       } catch (err) {
+        this.assertCredentialSnapshot(snapshot)
         if (signal.aborted) throw err
       }
     }
     return undefined
   }
-
-  /** Upper bound of key reveals per resolution pass — identity checks must not stampede the site. */
-  private static readonly TOKEN_REVEAL_LIMIT = 16
 
   /**
    * Identify the site token the active relay key belongs to. An exact key match
@@ -1550,32 +1639,41 @@ export class XPeachAccount extends TypertRemoteService {
   private async resolveTokenForKey(
     activeKey: string | undefined,
     signal: AbortSignal,
-  ): Promise<{ id: number; name?: string; groups?: string[] } | undefined> {
+    snapshot = this.captureCredentialSnapshot(),
+  ): Promise<{
+    info?: { id: number; name?: string; groups?: string[] }
+    failure?: 'identity-unknown' | 'identity-budget-exhausted'
+  }> {
     const normKey = this.normalizeRelayKey(activeKey)
-    if (normKey.length === 0) return undefined
-    const items = await this.listTokenPage(signal)
-    const ordered = this.tokenResolveOrder(items)
+    if (normKey.length === 0) return { failure: 'identity-unknown' }
+    const scan = await this.listTokenPages(signal, false, snapshot)
+    this.assertCredentialSnapshot(snapshot)
+    const ordered = this.tokenResolveOrder(scan.items)
     const byKey = ordered.find(t => this.normalizeRelayKey(t.key) === normKey)
     if (byKey !== undefined) {
       const groups = this.extractTokenGroups(byKey)
-      return {
+      return { info: {
         id: byKey.id,
         ...(byKey.name !== undefined ? { name: byKey.name } : {}),
         ...(groups.length > 0 ? { groups } : {}),
-      }
+      } }
     }
-    for (const candidate of ordered.slice(0, XPeachAccount.TOKEN_REVEAL_LIMIT)) {
-      const revealed = await this.revealTokenKey(candidate.id, signal)
+    const limits = this.resolveTokenLookupLimits()
+    for (const candidate of ordered.slice(0, limits.reveals)) {
+      const revealed = await this.revealTokenKey(candidate.id, signal, snapshot)
+      this.assertCredentialSnapshot(snapshot)
       if (revealed !== undefined && this.normalizeRelayKey(revealed.key) === normKey) {
         const groups = this.extractTokenGroups(candidate)
-        return {
+        return { info: {
           id: candidate.id,
           ...(candidate.name !== undefined ? { name: candidate.name } : {}),
           ...(groups.length > 0 ? { groups } : {}),
-        }
+        } }
       }
     }
-    return undefined
+    return { failure: scan.status === 'budget-exhausted' || ordered.length > limits.reveals
+      ? 'identity-budget-exhausted'
+      : 'identity-unknown' }
   }
 
   /**
@@ -1585,8 +1683,15 @@ export class XPeachAccount extends TypertRemoteService {
    * `setGroups` operation, so refreshing the catalog can no longer edit
    * whichever token happened to be newest or share a managed prefix.
    */
-  private async ensureTokenInfo(signal: AbortSignal): Promise<{ id?: number; name?: string; groups?: string[]; key?: string }> {
-    const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+  private async ensureTokenInfo(signal: AbortSignal, snapshot = this.captureCredentialSnapshot()): Promise<{
+    id?: number
+    name?: string
+    groups?: string[]
+    key?: string
+    failure?: 'identity-unknown' | 'identity-budget-exhausted'
+  }> {
+    this.assertCredentialSnapshot(snapshot)
+    const activeKey = snapshot.relay.key
     const info = this.readTokenInfo()
     const bound = this.tokenInfoMatchesKey(info, activeKey)
     if (
@@ -1602,33 +1707,35 @@ export class XPeachAccount extends TypertRemoteService {
     let tokenName = bound ? info.name : undefined
     let resolvedGroups: string[] | undefined
     if (tokenId === undefined) {
-      const live = await this.resolveTokenForKey(activeKey, signal)
-      if (live === undefined) {
+      const live = await this.resolveTokenForKey(activeKey, signal, snapshot)
+      this.assertCredentialSnapshot(snapshot)
+      if (live.info === undefined) {
         // Identity unresolved: never guess a token. A record bound to another
         // key is stale — strip its id/name so no later write can target it.
-        const displayGroups = bound || info.key === undefined ? info.groups : undefined
+        const displayGroups = bound ? info.groups : undefined
         const next = {
           ...(activeKey !== undefined ? { key: activeKey } : {}),
           ...(displayGroups !== undefined ? { groups: displayGroups } : {}),
         }
-        if (!deepEqualJson(info, next)) this.writeTokenInfo(next)
-        return next
+        if (!deepEqualJson(info, next)) await this.writeTokenInfo(next, snapshot)
+        return { ...next, failure: live.failure ?? 'identity-unknown' }
       }
-      tokenId = live.id
-      tokenName = live.name
-      resolvedGroups = live.groups
+      tokenId = live.info.id
+      tokenName = live.info.name
+      resolvedGroups = live.info.groups
     }
     let detail: Record<string, JsonValue> | undefined
     try {
       detail = await this.api.adminTokenGet(tokenId, signal)
     } catch (err) {
+      this.assertCredentialSnapshot(snapshot)
       if (signal.aborted) throw err
       // Detail unavailable: keep only confirmed fields. An id just resolved by
       // key is trustworthy; groups fall back to the resolved (or a same-key
       // stored) set — never to a record bound to another key.
       const fallbackGroups = resolvedGroups !== undefined
         ? resolvedGroups
-        : (bound || info.key === undefined ? info.groups : undefined)
+        : (bound ? info.groups : undefined)
       return {
         id: tokenId,
         ...(tokenName !== undefined ? { name: tokenName } : {}),
@@ -1636,19 +1743,20 @@ export class XPeachAccount extends TypertRemoteService {
         ...(activeKey !== undefined ? { key: activeKey } : {}),
       }
     }
+    this.assertCredentialSnapshot(snapshot)
     const detailGroups = this.extractTokenGroups(detail)
     const groups = detailGroups.length > 0
       ? detailGroups
       : resolvedGroups !== undefined
         ? resolvedGroups
-        : (bound || info.key === undefined ? (info.groups ?? []) : [])
+        : (bound ? (info.groups ?? []) : [])
     const next = {
       id: tokenId,
       ...(tokenName !== undefined ? { name: tokenName } : {}),
       groups,
       ...(activeKey !== undefined ? { key: activeKey } : {}),
     }
-    this.writeTokenInfo(next)
+    await this.writeTokenInfo(next, snapshot)
     return next
   }
 
@@ -1691,7 +1799,7 @@ export class XPeachAccount extends TypertRemoteService {
   private syncCatalogOnce(): void {
     if (this.catalogSyncPromise !== undefined || this.catalogSynced) return
     void this.upgradeStoredModels().catch(() => undefined)
-    const key = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    const key = this.readKeyFile()
     if (key === undefined || key.length === 0) return
     void this.syncModelCatalog(new AbortController().signal)
       .then((result) => {
@@ -1767,7 +1875,7 @@ export class XPeachAccount extends TypertRemoteService {
     let changed = false
 
     for (const [key, provider] of Object.entries(existingProviders)) {
-      if (!key.startsWith('xpeach')) continue
+      if (!isAccountModelProvider(key)) continue
       if (!Array.isArray(provider['models']) || provider['models'].length === 0) continue
       let providerChanged = false
       const nextProvider: Record<string, unknown> = { ...provider }
@@ -1874,7 +1982,7 @@ export class XPeachAccount extends TypertRemoteService {
         const joined = await this.catalogSyncPromise
         // A joined run discarded for staleness leaves this caller's catalog
         // unpublished — run once more against the current credential.
-        if (joined.ok || joined.error !== 'credential changed during sync') return joined
+        if (joined.ok || joined.code !== 'credential-changed') return joined
       }
     }
     const run = this.runSyncModelCatalog(signal, manual, options).finally(() => {
@@ -1889,12 +1997,18 @@ export class XPeachAccount extends TypertRemoteService {
     manual = false,
     options?: { readonly forceGroupSwitch?: boolean },
   ): Promise<XPeachModelSyncResult> {
-    // Token resolution IS credential state establishment: the epoch baseline
-    // is taken after it, so the guard below only rejects changes that arrive
-    // while the remote catalog is being computed — never the resolution itself.
-    const info = await this.ensureTokenInfo(signal)
-    const epochAtStart = this.credentialEpoch
+    let info: Awaited<ReturnType<XPeachAccount['ensureTokenInfo']>> = {}
     try {
+      const snapshot = this.captureCredentialSnapshot()
+      info = await this.ensureTokenInfo(signal, snapshot)
+      this.assertCredentialSnapshot(snapshot)
+      if (info.id === undefined || info.failure !== undefined) {
+        const code = info.failure ?? 'identity-unknown'
+        return { ok: false, count: 0, groups: [], code,
+          error: code === 'identity-budget-exhausted'
+            ? '令牌身份扫描预算已耗尽；已保留原模型目录，请调整分页或 reveal 限额后重试。'
+            : '尚未确认当前密钥的令牌身份；已保留原模型目录，请检查管理凭据后重试。' }
+      }
       const settings = this.ctx.get('settings') as
         | {
           describe?: () => unknown
@@ -1903,7 +2017,9 @@ export class XPeachAccount extends TypertRemoteService {
         }
         | undefined
       if (settings?.update === undefined) return { ok: false, count: 0, groups: info.groups ?? [], error: 'settings service unavailable' }
+      const updateSettings = settings.update.bind(settings)
       const described = await settings.describe?.()
+      this.assertCredentialSnapshot(snapshot)
       const liveAccountSettings = readAccountSettings(described)
       this.lastAccountSettingsSnapshot = liveAccountSettings
       if (liveAccountSettings.timeoutMs !== undefined) {
@@ -1926,6 +2042,7 @@ export class XPeachAccount extends TypertRemoteService {
           : Promise.resolve(undefined),
         this.refreshModelMetadata(signal),
       ])
+      this.assertCredentialSnapshot(snapshot)
 
       const groupsByModel = new Map<string, Set<string>>()
       const endpointsByModel = new Map<string, Set<string>>()
@@ -2006,7 +2123,7 @@ export class XPeachAccount extends TypertRemoteService {
           ...(mergedEndpoints.length > 0 ? { supported_endpoint_types: mergedEndpoints } : {}),
         })
       }
-      for (const modelId of tokenGroupModels) {
+      for (const modelId of catalogue.length > 0 ? tokenGroupModels : []) {
         if (!byId.has(modelId)) {
           const mergedGroups = [...(groupsByModel.get(modelId) ?? [])]
           const mergedEndpoints = [...(endpointsByModel.get(modelId) ?? [])]
@@ -2057,9 +2174,6 @@ export class XPeachAccount extends TypertRemoteService {
           reasoningEfforts: caps.reasoningEfforts,
         }
       })
-      if (models.length === 0) {
-        return { ok: true, count: 0, groups: info.groups ?? [] }
-      }
       const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
       const openAIBase = siteRoot.endsWith('/v1') ? siteRoot : siteRoot + '/v1'
       const anthropicBase = siteRoot.replace(/\/v1$/u, '')
@@ -2100,36 +2214,41 @@ export class XPeachAccount extends TypertRemoteService {
         }
       }
       const live = Object.keys(existingProviders)
-      const stale = live.filter(key => key.startsWith('xpeach') && !(key in providers))
-      const providersChanged = stale.length > 0 || Object.entries(providers).some(
+      const stale = live.filter(key => isAccountModelProvider(key) && !(key in providers))
+      // unset 会恢复 profile 的继承目录；显式空列表才能停用已移除的账号模型。
+      for (const key of stale) providers[key] = { ...existingProviders[key], models: [] }
+      const providersChanged = Object.entries(providers).some(
         ([k, v]) => !deepEqualJson(existingProviders[k] ?? null, v),
       )
       // The credential may have rotated while the catalog was being computed
       // (SSO refresh, key-slot switch). Writing the stale result would push a
       // catalog scoped to a key that is no longer active — discard it and let
       // the sync the credential change triggered publish its own.
-      if (this.credentialEpoch !== epochAtStart) {
-        return { ok: false, count: 0, groups: info.groups ?? [], error: 'credential changed during sync' }
-      }
-      if (providersChanged) {
-        if (settings.mutate !== undefined) {
-          // One mutate call retires stale providers and installs the new ones —
-          // a failure leaves the previous catalog untouched rather than empty.
-          const ops: { op: 'set' | 'unset'; path: string[]; value?: unknown }[] = [
-            ...stale.map(key => ({ op: 'unset' as const, path: ['providers', key] })),
-            ...Object.entries(providers).map(([key, value]) => ({ op: 'set' as const, path: ['providers', key], value })),
-          ]
-          await settings.mutate('llm-pi-ai', ops)
-        } else {
-          await settings.update('llm-pi-ai', { providers })
+      await this.getRelayState().withCurrent(snapshot.relay, async () => {
+        this.assertCredentialSnapshot(snapshot)
+        if (snapshot.relay.key === undefined) throw new RelayStateError('credential-changed')
+        await this.publishCredentialUnderLock(snapshot.relay.key, snapshot)
+        await this.assertPublishedCredential(snapshot)
+        if (providersChanged) {
+          if (settings.mutate !== undefined) {
+            // 一次发布空列表与新目录，失败时保留原设置。
+            const ops = Object.entries(providers).map(([key, value]) => ({ op: 'set' as const, path: ['providers', key], value }))
+            await settings.mutate('llm-pi-ai', ops)
+          } else {
+            const merged = { ...existingProviders, ...providers }
+            await updateSettings('llm-pi-ai', { providers: merged })
+          }
         }
-      }
-      await this.reconcileDefaultModelSelection(providers, {
-        primaryGroupModels,
-        forceGroupSwitch: options?.forceGroupSwitch === true,
-      })
+        this.assertCredentialSnapshot(snapshot)
+        await this.assertPublishedCredential(snapshot)
+        await this.reconcileDefaultModelSelection(providers, {
+          primaryGroupModels,
+          forceGroupSwitch: options?.forceGroupSwitch === true,
+        })
+      }, signal)
       return { ok: true, count: models.length, groups: info.groups ?? [] }
     } catch (e) {
+      if (e instanceof RelayStateError) return { ok: false, count: 0, groups: info.groups ?? [], code: e.code, error: e.message }
       return { ok: false, count: 0, groups: info.groups ?? [], error: e instanceof Error ? e.message.slice(0, 160) : String(e) }
     }
   }
@@ -2156,7 +2275,7 @@ export class XPeachAccount extends TypertRemoteService {
 
     const findProviderForModel = (modelId: string): { provider: string; modelObj: Record<string, unknown> } | undefined => {
       for (const [provKey, provObj] of providerEntries) {
-        if (!provKey.startsWith('xpeach')) continue
+        if (!isAccountModelProvider(provKey)) continue
         const found = findModelInProvider(provObj, modelId)
         if (found !== undefined) return { provider: provKey, modelObj: found }
       }
@@ -2187,7 +2306,7 @@ export class XPeachAccount extends TypertRemoteService {
     const pickPreferredSelection = (): { provider: string; model: string } | undefined => {
       const byId = new Map<string, { provider: string; rank: number }>()
       for (const [key, provObj] of providerEntries) {
-        if (!key.startsWith('xpeach')) continue
+        if (!isAccountModelProvider(key)) continue
         const rawList = provObj.models
         if (!Array.isArray(rawList)) continue
         for (const item of rawList) {
@@ -2216,8 +2335,8 @@ export class XPeachAccount extends TypertRemoteService {
       const current = defaultModelService.currentSelection()
       let reconciled = false
       if (current !== undefined) {
-        const isXpeachOrAccount = current.provider === 'deepseek-account' || current.provider.startsWith('xpeach')
-        if (!isXpeachOrAccount) {
+        const isXpeach = isAccountModelProvider(current.provider)
+        if (!isXpeach) {
           reconciled = true
         } else if (!forceSwitch || !hasPrimaryScope || primarySet.has(current.model)) {
           const directMatch = findModelInProvider(providers[current.provider], current.model)
@@ -2249,14 +2368,16 @@ export class XPeachAccount extends TypertRemoteService {
       }
     }
 
-    await this.reconcileActiveSessionModels(
-      providers,
-      findModelInProvider,
-      findProviderForModel,
-      preferredSelection,
-      primarySet,
-      forceSwitch,
-    )
+    if (forceSwitch) {
+      await this.reconcileActiveSessionModels(
+        providers,
+        findModelInProvider,
+        findProviderForModel,
+        preferredSelection,
+        primarySet,
+        true,
+      )
+    }
   }
 
   private async reconcileActiveSessionModels(
@@ -2267,6 +2388,7 @@ export class XPeachAccount extends TypertRemoteService {
     primaryGroupModels: ReadonlySet<string> | undefined,
     forceGroupSwitch: boolean,
   ): Promise<void> {
+    if (!forceGroupSwitch) return
     const sessionController = this.getOptionalService('sessionController')
     const sessionPersistence = this.getOptionalService('sessionPersistence')
     const projectionCache = this.getOptionalService('sessionProjectionCache')
@@ -2282,20 +2404,11 @@ export class XPeachAccount extends TypertRemoteService {
         if (typeof sessionId !== 'string' || sessionId.length === 0) continue
         const proj = projectionCache?.get?.(sessionId, 'modelSelection')
         const active = proj?.pending ?? proj?.lastUsed
-        if (active === undefined || active === null) {
-          if (forceGroupSwitch && preferredSelection !== undefined) {
-            await sessionController.selectModel({
-              sessionId,
-              provider: preferredSelection.provider,
-              model: preferredSelection.model,
-            }).catch(() => undefined)
-          }
-          continue
-        }
-        const isXpeachOrAccount = active.provider === 'deepseek-account' || active.provider.startsWith('xpeach')
-        if (!isXpeachOrAccount) continue
+        if (active === undefined || active === null) continue
+        const isXpeach = isAccountModelProvider(active.provider)
+        if (!isXpeach) continue
 
-        if (forceGroupSwitch && hasPrimaryScope && !primaryGroupModels.has(active.model)) {
+        if (hasPrimaryScope && !primaryGroupModels.has(active.model)) {
           if (preferredSelection !== undefined) {
             await sessionController.selectModel({
               sessionId,
@@ -2333,13 +2446,22 @@ export class XPeachAccount extends TypertRemoteService {
   /**
    * Persist into the profile file + live env + the credentials service.
    */
-  private persistKey(key: string): void {
-    this.writeKeyFile(key)
+  private async persistKey(key: string, snapshot = this.captureCredentialSnapshot(), signal?: AbortSignal): Promise<void> {
+    const token = this.normalizeRelayKey(snapshot.relay.key) === this.normalizeRelayKey(key) ? snapshot.relay.token : undefined
+    await this.persistRelayCredential(key, token, snapshot, signal)
+  }
+
+  private async persistRelayCredential(
+    key: string,
+    token: RelayTokenInfo | undefined,
+    snapshot = this.captureCredentialSnapshot(),
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.commitRelay(snapshot, { key, ...(token === undefined ? {} : { token }) }, signal)
     process.env[this.keyVar] = key
     process.env[this.apiKeyEnv] = key
     this.markOnboardedAndClearSignOut()
-    void this.publishCredential(key)
-    this.credentialEpoch = (typeof this.credentialEpoch === 'number' ? this.credentialEpoch : 0) + 1
+    await this.publishCredential(key, snapshot)
   }
 
   /**
@@ -2354,20 +2476,52 @@ export class XPeachAccount extends TypertRemoteService {
     this.markOnboardedAndClearSignOut()
   }
 
-  /** Best-effort runtime record under the provider's apiKeyEnv name. */
-  private async publishCredential(key: string): Promise<void> {
+  /** 发布完成后重新校验同代凭据，失败不得继续发布目录。 */
+  private async publishCredential(key: string, snapshot = this.captureCredentialSnapshot()): Promise<void> {
+    await this.getRelayState().withCurrent(snapshot.relay, async () => {
+      await this.publishCredentialUnderLock(key, snapshot)
+    })
+  }
+
+  private async publishCredentialUnderLock(key: string, snapshot: CredentialSnapshot): Promise<void> {
     const creds = this.ctx.get('credentials') as { set?: (ref: CredentialRef, value: string) => Promise<void>; unset?: (ref: CredentialRef) => Promise<void> } | undefined
+    this.assertCredentialSnapshot(snapshot)
+    if (key !== snapshot.relay.key) throw new RelayStateError('credential-changed')
     try {
       await creds?.set?.(credentialRef(this.keyVar), key)
-    } catch (e) {
-      console.error('[xpeach] credential publish failed:', e instanceof Error ? e.message : String(e))
+    } catch (cause) {
+      throw new RelayStateError('credential-write-incomplete', { cause })
+    }
+    this.assertCredentialSnapshot(snapshot)
+  }
+
+  private async assertPublishedCredential(snapshot: CredentialSnapshot): Promise<void> {
+    this.assertCredentialSnapshot(snapshot)
+    const credentials = this.ctx.get('credentials')
+    if (credentials !== undefined) {
+      const resolved = await credentials.resolve(credentialRef(this.keyVar))
+      this.assertCredentialSnapshot(snapshot)
+      if (resolved?.value !== snapshot.relay.key) throw new RelayStateError('credential-write-incomplete')
     }
   }
 
   /** Drop the runtime record so a revoked key cannot keep serving a route. */
   private async revokeCredential(): Promise<void> {
+    const snapshot = this.captureCredentialSnapshot()
+    await this.getRelayState().withCurrent(snapshot.relay, async () => {
+      await this.revokeCredentialUnderLock(snapshot)
+    })
+  }
+
+  private async revokeCredentialUnderLock(snapshot: CredentialSnapshot): Promise<void> {
+    this.assertCredentialSnapshot(snapshot)
+    if (snapshot.relay.key !== undefined) throw new RelayStateError('credential-changed')
     const creds = this.ctx.get('credentials') as { unset?: (ref: CredentialRef) => Promise<void> } | undefined
-    try { await creds?.unset?.(credentialRef(this.keyVar)) } catch (_err) { /* best effort */ }
+    try {
+      await creds?.unset?.(credentialRef(this.keyVar))
+    } catch (cause) {
+      throw new RelayStateError('credential-write-incomplete', { cause })
+    }
   }
 
   /** Notify clients (and the forwarded-event allowlist) the key changed. */
@@ -2379,7 +2533,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   private async cachedTokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
-    const cacheKey = `${this.readKeyFile() ?? process.env[this.keyVar]?.trim() ?? ''}|${this.resolveAdmin() ?? ''}`
+    const cacheKey = `${this.readKeyFile() ?? ''}|${this.resolveAdmin() ?? ''}`
     if (this.usageCache !== undefined && this.usageCache.key === cacheKey && Date.now() - this.usageCache.at < 15_000) {
       return this.usageCache.usage
     }
@@ -2504,43 +2658,40 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Add a key slot (validates the key first), then activate it.
-   *
-   * @param request - slot label and raw API key.
-   * @param signal - carrier cancellation.
-   * @returns whether the key slot was added and activated.
+   * 独立验证候选密钥，再按捕获修订提交并激活槽位；不会临时替换活动凭据。
+   * @param request - 槽位名称与候选密钥。
+   * @param signal - 验证及等待提交的取消信号；提交后的清理继续完成。
+   * @returns 验证失败返回 ok: false 且原凭据不变；并发变化或提交／引用发布失败拒绝。
    */
   @Remote('keySlotAdd')
   async keySlotAddOp(request: { name: string; key: string }, signal: AbortSignal): Promise<{ ok: boolean; message: string }> {
+    signal.throwIfAborted()
     const key = request.key.trim()
     if (key.match(/^(?:xpk|sk)-/u) === null) return { ok: false, message: 'xpeach: key must start with xpk-' }
-    const prev = this.readKeyFile()
-    this.probingSlotKey = true
-    this.persistKey(key)
+    const snapshot = this.captureCredentialSnapshot()
+    const prev = snapshot.relay.key
+    const candidate = new XPeachApi({
+      baseURL: this.api.siteBaseURL,
+      timeoutMs: this.timeoutMs,
+      resolveKey: () => Promise.resolve(key),
+      resolveAdmin: () => undefined,
+      resolveCookie: () => undefined,
+    })
     try {
-      await this.api.tokenUsage(signal)
+      await candidate.tokenUsage(signal)
     } catch (e) {
-      if (prev !== undefined) {
-        this.persistKey(prev)
-      } else {
-        try { unlinkSync(this.keyFile) } catch (_err) { /* absent */ }
-        for (const dir of this.sharedMirrorDirs()) {
-          try { unlinkSync(join(dir, 'xpeach.key')) } catch (_err) { /* absent */ }
-        }
-        Reflect.deleteProperty(process.env, this.keyVar)
-        Reflect.deleteProperty(process.env, this.apiKeyEnv)
-        await this.revokeCredential()
-      }
-      return { ok: false, message: e instanceof Error ? e.message : 'xpeach: key rejected' }
-    } finally {
-      this.probingSlotKey = false
+      this.assertCredentialSnapshot(snapshot)
+      if (signal.aborted) throw e
+      return { ok: false, message: '候选密钥验证失败，原活动凭据保持不变；请检查密钥后重试。' }
     }
+    signal.throwIfAborted()
+    this.assertCredentialSnapshot(snapshot)
+    await this.persistKey(key, snapshot, signal)
     const slots = this.readSlots().filter(s => s.key !== key)
     slots.push({ name: request.name.trim() || `slot-${String(slots.length + 1)}`, key })
     this.writeSlots(slots)
     if (prev !== key) {
       this.lastEnsureTokenInfoAt = 0
-      try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
     }
     this.markOnboardedAndClearSignOut()
     void this.ensureDesktopOnboardingCompleted().catch(() => {})
@@ -2556,15 +2707,14 @@ export class XPeachAccount extends TypertRemoteService {
    * @returns switch outcome message.
    */
   @Remote('keySlotSwitch')
-  keySlotSwitchOp(request: { index: number }): { ok: boolean; message: string } {
+  async keySlotSwitchOp(request: { index: number }): Promise<{ ok: boolean; message: string }> {
     const slots = this.readSlots()
     const target = slots[request.index]
     if (target === undefined) return { ok: false, message: 'xpeach: slot index out of range' }
     const prev = this.readKeyFile()
-    this.persistKey(target.key)
+    await this.persistKey(target.key)
     if (prev !== target.key) {
       this.lastEnsureTokenInfoAt = 0
-      try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
     }
     this.notifyKeyChanged()
     void this.syncModelCatalog(AbortSignal.timeout(this.timeoutMs)).catch(() => {})
@@ -2578,27 +2728,24 @@ export class XPeachAccount extends TypertRemoteService {
    * @returns removal outcome message.
    */
   @Remote('keySlotRemove')
-  keySlotRemoveOp(request: { index: number }): { ok: boolean; message: string } {
+  async keySlotRemoveOp(request: { index: number }): Promise<{ ok: boolean; message: string }> {
     const slots = this.readSlots()
     const target = slots[request.index]
     if (target === undefined) return { ok: false, message: 'xpeach: slot index out of range' }
-    const active = this.readKeyFile()
+    const snapshot = this.captureCredentialSnapshot()
+    const active = snapshot.relay.key
     slots.splice(request.index, 1)
     this.writeSlots(slots)
     if (target.key === active) {
       const next = slots[0]
       if (next !== undefined) {
-        this.persistKey(next.key)
+        await this.persistKey(next.key, snapshot)
         this.lastEnsureTokenInfoAt = 0
-        try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
       } else {
-        try { unlinkSync(this.keyFile) } catch (_err) { /* absent */ }
-        for (const dir of this.sharedMirrorDirs()) {
-          try { unlinkSync(join(dir, 'xpeach.key')) } catch (_err) { /* absent */ }
-        }
+        await this.commitRelay(snapshot, {})
         Reflect.deleteProperty(process.env, this.keyVar)
         Reflect.deleteProperty(process.env, this.apiKeyEnv)
-        void this.revokeCredential()
+        await this.getRelayState().withCurrent(snapshot.relay, async () => { await this.revokeCredentialUnderLock(snapshot) })
       }
       this.notifyKeyChanged()
     }
@@ -2629,18 +2776,19 @@ export class XPeachAccount extends TypertRemoteService {
         { status: 0, message: 'api key, not access token' },
       )
     }
+    const snapshot = this.captureCredentialSnapshot()
     const previousAdmin = this.resolveAdmin()
     this.api.setAdminKey(token)
     try {
       await this.api.adminSelf(signal)
+      this.assertCredentialSnapshot(snapshot)
     } catch (e) {
       this.api.setAdminKey(undefined)
       throw e
     }
     if (previousAdmin !== undefined && previousAdmin !== token) {
-      try { unlinkSync(this.keyFile) } catch (_err) { /* absent */ }
+      await this.commitRelay(snapshot, {})
       try { unlinkSync(this.slotsFile()) } catch (_err) { /* absent */ }
-      try { unlinkSync(this.tokenInfoFile()) } catch (_err) { /* absent */ }
       Reflect.deleteProperty(process.env, this.keyVar)
       Reflect.deleteProperty(process.env, this.apiKeyEnv)
       await this.revokeCredential()
@@ -2700,7 +2848,7 @@ export class XPeachAccount extends TypertRemoteService {
   keyState(_request: XPeachSelfRequest, signal: AbortSignal): XPeachBindResult {
     signal.throwIfAborted()
     this.syncCatalogOnce()
-    const key = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    const key = this.readKeyFile()
     const admin = this.resolveAdmin()
     const adminBits = admin === undefined ? {} : { adminBound: true, adminPreview: admin.slice(0, 4) + '…' + admin.slice(-4) }
     if (key !== undefined && key.length > 0) {
@@ -3063,7 +3211,7 @@ export class XPeachAccount extends TypertRemoteService {
    * @returns `true` when at least one credential channel is bound.
    */
   isBound(): boolean {
-    const key = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    const key = this.readKeyFile()
     if (key !== undefined && key.length > 0) return true
     if (this.resolveAdmin() !== undefined) return true
     const sso = this.readSsoState()
@@ -3100,7 +3248,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     | { readonly status: 'signed-out' } {
     const sso = this.readSsoState()
-    const bearer = sso?.accessToken ?? this.resolveAdmin() ?? this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    const bearer = sso?.accessToken ?? this.resolveAdmin() ?? this.readKeyFile()
     if (bearer === undefined || bearer.length === 0) {
       return { status: 'signed-out' }
     }
@@ -3207,7 +3355,7 @@ export class XPeachAccount extends TypertRemoteService {
     | { readonly available: false }
   > {
     if (!this.isBound()) return { available: false }
-    const cacheKey = `${this.readKeyFile() ?? process.env[this.keyVar]?.trim() ?? ''}|${this.resolveAdmin() ?? ''}`
+    const cacheKey = `${this.readKeyFile() ?? ''}|${this.resolveAdmin() ?? ''}`
     if (
       this.usageCache !== undefined
       && this.usageCache.key === cacheKey
@@ -3287,7 +3435,6 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   private async handleAuthRejected(_status: 401 | 403): Promise<void> {
-    if (this.probingSlotKey) return
     await this.verifyAndSyncSsoSession(true).catch(() => {})
   }
 
@@ -3347,7 +3494,7 @@ export class XPeachAccount extends TypertRemoteService {
     const providers: Record<string, object> = {}
     let changed = false
     for (const [key, provider] of Object.entries(existing)) {
-      if (!key.startsWith('xpeach')) continue
+      if (!isAccountModelProvider(key)) continue
       if (Array.isArray(provider['models']) && provider['models'].length > 0) {
         providers[key] = { ...provider, models: [] }
         changed = true
@@ -3381,6 +3528,7 @@ export class XPeachAccount extends TypertRemoteService {
       return
     }
     const run = (async () => {
+      const snapshot = this.captureCredentialSnapshot()
       const sso = this.readSsoState()
       const hadAnyCredential = this.isBound()
       if (
@@ -3399,69 +3547,74 @@ export class XPeachAccount extends TypertRemoteService {
         ).catch(() => false)
       }
 
-      const credentialFilenames = [
-        'xpeach.key',
-        'xpeach.admin',
-        'xpeach.session',
-        'xpeach.sso.json',
-        'xpeach.keys',
-        'xpeach.token',
-      ]
+      this.assertCredentialSnapshot(snapshot)
+      await this.commitRelay(snapshot, {})
+      await this.getRelayState().withCurrent(snapshot.relay, async () => {
 
-      for (const file of [
-        this.keyFile,
-        this.adminKeyFile,
-        this.sessionKeyFile,
-        this.ssoStateFile,
-        this.slotsFile(),
-        this.tokenInfoFile(),
-      ]) {
-        if (existsSync(file)) {
-          try { unlinkSync(file) } catch (_err) { /* absent */ }
-        }
-      }
+        const credentialFilenames = [
+          'xpeach.key',
+          'xpeach.admin',
+          'xpeach.session',
+          'xpeach.sso.json',
+          'xpeach.keys',
+          'xpeach.token',
+        ]
 
-      for (const dir of this.sharedMirrorDirs()) {
-        for (const filename of credentialFilenames) {
-          const target = join(dir, filename)
-          if (existsSync(target)) {
-            try { unlinkSync(target) } catch (_err) { /* absent */ }
+        for (const file of [
+          this.keyFile,
+          this.adminKeyFile,
+          this.sessionKeyFile,
+          this.ssoStateFile,
+          this.slotsFile(),
+          this.tokenInfoFile(),
+        ]) {
+          if (existsSync(file)) {
+            try { unlinkSync(file) } catch (_err) { /* absent */ }
           }
         }
-      }
 
-      if (reason === 'signed-out' || reason === 'banned') {
-        const rootHome = this.profileRootHome()
-        const stamp = new Date().toISOString() + '\n'
-        try { this.writeState(this.signedOutMarker(rootHome), stamp) } catch (_err) { /* best effort */ }
-        const inTmp = resolve(rootHome).startsWith(resolve(tmpdir()))
-        if (!inTmp) {
-          try { this.writeState(this.signedOutMarker(join(homedir(), '.xph')), stamp) } catch (_err) { /* best effort */ }
+        for (const dir of this.sharedMirrorDirs()) {
+          for (const filename of credentialFilenames) {
+            const target = join(dir, filename)
+            if (existsSync(target)) {
+              try { unlinkSync(target) } catch (_err) { /* absent */ }
+            }
+          }
         }
-      }
 
-      Reflect.deleteProperty(process.env, this.keyVar)
-      Reflect.deleteProperty(process.env, this.apiKeyEnv)
-      Reflect.deleteProperty(process.env, this.adminKeyVar)
-      Reflect.deleteProperty(process.env, this.sessionKeyVar)
-      this.api.setAdminKey(undefined)
-      this.api.setSessionKey(undefined)
-      this.writeState(this.seededMarker(), '')
-      this.lastSsoVerifyAt = 0
-      this.lastEnsureTokenInfoAt = 0
-      this.usageCache = undefined
+        if (reason === 'signed-out' || reason === 'banned') {
+          const rootHome = this.profileRootHome()
+          const stamp = new Date().toISOString() + '\n'
+          try { this.writeState(this.signedOutMarker(rootHome), stamp) } catch (_err) { /* best effort */ }
+          const inTmp = isTemporaryCredentialDirectory(rootHome)
+          if (!inTmp) {
+            try { this.writeState(this.signedOutMarker(join(homedir(), '.xph')), stamp) } catch (_err) { /* best effort */ }
+          }
+        }
 
-      await this.revokeCredential()
-      await this.clearModelCatalogFromSettings().catch(() => {})
-      this.cancelRunningAccountTasks()
+        Reflect.deleteProperty(process.env, this.keyVar)
+        Reflect.deleteProperty(process.env, this.apiKeyEnv)
+        Reflect.deleteProperty(process.env, this.adminKeyVar)
+        Reflect.deleteProperty(process.env, this.sessionKeyVar)
+        this.api.setAdminKey(undefined)
+        this.api.setSessionKey(undefined)
+        this.writeState(this.seededMarker(), '')
+        this.lastSsoVerifyAt = 0
+        this.lastEnsureTokenInfoAt = 0
+        this.usageCache = undefined
 
-      const emitEvent = this.ctx.emit.bind(this.ctx) as (name: string, ...args: unknown[]) => void
-      if (hadAnyCredential && (reason === 'revoked' || reason === 'banned' || reason === 'expired')) {
-        try { emitEvent('deepseek-account/session-expired') } catch (_err) { /* contained */ }
-      }
-      try { emitEvent('deepseek-account/signed-out') } catch (_err) { /* contained */ }
-      this.notifyKeyChanged()
-      this.deepseekAccountBridge?.onLocalCredentialsRevoked(reason)
+        await this.revokeCredentialUnderLock(snapshot)
+        await this.clearModelCatalogFromSettings().catch(() => {})
+        this.cancelRunningAccountTasks()
+
+        const emitEvent = this.ctx.emit.bind(this.ctx) as (name: string, ...args: unknown[]) => void
+        if (hadAnyCredential && (reason === 'revoked' || reason === 'banned' || reason === 'expired')) {
+          try { emitEvent('deepseek-account/session-expired') } catch (_err) { /* contained */ }
+        }
+        try { emitEvent('deepseek-account/signed-out') } catch (_err) { /* contained */ }
+        this.notifyKeyChanged()
+        this.deepseekAccountBridge?.onLocalCredentialsRevoked(reason)
+      })
     })().finally(() => {
       this.revokingPromise = undefined
     })
@@ -3479,6 +3632,8 @@ export class XPeachAccount extends TypertRemoteService {
    * @returns current SSO session validity and identity summary.
    */
   async verifyAndSyncSsoSession(force = false, signal?: AbortSignal): Promise<XPeachSsoSessionStatus> {
+    const relay = this.getRelayState().read()
+    if (relay.revision > 0 && relay.key === undefined) return { valid: false, status: 'unbound' }
     if (!this.isBound()) {
       return { valid: false, status: 'unbound' }
     }
@@ -3506,6 +3661,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     const effectiveSignal = signal ?? AbortSignal.timeout(Math.min(this.timeoutMs, 8_000))
     const run = (async (): Promise<XPeachSsoSessionStatus> => {
+      const snapshot = this.captureCredentialSnapshot()
       const sso = this.readSsoState()
       const boundAtMs = typeof sso?.boundAt === 'number'
         ? sso.boundAt
@@ -3526,12 +3682,14 @@ export class XPeachAccount extends TypertRemoteService {
             effectiveSignal,
           )
         } catch (err) {
+          this.assertCredentialSnapshot(snapshot)
           sync = {
             status: 'transient_error',
             transient: true,
             message: err instanceof Error ? err.message : String(err),
           }
         }
+        this.assertCredentialSnapshot(snapshot)
         if (sync.status === 'revoked') {
           await this.revokeAllLocalCredentials(sync.code === 403 ? 'banned' : 'revoked')
           return {
@@ -3614,18 +3772,17 @@ export class XPeachAccount extends TypertRemoteService {
           // Key and token record move as one credential: never carry the
           // previous token's id/name/groups over a different key — that stale
           // identity is what let group edits land on the wrong site token.
-          this.persistKey(nextApiKey)
-          this.writeTokenInfo({
+          await this.persistRelayCredential(nextApiKey, {
             ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
             ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
             ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
             key: nextApiKey,
-          })
+          }, snapshot)
           this.notifyKeyChanged()
           keyChanged = true
         } else if (
           nextApiKey === undefined
-          && (currentKey ?? process.env[this.keyVar]?.trim()) === undefined
+          && currentKey === undefined
           && this.resolveAdmin() !== undefined
         ) {
           const minted = await this.mintKeyWithAccessToken(effectiveSignal).catch(() => ({ ok: false }))
@@ -3657,7 +3814,7 @@ export class XPeachAccount extends TypertRemoteService {
             ...(currentKey !== undefined ? { key: currentKey } : {}),
           }
           if (!deepEqualJson(prevInfo, nextInfo)) {
-            this.writeTokenInfo(nextInfo)
+            await this.writeTokenInfo(nextInfo, snapshot)
           }
         }
         if (keyChanged || !this.catalogSynced) {
@@ -3687,6 +3844,7 @@ export class XPeachAccount extends TypertRemoteService {
       if (this.resolveAdmin() !== undefined) {
         try {
           const me = await this.api.userSelf(effectiveSignal)
+          this.assertCredentialSnapshot(snapshot)
           if (me.status !== undefined && me.status !== 1) {
             await this.revokeAllLocalCredentials('banned')
             return {
@@ -3697,7 +3855,7 @@ export class XPeachAccount extends TypertRemoteService {
               message: 'Account has been disabled',
             }
           }
-          if ((this.readKeyFile() ?? process.env[this.keyVar]?.trim()) === undefined) {
+          if ((this.readKeyFile()) === undefined) {
             const minted = await this.mintKeyWithAccessToken(effectiveSignal).catch(() => ({ ok: false }))
             if (minted.ok) {
               this.notifyKeyChanged()
@@ -3711,6 +3869,7 @@ export class XPeachAccount extends TypertRemoteService {
             email: me.email,
           }
         } catch (err) {
+          this.assertCredentialSnapshot(snapshot)
           if (err instanceof RemoteError && (err.details as { status?: number } | undefined)?.status !== undefined) {
             const st = (err.details as { status?: number }).status
             if (st === 401 || st === 403) {
@@ -3731,9 +3890,11 @@ export class XPeachAccount extends TypertRemoteService {
       if (this.readKeyFile() !== undefined) {
         try {
           await this.api.tokenUsage(effectiveSignal)
+          this.assertCredentialSnapshot(snapshot)
           this.lastSsoVerifyAt = Date.now()
           return { valid: true, status: 'ok' }
         } catch (err) {
+          this.assertCredentialSnapshot(snapshot)
           if (err instanceof RemoteError && (err.details as { status?: number } | undefined)?.status !== undefined) {
             const st = (err.details as { status?: number }).status
             if (st === 401 || st === 403) {
@@ -3764,11 +3925,20 @@ export class XPeachAccount extends TypertRemoteService {
     next: (opts?: unknown) => AsyncGenerator<Record<string, unknown>, void, unknown>,
   ): AsyncGenerator<Record<string, unknown>, void, unknown> {
     const provider = options.provider ?? ''
-    if (!provider.startsWith('xpeach')) {
+    if (!isAccountModelProvider(provider)) {
       yield* next(options)
       return
     }
-    const check = await this.verifyAndSyncSsoSession(false, options.signal)
+    let check: XPeachSsoSessionStatus
+    try {
+      await this.relayReady
+      check = await this.verifyAndSyncSsoSession(false, options.signal)
+      await this.assertPublishedCredential(this.captureCredentialSnapshot())
+    } catch (error) {
+      if (!(error instanceof RelayStateError)) throw error
+      yield { type: 'finish', reason: { kind: 'error', failure: { message: error.message, code: 'MISSING_CREDENTIAL' } } }
+      return
+    }
     if (!check.valid || check.status === 'revoked' || !this.isBound()) {
       const emitEvent = this.ctx.emit.bind(this.ctx) as (name: string) => void
       try { emitEvent('deepseek-account/model-sign-in-required') } catch (_err) { /* contained */ }
@@ -3888,7 +4058,9 @@ export class XPeachAccount extends TypertRemoteService {
   private async applySsoBridgePayload(
     payload: XPeachSsoBridgePayload,
     signal: AbortSignal,
+    snapshot = this.captureCredentialSnapshot(),
   ): Promise<XPeachSsoDevicePollResult> {
+    this.assertCredentialSnapshot(snapshot)
     const peach = payload.peachcode
     const sso = payload.sso
     const username = peach?.username ?? sso?.user?.username ?? sso?.user?.name ?? undefined
@@ -3931,13 +4103,12 @@ export class XPeachAccount extends TypertRemoteService {
         : typeof peach?.group === 'string' && peach.group.trim().length > 0
           ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
           : []
-      this.writeTokenInfo({
+      await this.persistRelayCredential(apiKey, {
         ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
         ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
         ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
         key: apiKey,
-      })
-      this.persistKey(apiKey)
+      }, snapshot)
       preview = apiKey.slice(0, 5) + '…' + apiKey.slice(-4)
     } else if (accessToken !== undefined && accessToken.length > 0) {
       const minted = await this.mintKeyWithAccessToken(signal)
@@ -3946,7 +4117,7 @@ export class XPeachAccount extends TypertRemoteService {
       }
     }
 
-    const boundRelayKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    const boundRelayKey = this.readKeyFile()
     if (boundRelayKey === undefined || boundRelayKey.length === 0) {
       return {
         status: 'error',
@@ -4039,19 +4210,21 @@ export class XPeachAccount extends TypertRemoteService {
       return await inFlight
     }
     const run = (async (): Promise<XPeachSsoDevicePollResult> => {
+      const snapshot = this.captureCredentialSnapshot()
       const polled = await this.api.ssoDeviceToken(
         this.currentSsoBaseURL(),
         this.currentSsoClientId(),
         deviceCode,
         signal,
       )
+      this.assertCredentialSnapshot(snapshot)
       if (polled.status !== 'approved' || polled.payload === undefined) {
         return {
           status: polled.status,
           ...(polled.message !== undefined ? { message: polled.message } : {}),
         }
       }
-      const applied = await this.applySsoBridgePayload(polled.payload, signal)
+      const applied = await this.applySsoBridgePayload(polled.payload, signal, snapshot)
       if (applied.status === 'approved' && applied.bound === true) {
         if (approvedCache.size >= 32) {
           const oldestKey = approvedCache.keys().next().value
@@ -4126,102 +4299,114 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
-  /**
-   * Mint or reuse a console relay token through the active session so a single
-   * browser login binds both the session cookie and an `sk-` key.
-   */
+  /** 通过控制台认证通道精确复用或新建令牌，不按名称认领。 */
   private async mintConsoleKey(signal: AbortSignal): Promise<{ ok: boolean; err?: string }> {
-    try {
-      let id: number
-      let name: string
-      const page = await this.api.userTokens(0, signal)
-      const live = page.items
-        .filter(t => t.status === 1 && (t.name.startsWith('xph-') || t.name.startsWith('dsh-')))
-        .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
-      if (live !== undefined) {
-        id = live.id
-        name = live.name
-      } else {
-        name = 'xph-' + new Date().toISOString().slice(0, 10) + '-' + Math.random().toString(36).slice(2, 6)
-        await this.api.userTokenCreate({
-          name, remain_quota: 0, expired_time: -1,
-          unlimited_quota: true, model_limits_enabled: false, group: '',
-        }, signal)
-        const after = await this.api.userTokens(0, signal)
-        const hit = after.items.filter(t => t.name === name).sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
-        if (hit === undefined) return { ok: false, err: 'token not found after create' }
-        id = hit.id
-      }
-      const revealed = await this.api.userTokenKey(id, signal)
-      let key = revealed.key
-      if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
-      if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
-      this.writeTokenInfo({ id, name, key })
-      this.persistKey(key)
+    const result = await this.mintRelayToken(signal, 'console')
+    if (result.ok) {
       this.notifyKeyChanged()
       await this.syncModelCatalog(signal).catch(() => {})
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, err: e instanceof Error ? e.message.slice(0, 120) : String(e) }
     }
+    return result
   }
 
-  /**
-   * Find-or-create the sk- relay token through the access-token channel. Runs
-   * once per bind: reuse the newest living xph-/dsh- token, otherwise create
-   * one and reveal it. Returns the masked preview for the bind receipt.
-   */
+  /** 复用当前密钥已确认的令牌；无活动密钥时新建，不凭名称认领既有令牌。 */
   private async mintKeyWithAccessToken(signal: AbortSignal): Promise<{ ok: boolean; err?: string; preview?: string }> {
+    const result = await this.mintRelayToken(signal, 'admin')
+    if (result.ok) void this.syncModelCatalog(signal).catch(() => {})
+    return result
+  }
+
+  /** 两种认证通道共用完整扫描及绑定规则；仅管理员为本次新建的令牌设置默认组。 */
+  private async mintRelayToken(signal: AbortSignal, channel: 'admin' | 'console'): Promise<{ ok: boolean; err?: string; preview?: string }> {
+    const snapshot = this.captureCredentialSnapshot()
+    const userOnly = channel === 'console'
+    const reveal = async (id: number): Promise<{ key?: string } | undefined> =>
+      await this.revealTokenKey(id, signal, snapshot, userOnly)
+    let creationRequested = false
     try {
-      const defaults = await this.defaultGroups(signal)
       let id: number | undefined
       let name: string | undefined
-      const page = await this.api.adminTokens(0, 100, signal)
-      const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+      let defaults: string[] = []
+      let created = false
+      const page = await this.listTokenPages(signal, userOnly, snapshot)
+      if (page.status !== 'complete') return { ok: false, err: '令牌列表扫描未完成，未创建或修改令牌。' }
+      const activeKey = this.readKeyFile()
       const normKey = this.normalizeRelayKey(activeKey)
       const enabled = page.items
         .filter(t => t.status === undefined || t.status === 1)
         .sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))
-      // Reuse only a token this harness can own: the one already holding the
-      // active key, else the newest token it minted itself (xph-/dsh- names).
-      const live = enabled.find(t => this.normalizeRelayKey(t.key) === normKey && normKey.length > 0)
-        ?? enabled.find(t => XPeachAccount.MINTED_TOKEN_PREFIXES.some(p => (t.name ?? '').startsWith(p)))
+      // 既有令牌只能由当前密钥确认；名称不是创建者或用途的证据。
+      let live = enabled.find(t => this.normalizeRelayKey(t.key) === normKey && normKey.length > 0)
+      if (normKey.length > 0 && live === undefined) {
+        const candidates = this.tokenResolveOrder(page.items).slice(0, this.resolveTokenLookupLimits().reveals)
+        for (const candidate of candidates) {
+          const revealed = await reveal(candidate.id)
+          if (this.normalizeRelayKey(revealed?.key) === normKey) {
+            live = candidate
+            break
+          }
+        }
+        if (live === undefined) return { ok: false, err: '无法确认现有密钥归属，未创建或修改令牌。' }
+      }
       if (live !== undefined) {
         id = live.id
         name = live.name
       } else {
-        name = 'xph-' + new Date().toISOString().slice(0, 10) + '-' + Math.random().toString(36).slice(2, 6)
-        await this.api.adminTokenCreate({
+        if (!userOnly) defaults = await this.defaultGroups(signal)
+        this.assertCredentialSnapshot(snapshot)
+        name = 'xph-' + randomUUID()
+        creationRequested = true
+        const payload = {
           name,
-          groups: defaults,
-          group: defaults[0] ?? '',
+          group: '',
           remain_quota: 0,
           expired_time: -1,
           unlimited_quota: true,
           model_limits_enabled: false,
-        }, signal)
-        const after = await this.api.adminTokens(0, 100, signal)
-        const hit = after.items.filter(t => t.name === name).sort((a, b) => (b.created_time ?? 0) - (a.created_time ?? 0))[0]
-        if (hit === undefined) return { ok: false, err: 'token not found after create' }
+        }
+        if (userOnly) await this.api.userTokenCreate(payload, signal)
+        else await this.api.adminTokenCreate({ ...payload, groups: [] }, signal)
+        this.assertCredentialSnapshot(snapshot)
+        const after = await this.listTokenPages(signal, userOnly, snapshot)
+        const existingIds = new Set(page.items.map(token => token.id))
+        const matches = after.items.filter(token => token.name === name && !existingIds.has(token.id))
+        const hit = matches[0]
+        if (after.status !== 'complete' || matches.length !== 1 || hit === undefined) {
+          return { ok: false, err: '创建请求已发送，但无法唯一确认新令牌，未修改分组或绑定；请检查站点令牌列表。' }
+        }
         id = hit.id
+        live = hit
+        created = true
       }
-      const counts = await this.groupModelCounts(signal)
-      const detail = await this.api.adminTokenGet(id, signal)
-      const currentGroups = this.extractTokenGroups(detail)
-      const usable = currentGroups.some(g => (counts.get(g) ?? 0) > 0)
-      if (!usable && defaults.length > 0) {
-        await this.api.adminTokenUpdate({ ...detail, groups: defaults, group: defaults[0] ?? '' }, signal)
+      const revealed = await reveal(id)
+      let key = revealed?.key
+      if (typeof key !== 'string' || key.length === 0) {
+        return { ok: false, err: created ? '新令牌已创建，但无法确认密钥；未修改分组或绑定，请检查站点令牌列表。' : '未能确认令牌密钥，分组未修改。' }
       }
-      const groups = usable ? currentGroups : defaults
-      const revealed = await this.api.adminTokenKey(id, signal)
-      let key = revealed.key
-      if (typeof key !== 'string' || key.length === 0) return { ok: false, err: 'key reveal empty' }
+      if (normKey.length > 0 && this.normalizeRelayKey(key) !== normKey) {
+        return { ok: false, err: '令牌不再持有当前密钥，分组未修改。' }
+      }
       if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
-      this.writeTokenInfo({ id, ...(name !== undefined ? { name } : {}), groups, key })
-      this.persistKey(key)
-      void this.syncModelCatalog(signal).catch(() => {})
+      const detail = userOnly ? live : await this.api.adminTokenGet(id, signal)
+      this.assertCredentialSnapshot(snapshot)
+      const currentGroups = this.extractTokenGroups(detail)
+      if (created && defaults.length > 0) {
+        await this.getRelayState().withCurrent(snapshot.relay, async () => {
+          const confirmed = await reveal(id)
+          if (confirmed?.key === undefined || this.normalizeRelayKey(confirmed.key) !== this.normalizeRelayKey(key)) {
+            throw new RemoteError('xpeach/identity-incomplete', '写入前无法确认令牌密钥，分组未修改。', { reason: 'identity-unknown' })
+          }
+          await this.api.adminTokenUpdate({ ...detail, id, groups: defaults, group: defaults[0] ?? '' }, signal)
+          this.assertCredentialSnapshot(snapshot)
+        }, signal)
+      }
+      const groups = created && defaults.length > 0 ? defaults : currentGroups
+      await this.persistRelayCredential(key, { id, ...(name !== undefined ? { name } : {}), groups, key }, snapshot, signal)
       return { ok: true, preview: key.slice(0, 5) + '…' + key.slice(-4) }
     } catch (e) {
+      if (creationRequested) {
+        return { ok: false, err: '创建令牌后的绑定未完成，远端可能已有新令牌；请检查站点列表及本地凭据状态后重试。' }
+      }
       return { ok: false, err: e instanceof Error ? e.message.slice(0, 120) : String(e) }
     }
   }
@@ -4397,12 +4582,20 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('siteCatalog')
   async siteCatalogOp(_request: XPeachSelfRequest, signal: AbortSignal): Promise<XPeachSiteCatalog> {
     signal.throwIfAborted()
+    const snapshot = this.captureCredentialSnapshot()
     const [pricing, groupCat, info] = await Promise.all([
       this.api.adminPricing(signal),
       typeof this.api.groups === 'function' ? this.api.groups(signal).catch(() => undefined) : Promise.resolve(undefined),
-      this.ensureTokenInfo(signal),
+      this.ensureTokenInfo(signal, snapshot),
     ])
+    this.assertCredentialSnapshot(snapshot)
+    if (info.id === undefined || info.failure !== undefined) {
+      throw new RemoteError('xpeach/identity-incomplete', '尚未确认当前密钥的令牌身份；请检查管理凭据或扫描预算后重试。', {
+        reason: info.failure ?? 'identity-unknown',
+      })
+    }
     const list = await this.api.models(signal).catch(() => [])
+    this.assertCredentialSnapshot(snapshot)
     const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
     const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
     const counts = new Map<string, number>()
@@ -4436,23 +4629,19 @@ export class XPeachAccount extends TypertRemoteService {
         }
       })
       .sort((a, b) => b.models - a.models)
-    const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
+    const activeKey = this.readKeyFile()
     return {
       groups,
       tokenGroups: info.groups ?? [],
       models: list.map(m => m.id),
-      ...(info.id !== undefined && this.tokenInfoMatchesKey(info, activeKey) ? { tokenId: info.id } : {}),
+      ...(this.tokenInfoMatchesKey(info, activeKey) ? { tokenId: info.id } : {}),
       ...(info.name !== undefined && this.tokenInfoMatchesKey(info, activeKey) ? { tokenName: info.name } : {}),
       ...(activeKey !== undefined && activeKey.length > 4 ? { keyTail: activeKey.slice(-4) } : {}),
     }
   }
 
   /**
-   * Reassign the relay token's groups, then re-sync the model picker. This is
-   * the only operation that edits a site token's groups, and it only runs when
-   * the stored token record is verified against the active relay key — an
-   * unconfirmed identity fails closed instead of editing whichever token the
-   * record might have drifted onto.
+   * 显式修改当前 relay 令牌的分组；写入前必须重新确认密钥归属。
    *
    * @param request - group names to assign to the relay token.
    * @param signal - carrier cancellation.
@@ -4461,50 +4650,75 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('setGroups')
   async setGroupsOp(request: { groups: string[] }, signal: AbortSignal): Promise<XPeachModelSyncResult> {
     signal.throwIfAborted()
-    const activeKey = this.readKeyFile() ?? process.env[this.keyVar]?.trim()
-    const info = await this.ensureTokenInfo(signal)
-    const groups = request.groups.filter(g => typeof g === 'string' && g.length > 0)
-    if (groups.length === 0) return { ok: false, count: 0, groups: info.groups ?? [], error: 'pick at least one group' }
-    if (info.id === undefined || !this.tokenInfoMatchesKey(info, activeKey)) {
+    try {
+      const snapshot = this.captureCredentialSnapshot()
+      const activeKey = snapshot.relay.key
+      const info = await this.ensureTokenInfo(signal, snapshot)
+      this.assertCredentialSnapshot(snapshot)
+      const groups = request.groups.filter(g => typeof g === 'string' && g.length > 0)
+      if (groups.length === 0) return { ok: false, count: 0, groups: info.groups ?? [], error: 'pick at least one group' }
+      if (info.id === undefined || !this.tokenInfoMatchesKey(info, activeKey)) {
+        return {
+          ok: false,
+          count: 0,
+          groups: info.groups ?? [],
+          code: info.failure ?? 'identity-unknown',
+          error: '无法确认当前密钥所属的令牌；请检查管理凭据或扫描预算后重试。',
+        }
+      }
+      const tokenId = info.id
+      // The stored binding may predate a remote rotation: the site must still
+      // reveal THIS key for the stored token row before we edit its groups.
+      const revealed = await this.revealTokenKey(info.id, signal, snapshot)
+      this.assertCredentialSnapshot(snapshot)
+      if (revealed?.key === undefined || this.normalizeRelayKey(revealed.key) !== this.normalizeRelayKey(activeKey)) {
+        await this.writeTokenInfo({
+          ...(activeKey !== undefined ? { key: activeKey } : {}),
+          ...(info.groups !== undefined ? { groups: info.groups } : {}),
+        }, snapshot)
+        return {
+          ok: false,
+          count: 0,
+          groups: info.groups ?? [],
+          code: 'identity-unknown',
+          error: '写入前未能确认令牌仍持有当前密钥，分组未修改；请重新同步身份。',
+        }
+      }
+      await this.getRelayState().withCurrent(snapshot.relay, async () => {
+        if (this.resolveAdmin() !== undefined) {
+          const detail = await this.api.adminTokenGet(tokenId, signal)
+          this.assertCredentialSnapshot(snapshot)
+          const confirmed = await this.revealTokenKey(tokenId, signal, snapshot)
+          if (confirmed?.key === undefined || this.normalizeRelayKey(confirmed.key) !== this.normalizeRelayKey(activeKey)) {
+            throw new RemoteError('xpeach/identity-incomplete', '写入前未能确认当前令牌密钥，分组未修改。', { reason: 'identity-unknown' })
+          }
+          await this.api.adminTokenUpdate({ ...detail, id: tokenId, groups, group: groups[0] ?? '' }, signal)
+        } else {
+          const page = await this.listTokenPages(signal, true, snapshot)
+          const row = page.items.find(t => t.id === info.id)
+          if (row === undefined) {
+            const code = page.status === 'budget-exhausted' ? 'identity-budget-exhausted' : 'identity-unknown'
+            throw new RemoteError('xpeach/identity-incomplete', '未能在扫描范围内确认用户令牌行，分组未修改。', { reason: code })
+          }
+          const confirmed = await this.revealTokenKey(tokenId, signal, snapshot)
+          if (confirmed?.key === undefined || this.normalizeRelayKey(confirmed.key) !== this.normalizeRelayKey(activeKey)) {
+            throw new RemoteError('xpeach/identity-incomplete', '写入前未能确认当前令牌密钥，分组未修改。', { reason: 'identity-unknown' })
+          }
+          const { user_id: _userId, ...userRow } = row
+          await this.api.userTokenUpdate(tokenId, { ...userRow, groups, group: groups[0] ?? '' }, signal)
+        }
+        this.assertCredentialSnapshot(snapshot)
+      }, signal)
+      await this.writeTokenInfo({ ...info, groups }, snapshot)
+      const synced = await this.syncModelCatalog(signal, true, { forceGroupSwitch: true })
       return {
-        ok: false,
-        count: 0,
-        groups: info.groups ?? [],
-        error: 'xpeach: cannot confirm which site token the active key belongs to; sync models first',
+        ...synced,
+        tokenId: info.id,
+        ...(info.name !== undefined ? { tokenName: info.name } : {}),
       }
-    }
-    // The stored binding may predate a remote rotation: the site must still
-    // reveal THIS key for the stored token row before we edit its groups.
-    const revealed = await this.revealTokenKey(info.id, signal)
-    if (revealed !== undefined && this.normalizeRelayKey(revealed.key) !== this.normalizeRelayKey(activeKey)) {
-      this.writeTokenInfo({
-        ...(activeKey !== undefined ? { key: activeKey } : {}),
-        ...(info.groups !== undefined ? { groups: info.groups } : {}),
-      })
-      return {
-        ok: false,
-        count: 0,
-        groups: info.groups ?? [],
-        error: 'xpeach: stored token no longer holds the active key; sync models to rebind it',
-      }
-    }
-    if (this.resolveAdmin() !== undefined) {
-      const detail = await this.api.adminTokenGet(info.id, signal)
-      await this.api.adminTokenUpdate({ ...detail, groups, group: groups[0] ?? '' }, signal)
-    } else {
-      const page = await this.api.userTokens(0, signal)
-      const row = page.items.find(t => t.id === info.id)
-      if (row === undefined) {
-        throw new RemoteError('xpeach/request-failed', 'xpeach: relay token row not found in the user token list', { status: 404, message: 'token row missing' })
-      }
-      await this.api.userTokenUpdate(info.id, { ...row, groups, group: groups[0] ?? '' }, signal)
-    }
-    this.writeTokenInfo({ ...info, groups })
-    const synced = await this.syncModelCatalog(signal, true, { forceGroupSwitch: true })
-    return {
-      ...synced,
-      tokenId: info.id,
-      ...(info.name !== undefined ? { tokenName: info.name } : {}),
+    } catch (error) {
+      if (error instanceof RelayStateError) return { ok: false, count: 0, groups: [], code: error.code, error: error.message }
+      throw error
     }
   }
 
@@ -4929,7 +5143,7 @@ export class XPeachAccount extends TypertRemoteService {
     const anthropicBase = siteRoot.replace(/\/v1$/u, '')
     const described = await settings.describe?.()
     const existing = readProviderMap(described)
-    const xpeachKeys = Object.keys(existing).filter(key => key.startsWith('xpeach'))
+    const xpeachKeys = Object.keys(existing).filter(isAccountModelProvider)
     if (xpeachKeys.length === 0) return
     const providers: Record<string, object> = {}
     let changed = false
@@ -4994,15 +5208,18 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   private async resolveKey(): Promise<string> {
-    const file = this.readKeyFile()
+    await this.relayReady
+    const snapshot = this.captureCredentialSnapshot()
+    const file = snapshot.relay.key
     if (file !== undefined) return file
-    const ambient = process.env[this.keyVar]?.trim()
-    if (ambient !== undefined && ambient.length > 0) { this.persistKey(ambient); return ambient }
-    if (!existsSync(this.seededMarker())) {
+    const ambient = snapshot.relay.revision === 0 ? process.env[this.keyVar]?.trim() : undefined
+    if (ambient !== undefined && ambient.length > 0) { await this.persistKey(ambient); return ambient }
+    if (snapshot.relay.revision === 0 && !existsSync(this.seededMarker())) {
       const credentials = this.ctx.get('credentials')
       const hit = credentials === undefined ? undefined : await credentials.resolve(this.apiKeyEnv)
+      this.assertCredentialSnapshot(snapshot)
       const legacy = hit ?? launchEnvironmentOf(this.ctx).get(this.apiKeyEnv)
-      if (legacy !== undefined && legacy.value.length > 0) { this.persistKey(legacy.value); return legacy.value }
+      if (legacy !== undefined && legacy.value.length > 0) { await this.persistKey(legacy.value, snapshot); return legacy.value }
       this.writeState(this.seededMarker(), '')
     }
     throw new RemoteError(
@@ -5361,7 +5578,7 @@ export class XPeachAccount extends TypertRemoteService {
     readSkillFolder(disabledRoot, 'user', true)
 
     const ownResolved = resolve(this.ownHome())
-    if (!ownResolved.startsWith(resolve(tmpdir()))) {
+    if (!isTemporaryCredentialDirectory(ownResolved)) {
       readSkillFolder(join(homedir(), '.agents', 'skills'), 'agents', false)
       readSkillFolder(join(process.cwd(), '.agents', 'skills'), 'project', false)
     }
@@ -6581,4 +6798,3 @@ function moveDirectory(src: string, dst: string): void {
     rmSync(src, { recursive: true, force: true })
   }
 }
-

@@ -104,12 +104,13 @@ async function commandHarness(
   const resolveAgent = vi.fn((id: SessionId) => Promise.resolve(id === agent.id
     ? { agent }
     : { error: new RemoteError('session/not-found', 'missing', { sessionId: id }) }))
-  const agents = {
+  // 保留控制器实例类型，只替换本用例会调用的方法，避免启动真实 Agent 装配。
+  const agents = Object.assign(Object.create(ApiSessionAgentController.prototype) as ApiSessionAgentController, {
     resolveAgent,
     selectionFor: () => selection,
     serializeImageAdmission: <Value>(_agent: Agent, operation: () => Promise<Value>) => operation(),
     composeAgent: () => Promise.resolve({ setup: () => {} }),
-  } as unknown as ApiSessionAgentController
+  })
   return {
     ctx,
     controller: new SessionCommandController(ctx, agents, '/workspace'),

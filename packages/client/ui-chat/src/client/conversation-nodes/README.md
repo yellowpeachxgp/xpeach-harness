@@ -15,6 +15,7 @@ A Turn shows an answer and lets the reader inspect the work behind it. Start wit
 - [Whole-Turn folding](#whole-turn-folding)
 - [Display modes](#display-modes)
 - [Collapse timing](#collapse-timing)
+- [Replies after collapse](#folded-replies)
 - [Process grouping](#process-grouping)
 - [Activity summaries and tool rules](#activity-summaries)
 
@@ -23,11 +24,11 @@ A Turn shows an answer and lets the reader inspect the work behind it. Start wit
 <a id="reading-model"></a>
 ## How one Turn becomes a transcript
 
-Grouping, counts, display modes, and whole-Turn folding answer different questions. Grouping decides which process rows belong together. Counts summarize work inside an existing group. Display modes decide how much of each group to show. Without an intervening input, whole-Turn folding can hide the entire process across several groups and intermediate replies.
+Grouping, counts, display modes, and whole-Turn folding answer different questions. Grouping decides which process rows belong together. Counts summarize work inside an existing group. Display modes decide how much of each group to show. Without an intervening input, whole-Turn folding can hide process details across several groups. The folded-reply preference determines whether intermediate replies remain visible.
 
 ### A complete example
 
-Suppose the assistant thinks, reads a file, runs a command, posts a progress reply, then thinks and runs code before giving its final answer. After completion, that Turn contains:
+Suppose the assistant thinks, reads a file, runs a command, posts a progress reply, then thinks and runs code before giving its final answer. With Final answer only selected, the completed Turn contains:
 
 - User input.
 - Whole-Turn control.
@@ -38,7 +39,7 @@ Suppose the assistant thinks, reads a file, runs a command, posts a progress rep
 - Final response, outside the process fold.
 - Completed-turn footer.
 
-Every reply separates secondary groups; only the final answer is protected from whole-Turn folding. An intermediate reply can be an independent row and still disappear when the Turn is folded. Reasoning attached to the final answer remains process content.
+Every reply separates secondary groups. In this example's Final answer only setting, only the final answer is protected from whole-Turn folding. An intermediate reply can be an independent row and still disappear when the Turn is folded. Reasoning attached to the final answer remains process content.
 
 | Question | Deciding rule | Result in this example |
 |---|---|---|
@@ -50,7 +51,7 @@ Every reply separates secondary groups; only the final answer is protected from 
 
 ### What the reader sees
 
-Assume the Turn above completed normally, with no inner disclosure manually opened:
+Assume the Turn above completed normally with Final answer only selected and no inner disclosure manually opened:
 
 | Viewing state | Visible content |
 |---|---|
@@ -70,7 +71,7 @@ If steering, a User message, or a trigger notice follows process output, the Tur
 
 Whole-Turn folding controls the loaded process range, independently of secondary groups, in Compact, Standard, and Detailed. Verbose keeps that range visible and retains the duration/status header without a collapse action. A recorded Turn end makes that range eligible even when paging has not loaded the Turn start.
 
-The rules below use the default completion-time folding. The [collapse-timing preference](#collapse-timing) can defer the latest exchange's historical presentation without changing whole-Turn eligibility.
+The rules below use the default completion-time folding. The [collapse-timing preference](#collapse-timing) can defer the latest exchange's historical presentation without changing whole-Turn eligibility. The [folded-reply preference](#folded-replies) keeps every Assistant reply visible by default; Final answer only also hides intermediate replies.
 
 The Turn control follows all its opening inputs, including human steering and non-human trigger notices, while waiting for the first Assistant output and after that output arrives. Consecutive inputs before the first process evidence are opening inputs, anchored by the last one. Later inputs retain their positions: even when paging has not loaded their inbox insertions and they temporarily appear as ordinary User messages, preceding process content must not move after them.
 
@@ -89,12 +90,12 @@ Trigger titles and icons use the recorded `source.kind`: `schedule`, `tool-jobs`
 | Stopped or failed | Keep process content open; whole-Turn collapse is unavailable. |
 | Visible input after the first process evidence | Whole-Turn collapse is unavailable. Preserve process segments, intermediate replies, and input order; group disclosures remain available. Consecutive opening inputs do not qualify. |
 | Other closed Turn with loaded process content | Initially collapse the process; allow manual opening and closing. Neither the Turn start nor the rest of Session history must already be loaded. |
-| Closed Turn with no final answer | Collapse all process rows when otherwise eligible. |
+| Closed Turn with no final answer | Collapse eligible process details, retaining replies selected by the folded-reply preference. |
 | End is loaded but start is absent | Apply the closed-Turn rules above to loaded content. Show no elapsed duration; do not use the first loaded tool/message time as the start. |
 | Neither start nor end is loaded | Keep process rows visible and withhold the whole-Turn control. |
 | A Turn control exists, but there is no process content | Retain its title, without a collapse action. |
 
-The final answer is the latest Step's settled Assistant reply, provided it has visible reply content and no tool-call block. Its response remains outside whole-Turn folding; its reasoning remains process content. A Node whose [group-tree position](../contract/group-tree.ts) is `turn` or outer remains independent of whole-Turn folding. Turn inputs stand at `input` or `exchange`: user and steering messages and trigger notices; an input after the process start keeps the whole Turn open. Terminal errors, max-token notices, the completed-turn footer, and the Turn control stand at `turn`. A `process` Node, such as a model retry, separates secondary groups but whole-Turn folding still includes it.
+The final answer is the latest Step's settled Assistant reply, provided it has visible reply content and no tool-call block. Its response remains outside whole-Turn folding; its reasoning remains process content. All replies also preserves every other Assistant reply body; Final answer only hides those intermediate bodies. A Node whose [group-tree position](../contract/group-tree.ts) is `turn` or outer remains independent of whole-Turn folding. Turn inputs stand at `input` or `exchange`: user and steering messages and trigger notices; an input after the process start keeps the whole Turn open. Terminal errors, max-token notices, the completed-turn footer, and the Turn control stand at `turn`. A `process` Node, such as a model retry, separates secondary groups but whole-Turn folding still includes it.
 
 Loading an older page preserves the reader's group-opening choices. Newly loaded process content follows the same Turn state while the final answer is unchanged and whole-Turn folding remains eligible. If the page reveals an intervening input, individual group disclosures replace whole-Turn hiding. When the real start arrives, the duration becomes available; loading all history is not an additional folding condition. When new content only extends an existing group at its beginning, that group and its old message rows retain their identities and opening choices. Replies, steering, and other real boundaries in the new page still separate groups; not every new row joins the old group.
 
@@ -143,6 +144,13 @@ With On next message, the latest exchange keeps its running presentation after c
 When a new message triggers a fold, process details close in one movement with no second scroll after the fold. If this client sent the message, or the reader was following the tail, the transcript lands on the new message; otherwise, such as a message from another tab or a queued message delivered after the previous Turn, the content the reader is looking at stays still. Off-screen steps do not add bottom space; only the space needed to preserve the visible movement remains when the retained answer and new message cannot fill it. Content added during the fold updates its remaining movement. Reopening every closing row cancels that movement and releases obsolete bottom space. A reading gesture interrupts automatic following; finishing the fold does not resume it.
 
 Verbose retains its flat process rows under either timing. Failed, stopped, and interleaved-input Turns retain their existing whole-Turn eligibility rules; delayed folding can still postpone Detailed's conversion from flat rows to historical groups.
+
+<a id="folded-replies"></a>
+### Replies after collapse
+
+Settings → General → Replies After Collapse offers All replies (`all`, the default) and Final answer only (`final`). All replies keeps every Assistant reply body visible when an eligible completed Turn folds; Final answer only keeps its final answer body. Reasoning and tool rows remain process content under either choice. This preference does not change grouping, whole-Turn eligibility, or collapse timing.
+
+The choice is saved as `ui-chat.foldedReplies` through Host profile settings and restored on reload. A missing value uses All replies without saving that default. The setting is hidden in Verbose, which shows all process rows regardless of the saved choice; returning to another mode uses the saved choice. It does not write browser storage or Session data.
 
 ### Group-title rules
 

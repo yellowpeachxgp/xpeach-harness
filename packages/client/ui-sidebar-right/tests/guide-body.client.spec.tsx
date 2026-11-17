@@ -74,7 +74,7 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
     useGuideEntries: bindSnapshotSelector(guideEntries),
     useEntryPins: <T,>(selector: (pins: readonly string[]) => T): T => selector([]),
     useEntryActions: <T,>(selector: (actions: boolean) => T): T => selector(false),
-    t: ((key: string) => key) as GuideBodyProps['t'],
+    t: ((key: string) => key),
     setPinned: vi.fn(),
     renderSlotChain: renderSlot,
     renderSlot: vi.fn((_slot: string, _owner: unknown, options?: RenderOpts) =>

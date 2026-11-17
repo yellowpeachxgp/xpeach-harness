@@ -10,7 +10,7 @@ PR jobs need the same compiled packages for benchmarks, compatibility, packaging
 
 ## Decision
 
-Required Linux consumer and native Windows build jobs retain normal builds, including both complete aggregate programs. Public `build` and `typecheck` keep the same checks. [Node version ownership](2026-07-06-node-engine-floor.md) and [native Windows ownership](2026-08-08-native-windows-pull-request-ci.md) remain in force.
+Required Linux consumer and native Windows build jobs retain normal builds, including both complete aggregate programs. Public `build` and `typecheck` keep the same checks. [Node version ownership](2026-10-15-node-24-runtime-floor.md) and [native Windows ownership](2026-08-08-native-windows-pull-request-ci.md) remain in force.
 
 Checked PR artifact builds compile every existing project reference from each compiler face with one serial `tsc -b` process, then run the ordinary Typert, bundling, Desktop, and Web stages. The helper reads the existing Host and Client aggregates rather than maintaining another package list. It omits only each root's additional test and script program; package diagnostics, emitted outputs, and Host-before-Client ordering remain required. Non-PR release and real-API workflow builds retain their normal checks. That artifact build is `pnpm run build:artifacts`; [the build split](2026-10-11-build-artifacts-check-split.md) owns its steps and scheduling.
 

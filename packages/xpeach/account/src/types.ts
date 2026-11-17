@@ -182,6 +182,8 @@ export interface XPeachModelSyncResult {
   readonly count: number
   readonly groups: readonly string[]
   readonly error?: string
+  /** 同步未完成的稳定原因；旧的可信目录保持原样。 */
+  readonly code?: 'identity-unknown' | 'identity-budget-exhausted' | 'credential-changed' | 'credential-write-incomplete'
   /** Token row id a group write targeted, when one ran. */
   readonly tokenId?: number
   /** Bound token's display name a group write targeted, when one ran. */

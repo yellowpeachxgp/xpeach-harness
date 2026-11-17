@@ -41,6 +41,7 @@ it('declares propose_action from the step after a card skill loads, and logs the
     toolCallResponse('call-card-1', 'propose_action', proposal),
     textResponse('The card is below.'),
   ])
+  adapter.toolUpdate = 'in-history'
   f.ctx.llm.registerAdapter(['mock'], adapter)
   const agent = await f.harness.create(SessionId('loop'), modelSelection)
   expect(await declared(f, agent)).toBe(false)
@@ -195,4 +196,22 @@ it('requires every kind to give the invitation its accepted calls return', () =>
   // @ts-expect-error: a kind without its invitation does not compile.
   const incomplete: ActionCardKind<TestDetails> = kind
   expect(incomplete).toBe(kind)
+})
+
+it('缺少轮次投影时拒绝提案并说明必需的循环插件', async () => {
+  const f = await fixture()
+  f.agent.session.append('turn/start', { turn: 1 })
+  expect((await call(f, 'skill', { name: SKILL }, 'load')).isError).toBe(false)
+  const toolSet = await f.ctx.tools.resolve({ agent: f.agent, modelSelection, signal })
+  const stateOf = vi.spyOn(f.ctx.sessionProjections, 'stateOf').mockReturnValue(undefined)
+  try {
+    const result = await executeModelToolFixture(f.ctx, { callId: ToolCallId('missing-boundary'), name: 'propose_action',
+      arguments: proposal, agent: f.agent, signal, toolSet })
+    expect(result.isError).toBe(true)
+    expect(text(result)).toBe('Error: action-cards：缺少 turnBoundary 会话投影，请挂载 AgentLoop。')
+    expect(f.view().proposals).toEqual({})
+  } finally {
+    stateOf.mockRestore()
+    toolSet.dispose()
+  }
 })

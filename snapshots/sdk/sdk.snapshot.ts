@@ -57,17 +57,42 @@ import {
 } from '@xpeach/xph-session-snapshot'
 import {
   DeepSeekHarness,
+  type DeepSeekHarnessOptions,
   type HarnessNotification,
   type NotificationSubscription,
   type RunResult,
   type SdkPromptContentBlock,
-  type SdkUserQuestionRequest,
-  type SdkUserQuestionResult,
 } from '@xpeach/xph-sdk-client'
+import type { InitializeParams, SdkUserQuestionRequest, SdkUserQuestionResult } from '@xpeach/xph-sdk-protocol'
 import { SESSION_FORMAT_VERSION } from '@xpeach/xph-session'
 import { deriveReplayScript, parseSessionLog } from '@xpeach/xph-llm-replay'
 
 const corpusRoot = fileURLToPath(new URL('../', import.meta.url))
+
+/** 原生评审场景仅握手一次，通过公开低层协议声明问答能力。 */
+class QuestionSnapshotHarness extends DeepSeekHarness {
+  private starting: Promise<void> | undefined
+
+  constructor(
+    options: DeepSeekHarnessOptions,
+    private readonly initializeParams: InitializeParams,
+    private readonly answer: (request: SdkUserQuestionRequest) => Promise<SdkUserQuestionResult>,
+  ) {
+    super(options)
+  }
+
+  override start(): Promise<void> {
+    this.starting ??= (async () => {
+      this.client.start()
+      this.client.onRequest(async (method, params) => {
+        expect(method).toBe('user-question/ask')
+        return this.answer(params as SdkUserQuestionRequest)
+      })
+      await this.client.initialize(this.initializeParams)
+    })()
+    return this.starting
+  }
+}
 
 const MINIMAL_SYSTEM_PROMPT = 'You are the environment-selected minimal software engineer.'
 const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
@@ -140,6 +165,9 @@ interface SdkAssertions {
 }
 
 const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
+  'xpeach-token-model-sync': {
+    expectedFinalResponse: '未确认身份时已拒绝写组；目录已刷新，缺失模型明确报错。',
+  },
   'team-default-enabled': {
     expectedFinalResponse: 'TEAM_CONFIG_OK',
     patches: [
@@ -161,7 +189,12 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
       excludes: ['Current DeepSeek Harness implementation checkout:', 'Current DeepSeek Harness Web GUI URL:'],
     },
   },
-  'desktop-ptc-context': { expectedFinalResponse: 'SDK snapshot OK' },
+  'desktop-ptc-context': {
+    expectedFinalResponse: 'SDK snapshot OK',
+    expectedTools: { run_code: ['code', 'description'] },
+  },
+  'current-dynamic-tool-admission': { expectedFinalResponse: 'DONE' },
+  'current-session-resume': { expectedFinalResponse: 'TWO', modelRequestsFile: 'resume-requests.jsonl' },
   'manual-compact': {
     expectedFinalResponse: 'SDK_COMPACT_OK',
     patches: [fileURLToPath(new URL('./manual-compact/capture.cordis.yml', import.meta.url))],
@@ -218,6 +251,7 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
     patches: [fileURLToPath(new URL('./tool-error-details/runtime.cordis.yml', import.meta.url))],
     expectedFinalResponse: 'ERROR_DETAILS_OK',
   },
+  'current-tool-error-details': { expectedFinalResponse: 'ERROR_DETAILS_OK' },
   'ptc-cancel': {
     patches: [fileURLToPath(new URL('./ptc-cancel/runtime.cordis.yml', import.meta.url))],
   },
@@ -724,6 +758,17 @@ const legacySdkCompositions = new Set([
   'system-prompt-in-history',
 ])
 const legacySdkContextPatch = fileURLToPath(new URL('./legacy-context.patch.yml', import.meta.url))
+const legacyDesktopPatch = fileURLToPath(new URL('./legacy-desktop.patch.yml', import.meta.url))
+// 旧桌面输入及其共享 header 所有者；当前动态、PTC、错误与切模场景不使用此兼容。
+const legacyDesktopScenarios = new Set([
+  'desktop-context',
+  'command-attachments',
+  'command-identity',
+  'goal-rounds',
+  'manual-compact',
+  'permission-switch',
+  'plan-review',
+])
 
 function authoredPatches(scenario: CorpusScenario, replaying: boolean): string[] {
   const owner = compositionOwner(scenario)
@@ -772,10 +817,12 @@ async function runScenario(scenario: CorpusScenario): Promise<{
   await mkdir(patchRoot, { recursive: true })
   const assertions = SDK_ASSERTIONS[scenario.name] ?? {}
   const patches = [
-    ...legacySdkCompositions.has(scenario.manifest.composition) ? [legacySdkContextPatch] : [],
+    ...scenario.manifest.profile === 'sdk' && legacySdkCompositions.has(scenario.manifest.composition) ? [legacySdkContextPatch] : [],
+    ...legacyDesktopScenarios.has(scenario.name) ? [legacyDesktopPatch] : [],
     ...authoredPatches(scenario, !recording),
     ...assertions.patches ?? [],
-    ...scenario.name === 'session-resume' && !recording ? [join(scenario.dir, 'replay.cordis.yml')] : [],
+    ...['session-resume', 'current-session-resume'].includes(scenario.name) && !recording
+      ? [join(scenario.dir, 'replay.cordis.yml')] : [],
   ]
     .map((patch, index) => materializeProfilePatch(patch, cwd, scenario.manifest.profile, patchRoot, index))
   let childSessionsRoot: string | undefined
@@ -802,7 +849,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
   })
   const [parentFixture, ...childFixtures] = replayFixtures
   const actions = sdkActions(primaryFixture, assertions.replayStandaloneCommands === true)
-  const resumeReplayFile = scenario.name === 'session-resume' && !recording
+  const resumeReplayFile = ['session-resume', 'current-session-resume'].includes(scenario.name) && !recording
     ? join(patchRoot, 'resume-replay.json') : undefined
   const prepareTurnReplay = async (turn: number): Promise<void> => {
     if (resumeReplayFile === undefined || parentFixture === undefined) return
@@ -848,20 +895,24 @@ async function runScenario(scenario: CorpusScenario): Promise<{
       return { answers: [{ id: question.id, selected: [choice === 'approve' ? 'Approve' : 'Keep planning'],
         ...choice === 'keep' ? { custom: 'Add rollback.' } : {} }] }
     }
-  const createHarness = (model = route.model): DeepSeekHarness => new DeepSeekHarness({
-    profile: scenario.manifest.profile,
-    ...(assertions.approvalOutcomes === undefined ? {} : { approvalRequests: true }),
-    patches,
-    dshHome,
-    processCwd: cwd,
-    env,
-    initializeTimeoutMs: 110_000,
-    requestTimeoutMs: 110_000,
-    cwd,
-    provider: route.provider,
-    model,
-    ...onUserQuestion === undefined ? {} : { onUserQuestion },
-  })
+  const createHarness = (model = route.model): DeepSeekHarness => {
+    const options: DeepSeekHarnessOptions = {
+      profile: scenario.manifest.profile,
+      ...(assertions.approvalOutcomes === undefined ? {} : { approvalRequests: true }),
+      patches,
+      dshHome,
+      processCwd: cwd,
+      env,
+      initializeTimeoutMs: 110_000,
+      requestTimeoutMs: 110_000,
+      cwd,
+      provider: route.provider,
+      model,
+    }
+    return onUserQuestion === undefined ? new DeepSeekHarness(options) : new QuestionSnapshotHarness(options, {
+      cwd, provider: route.provider, model, capabilities: { userQuestions: true },
+    }, onUserQuestion)
+  }
   let harness = createHarness()
   try {
     const notifications: HarnessNotification[] = []
@@ -937,11 +988,21 @@ async function runScenario(scenario: CorpusScenario): Promise<{
           )
           continue
         }
-        if (scenario.name === 'session-resume' && results.length > 0) {
+        if (['session-resume', 'current-session-resume'].includes(scenario.name) && results.length > 0) {
           subscription.close()
           await harness.close()
           await prepareTurnReplay(action.turn)
-          harness = createHarness('deepseek-v4-pro')
+          let recordedTurn = 0
+          let resumedModel = route.model
+          for (const event of records(primaryFixture)) {
+            if (event.type === 'turn/start') recordedTurn = (event.data as JsonObject).turn as number
+            if (recordedTurn === action.turn && event.type === 'request/header') {
+              const header = (event.data as JsonObject).header as JsonObject
+              resumedModel = (header.config as { model: string }).model
+              break
+            }
+          }
+          harness = createHarness(resumedModel)
           await harness.start()
           subscription = harness.client.subscribeSessionTree(sessionId)
           await expect(harness.resumeSession('missing-session')).rejects.toThrow()
@@ -1029,6 +1090,10 @@ async function runScenario(scenario: CorpusScenario): Promise<{
       titleSubscription?.close()
     }
     await harness.close()
+    if (childSessionsRoot !== undefined) {
+      expect(existsSync(childSessionsRoot), JSON.stringify(results.flatMap(result => result.events)
+        .filter(event => event.type === 'tool/result' || event.type === 'turn/end'))).toBe(true)
+    }
     const logs = (await Promise.all([
       persistedLogs(sessionsRoot),
       ...(childSessionsRoot === undefined ? [] : [persistedLogs(childSessionsRoot)]),
@@ -1039,7 +1104,9 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     const modelRequests = assertions.modelRequestsFile !== undefined
       ? records(await readFile(join(dshHome, assertions.modelRequestsFile), 'utf8'))
       : []
-    if (planReviews !== undefined) expect(planReviews).toEqual([])
+    if (planReviews !== undefined) expect(planReviews, JSON.stringify(results.map(result => ({
+      response: result.finalResponse, outcomes: result.events.filter(event => event.type === 'turn/end' || event.type === 'tool/result'),
+    })))).toEqual([])
     return { results, notifications, observedMethods, logs, initialWorkspace, finalWorkspace, cwd, modelRequests }
   } finally {
     await harness.close()
@@ -1206,6 +1273,16 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           ? files.map((_, index) => writerSnapshotName(index)).sort() : [])
       }
       const { results, notifications, observedMethods, logs, initialWorkspace, finalWorkspace, cwd, modelRequests } = await runScenario(scenario)
+      if (scenario.name === 'xpeach-token-model-sync') {
+        const toolResults = results.flatMap(result => result.events).filter(event => event.type === 'tool/result')
+        expect(toolResults).toHaveLength(1)
+        expect(toolResults[0]).toMatchObject({ data: { message: {
+          isError: false,
+          content: [{ type: 'text', text: JSON.stringify({
+            写组已拒绝: true, 远端写次数: 0, 目录同步成功: true, 缺失模型错误: 'UNKNOWN_MODEL',
+          }) }],
+        } } })
+      }
       const ordered = orderLogs(
         logs,
         recording ? logs.length : files.length,
@@ -1213,6 +1290,18 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       )
       reconcileCatalogCreationTimes(ordered.map(log => log.content), 'validate')
       const actualContext = contextOf(ordered, cwd)
+      if (scenario.name === 'current-session-resume') {
+        expect(modelRequests.map(request => request.model), JSON.stringify(results.map(result => ({
+          response: result.finalResponse, endings: result.events.filter(event => event.type === 'turn/end'),
+        })))).toEqual(['deepseek-v4-flash', 'deepseek-v4-pro'])
+        expect(JSON.stringify(modelRequests[1]?.messages)).toContain('ONE')
+        expect(JSON.stringify(modelRequests[1]?.messages)).toContain('Reply with exactly the word: ONE.')
+        const events = parseSessionLog(ordered[0]!.content)
+        expect(events.filter(event => event.type === 'turn/end')).toMatchObject([
+          { data: { turn: 1, reason: { kind: 'completed' } } },
+          { data: { turn: 2, reason: { kind: 'completed' } } },
+        ])
+      }
       if (scenario.name === 'team-default-enabled') {
         const parent = ordered[0]!
         const events = parseSessionLog(parent.content)
@@ -1507,7 +1596,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           && (event.data as JsonObject | undefined)?.source !== undefined
           && ((event.data as JsonObject).source as JsonObject).kind === 'subagent-settled')
         const expectedCount = scenario.name === 'subagent-dsh-sdk-diagnostic' ? 2 : 1
-        expect(notices).toHaveLength(expectedCount)
+        expect(notices, JSON.stringify(parentEvents.filter(event => event.type === 'tool/result'))).toHaveLength(expectedCount)
         const catalog = parentEvents.filter(event => event.type === 'subagent/catalog')
         expect(catalog).toHaveLength(expectedCount)
         expect(catalog.every(event => (event.data as JsonObject).mode === 'external')).toBe(true)
@@ -1521,7 +1610,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           expect.objectContaining({ data: { turn: 1, reason: { kind: 'completed' } } }),
         ])
       }
-      if (scenario.name === 'dynamic-tool-updates') {
+      if (scenario.name === 'dynamic-tool-updates' || scenario.name === 'current-dynamic-tool-admission') {
         const selectedTypes = new Set(['request/header', 'request/context', 'developer/message', 'tool/call', 'tool/result'])
         const events = results.flatMap(result => result.events).filter(event => selectedTypes.has(event.type))
         const subscribed = notifications.flatMap(notification => {
@@ -1534,6 +1623,14 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
         const headers = events.filter(event => event.type === 'request/header')
         expect(headers).toHaveLength(3)
         const toolNames = headers.map(event => (event.data as { header: { tools: LoggedTool[] } }).header.tools.map(tool => tool.name))
+        if (scenario.name === 'current-dynamic-tool-admission') {
+          expect(assembledSystem(ordered[0]!)).toContain('XPeach Harness')
+          expect(toolNames[0]).toEqual(expect.arrayContaining([
+            'ask_user_question', 'present', 'schedule_create', 'plugin_manager',
+          ]))
+          expect(results.flatMap(result => result.events).some(event => event.type === 'user/message'
+            && event.data.source.kind === 'time-context')).toBe(true)
+        }
         expect(toolNames.map(names => names.includes('snapshot_ping'))).toEqual([false, true, false])
         expect(toolNames[1]!.filter(name => !toolNames[0]!.includes(name))).toEqual(['snapshot_ping'])
         expect(toolNames[2]).toEqual(toolNames[0])
@@ -1582,7 +1679,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           message: { content: [{ type: 'text', text: expect.stringContaining('subagent limit reached (active child limit: 1)') }], isError: true },
         } })
       }
-      if (scenario.name === 'tool-error-details') {
+      if (scenario.name === 'tool-error-details' || scenario.name === 'current-tool-error-details') {
         const events = results.flatMap(result => result.events)
         const headers = events.filter(event => event.type === 'request/header')
           .map(event => (event.data.header as { tools: { name: string }[] }).tools.map(tool => tool.name))

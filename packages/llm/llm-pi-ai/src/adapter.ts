@@ -286,7 +286,7 @@ export class PiAiAdapter extends LlmAdapter {
     return profile
   }
 
-  /** The configured descriptor for one exact route/model pair within one snapshot. */
+  /** 仅解析指定提供方目录内的模型；缺失时抛出 UNKNOWN_MODEL。 */
   private modelOf(snapshot: PiAiSnapshot, provider: string, model: string): Model<Api> {
     const profile = this.profileOf(snapshot, provider)
     const failure = profile.modelErrors.get(model)
@@ -294,13 +294,6 @@ export class PiAiAdapter extends LlmAdapter {
     if (failure !== undefined) throw new LlmError(failure, 'INVALID_CONFIG')
     const resolved = snapshot.models.getModel(provider, model)
     if (resolved !== undefined) return resolved
-    if (provider.startsWith('xpeach')) {
-      for (const candidateProvider of snapshot.profiles.keys()) {
-        if (!candidateProvider.startsWith('xpeach') || candidateProvider === provider) continue
-        const fallback = snapshot.models.getModel(candidateProvider, model)
-        if (fallback !== undefined) return fallback
-      }
-    }
     throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
   }
 

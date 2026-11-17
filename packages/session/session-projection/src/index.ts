@@ -49,20 +49,18 @@ export type {
   SessionProjectionViewValues,
 } from './types.ts'
 
-/**
- * One domain's state-driven computation unit: a pure synchronous fold plus
- * declarations and an optional client view — never an opaque getter. The framework drives
- * `apply` on every committed session event; the domain holds no
- * subscriptions and owns only the computation. All functions MUST be
- * synchronous (an async unit would tear the carriers' consistency cut), and
- * `state` MUST be plain JSON (the persisted-cache precondition).
- */
+/** 一个投影注册的释放句柄及其宿主状态读取器；释放移除注册引用。 */
 export interface ProjectionHandle<S> {
   (): void
   dispose(): void
   stateOf(session: Session): S
 }
 
+/**
+ * 由框架驱动的领域投影：纯同步折叠、状态声明和可选客户端视图。
+ * 框架对每个已提交事件调用 apply；领域只负责计算，不自行订阅事件。
+ * 所有函数必须同步执行，以保持载体读取的一致性；状态必须为可持久化的普通 JSON。
+ */
 export interface ProjectionDefinition<
   K extends string = Extract<keyof SessionProjectionStateMap, string>,
   S = K extends keyof SessionProjectionStateMap ? SessionProjectionStateMap[K] : unknown,
@@ -340,9 +338,13 @@ export class SessionProjectionRegistry extends Service {
         }
       }
     }.bind(this), 'sessionProjections.register()')
-    const stateOf = (session: Session): S => this.stateOf(session, definition.key as keyof SessionProjectionStateMap) as unknown as S
+    const stateOf = (session: Session): S => {
+      const registration = this.registrations.get(definition.key)
+      return (registration === undefined ? undefined : this.cellFor(registration, session).state) as S
+    }
     const plainHandle: ProjectionHandle<S> = Object.assign(() => { void dispose() }, { dispose: () => { void dispose() }, stateOf })
-    return Object.assign(() => { void dispose() }, {
+    // 此 effect 的安装与释放均同步；保留原 disposer 身份以便外层 effect 接管。
+    return Object.assign(dispose as () => void, {
       dispose: () => { void dispose() },
       stateOf,
       then<TResult1 = ProjectionHandle<S>, TResult2 = never>(

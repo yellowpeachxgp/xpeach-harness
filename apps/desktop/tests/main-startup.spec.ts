@@ -16,6 +16,18 @@ import { writeCrashReport } from '../src/crash-report.ts'
 type InvokeEvent = { sender?: unknown; senderFrame: { url: string } }
 type InvokeHandler = (event: InvokeEvent, ...args: unknown[]) => unknown
 
+const profileResources = vi.hoisted(() => ({ available: true, paths: [] as string[] }))
+vi.mock('node:fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs')>()
+  return { ...original, existsSync: (path: Parameters<typeof original.existsSync>[0]) => {
+    if (typeof path === 'string' && path.endsWith('xpeach.profile.yml')) {
+      profileResources.paths.push(path)
+      return profileResources.available
+    }
+    return original.existsSync(path)
+  } }
+})
+
 vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn() }))
 // Report persistence has its own unit tests; here it resolves within microtasks so the fatal
 // dialog never outlives the test that triggered it.
@@ -399,6 +411,8 @@ function applicationMenuItems(): MenuItemConstructorOptions[] {
 }
 
 beforeEach(() => {
+  profileResources.available = true
+  profileResources.paths.length = 0
   vi.resetModules()
   vi.clearAllMocks()
   harness.dialog.showMessageBox.mockReset()
@@ -446,9 +460,28 @@ afterEach(async () => {
 })
 
 describe('desktop main startup', () => {
+  it.each([true, false])('产品资源缺失时报告故障且不启动 Host（打包=%s）', async (packaged) => {
+    harness.app.isPackaged = packaged
+    profileResources.available = false
+    await import('../src/main.ts')
+    await harness.dialogShown.promise
+    expect(harness.hosts).toHaveLength(0)
+    expect(console.error).toHaveBeenCalledWith(expect.objectContaining({ code: 'XPH_PROFILE_RESOURCE_UNAVAILABLE' }))
+  })
+
+  it('开发模式使用显式指定的产品资源', async () => {
+    harness.app.isPackaged = false
+    vi.stubEnv('DSH_DESKTOP_PRODUCT_PATCH', 'explicit/xpeach.profile.yml')
+    await readyForUpdate()
+    expect(profileResources.paths).toContain('explicit/xpeach.profile.yml')
+  })
+
   it.each([true, false])('selects the package manager before Host startup (packaged=%s)', async (packaged) => {
     harness.app.isPackaged = packaged
     await readyForUpdate()
+    expect(profileResources.paths).toContain(packaged
+      ? join('desktop-test-resources', 'xpeach.profile.yml')
+      : join('desktop-test-app', '..', 'cli', 'resources', 'xpeach.profile.yml'))
     const host = harness.hosts[0]!
     expect(host.node).toBe(process.execPath)
     expect(host.primaryRuntime).toBe(packaged

@@ -3,13 +3,13 @@ description: "面向让进程外 SDK 客户端在 DeepSeek Harness 运行时中�
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-sdk-jsonrpc-server
+# @xpeach/xph-sdk-jsonrpc-server
 
 [English](README.md) | 中文
 
 ## 概述
 
-`dsh-sdk-jsonrpc-server` 通过 stdio 服务 SDK 协议格式（wire format），使进程外客户端能够驱动 harness agent（智能体）：它为每个 `sessionId` 打开一个会话、把用户提示词排入队列，并把每个会话事件与 agent 状态转换流式发回客户端。把它作为 `jsonrpc` 插件挂载到 Loader 组合中；外围插件树提供其余一切——agent、模型适配器、持久化与工具。Stdout 只承载 JSON-RPC 帧，因此部署不得组合 stdout logger。它通过 dispose（资源释放）根运行时并以 0 退出应答 `shutdown`；EOF 与信号退出归 app bin 负责。
+`@xpeach/xph-sdk-jsonrpc-server` 通过 stdio 服务 SDK 协议格式（wire format），使进程外客户端能够驱动 harness agent（智能体）：它为每个 `sessionId` 打开一个会话、把用户提示词排入队列，并把每个会话事件与 agent 状态转换流式发回客户端。把它作为 `jsonrpc` 插件挂载到 Loader 组合中；外围插件树提供其余一切——agent、模型适配器、持久化与工具。Stdout 只承载 JSON-RPC 帧，因此部署不得组合 stdout logger。它通过 dispose（资源释放）根运行时并以 0 退出应答 `shutdown`；EOF 与信号退出归 app bin 负责。
 
 ## 目录
 
@@ -29,7 +29,9 @@ kind: "package-reference"
 
 将 `initialize.approvalRequests` 设为 `true`，即可把内部审批作为服务端到客户端的 `approval/request` 请求发送。桥接通过 `agents.isOwnedBy()` 运行时归属识别 SDK 拥有的 Agent 及其仍在运行的进程内后代，持久化的 `parentSession` 历史关系不决定审批归属；其他 Agent，以及未提供该标志的客户端，继续使用已组合的应答链。审批服务仍在分发前执行 `never` 策略，并记录询问与决定的审计事件。桥接仅接受 `allowed-once`、`rejected` 或 `cancelled`；无效响应、客户端错误或传输断开会产生审批服务的拒绝放行结果 `unavailable`。请求取消时释放待处理的协议等待项；shutdown 在等待 Agent 结束前释放所有此类等待项。迟到响应不能授权已放弃的操作。载荷见[协议](../protocol/README.zh.md)，客户端处理见 [Python 示例](../../../python/sdk/README.zh.md#client-approvals)。
 
-`session/resume` 在初始化后接受持久化的 `{ sessionId }`，待其 Agent 就绪后返回 `{}`。它通过 `agents.resume()` 加载历史、修复最后一个被中断的轮次，并保留存储的起始目录和当前有效目录，同时应用初始化时选定的模型路由。它不发送新输入。会话缺失、不可读、不兼容或被占用时，请求失败且不创建替代会话。对正在恢复的标识发送提示词时，会等待恢复完成；shutdown 会等待进行中的恢复并释放其 Agent。历史事件保留在日志中，不会作为新通知重新发送。
+`session/resume` 在初始化后接受持久化的 `{ sessionId }`，待其 Agent 就绪后返回 `{}`。它通过 `agents.resume()` 加载历史、修复最后一个被中断的轮次，并保留存储的起始目录和当前有效目录，同时应用初始化时选定的模型路由。它不发送新输入。会话缺失、不可读、不兼容或被占用时，请求失败且不创建替代会话。对正在恢复的标识发送提示词时，会等待恢复完成；shutdown 会取消并排空进行中的恢复，然后释放其 Agent。历史事件保留在日志中，不会作为新通知重新发送。
+
+路由初始化成功后，服务向 Schedule 等后台消费者提供 `ctx.sessionActivation`，复用其活动或正在打开的 Agent，或通过同一组自有会话记录恢复持久身份。历史不存在时拒绝，不创建替代会话。初始化等待因此启用的 Loader 条目就绪后才返回。后台消费者通过 `withAgent` 回调完成投递和持久化，不保留 Agent。关闭时先停止准入并排空已接纳借用，再撤回服务和释放会话句柄；独立资源 fiber 的真实清理由同一顺序所有者接管，父级卸载遵循同样顺序。关闭后才完成的恢复不得进入借用回调。
 
 <a id="command-input"></a>
 
@@ -37,7 +39,7 @@ kind: "package-reference"
 
 `session/query` 是高层 SDK `run()` 发送字符串和内容块数组时使用的协议入口。普通输入保留内容块，使用既有的提示词队列。完整 SDK 识别裸 `/compact`、带非空 preset 的 `/permission <preset>`、`/plan [off|message]` 和 `/goal [objective|clear|edit objective|pause|resume]`，这些命令按官方定义 ID 识别。裸 `/permission` 或 `/权限`、`/compact extra` 以及 `/model` 等其余输入仍是普通提示词。命令缺失时也保留提示词路径；选中的 handler 失败后绝不回退。未知 preset 是原生命令错误。随已识别命令提交的编码图片块经过原生附件接纳。`session/prompt` 保留为低层排队输入入口，不经过原生 slash command 路由。
 
-Host 与桌面适配器共用 `dsh-commands/builtin` 的定义身份及中英文别名解析。`/压缩`、`/权限`、`/计划` 和 `/目标` 跟随重命名后的官方定义，执行使用当前注册名。精确名称优先，但无关的同名定义不是 SDK 内置命令，仍作为普通提示词。其他内置能力仍不属于 SDK 命令集合。
+Host 与桌面适配器共用 `@xpeach/xph-commands/builtin` 的定义身份及中英文别名解析。`/压缩`、`/权限`、`/计划` 和 `/目标` 跟随重命名后的官方定义，执行使用当前注册名。精确名称优先，但无关的同名定义不是 SDK 内置命令，仍作为普通提示词。其他内置能力仍不属于 SDK 命令集合。
 
 第一个文本块提供完整命令行；编码图片可位于它之前或之后。该行匹配到受支持命令时，它必须是唯一的文本块，其余块必须为编码图片。额外文本块、持久图片引用及其他内容类型会在执行或入队前返回 JSON-RPC 错误，不回退为普通提示词。普通提示词保留全部内容块及其顺序。空数组和只包含空白文本的数组会被拒绝；允许仅图片输入。
 
@@ -91,7 +93,7 @@ Stdout 只承载 JSON-RPC 帧，客户端可以逐字节解析；诊断信息应
 
 ### 设计理念
 
-本插件是轻量的展示适配器：[`HarnessSdkJsonRpcServer`](src/server.ts) 负责协议方法与通知，传输与具名协议类型来自 `dsh-sdk-protocol`，与客户端 SDK 共享。它订阅会话、agent 与 subagent 生命周期事件，并把它们作为协议通知转发；只有当服务在生命周期建立快照时记录的 `local` 标志为 true 时才转发 subagent 完成事件——提供方名称、子级 id 与持久化谱系均不能证明本地性。 `subagent.started` 要求 `origin: subagent` 和直接创建者 ID；普通 fork（包括保留父 ID 的历史会话）不产生此通知。
+本插件是轻量的展示适配器：[`HarnessSdkJsonRpcServer`](src/server.ts) 负责协议方法与通知，传输与具名协议类型来自 `@xpeach/xph-sdk-protocol`，与客户端 SDK 共享。它订阅会话、agent 与 subagent 生命周期事件，并把它们作为协议通知转发；只有当服务在生命周期建立快照时记录的 `local` 标志为 true 时才转发 subagent 完成事件——提供方名称、子级 id 与持久化谱系均不能证明本地性。 `subagent.started` 要求 `origin: subagent` 和直接创建者 ID；普通 fork（包括保留父 ID 的历史会话）不产生此通知。
 
 ### 源码地图
 

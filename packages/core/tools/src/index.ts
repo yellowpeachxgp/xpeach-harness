@@ -114,7 +114,10 @@ export class ToolsService extends Service {
       const executor = this.selectExecutor(scope)
       const description = executor.describe(this.definitions(scope, toolSet))
       return { ...description, knownNames: description.knownNames ?? [...this.view(scope).knownNames] }
-    })
+    }, { deferUntilTools: true, knownNames: ({ scope }) => {
+      const description = this.selectExecutor(scope).describe([])
+      return [...this.view(scope).knownNames, ...description.knownNames ?? description.schemas.map(tool => tool.name)]
+    } })
   }
 
 
@@ -333,6 +336,7 @@ export class ToolsService extends Service {
         yield this.ctx.systemPrompt.section({
           name: section.name,
           order: section.order,
+          deferUntilTools: true,
           ...section.interpolate === undefined ? {} : { interpolate: section.interpolate },
           text: ({ scope, toolSet }) => {
             if (this.selectExecutor(scope) !== executor) return ''

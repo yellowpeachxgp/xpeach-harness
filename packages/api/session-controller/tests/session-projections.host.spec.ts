@@ -32,7 +32,7 @@ import {
   mountAgentLoopTestDependencies,
   mountAgentLoopTestHarness,
 } from '@xpeach/xph-agent-loop-testkit'
-import { createSessionTestRemote, testSessionPersistence, type TestSessionRemote } from './test-remote.ts'
+import { createSessionTestRemote, installSessionControllerTestDependencies, testSessionPersistence, type TestSessionRemote } from './test-remote.ts'
 
 const ownedContexts = new Set<Context>()
 afterEach(async () => {
@@ -462,6 +462,7 @@ describe('session.history projections block', () => {
   it('removes the gateway-owned Session-list unit when the gateway fiber unloads', async () => {
     const { ctx, session } = await harness(true)
     expect('sessionListMetadata' in ctx.sessionProjections.snapshot(session).values).toBe(false)
+    installSessionControllerTestDependencies(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
     const fiber = ctx.plugin(Object.assign((gatewayCtx: Context) => {
       createSessionTestRemote(gatewayCtx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
     }, { inject: ['sessions', 'agents', 'sessionProjections'] }))

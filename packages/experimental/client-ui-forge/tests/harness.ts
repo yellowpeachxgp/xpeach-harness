@@ -573,7 +573,7 @@ export async function bench(cwd: string, config: Config = {}, options: BenchOpti
     throw error
   }
   const worktreeStates = await base.ctx.sessionProjections.register(forgeWorktreeProjection)
-  await worktreeStates.dispose()
+  worktreeStates.dispose()
   return { ...base, panel, worktreeStates }
 }
 

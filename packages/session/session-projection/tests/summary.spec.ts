@@ -148,7 +148,7 @@ describe('session projection summary keys', () => {
     }
   })
 
-  it('serves cached summary cells through the key-taking cached face', async () => {
+  it('通过完整投影读面按摘要键集合返回当前值', async () => {
     const { ctx, registry } = await mount()
     try {
       registry.register(keptUnit())
@@ -156,11 +156,11 @@ describe('session projection summary keys', () => {
       const session = ctx.sessions.create(SessionId('summary-cached'), { meta: { cwd: '/workspace' } })
       session.append('turn/start', { turn: 1 })
 
-      // The derived set is passed as a set: no key-list copy inside the read.
-      expect(registry.cachedSnapshot(session, registry.summaryKeys())?.values).toEqual({
+      // 直接传入摘要键集合，未选中的投影不进入摘要。
+      expect(registry.snapshot(session, registry.summaryKeys()).values).toEqual({
         'test/summary-kept': { text: 'turn-1' },
       })
-      expect(registry.cachedSnapshot(session)?.values).toEqual({
+      expect(registry.snapshot(session).values).toEqual({
         'test/summary-kept': { text: 'turn-1' },
         'test/summary-excluded': 1,
       })
@@ -178,8 +178,8 @@ describe('session projection summary keys', () => {
       session.append('turn/start', { turn: 1 })
 
       expect([...registry.summaryKeys()]).toEqual([])
-      expect(registry.cachedSnapshot(session, [])).toBeUndefined()
-      expect(registry.cachedSnapshot(session)?.values).toEqual({
+      expect(registry.snapshot(session, []).values).toEqual({})
+      expect(registry.snapshot(session).values).toEqual({
         'test/summary-excluded': 1,
         'test/summary-excluded-nullable': ['turn-1'],
       })
@@ -199,12 +199,12 @@ describe('session projection summary keys', () => {
     }
   })
 
-  it('drops an unmaterialized cell and a version-mismatched checkpoint row', async () => {
+  it('初始化尚未读取的摘要投影并拒绝版本不匹配的检查点', async () => {
     const { ctx, registry } = await mount()
     try {
       registry.register(keptUnit())
       const session = ctx.sessions.create(SessionId('summary-unmaterialized'), { meta: { cwd: '/workspace' } })
-      expect(registry.cachedSnapshot(session, registry.summaryKeys())?.values).toEqual({
+      expect(registry.snapshot(session, registry.summaryKeys()).values).toEqual({
         'test/summary-kept': null,
       })
       const checkpoint: ProjectionCheckpoint = {

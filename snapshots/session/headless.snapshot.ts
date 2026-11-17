@@ -250,24 +250,30 @@ async function primaryFixtureFile(dir: string): Promise<string> {
   return primary
 }
 
+/** 历史输入与显式独立输出场景共用 writer 比较及刷新路径。 */
+function usesSeparateSessionOutput(manifest: SnapshotManifest): boolean {
+  return manifest.sessionFormat !== undefined || manifest.sessionOutput === 'separate'
+}
+
 async function writeSessionFixtures(
   scenario: HeadlessScenario,
   actualLogs: readonly SessionLog[],
   existing: readonly string[],
   ctx: NormalizeContext,
+  writeMode: SnapshotMode,
 ): Promise<string[]> {
-  const names = actualLogs.map((log, index) => scenario.manifest.sessionFormat === undefined
-    ? sessionFixtureName(index, sessionHeaderVersion(log.content, `harvested Session ${index}`))
-    : writerSnapshotName(index))
+  const names = actualLogs.map((log, index) => usesSeparateSessionOutput(scenario.manifest)
+    ? writerSnapshotName(index)
+    : sessionFixtureName(index, sessionHeaderVersion(log.content, `harvested Session ${index}`)))
   const prior = names.map((_, index) => existing[index] ?? '')
-  const replacements = mode === 'refresh'
+  const replacements = writeMode === 'refresh'
     ? refreshFixtureReplacements(actualLogs.map(harvested), prior)
     : []
   for (const replacement of [...replacements]) {
     if (replacement.from === ctx.cwd) replacements.push({ from: ctx.cwd.split(sep).join('/'), to: replacement.to })
   }
   const fresh = actualLogs.map((log, index) => {
-    const stable = tokenizeSessionFixtureCwd(mode === 'refresh'
+    const stable = tokenizeSessionFixtureCwd(writeMode === 'refresh'
       ? stabilizeRefreshLog(log.content, prior[index] as string, replacements, ctx)
       : log.content)
     return scrubSessionSnapshot(prepareSessionSnapshotFixtureForComparison(stable))
@@ -275,6 +281,23 @@ async function writeSessionFixtures(
   const output = redactSessionSnapshotIds(stabilizeFixtureMessageIds(fresh, prior))
   await Promise.all(output.map((content, index) => writeFile(join(scenario.dir, names[index] as string), content)))
   return output
+}
+
+/** 仅 refresh 写入独立 oracle；其他模式要求 oracle 已存在，且输入字节始终保持不变。 */
+async function separateWriterSessions(
+  scenario: HeadlessScenario,
+  fixtures: readonly string[],
+  actualLogs: readonly SessionLog[],
+  ctx: NormalizeContext,
+  runMode: SnapshotMode,
+): Promise<string[]> {
+  if (runMode === 'refresh') await writeSessionFixtures(scenario, actualLogs, fixtures, ctx, runMode)
+  const expected = await Promise.all(fixtures.map((_, index) => readFile(join(scenario.dir, writerSnapshotName(index)), 'utf8')))
+  for (const [index, content] of expected.entries()) {
+    expect(sessionHeaderVersion(content, writerSnapshotName(index))).toBeLessThanOrEqual(SESSION_FORMAT_VERSION)
+  }
+  expect(await fixtureSessions(scenario), '独立 writer 输出保留 replay 输入字节').toEqual(fixtures)
+  return expected
 }
 
 /**
@@ -1216,6 +1239,103 @@ describe('headless recorded-session snapshots', () => {
     }
   })
 
+  it.each([
+    ['separate', 'replay'], ['separate', 'record'], ['separate', 'refresh'],
+    ['historical', 'replay'], ['historical', 'record'], ['historical', 'refresh'],
+  ] as const)('%s 输入在 %s 模式下只使用独立 writer 输出', async (outputMode, runMode) => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-headless-writer-'))
+    try {
+      const scenario: HeadlessScenario = {
+        name: 'separate-writer',
+        dir: directory,
+        manifest: {
+          version: 1,
+          profile: 'headless',
+          composition: 'default',
+          recording: 'authored',
+          header: { class: 'default' },
+          ...outputMode === 'separate'
+            ? { sessionOutput: 'separate' as const }
+            : { sessionFormat: { version: 1, coverage: ['adjacent-migration'] as const } },
+        },
+      }
+      const versions = outputMode === 'separate' ? [2, 3, SESSION_FORMAT_VERSION] : [0, 1]
+      const header = {
+        type: 'session', version: SESSION_FORMAT_VERSION, id: 'writer-parent', createdAt: 1,
+        cwd: '/tmp/writer-output', isSeeded: false, delegationDepth: 0,
+      }
+      const logs = [header, { ...header, id: 'writer-child', parentSession: header.id, delegationDepth: 1 }]
+        .map((session): SessionLog => ({
+          header: session,
+          content: [
+            session,
+            { type: 'turn/start', seq: 0, time: 2, data: { turn: 1 } },
+            { type: 'turn/end', seq: 1, time: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+          ].map(row => JSON.stringify(row)).join('\n') + '\n',
+        }))
+      const inputs = new Map<string, string>()
+      for (const [index, log] of logs.entries()) {
+        for (const version of versions) {
+          const input = JSON.stringify({ ...log.header, version }) + '\n'
+          const file = sessionFixtureName(index, version)
+          inputs.set(file, input)
+          await writeFile(join(directory, file), input)
+        }
+        await writeFile(join(directory, writerSnapshotName(index)), JSON.stringify(log.header) + '\n')
+      }
+      const fixtures = await fixtureSessions(scenario)
+      const previous = await Promise.all(logs.map((_, index) => readFile(join(directory, writerSnapshotName(index)), 'utf8')))
+
+      const expected = await separateWriterSessions(scenario, fixtures, logs, contextOf(logs.map(log => log.content)), runMode)
+
+      if (runMode === 'refresh') {
+        expect(expected).toHaveLength(2)
+        for (const content of expected) {
+          expect(sessionHeaderVersion(content, '独立 writer 输出')).toBe(SESSION_FORMAT_VERSION)
+          expect(records(content).slice(1).map(row => row.type)).toEqual(['turn/start', 'turn/end'])
+        }
+        expect(expected).not.toEqual(previous)
+      } else {
+        expect(expected).toEqual(previous)
+      }
+      expect((await readdir(directory)).sort()).toEqual([...inputs.keys(), 'writer.expected.jsonl', 'writer.1.expected.jsonl'].sort())
+      for (const [file, input] of inputs) expect(await readFile(join(directory, file), 'utf8')).toBe(input)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it.each([0, 1])('缺少角色 %i 的独立 oracle 时拒绝回退到输入或生成文件', async (missingIndex) => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-headless-missing-writer-'))
+    try {
+      const scenario: HeadlessScenario = {
+        name: 'missing-writer',
+        dir: directory,
+        manifest: {
+          version: 1, profile: 'headless', composition: 'default', recording: 'authored',
+          header: { class: 'default' }, sessionOutput: 'separate',
+        },
+      }
+      const fixtures = [0, 1].map(index => JSON.stringify({
+        type: 'session', version: SESSION_FORMAT_VERSION, id: `input-${index}`, createdAt: 1,
+      }) + '\n')
+      for (const [index, fixture] of fixtures.entries()) {
+        await writeFile(join(directory, sessionFixtureName(index, SESSION_FORMAT_VERSION)), fixture)
+        if (index !== missingIndex) await writeFile(join(directory, writerSnapshotName(index)), fixture)
+      }
+      const files = (await readdir(directory)).sort()
+
+      await expect(separateWriterSessions(scenario, fixtures, [], contextOf(fixtures), 'replay'))
+        .rejects.toMatchObject({ code: 'ENOENT', path: join(directory, writerSnapshotName(missingIndex)) })
+
+      expect((await readdir(directory)).sort()).toEqual(files)
+      expect(await fixtureSessions(scenario)).toEqual(fixtures)
+      expect(await readFile(join(directory, writerSnapshotName(1 - missingIndex)), 'utf8')).toBe(fixtures[1 - missingIndex])
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('session-reference-spill validates captured generations before adapting its fresh source expectation', async () => {
     const fixture = await readFile(join(snapshotsRoot, 'session-reference-spill/session.v3.jsonl'), 'utf8')
     const recordedVersion = sessionHeaderVersion(fixture, 'session-reference-spill fixture')
@@ -1257,7 +1377,7 @@ describe('headless recorded-session snapshots', () => {
       // A read-only directory does not deny root, so the recorded refusal cannot replay.
       || scenario.manifest.workspace?.setup === 'readonly-patch-directory' && process.getuid?.() === 0
       || mode === 'record' && scenario.manifest.recording === 'authored'
-      || mode === 'record' && scenario.manifest.sessionFormat !== undefined
+      || mode === 'record' && usesSeparateSessionOutput(scenario.manifest)
     const scenarioTest = skipped ? it.skip : mode === 'replay' ? it.concurrent : it
     const inputLabel = retainedToolInput === undefined ? '' : ' from retained V3 input'
     scenarioTest(`${mode}s ${scenario.name}${inputLabel} through dsh --profile headless`, async () => {
@@ -1442,6 +1562,7 @@ describe('headless recorded-session snapshots', () => {
           actualLogs,
           fixtures,
           actualContext,
+          mode,
         )
         fixtureFiles = actualLogs.map((log, index) => sessionFixtureName(
           index,
@@ -1455,20 +1576,15 @@ describe('headless recorded-session snapshots', () => {
       expect(actualLogs, `${scenario.name}: persisted session count`).toHaveLength(fixtures.length)
       const writerFiles = (await readdir(scenario.dir)).filter(name => /^writer(?:\.[1-9]\d*)?\.expected\.jsonl$/u.test(name)).sort()
       if (mode === 'replay') {
-        expect(writerFiles, 'native writer oracle inventory').toEqual(scenario.manifest.sessionFormat === undefined
-          ? [] : fixtures.map((_, index) => writerSnapshotName(index)).sort())
+        expect(writerFiles, 'native writer oracle inventory').toEqual(usesSeparateSessionOutput(scenario.manifest)
+          ? fixtures.map((_, index) => writerSnapshotName(index)).sort() : [])
       }
       let expected = retainedToolInput === undefined ? fixtures : await fixtureSessions(scenario)
       if (retainedToolInput !== undefined) {
         expect(await readFile(join(scenario.dir, retainedToolInput), 'utf8'), 'retained replay input bytes').toBe(primaryFixture)
       }
-      if (scenario.manifest.sessionFormat !== undefined) {
-        if (mode === 'refresh') await writeSessionFixtures(scenario, actualLogs, fixtures, actualContext)
-        expected = await Promise.all(fixtures.map((_, index) => readFile(join(scenario.dir, writerSnapshotName(index)), 'utf8')))
-        for (const [index, content] of expected.entries()) {
-          expect(sessionHeaderVersion(content, writerSnapshotName(index))).toBeLessThanOrEqual(SESSION_FORMAT_VERSION)
-        }
-        expect(await fixtureSessions(scenario), 'historical replay input remains unchanged').toEqual(fixtures)
+      if (usesSeparateSessionOutput(scenario.manifest)) {
+        expected = await separateWriterSessions(scenario, fixtures, actualLogs, actualContext, mode)
       }
       const actualSnapshots = normalizeSessionSnapshots(actualLogs.map(log => log.content), actualContext, { nativeWriterOutput: true })
       const expectedSnapshots = normalizeSessionSnapshots(expected, contextOf(expected), { nativeWriterOutput: true })

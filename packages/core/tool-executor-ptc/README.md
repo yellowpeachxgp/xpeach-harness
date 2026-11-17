@@ -39,12 +39,14 @@ This package declares `ctx.ptcRuntime` and `ctx.systemPrompt` as required inject
 
 Shared dispatch events and the `ptc-mode` message-source declaration live in `@xpeach/xph-tool-executor-ptc/types`; Client code imports the same declarations through `@xpeach/xph-tool-executor-ptc/client`. Both entries exclude Host service declarations. Host policy extensions use `import type` from the package entry for `PtcDispatchLog` and `tools/ptc-dispatch-log` without mounting the executor.
 
-[Configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-executor-ptc)
+[Configuration catalog](../../../docs/config-catalog.md#xpeachxph-tool-executor-ptc)
 
 -----
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
+
+When an AgentLoop step supplies `toolSet`, SDK text, runtime bindings, and every nested execution use that exact admission. A denied tool is absent from bindings; removing its registration also rejects an already obtained binding. Without step admission only unconditional capabilities execute. The reserved `run_code` transport remains executor-owned and outside capability registration.
 
 <details>
 <summary>Implementation internals — click to expand</summary>
@@ -83,7 +85,7 @@ Successful image-bearing subcall results become deferred user-message context wi
 
 #### What the model sees
 
-PTC mode exposes the generated [`run_code` schema](../../../docs/tool-catalog.md#deepseek-aidsh-tool-executor-ptc), the SDK instructions below, and the generated exact SDK block for the loaded runtime's language. Both runtime languages list `code` before `description`; this is presentation order, not an enforced JSON member order. The TypeScript instructions use a return-value example for function-body runtimes and a printed-output example for REPL runtimes. They identify generated declarations as program-only bindings. When the current `bash` parameter schema accepts the example arguments, they also show a complete `run_code` call around `tools.bash(...)`. The `tools:sdk` section uses first-party order 5000 and disables prompt-variable interpolation, preserving literal `{{…}}` text in tool descriptions and schemas for both runtime languages. Under `ptc`, the prompt also carries the `tools:ptc-only` rule earlier in the first-party order, so the model reads which tools it may call before it reads what each one is for.
+PTC mode exposes the generated [`run_code` schema](../../../docs/tool-catalog.md#xpeachxph-tool-executor-ptc), the SDK instructions below, and the generated exact SDK block for the loaded runtime's language. Both runtime languages list `code` before `description`; this is presentation order, not an enforced JSON member order. The TypeScript instructions use a return-value example for function-body runtimes and a printed-output example for REPL runtimes. They identify generated declarations as program-only bindings. When the current `bash` parameter schema accepts the example arguments, they also show a complete `run_code` call around `tools.bash(...)`. The `tools:sdk` section uses first-party order 5000 and disables prompt-variable interpolation, preserving literal `{{…}}` text in tool descriptions and schemas for both runtime languages. Under `ptc`, the prompt also carries the `tools:ptc-only` rule earlier in the first-party order, so the model reads which tools it may call before it reads what each one is for.
 
 ##### TypeScript PTC mode SDK instructions with bash
 

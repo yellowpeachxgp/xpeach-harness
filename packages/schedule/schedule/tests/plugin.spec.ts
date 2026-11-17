@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
+import { SessionActivationOwner } from '@xpeach/xph-agent'
 import { SessionId, SessionSeq } from '@xpeach/xph-session'
 import type { SessionEvent } from '@xpeach/xph-session'
 import { gatedScheduleBackend, harness, agentFor } from './harness.ts'
@@ -20,6 +21,35 @@ function scheduleEvent(data: unknown, seq: number): SessionEvent {
 }
 
 describe('shared Schedule management', () => {
+  it('仅依赖公共激活服务，替换提供方后保留历史回执并继续投递', async () => {
+    const test = await setup()
+    const { ctx, fiber } = test
+    const agent = agentFor(ctx)
+    test.resolve.mockResolvedValue(agent)
+    expect(ctx.get('sessionController')).toBeUndefined()
+    const first = await ctx.schedule.create(agent.id, { prompt: '第一次提醒', after_seconds: 2, title: '第一次' })
+    await vi.advanceTimersByTimeAsync(2000)
+    const [delivered] = await ctx.schedule.catalog()
+    expect(delivered).toMatchObject({ id: first.id, status: 'inactive' })
+    const receipt = delivered?.lastDelivery
+    expect(receipt).toBeDefined()
+    await test.withdrawActivation()
+    expect(ctx.get('schedule')).toBeUndefined()
+    const replacement = vi.fn(async () => agent)
+    ctx.provide('sessionActivation', new SessionActivationOwner(replacement))
+    await fiber.await()
+    expect((await ctx.schedule.catalog())[0]?.lastDelivery).toEqual(receipt)
+    expect(replacement).not.toHaveBeenCalled()
+    const second = await ctx.schedule.create(agent.id, { prompt: '第二次提醒', after_seconds: 2, title: '第二次' })
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(replacement).toHaveBeenCalledExactlyOnceWith(agent.id)
+    expect(agent.followup).toHaveBeenCalledTimes(2)
+    const rows = await ctx.schedule.catalog()
+    expect(rows.find(row => row.id === first.id)).toMatchObject({ status: 'inactive', lastDelivery: receipt })
+    expect(rows.find(row => row.id === second.id)).toMatchObject({ status: 'inactive' })
+    expect(rows.find(row => row.id === second.id)?.lastDelivery).toBeDefined()
+  })
+
   it('initializes a new task with empty known delivery history', async () => {
     const { service, pool } = await setup()
     const sessionId = SessionId('new-history')
@@ -327,7 +357,7 @@ describe('retained Schedule delivery', () => {
     const sessionId = SessionId('retained')
     const agent = agentFor(first.ctx, sessionId)
     const followup = vi.spyOn(agent, 'followup')
-    first.resolve.mockResolvedValue({ agent })
+    first.resolve.mockResolvedValue(agent)
     const record = await first.service.create(sessionId, { prompt: 'Retain me', after_seconds: 1, title: 'Retain me' })
     await vi.advanceTimersByTimeAsync(1000)
     const catalog = await first.service.catalog()
@@ -369,7 +399,7 @@ describe('retained Schedule delivery', () => {
     const sessionId = SessionId('failed-delivery')
     const agent = agentFor(test.ctx, sessionId)
     const followup = vi.spyOn(agent, 'followup')
-    test.resolve.mockResolvedValue({ agent })
+    test.resolve.mockResolvedValue(agent)
     const record = await test.service.create(sessionId, { prompt: 'Keep pending', after_seconds: 1, title: 'Keep pending' })
     const changed = vi.fn()
     test.ctx.on('schedule/changed', changed)
@@ -401,7 +431,7 @@ describe('Schedule activation and shutdown', () => {
     tests.push(test)
     const agent = agentFor(test.ctx, 'restored')
     const followup = vi.spyOn(agent, 'followup')
-    test.resolve.mockResolvedValue({ agent })
+    test.resolve.mockResolvedValue(agent)
     await test.service.create(sessionId, { prompt: 'Recurring', every_seconds: 300, title: 'Recurring' })
     const changed = vi.fn()
     test.ctx.on('schedule/changed', changed)

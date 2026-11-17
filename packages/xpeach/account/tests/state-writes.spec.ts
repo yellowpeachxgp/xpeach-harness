@@ -208,6 +208,7 @@ describe('account state writes on a fresh install', () => {
     const set = vi.fn(async () => {})
     const emit = vi.fn()
     const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
+    fakeAccount['liveConfig'] = {}
     fakeAccount['keyFile'] = keyFile
     fakeAccount['adminKeyFile'] = adminKeyFile
     fakeAccount['sessionKeyFile'] = sessionKeyFile
@@ -1075,7 +1076,12 @@ describe('account state writes on a fresh install', () => {
 
     const handleAuthRejectedMock = vi.fn().mockResolvedValue(undefined)
     const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    const guardKeyFile = join(freshProfile(), 'xpeach.key')
+    writeState(guardKeyFile, 'sk-guard-test\n')
     Object.assign(fakeAccount, {
+      liveConfig: {},
+      keyFile: guardKeyFile,
+      ctx: { get: () => undefined },
       verifyAndSyncSsoSession: vi.fn().mockResolvedValue({ valid: true, status: 'ok' }),
       isBound: vi.fn().mockReturnValue(true),
       handleAuthRejected: handleAuthRejectedMock,
@@ -1228,8 +1234,8 @@ describe('account state writes on a fresh install', () => {
         },
       })
 
-      const bootstrapKey = Reflect.get(XPeachAccount.prototype, 'bootstrapKey') as () => void
-      bootstrapKey.call(desktopAccount)
+      const initializeRelay = Reflect.get(XPeachAccount.prototype, 'initializeRelay') as () => Promise<void>
+      await initializeRelay.call(desktopAccount)
 
       expect(desktopAccount.isBound()).toBe(true)
       expect(existsSync(join(desktopProfile, 'xpeach.key'))).toBe(true)
@@ -1246,7 +1252,7 @@ describe('account state writes on a fresh install', () => {
       expect(existsSync(join(rootHome, '.xpeach-signed-out'))).toBe(true)
 
       // Subsequent cold start must stay signed out and not resurrect credentials
-      bootstrapKey.call(desktopAccount)
+      await initializeRelay.call(desktopAccount)
       expect(desktopAccount.isBound()).toBe(false)
     } finally {
       if (prevHome === undefined) {
@@ -1260,7 +1266,7 @@ describe('account state writes on a fresh install', () => {
     }
   })
 
-  it('does not wipe existing credentials when probing a rejected candidate key in keySlotAddOp', async () => {
+  it('候选密钥拒绝时不触发活动账号失效处理或改写原凭据', async () => {
     const profile = freshProfile()
     const keyFile = join(profile, 'xpeach.key')
     const adminKeyFile = join(profile, 'xpeach.admin')
@@ -1272,7 +1278,6 @@ describe('account state writes on a fresh install', () => {
     writeState(adminKeyFile, 'admin-existingValidToken1234\n')
 
     const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
-    const handleAuthRejected = Reflect.get(XPeachAccount.prototype, 'handleAuthRejected') as (status: 401 | 403) => Promise<void>
     Object.assign(fakeAccount, {
       liveConfig: {},
       keyFile,
@@ -1285,12 +1290,8 @@ describe('account state writes on a fresh install', () => {
       routeFile,
       apiKeyEnv: 'XPEACH_API_KEY',
       timeoutMs: 15_000,
-      probingSlotKey: false,
       api: {
-        tokenUsage: vi.fn(async () => {
-          await handleAuthRejected.call(fakeAccount, 401)
-          throw new Error('401 Unauthorized')
-        }),
+        siteBaseURL: 'https://candidate-test.invalid',
         setAdminKey: vi.fn(),
         setSessionKey: vi.fn(),
       },
@@ -1299,15 +1300,25 @@ describe('account state writes on a fresh install', () => {
         get: () => undefined,
       },
     })
-
-    const res = await fakeAccount.keySlotAddOp(
-      { name: 'bad-slot', key: 'sk-invalidCandidateKey000000' },
-      new AbortController().signal,
-    )
-    expect(res.ok).toBe(false)
-    expect(existsSync(keyFile)).toBe(true)
-    expect(existsSync(adminKeyFile)).toBe(true)
-    expect(fakeAccount.isBound()).toBe(true)
+    const originalFetch = globalThis.fetch
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      expect(new URL(input instanceof Request ? input.url : input).origin).toBe('https://candidate-test.invalid')
+      return Response.json({ success: false, message: '合成候选密钥被拒绝' }, { status: 401 })
+    })
+    try {
+      const res = await fakeAccount.keySlotAddOp(
+        { name: 'bad-slot', key: 'sk-invalidCandidateKey000000' },
+        new AbortController().signal,
+      )
+      expect(res.ok).toBe(false)
+      expect(existsSync(keyFile)).toBe(true)
+      expect(existsSync(adminKeyFile)).toBe(true)
+      expect(fakeAccount.isBound()).toBe(true)
+      expect(readFileSync(keyFile, 'utf8')).toBe('sk-existingValidKey1234567890\n')
+    } finally {
+      fetch.mockRestore()
+      expect(globalThis.fetch).toBe(originalFetch)
+    }
     Reflect.deleteProperty(process.env, 'XPEACH_TEST_SLOT_RELAY_KEY')
   })
 
@@ -1325,6 +1336,7 @@ describe('account state writes on a fresh install', () => {
       id: 5372,
       name: 'xph-sso-default',
       groups: ['SWE', 'DeepSeek Pro'],
+      key: 'sk-validRelayKey1234567890',
     }))
 
     const adminTokenUpdate = vi.fn(async () => ({ success: true }))
@@ -1484,13 +1496,16 @@ describe('account state writes on a fresh install', () => {
     })
 
     writeState(keyFile, 'sk-validRelayKeyForSync123456\n')
+    writeState(join(profile, 'xpeach.token'), JSON.stringify({ id: 42, key: 'sk-validRelayKeyForSync123456', groups: ['SWE'] }))
     const runSyncModelCatalog = Reflect.get(XPeachAccount.prototype, 'runSyncModelCatalog') as (sig?: AbortSignal) => Promise<void>
     await runSyncModelCatalog.call(fakeAccount, new AbortController().signal)
 
     expect(savedSelections).toContainEqual({ provider: 'xpeach', model: 'swe-2-max' })
 
     // Remove relay key and simulate an SSO bridge payload whose relay token is empty and cannot be minted
-    writeState(keyFile, '')
+    const capture = Reflect.get(XPeachAccount.prototype, 'captureCredentialSnapshot') as () => object
+    const commit = Reflect.get(XPeachAccount.prototype, 'commitRelay') as (snapshot: object, next: object) => Promise<void>
+    await commit.call(fakeAccount, capture.call(fakeAccount), {})
     Reflect.deleteProperty(process.env, 'XPEACH_TEST_RECONCILE_RELAY_KEY')
     const applySsoBridgePayload = Reflect.get(XPeachAccount.prototype, 'applySsoBridgePayload') as (
       payload: unknown,
@@ -1765,7 +1780,6 @@ describe('account state writes on a fresh install', () => {
       const selectModelCalls: { sessionId: string; provider: string; model: string }[] = []
 
       const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
-      fakeAccount['tokenInfoFile'] = tokenFile
       fakeAccount['keyFile'] = keyFile
       fakeAccount['adminKeyFile'] = adminKeyFile
       fakeAccount['adminKeyVar'] = 'XPEACH_TEST_CLAUDE_SWITCH_ADMIN_KEY'
@@ -1779,10 +1793,6 @@ describe('account state writes on a fresh install', () => {
       fakeAccount['liveConfig'] = { autoSyncModels: true, protocolPreference: 'auto', enabledFamilies: [] }
       fakeAccount['readModelMetadataCache'] = () => undefined
       fakeAccount['refreshModelMetadata'] = async () => undefined
-      fakeAccount['ensureTokenInfo'] = async () => JSON.parse(readFileSync(tokenFile, 'utf8')) as { id: number; name: string; groups: string[] }
-      fakeAccount['writeTokenInfo'] = (info: object) => {
-        writeState(tokenFile, JSON.stringify(info))
-      }
       fakeAccount['api'] = {
         siteBaseURL: 'https://fast.xpeach.codes',
         adminTokenGet: vi.fn(async () => ({ id: 9, name: 'xph-auto', status: 1, groups: ['SWE'] })),

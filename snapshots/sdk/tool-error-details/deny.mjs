@@ -1,5 +1,5 @@
 /** A fixed error producer for SDK transport coverage; it does not enable Auto. */
-import { PtcExecutor } from '@xpeach/xph-tool-executor-ptc'
+import { PtcExecutor } from '../../../packages/core/tool-executor-ptc/lib/index.js'
 
 export const name = 'structured-denial-fixture'
 export const inject = ['tools']

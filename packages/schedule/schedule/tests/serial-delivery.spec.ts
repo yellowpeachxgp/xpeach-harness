@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@xpeach/xph-cordis'
-import type { Agent } from '@xpeach/xph-agent'
+import { SessionActivationOwner, type Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import { mountAgentLoopTestDependencies } from '@xpeach/xph-agent-loop-testkit'
 import { SessionId } from '@xpeach/xph-session'
@@ -49,12 +49,10 @@ describe('due delivery during Agent creation', () => {
     await seeded.close()
     const available = Promise.withResolvers<Agent>()
     // The resolver returns the Agent while its serial publication listeners are blocked.
-    ctx.provide('sessionController', {
-      resolveAgent: async (bound: SessionId) => {
-        expect(bound).toBe(sessionId)
-        return { agent: await available.promise }
-      },
-    } as never)
+    ctx.provide('sessionActivation', new SessionActivationOwner(async (bound) => {
+      expect(bound).toBe(sessionId)
+      return available.promise
+    }))
     await ctx.plugin(ScheduleService)
     const delivered: { readonly id: string; readonly source: unknown }[] = []
     const enqueued = Promise.withResolvers<undefined>()

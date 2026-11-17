@@ -52,6 +52,8 @@ Like every shipped profile, it mounts [MCP resources](../../mcp/mcp-resources/RE
 
 The bundle's single insert is the complete application tree: SDK stdio startup and JSON-RPC serving, one environment-configured DeepSeek adapter, the explicit agent core, conditional MCP resource tools, local filesystem, image attachments, automatic context compaction, and subprocess services, Session working-directory state and its tool, a platform-selected persistent shell PTY, and uncompressed JSONL persistence under `$DSH_HOME/sessions`. It does not inherit another bundle, so every extra row is an explicit profile change.
 
+Persistence overrides target the `sessions` row, whose complete config is `root: !!js dshHomePath('sessions')` and `compression: none`. The single `session-checkpoint-policy` row has no configuration fields.
+
 ### Source map
 
 | File | Role |

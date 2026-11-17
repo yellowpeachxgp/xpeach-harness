@@ -46,6 +46,8 @@ Vendored CLIs, build-only and test-only executables, direct in-process plugin mo
 
 The Python SDK follows the same application architecture. Its runtime wheel packages the normal `dsh` CLI as `deepseek-harness-sdk-runtime-<platform>-<arch>`, and the client launches `dsh --profile sdk` with an explicit Harness home by default. The minimal example selects the shipped `sdk-minimal` profile. Python exposes profile selection and ordered patch files rather than a complete Cordis tree; persistent external plugins are installed through `dsh plugin`. The removed private direct-config carrier has no compatibility bin or fallback parser.
 
+`dsh-agent` declares [application-owned Session activation](../packages/core/agent/README.md#use-this-package). Web and SDK provide it; Schedule borrows their Agents and drains before provider teardown.
+
 ## Desktop application
 
 The [Electron desktop application](../apps/desktop/README.md) ships its exact dsh production runtime in signed resources and owns the reserved `$DSH_HOME/profiles/desktop`. Shared helpers initialize profile files, reconcile bundles, and resolve installation and bundle dependencies without replacing pnpm-owned packages. Desktop and npm CLI share product data but keep packages, activation, and lockfiles separate. Desktop’s bundled CLI manages its initialized plugins.
@@ -83,12 +85,12 @@ A **step** is one model request plus the tools it calls. A **turn** is zero or m
 ```text
 turn/start
   claim next-step input plus one queued message
-  assemble prompt sections + tool schemas
+  prepare prompt sections + runtime context; defer tool content
   -> agent/pre-step; project runtime context at fallback
                                      reject | enter(messages, startsRequestSeries?)
      reject, or a first enter rewritten empty -> close the turn with no step
      step/start
-     agent/request -> prepareCall (cancellation commits neither system nor users)
+     agent/request -> prepareCall -> bindTools (cancellation commits neither system nor users)
      reconcile system/message using the prepared call capability
      append entered messages as user/message; reconcile retained runtime context
      log request/header and request/context as needed
@@ -107,7 +109,9 @@ turn/end
 
 One inbox feeds the driver; injected context waits for a waking message. AgentLoop’s durable `inbox` projection exposes pending input without live Agents.
 
-`agent/pre-step` decides the accepted input. Listeners may rewrite or reject claimed messages; a rejected or empty first claim closes a durable turn without a step. An enter decision may set `startsRequestSeries`: the loop logs a fresh `request/header` (reason `series`, or `change` with `startsSeries: true` when the envelope also changed). Wrapping listeners preserve that declaration with `{ ...decision, messages }`. After assembly and `step/start`, `agent/request` and `prepareCall()` resolve the actual route before the system prompt and accepted users are committed; cancellation during either async phase commits neither. Prepared call capabilities govern prompt admission, not preceding `request/context`. Each attempt refreshes registered runtime facts, reconciles the bound prompt, admits users once, and restores removed runtime context, logs header/context as needed, and freezes the request before streaming the bound call. Retries do not repeat assembly or `agent/pre-step`. Surface replacements and image-offload decisions after attachment start a new request series, including during the first resumed pre-step; unchanged resume continues the series. The first admitted step reserves the system head before user messages even for an empty prompt (no wire message). The prompt travels only as `system/message` history: an empty rendering clears all active system nodes, leaving no old prompt model-visible; capable routes append non-empty updates after cached history, including supported tool updates; incapable routes and new request series consolidate non-empty prompt text at the first system node, with logged empty replacements for non-empty later system nodes ([decision](../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.md); [decision rule](../packages/core/agent-loop/README.md#understand-the-implementation)).
+`agent/pre-step` rewrites, rejects, or accepts claimed input; rejecting or emptying its first batch closes a step-free turn. `startsRequestSeries` logs `request/header` as `series`, or `change` with `startsSeries: true` alongside an envelope change; wrappers preserve `{ ...decision, messages }`. After assembly and `step/start`, `agent/request` and `prepareCall()` resolve the route before system/user admission; cancellation commits neither. Prepared capabilities, not earlier `request/context`, govern prompt admission. Each attempt refreshes registered runtime facts, reconciles prompts, admits users once, restores removed runtime context, logs header/context as needed, freezes requests, and streams the bound call. Retries repeat neither assembly nor `agent/pre-step`. Post-attachment surface replacements and image offloading start new series, including the first resumed pre-step; unchanged resume continues the series. The first admitted step reserves the system head before users, even for an empty prompt (no wire message). Prompts travel only as `system/message` history: empty rendering clears all active system nodes; capable routes append non-empty prompt and supported tool updates after cached history; incapable routes and new series consolidate non-empty text at the first system node and log empty replacements for non-empty later nodes ([decision](../.agents/notes/implemented/architecture/2026-09-02-system-prompt-as-surface-node.md); [decision rule](../packages/core/agent-loop/README.md#understand-the-implementation)).
+
+After route preparation, one `ResolvedToolSet` binds schemas and SDK text and governs raw/nested PTC dispatch. Retries reuse it; all exits release it; rejected proposals allocate none. `finalizeTools` experts preserve complete-section authority ([migration](upgrade-guide/v0.0.35-alpha/prepared-tool-binding/guide.md)).
 
 The loop sends immutable requests with live cancellation and reuses freeze evidence for frozen identities; [agent-loop](../packages/core/agent-loop/README.md) owns construction and cancellation causes.
 

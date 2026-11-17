@@ -128,6 +128,8 @@ Welcome 加载共享 Toast 的配色和阴影变量，挂载在 body 下的通�
 
 ## 内置命令运行时
 
+XPeach 产品补丁维护在 [CLI 资源](../cli/resources/xpeach.profile.yml)中。打包将其字节复制到 `resources/xpeach.profile.yml`；开发模式直接读取 CLI 资源，除非 `DSH_DESKTOP_PRODUCT_PATCH` 显式指定其他文件。所选资源缺失会停止桌面启动。安装版 `xph` 命令仅在补丁首次创建或为空时，从其 runtime 携带的 CLI 包播种；资源不可读时停止命令派发。空 YAML 文档和空数组可播种；非空块式或流式数组保留原文件。YAML 语法或补丁条目无效时明确失败，不覆盖文件；判空不求值 `!!js` 表达式。macOS 安装器通过 Node 包导出，从启动入口解析 CLI 包并读取其固定资源，不搜索工作目录。仍支持显式 `MacosInstallerOptions.productProfilePath` 和源码仓库覆盖。所选资源缺失或无效时停止安装，不会改用另一份模板。安装副作用前只读检查已有 profile 补丁：空文档和数组播种，合法非空补丁保持原字节，无效补丁返回 `XPH_PROFILE_PATCH_INVALID`。每个 pkg 组件在 preinstall 检查已有补丁，profile postinstall 在播种前再次检查。脚本携带 js-yaml，并使用 macOS 的 JavaScript for Automation，无需另行安装 Node。
+
 安装后的 `resources/runtime/cli/bin/dsh` shell 脚本（Windows 为 `dsh.cmd`）使用 Desktop 的 Electron 可执行文件和内置 pnpm 运行普通 CLI 分派入口。Desktop 关闭时也可使用，并保留 Electron 运行时限制。普通 profile、配置和插件命令与 npm dsh 使用相同实现；该命令不会打开 Desktop。
 
 管理 Desktop 插件前，先启动一次 Desktop 以初始化其 profile，完全退出应用，再运行 `dsh plugin --profile desktop add <package>`、`list` 或 `remove <package>`。重新打开 Desktop 后使用更改。包操作保留共享的 profile 写锁和兼容性检查。内置命令拒绝未初始化的 Desktop profile，不会在其位置创建普通 CLI profile。

@@ -8,146 +8,14 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import * as yaml from 'js-yaml'
 
 const HELP_OR_VERSION_FLAGS = new Set(['-h', '--help', '-V', '--version'])
 const POSITIONAL_PROFILES = new Set(['headless', 'acp', 'sdk'])
-
-const DEFAULT_XPEACH_PROFILE_PATCH = `# XPeach product profile: replaces the DeepSeek brand, sign-in surface and
-# model provider with the XPeach relay, and loads the XPeach product plugins.
-- id: ui-settings-general
-  name: "@xpeach/xph-client-ui-settings-general"
-  config:
-    welcomeNoticeVersion: 2026-09-28.1
-- id: ui-settings-account
-  disabled: true
-- id: deepseek-account
-  disabled: true
-- id: account-controller
-  disabled: true
-- id: plugin-package-inventory-deepseek
-  disabled: true
-- id: deepseek-llm-api-extensions
-  disabled: true
-- id: session-log-deepseek
-  disabled: true
-- id: session-telemetry-otel
-  disabled: true
-- id: llm-deepseek-account
-  disabled: true
-- id: ui-deepseek-model-label-1017
-  disabled: true
-- id: llm-deepseek
-  disabled: true # Disabled: models are served through the xpeach provider in llm-pi-ai.
-  name: "@xpeach/xph-llm-deepseek-api-key"
-  config:
-    apiKeyEnv: XPEACH_RELAY_KEY
-    baseURL: https://fast.xpeach.codes/v1
-    models:
-      - id: deepseek-flash
-        name: DeepSeek-Flash
-        contextWindow: 1000000
-        inputModalities:
-          - text
-          - image
-        systemPromptUpdate: in-history
-      - id: deepseek-v4-pro
-        name: DeepSeek-V4-Pro
-        description: Stronger agentic coding, knowledge, and difficult reasoning; suited
-          to complex or quality-critical tasks at higher cost.
-        contextWindow: 1000000
-        inputModalities:
-          - text
-      - id: deepseek-v4.1-flash
-        name: DeepSeek-V4.1-Flash
-        inputModalities:
-          - text
-          - image
-      - id: swe-2-max
-        name: swe-2-max
-        contextWindow: 256000
-        inputModalities:
-          - text
-          - image
-- id: web-search-deepseek
-  name: "@xpeach/xph-web-search-deepseek"
-  config:
-    apiKeyEnv: XPEACH_RELAY_KEY
-    baseURL: https://fast.xpeach.codes/anthropic/v1
-- id: agent-default-model
-  name: "@xpeach/xph-agent-default-model"
-  config:
-    provider: xpeach
-    model: swe-2-max
-- id: llm-pi-ai
-  name: "@xpeach/xph-llm-pi-ai"
-  config:
-    providers:
-      xpeach:
-        displayName: 🍑Code
-        apiKeyEnv: XPEACH_RELAY_KEY
-        api: openai-completions
-        baseURL: https://fast.xpeach.codes/v1
-        defaultInput:
-          - text
-          - image
-        reasoning: high
-        models:
-          - id: swe-2-max
-            name: swe-2-max
-            contextWindow: 262144
-            maxTokens: 65536
-            input:
-              - text
-              - image
-            reasoningEfforts:
-              off: null
-              low: low
-              medium: medium
-              high: high
-        # The catalog is not frozen here: the account plugin writes the site's
-        # live model list into this namespace at boot and after every bind.
-
-
-- id: ui-brand-official
-  disabled: true
-
-# XPeach product plugins. They are host plugins (dsh.client) inserted here, the
-# same way every other client-only plugin in this repository is loaded.
-- insert:
-    - id: xpeach-account
-      name: '@xpeach/xph-account'
-    - id: xpeach-client
-      name: '@xpeach/xph-client-ui'
-
-- id: locale
-  name: "@xpeach/xph-client-locale"
-  config:
-    preference: zh
-- id: permission
-  name: "@xpeach/xph-permission-presets"
-  config:
-    presets:
-      read-only:
-        sandbox: read-only
-        approval: ask
-      workspace-write:
-        sandbox: workspace-write
-        approval: ask
-      danger-full-access:
-        sandbox: danger-full-access
-        approval: never
-    defaultPreset: danger-full-access
-- id: agent-preset-registry
-  name: "@xpeach/xph-agent-preset-registry"
-  config:
-    default: standard
-    selectedDefault: ptc
-- id: session-persistence-jsonl
-  name: "@xpeach/xph-session-persistence-jsonl"
-  config:
-    root: !!js dshHomePath('sessions')
-    listConcurrency: 32
-`
+const productPatchSchema = yaml.JSON_SCHEMA.extend(new yaml.Type('tag:yaml.org,2002:js', {
+  kind: 'scalar', resolve: (expression: unknown) => typeof expression === 'string',
+  construct: (expression: string) => expression,
+}))
 
 /**
  * Normalize raw `xph` CLI arguments into the canonical `runCli` form.
@@ -214,22 +82,17 @@ export function normalizeXphArgv(rawArgs: readonly string[]): string[] {
   return ['--profile', 'xpeach', ...normalized]
 }
 
-function resolveShippedPatchContent(baseUrl: string | URL = import.meta.url): string {
-  const candidates = [
-    '../../desktop/resources/xpeach.profile.yml',
-    '../../../desktop/resources/xpeach.profile.yml',
-    '../../../../xpeach.profile.yml',
-    '../../../../../xpeach.profile.yml',
-  ]
-  for (const rel of candidates) {
-    try {
-      const candidatePath = fileURLToPath(new URL(rel, baseUrl))
-      if (existsSync(candidatePath)) return readFileSync(candidatePath, 'utf8')
-    } catch (_err) {
-      // Ignore unresolvable relative URLs in non-file environments and check the next candidate.
-    }
+/** 读取源码和安装包共同使用的产品补丁；资源不可读时停止播种。 */
+function resolveShippedPatchContent(): string {
+  const resource = new URL('../resources/xpeach.profile.yml', import.meta.url)
+  try {
+    return readFileSync(resource, 'utf8')
+  } catch (cause) {
+    throw Object.assign(new Error('xph：无法读取随包产品补丁，请重新安装完整的 CLI 包。', { cause }), {
+      code: 'XPH_PROFILE_RESOURCE_UNAVAILABLE',
+      path: fileURLToPath(resource),
+    })
   }
-  return DEFAULT_XPEACH_PROFILE_PATCH
 }
 
 /**
@@ -239,6 +102,7 @@ function resolveShippedPatchContent(baseUrl: string | URL = import.meta.url): st
  * when not already set in the environment.
  * @param home - Optional explicit `XPH_HOME` override for testing.
  * @returns The resolved `xpeach` profile directory path.
+ * @throws 用户补丁语法或条目无效时，在补丁旧引用迁移与种子写入前失败。
  */
 export async function ensureXpeachProfile(home?: string): Promise<string> {
   process.env.XPH_PRODUCT = '1'
@@ -290,16 +154,19 @@ export async function ensureXpeachProfile(home?: string): Promise<string> {
   }
 
   const patchFile = join(xphProfile, 'cordis.patch.yml')
+  const { loadOptionalPatches } = await import('@xpeach/xph-app-boot')
+  const currentPatch = existsSync(patchFile) ? readFileSync(patchFile, 'utf8') : ''
+  const parsed: unknown = yaml.load(currentPatch, { schema: productPatchSchema, filename: patchFile })
+  const emptyPatch = parsed === undefined || parsed === null || (loadOptionalPatches('xph', patchFile)?.length ?? 0) === 0
   if (existsSync(patchFile)) {
-    const text = readFileSync(patchFile, 'utf8')
-    const cleaned = text
+    const cleaned = currentPatch
       .replace(/# 旧路径兜底隔离[\s\S]*?(?=- insert:)/, '')
       .replaceAll('@deepseek-ai/dsh-xpeach-account', '@xpeach/xph-account')
       .replaceAll('@deepseek-ai/dsh-client-ui-xpeach', '@xpeach/xph-client-ui')
       .replaceAll('@deepseek-ai/dsh-', '@xpeach/xph-')
-    if (cleaned !== text) writeFileSync(patchFile, cleaned)
+    if (!emptyPatch && cleaned !== currentPatch) writeFileSync(patchFile, cleaned)
   }
-  if (!existsSync(patchFile) || !/^\s*-/m.test(readFileSync(patchFile, 'utf8'))) {
+  if (emptyPatch) {
     mkdirSync(xphProfile, { recursive: true })
     writeFileSync(patchFile, resolveShippedPatchContent())
   }

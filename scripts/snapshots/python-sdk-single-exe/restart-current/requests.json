@@ -1,0 +1,80 @@
+[
+  {
+    "model": "smoke-model",
+    "system": "{{system}}",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Complete the first isolated Python SDK process turn."
+          },
+          {
+            "type": "text",
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
+          },
+          {
+            "type": "text",
+            "text": "Time sampled while preparing turn 1, step 1: 2026-11-17T00:00:00+00:00[UTC]\nBrowser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times.\nElapsed since the preceding model-visible message: unavailable."
+          }
+        ]
+      }
+    ],
+    "toolNames": [
+      "ask_user_question",
+      "cordis_inspect_list",
+      "cordis_inspect_query",
+      "job_kill",
+      "job_list",
+      "job_output",
+      "present",
+      "schedule_create",
+      "schedule_delete",
+      "schedule_list",
+      "schedule_update",
+      "subagent",
+      "workflow",
+      "working_directory"
+    ]
+  },
+  {
+    "model": "smoke-model",
+    "system": "{{system}}",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Complete the second isolated Python SDK process turn."
+          },
+          {
+            "type": "text",
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
+          },
+          {
+            "type": "text",
+            "text": "Time sampled while preparing turn 1, step 1: 2026-11-17T00:00:00+00:00[UTC]\nBrowser time zone for this request: unavailable. Ask the user to clarify otherwise-unqualified dates and times.\nElapsed since the preceding model-visible message: unavailable."
+          }
+        ]
+      }
+    ],
+    "toolNames": [
+      "ask_user_question",
+      "cordis_inspect_list",
+      "cordis_inspect_query",
+      "job_kill",
+      "job_list",
+      "job_output",
+      "present",
+      "schedule_create",
+      "schedule_delete",
+      "schedule_list",
+      "schedule_update",
+      "subagent",
+      "workflow",
+      "working_directory"
+    ]
+  }
+]

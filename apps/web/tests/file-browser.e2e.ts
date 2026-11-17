@@ -416,9 +416,7 @@ it('browses workspace files in tabs that share one pane tree', async () => {
   const filePageBox = await pageFloat.boundingBox()
   if (filePageBox === null) throw new Error('floating files page is not rendered')
   await resizeFloat(page, pageFloat, 360, filePageBox.height - 20)
-  // FIXME(upstream float-spring): resizing a float narrower than the viewport needs the
-  // dockkit viewport-bounds projection (7bfe4ad0), which is not yet ported; the phone-width
-  // case returns with it.
+  // FIXME(upstream float-spring): 窄浮窗依赖尚未移植的 dockkit 视口边界投影，再恢复手机宽度用例。
   expect(await pageFloat.locator('[data-files-navigator]').count()).toBe(1)
   const docked = await tabs.count()
   await pageFloat.getByRole('button', { name: 'src', exact: true }).click()

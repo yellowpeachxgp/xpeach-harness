@@ -117,6 +117,7 @@ export function eventItem(item: EventItem, next?: number): {
   }
   const start = next ?? item.session.firstLiveSeq
   if (start >= item.end) return { events: [], next }
+  // oxlint-disable-next-line typescript/no-deprecated -- 既有被动订阅补齐创建通知中的历史段，等待异步分页迁移。
   const events = item.session.snapshotEvents(SessionLogOffset(start), SessionLogOffset(item.end))
   for (const event of events) {
     if (next !== undefined && event.seq !== next) {

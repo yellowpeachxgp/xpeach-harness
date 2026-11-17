@@ -3,13 +3,13 @@ description: "The stdio JSON-RPC serving plugin for deployments that let out-of-
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-sdk-jsonrpc-server
+# @xpeach/xph-sdk-jsonrpc-server
 
 English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-sdk-jsonrpc-server` serves the SDK wire protocol over stdio so out-of-process clients can drive harness agents: it opens one session per `sessionId`, queues user prompts, and streams every session event and agent status transition back to the client. Mount it as the `jsonrpc` plugin in a Loader composition; the surrounding tree supplies everything else — agents, model adapters, persistence, and tools. Stdout carries only JSON-RPC frames, so a deployment must not compose a stdout logger. It answers `shutdown` by disposing the root runtime and exiting 0; the app bin owns EOF and signal exits.
+`@xpeach/xph-sdk-jsonrpc-server` serves the SDK wire protocol over stdio so out-of-process clients can drive harness agents: it opens one session per `sessionId`, queues user prompts, and streams every session event and agent status transition back to the client. Mount it as the `jsonrpc` plugin in a Loader composition; the surrounding tree supplies everything else — agents, model adapters, persistence, and tools. Stdout carries only JSON-RPC frames, so a deployment must not compose a stdout logger. It answers `shutdown` by disposing the root runtime and exiting 0; the app bin owns EOF and signal exits.
 
 ## Table of Contents
 
@@ -29,7 +29,9 @@ Mount this plugin when a runtime must serve SDK clients: add it to a `cordis.yml
 
 Set `initialize.approvalRequests` to `true` to send internal approvals as server-to-client `approval/request` calls. The bridge handles SDK-owned Agents and their live in-process descendants, following `agents.isOwnedBy()` runtime ownership rather than persisted `parentSession` lineage; unrelated Agents and clients that omit the flag continue through the composed answerer chain. The approval service still applies `never` policy before dispatch and records the ask/decision audit pair. The bridge accepts only `allowed-once`, `rejected`, or `cancelled`; an invalid response, client error, or transport loss yields the service's fail-closed `unavailable` outcome. Request cancellation abandons the pending wire waiter; shutdown abandons all such waiters before draining Agents. Late replies cannot grant an abandoned operation. See the [protocol](../protocol/README.md) for the payload and the [Python example](../../../python/sdk/README.md#client-approvals) for client handling.
 
-`session/resume` accepts a persisted `{ sessionId }` after initialization and returns `{}` once its Agent is ready. It loads history through `agents.resume()`, repairs an interrupted final turn, and preserves the stored origin and effective directory while applying the initialized model route. It sends no new input. Missing, unreadable, incompatible, or occupied sessions reject without creating a replacement. Prompts for an identity currently being restored wait for that restoration; shutdown drains pending restoration and releases its Agent. Historical events are retained in the log rather than streamed again as new notifications.
+`session/resume` accepts a persisted `{ sessionId }` after initialization and returns `{}` once its Agent is ready. It loads history through `agents.resume()`, repairs an interrupted final turn, and preserves the stored origin and effective directory while applying the initialized model route. It sends no new input. Missing, unreadable, incompatible, or occupied sessions reject without creating a replacement. Prompts for an identity currently being restored wait for that restoration; shutdown cancels and drains pending restoration, then releases its Agent. Historical events are retained in the log rather than streamed again as new notifications.
+
+After successful route initialization, the server provides `ctx.sessionActivation` for background consumers such as Schedule. It reuses its live or opening Agent, or resumes the persisted identity through the same owned Session records. Missing history rejects without creating a replacement. Initialization waits for the newly enabled Loader entries before returning. Background consumers finish delivery and persistence inside `withAgent` without retaining the Agent. Shutdown closes admission and drains accepted operations before withdrawing activation and releasing Session handles. One ordered owner adopts the resource fiber's original disposer, including during parent unload. Restoration finishing after shutdown cannot enter a borrowed operation.
 
 <a id="command-input"></a>
 
@@ -37,7 +39,7 @@ The supported commands below are existing Desktop native operations that can exe
 
 `session/query` is the wire entry used by high-level SDK `run()` for strings and content-block arrays. Ordinary inputs retain their blocks and use the existing prompt queue. The full SDK recognizes bare `/compact`, `/permission <preset>` with a non-blank preset, `/plan [off|message]`, and `/goal [objective|clear|edit objective|pause|resume]` identified by their official definition IDs. Bare `/permission` or `/权限`, `/compact extra`, and all other input including `/model` remain ordinary prompts. A missing command also preserves the prompt path; a selected handler's failure never falls back. An unknown preset is a native command error. Encoded image blocks accompany recognized commands through native attachment admission. `session/prompt` remains the low-level queued-input entry without native slash-command routing.
 
-Host and Desktop adapters share `dsh-commands/builtin` for definition identity and English/Chinese aliases. The aliases `/压缩`, `/权限`, `/计划`, and `/目标` follow their official definitions after renaming; execution uses the current registered name. Exact names take precedence, but an unrelated same-name definition is not an SDK builtin and remains an ordinary prompt. Other builtin capabilities remain outside the SDK command set.
+Host and Desktop adapters share `@xpeach/xph-commands/builtin` for definition identity and English/Chinese aliases. The aliases `/压缩`, `/权限`, `/计划`, and `/目标` follow their official definitions after renaming; execution uses the current registered name. Exact names take precedence, but an unrelated same-name definition is not an SDK builtin and remains an ordinary prompt. Other builtin capabilities remain outside the SDK command set.
 
 The first text block supplies the complete command line; encoded images may precede or follow it. When that line matches a supported command, it must be the only text block and every other block must be an encoded image. Additional text blocks, durable image references, and other content types reject with a JSON-RPC error before execution or enqueue, without prompt fallback. Ordinary prompts preserve all block content and ordering. Empty arrays and arrays containing only blank text are rejected; image-only input is allowed.
 
@@ -91,7 +93,7 @@ This section explains the design behind the serving plugin; the observable behav
 
 ### Design concept
 
-The plugin is a thin presentation adapter: [`HarnessSdkJsonRpcServer`](src/server.ts) owns the protocol methods and notifications, while the transport and the named wire types come from `dsh-sdk-protocol`, shared with the client SDKs. It subscribes to session, agent, and subagent lifecycle events and forwards them as wire notifications. `subagent.started` requires `origin: subagent` and a direct creator id; ordinary forks, including historical ones with a parent id, produce no such notification; subagent completions are forwarded only when the service-snapshotted lifecycle `local` flag is true — provider names, child ids, and durable lineage never establish locality.
+The plugin is a thin presentation adapter: [`HarnessSdkJsonRpcServer`](src/server.ts) owns the protocol methods and notifications, while the transport and the named wire types come from `@xpeach/xph-sdk-protocol`, shared with the client SDKs. It subscribes to session, agent, and subagent lifecycle events and forwards them as wire notifications. `subagent.started` requires `origin: subagent` and a direct creator id; ordinary forks, including historical ones with a parent id, produce no such notification; subagent completions are forwarded only when the service-snapshotted lifecycle `local` flag is true — provider names, child ids, and durable lineage never establish locality.
 
 ### Source map
 

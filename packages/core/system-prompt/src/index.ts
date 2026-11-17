@@ -24,6 +24,7 @@ declare module '@xpeach/xph-cordis' {
      * be retained to control later turns. A registered complete section is
      * restored after this waterfall, so listeners cannot add to or replace
      * that scope's system prompt.
+     * prepare() 中延迟工具贡献尚未求值；依赖最终工具内容的读取、过滤或排序须通过返回值的 finalizeTools 执行。
      * @param assembly - the mutable assembly built from registered providers.
      * @param context - the caller's per-assembly context.
      * @mode waterfall
@@ -73,6 +74,8 @@ export interface PromptSection {
    * More than one effective complete section makes assembly fail.
    */
   readonly complete?: boolean
+  /** 在 prepare() 中延后到 bindTools() 才求值；assemble() 仍立即求值。不与 complete 同用。 */
+  readonly deferUntilTools?: true
 }
 
 /** Dynamic model context materialized as a durable user-role snapshot. */
@@ -126,6 +129,37 @@ export interface PromptAssembly {
   contexts: AssembledContext[]
   tools: ToolSchema[]
   variables: Record<string, string | undefined>
+  /**
+   * prepare() 的专家回调，在延迟工具内容绑定后执行一次；assemble() 中在原 waterfall 后执行。
+   * @param assembly - 已含真实工具声明与工具说明的组装结果。
+   * @returns 最终组装结果；配置的 complete section 仍由注册表恢复。
+   */
+  readonly finalizeTools?: (assembly: PromptAssembly) => PromptAssembly
+}
+
+/** 工具提供者的求值时点。 */
+export interface ToolProviderOptions {
+  /** prepare() 中延迟到 bindTools()；省略时仍在原组装阶段求值。 */
+  readonly deferUntilTools?: true
+  /**
+   * 延迟提供者在准备阶段声明的名称全集，用于提前验证 toolOrder；省略时在最终绑定时验证。
+   * @param context - 准备阶段的组装作用域。
+   * @returns 不依赖本步准入的工具名称。
+   */
+  readonly knownNames?: (context: AssembleContext) => readonly string[]
+}
+
+/** 一次专家 waterfall 的准备结果；绑定不会重新组装或重新派发事件。 */
+export interface PreparedPromptAssembly {
+  /** 已接纳的普通片段、运行时上下文、变量与非延迟工具贡献。 */
+  readonly assembly: PromptAssembly
+  /**
+   * 一次性求值延迟工具贡献，再执行专家的 finalizeTools。
+   * @param context - 最终请求所使用的工具准入等字段；scope 和 signal 沿用准备阶段。
+   * @returns 保留专家额外贡献并执行 complete 覆盖的最终提示词。
+   * @throws 绑定重复、取消或任一提供者、专家回调失败时抛出。
+   */
+  bindTools(context: AssembleContext): PromptAssembly
 }
 
 const SECTION_ORDERS = {
@@ -387,7 +421,11 @@ function resolveContext(entry: PromptContext, context: AssembleContext): Assembl
 }
 
 /** One tool-schema provider stored in a prompt layer. */
-type ToolProvider = (context: AssembleContext) => ToolProviderResult
+interface ToolProvider {
+  readonly provide: (context: AssembleContext) => ToolProviderResult
+  readonly deferUntilTools: boolean
+  readonly knownNames: ToolProviderOptions['knownNames']
+}
 
 /** One prompt-variable provider stored in a prompt layer. */
 type VariableProvider = (context: AssembleContext) => string | undefined
@@ -451,9 +489,7 @@ export class SystemPrompt extends Service {
       this.section({
         name: 'harness:identity',
         order: this.getSectionOrder('HARNESS_IDENTITY'),
-        text: process.env.XPH_PRODUCT === '1'
-          ? 'You are an AI agent powered by XPeach Harness.'
-          : 'You are an AI agent powered by XPeach Harness.',
+        text: 'You are an AI agent powered by XPeach Harness.',
       })
     }
     this.section({
@@ -481,6 +517,9 @@ export class SystemPrompt extends Service {
   section(section: PromptSection): () => void {
     if (!Number.isFinite(section.order)) {
       throw new TypeError(`prompt section "${section.name}" order must be a finite number`)
+    }
+    if (section.complete === true && section.deferUntilTools === true) {
+      throw new TypeError(`完整提示词片段 "${section.name}" 不能延迟到工具绑定。`)
     }
     return this.layers.effect(
       this.ctx,
@@ -543,12 +582,15 @@ export class SystemPrompt extends Service {
    * matching scoped providers both contribute; returning the reserved
    * {@link TOOL_ORDER_REST} name makes assembly fail.
    * @param provider - evaluated for each assembly with its context.
+   * @param options - 省略时立即求值；延迟贡献在 prepare() 返回结果的 bindTools() 中求值。
    * @returns the exact Cordis effect disposer.
    */
-  tools(provider: (context: AssembleContext) => ToolProviderResult): () => void {
+  tools(provider: (context: AssembleContext) => ToolProviderResult, options: ToolProviderOptions = {}): () => void {
     return this.layers.effect(
       this.ctx,
-      layer => layer.toolProviders.append(provider),
+      layer => layer.toolProviders.append({
+        provide: provider, deferUntilTools: options.deferUntilTools === true, knownNames: options.knownNames,
+      }),
       { label: 'systemPrompt.tools()' },
     )
   }
@@ -615,6 +657,21 @@ export class SystemPrompt extends Service {
    */
   // Keep configuration failures on the declared asynchronous error path.
   async assemble(context: AssembleContext = {}): Promise<PromptAssembly> {
+    const prepared = await this.prepareAssembly(context, false)
+    return prepared.bindTools({})
+  }
+
+  /**
+   * 保留原专家 waterfall 与运行时上下文，将声明为延迟的工具贡献留到真实请求选路后绑定。
+   * 专家在该阶段看不到延迟贡献；需要改写最终工具内容时返回 finalizeTools。
+   * @param context - 本次组装的作用域与取消信号。
+   * @returns 一次性工具绑定句柄；被拒绝的 pre-step 可以直接丢弃它。
+   */
+  prepare(context: AssembleContext = {}): Promise<PreparedPromptAssembly> {
+    return this.prepareAssembly(context, true)
+  }
+
+  private async prepareAssembly(context: AssembleContext, deferTools: boolean): Promise<PreparedPromptAssembly> {
     const scope = context.scope
     const scopeLayers = this.layers.chainLayers(scope)
     const runtimeContextSuppressed = !this.layers.global.runtimeContextSuppressors.isEmpty()
@@ -640,8 +697,8 @@ export class SystemPrompt extends Service {
     ]
     const collected: ToolSchema[] = []
     const knownNames = new Set<string>()
-    for (const provider of providers) {
-      const result = provider(context)
+    const collect = (provider: ToolProvider, target: ToolSchema[], source: AssembleContext): void => {
+      const result = provider.provide(source)
       const schemas = result.schemas.map(({ name, description, parameters, deferLoading }): ToolSchema => ({
         name,
         description,
@@ -649,8 +706,12 @@ export class SystemPrompt extends Service {
         ...deferLoading === true ? { deferLoading } : {},
       }))
       const acceptedKnownNames = result.knownNames ?? schemas.map(tool => tool.name)
-      collected.push(...schemas)
+      target.push(...schemas)
       for (const name of acceptedKnownNames) knownNames.add(name)
+    }
+    for (const provider of providers) {
+      if (!deferTools || !provider.deferUntilTools) collect(provider, collected, context)
+      else for (const name of provider.knownNames?.(context) ?? []) knownNames.add(name)
     }
     const sectionDefinitions = [...sectionByName.values()].sort(comparePromptSections)
     const completeSections = sectionDefinitions.filter(section => section.complete === true)
@@ -658,13 +719,15 @@ export class SystemPrompt extends Service {
       throw new Error(`multiple complete prompt sections are active: ${completeSections.map(section => JSON.stringify(section.name)).join(', ')}`)
     }
     let completeSection: AssembledSection | undefined
+    const assembleSection = (section: PromptSection, source: AssembleContext): AssembledSection => ({
+      name: section.name,
+      text: typeof section.text === 'function' ? section.text(source) : section.text,
+      ...section.interpolate !== undefined ? { interpolate: section.interpolate } : {},
+    })
     const sections = sectionDefinitions
+      .filter(section => !deferTools || section.deferUntilTools !== true)
       .map((section) => {
-        const assembled = {
-          name: section.name,
-          text: typeof section.text === 'function' ? section.text(context) : section.text,
-          ...section.interpolate !== undefined ? { interpolate: section.interpolate } : {},
-        }
+        const assembled = assembleSection(section, context)
         if (section.complete === true) completeSection = { ...assembled }
         return assembled
       })
@@ -674,19 +737,64 @@ export class SystemPrompt extends Service {
         .filter(entry => !runtimeContextSuppressed || entry.required === true)
         .sort((a, b) => a.order - b.order)
         .map(entry => resolveContext(entry, context)),
-      tools: orderTools(collected, this.toolOrder, knownNames),
+      tools: deferTools && providers.some(provider => provider.deferUntilTools && provider.knownNames === undefined)
+        ? collected.sort(compareToolNames) : orderTools(collected, this.toolOrder, knownNames),
       variables,
     }
     const transformed = await this.ctx.waterfall(
       scopeTarget(this, scope), 'system-prompt/assemble', assembly, context,
       () => Promise.resolve(assembly),
     )
-    if (completeSection === undefined && !runtimeContextSuppressed) return transformed
     const requiredContexts = new Set([...contextByName.values()].filter(entry => entry.required === true).map(entry => entry.name))
+    const enforce = (accepted: PromptAssembly): PromptAssembly => {
+      if (completeSection === undefined && !runtimeContextSuppressed) return accepted
+      return {
+        ...accepted,
+        sections: completeSection === undefined ? accepted.sections : [completeSection],
+        contexts: runtimeContextSuppressed ? accepted.contexts.filter(entry => requiredContexts.has(entry.name)) : accepted.contexts,
+      }
+    }
+    const acceptedAssembly = enforce(transformed)
+    let bound = false
     return {
-      ...transformed,
-      sections: completeSection === undefined ? transformed.sections : [completeSection],
-      contexts: runtimeContextSuppressed ? transformed.contexts.filter(entry => requiredContexts.has(entry.name)) : transformed.contexts,
+      assembly: acceptedAssembly,
+      bindTools: (binding) => {
+        if (bound) throw new Error('提示词工具内容已经绑定，不能重复绑定。')
+        bound = true
+        context.signal?.throwIfAborted()
+        const { scope: _bindingScope, signal: _bindingSignal, ...fields } = binding
+        const source = { ...context, ...fields }
+        const delayed: ToolSchema[] = []
+        if (deferTools) {
+          for (const provider of providers) {
+            if (provider.deferUntilTools) collect(provider, delayed, source)
+          }
+        }
+        let accepted = acceptedAssembly
+        if (deferTools) {
+          const sections = [...acceptedAssembly.sections]
+          const orders = new Map(sectionDefinitions.map(section => [section.name, section.order]))
+          if (completeSection === undefined) {
+            for (const definition of sectionDefinitions) {
+              if (definition.deferUntilTools !== true || sections.some(section => section.name === definition.name)) continue
+              const section = assembleSection(definition, source)
+              const index = sections.findIndex((candidate) => {
+                const order = orders.get(candidate.name)
+                return order !== undefined && (order > definition.order
+                  || (order === definition.order && compareNames(candidate.name, definition.name) > 0))
+              })
+              sections.splice(index < 0 ? sections.length : index, 0, section)
+            }
+          }
+          for (const tool of acceptedAssembly.tools) knownNames.add(tool.name)
+          accepted = { ...acceptedAssembly, sections,
+            tools: orderTools([...delayed, ...acceptedAssembly.tools], this.toolOrder, knownNames) }
+        }
+        const { finalizeTools, ...settled } = accepted
+        const result = enforce(finalizeTools === undefined ? settled : finalizeTools(settled))
+        context.signal?.throwIfAborted()
+        return result
+      },
     }
   }
 }

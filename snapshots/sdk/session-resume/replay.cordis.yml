@@ -1,0 +1,10 @@
+# 每次重启仅消费本轮脚本，原 Session 仍由真实解析器读取。
+- id: llm-replay
+  config:
+    overrideFile: !!js process.env.DSH_SNAPSHOT_OVERRIDE
+    providers:
+      - id: deepseek-official
+        name: DeepSeek
+        models:
+          - id: deepseek-v4-flash
+          - id: deepseek-v4-pro

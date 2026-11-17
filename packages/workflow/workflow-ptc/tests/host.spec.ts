@@ -118,6 +118,8 @@ describe('workflow host callback validation', () => {
       expect(childStart).toHaveBeenCalledOnce()
       const selected = childStart.mock.calls[0]![0]
       expect(selected.provider).toBe('stub')
+      expect(selected).toHaveProperty('request')
+      if (!('request' in selected)) throw new Error('工作流应传入嵌套的子 Agent 任务配置')
       expect(selected.request.cwd).toBe(initial)
       expect(ensureDirectory).toHaveBeenCalledOnce()
     } finally {
@@ -207,7 +209,10 @@ describe('workflow runtime outcomes', () => {
       await disposing.promise
       expect(settled).toBe(false)
       expect(activation).toHaveBeenCalledOnce()
-      const { signal, ...delegation } = activation.mock.calls[0]![0]
+      const selected = activation.mock.calls[0]![0]
+      expect(selected).toHaveProperty('request')
+      if (!('request' in selected)) throw new Error('工作流应传入嵌套的子 Agent 任务配置')
+      const { signal, ...delegation } = selected
       expect(signal).toBeInstanceOf(AbortSignal)
       const { parent: delegatedParent, ...request } = delegation.request
       expect(delegatedParent).toBe(parent)

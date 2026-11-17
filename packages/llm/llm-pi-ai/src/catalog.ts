@@ -850,6 +850,7 @@ export interface RouteCatalog {
  * under the configured entries. A route with no configured `models` serves the
  * installed catalog unchanged, which is what keeps an existing
  * `providers: { deepseek: { apiKeyEnv: … } }` profile working untouched.
+ * 显式空列表停用目录，不继承内置模型；路由的其他配置仍须有效。
  * @param request - the route-level catalog facts.
  * @param validation - strict writes reject every error; deferred reads retain model diagnostics.
  * @returns the materialized models and the explicitly configured request caps.
@@ -861,9 +862,7 @@ export function resolveRouteModels(
   const { provider } = request
   const defaults = catalogModels(provider)
   const providerBaseUrl = catalogProvider(provider)?.baseUrl
-  // An absent `models` key and an empty one are the same request: the config
-  // schema materializes `[]` for the absent case, and an empty catalog could
-  // serve no request anyway, so both mean "serve the installed catalog".
+  // 显式空数组停用目录；只有省略 models 才继承已安装目录。
   const configured = request.models ?? []
   const overrides = request.modelOverrides ?? {}
   const modelErrors = new Map<string, string>()
@@ -875,7 +874,7 @@ export function resolveRouteModels(
       invalid(provider, `sets modelOverrides for "${id}", but the installed catalog does not describe this route;`
         + ' a declared route spells every model out in its models list')
     }
-    if (configured.length > 0) {
+    if (request.models !== undefined) {
       invalid(provider, `sets modelOverrides for "${id}" beside a models list; models already replaces the served`
         + ' catalog, so declare the fields on its entries')
     }
@@ -894,10 +893,10 @@ export function resolveRouteModels(
   // An override becomes the catalog entry's configuration, so everything a
   // models entry may declare — capacities, efforts, compat — resolves through
   // the same path with the same diagnostics and request-default semantics.
-  const entries: readonly PiAiModelProfile[] = configured.length > 0
+  const entries: readonly PiAiModelProfile[] = request.models !== undefined
     ? configured
     : [...defaults.values()].map(model => ({ id: model.id, ...overrides[model.id] }))
-  if (entries.length === 0) {
+  if (entries.length === 0 && request.models === undefined) {
     invalid(provider, 'resolves no models; the installed catalog does not describe this route, so its models'
       + ' must be listed in configuration')
   }

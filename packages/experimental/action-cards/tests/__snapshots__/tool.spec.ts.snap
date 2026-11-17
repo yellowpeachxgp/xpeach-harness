@@ -2,6 +2,7 @@
 
 exports[`declares propose_action from the step after a card skill loads, and logs the addition > tool declaration 1`] = `
 {
+  "deferLoading": true,
   "description": "Show the user one optional action card under this answer. Call only as the skill that names the action instructs.",
   "name": "propose_action",
   "parameters": {

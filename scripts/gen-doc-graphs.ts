@@ -108,6 +108,47 @@ const GROUP_ORDER = [
 
 const SERVICE_ROLES: ServiceRole[] = [
   {
+    key: 'actionCards',
+    pkg: 'action-cards',
+    title: 'Session-backed proposed actions',
+    mode: 'service',
+    consumers: ['plugin-recommendations', 'client-ui-action-cards'],
+    note: 'Owns registered card kinds, the propose_action tool, committed decisions, and user-action result delivery.',
+  },
+  {
+    key: 'forge',
+    pkg: 'experimental-forge',
+    title: 'Code host change requests',
+    mode: 'seam',
+    implementations: ['experimental-forge-github'],
+    consumers: ['experimental-forge-session', 'experimental-client-ui-forge'],
+    note: 'Registers code host providers and shares change request status polling; providers own host authentication and operations.',
+  },
+  {
+    key: 'forgeSession',
+    pkg: 'experimental-forge-session',
+    title: 'Session change request bindings',
+    mode: 'service',
+    consumers: ['experimental-client-ui-forge'],
+    note: 'Projects change request bindings from Session records and observes the bound requests through the forge service.',
+  },
+  {
+    key: 'forgePanel',
+    pkg: 'experimental-client-ui-forge',
+    title: 'Change request panel Remote',
+    mode: 'service',
+    consumers: ['experimental-client-ui-forge'],
+    note: 'Serves Session change requests, checkout diffs, and optional worktree creation to its Client panel.',
+  },
+  {
+    key: 'pluginRecommendations',
+    pkg: 'plugin-recommendations',
+    title: 'Official plugin recommendation actions',
+    mode: 'service',
+    consumers: ['client-ui-plugin-recommendations'],
+    note: 'Registers the official plugin skill and card kind; Plugin Manager owns persisted profile changes after a user action.',
+  },
+  {
     key: 'cotTranslation',
     pkg: 'experimental-client-ui-cot-translation',
     title: 'Reasoning translation Remote',
@@ -627,6 +668,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['agent-loop', 'acp', 'subagent'],
     note: 'Owns live Agent handles, the create/resume factory seam, and process-local initiator propagation.',
+  },
+  {
+    key: 'sessionActivation',
+    pkg: 'agent',
+    title: '应用拥有的会话激活',
+    mode: 'seam',
+    implementations: ['api-session-controller', 'sdk-jsonrpc-server'],
+    consumers: ['schedule'],
+    note: '应用复用或恢复持久会话并持有 Agent；消费者借用 Agent，提供方先撤回服务并排空依赖方再释放资源。',
   },
   {
     key: 'agentDefaultModel',

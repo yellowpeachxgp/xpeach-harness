@@ -8,6 +8,8 @@
             inputModalities: [text, image]
 
 - insert:
+    - id: legacy-command-tool-descriptions
+      name: './legacy-tool-descriptions.mjs'
     - id: command-attachment-request-capture
       name: '../manual-compact/capture-requests.mjs'
       config:

@@ -14,14 +14,12 @@ import type {} from '@xpeach/xph-client-locale/client'
 declare module '@xpeach/xph-client-ui-slots' {
   interface SlotMap {
     /**
-     * Keyed Tool call view dispatched by wire Tool name. Any name is allowed,
-     * including tools registered by your package. Register with
-     * `key: '<tool name>'`; a typo never renders.
+     * 按 wire 工具名分派的 keyed 视图，接受任意工具名，包括本包注册的工具。
+     * 注册使用 `key: '<tool name>'`；拼写错误不会渲染。
      *
-     * Registering an occupied key replaces its view; unclaimed keys use the
-     * generic row. The owner supplies the call identity and running
-     * or settled node through explicit phase props. Every stage supplies
-     * `name` and a lazy `args` view; preparing arguments may be incomplete.
+     * 已占用的 key 会替换原视图，未占用的 key 使用通用行。
+     * owner 经显式 phase props 提供调用身份及运行中或已结算的节点。
+     * 每阶段都提供 `name` 与惰性 `args`；准备中的参数可能不完整。
      */
     'tool.call.toolview': {
       kind: 'keyed'

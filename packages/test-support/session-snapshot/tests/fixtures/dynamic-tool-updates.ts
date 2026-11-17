@@ -8,22 +8,36 @@ export const inject = ['tools']
 
 /** Register a tool after reading, then remove it after use without changing prompt text. */
 export function apply(ctx: Context): void {
+  installDynamicTools(ctx, false)
+}
+
+/**
+ * 为记录场景安装相同的工具变化；条件模式保留注册，只切换逐步准入。
+ * @param ctx - 场景插件上下文。
+ * @param conditional - 是否以 when 条件控制工具可用性。
+ */
+export function installDynamicTools(ctx: Context, conditional: boolean): void {
   let removeTool: (() => void) | undefined
+  let available = false
   let requests = 0
+  const ping = defineContentToolFixture({
+    name: 'snapshot_ping',
+    description: 'Return pong once.',
+    parameters: {},
+    async execute() { return [{ type: 'text', text: 'pong' }] },
+  })
+  if (conditional) ctx.tools.register(ping, { when: () => available })
   ctx.on('tools/post-execute', async (exec, result, next) => {
     const downstream = await next()
     if (result.isError) return downstream
     switch (exec.name) {
       case 'read':
-        removeTool = ctx.tools.register(defineContentToolFixture({
-          name: 'snapshot_ping',
-          description: 'Return pong once.',
-          parameters: {},
-          async execute() { return [{ type: 'text', text: 'pong' }] },
-        }))
+        if (conditional) available = true
+        else removeTool = ctx.tools.register(ping)
         break
       case 'snapshot_ping':
-        removeTool?.()
+        if (conditional) available = false
+        else removeTool?.()
         break
     }
     return downstream

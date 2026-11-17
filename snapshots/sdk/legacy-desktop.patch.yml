@@ -1,0 +1,10 @@
+# 仅为 sdk-desktop 的旧身份保留显式兼容；不禁用当前工具或时间贡献。
+- insert:
+    - id: legacy-sdk-identity
+      name: './legacy-context.mjs'
+    - id: legacy-desktop-approval
+      name: './legacy-desktop-approval.mjs'
+      config:
+        policy: !!js "(process.env.DSH_PERMISSION_MODE ?? 'workspace-write') === 'danger-full-access' ? 'never' : 'ask'"
+- id: approval
+  disabled: true

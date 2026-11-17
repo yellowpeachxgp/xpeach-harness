@@ -23,7 +23,7 @@ async function setup(tasks: ScheduleTask[]) {
   const agent = agentFor(test.ctx)
   const followup = vi.fn<Agent['followup']>()
   agent.followup = followup
-  test.resolve.mockResolvedValue({ agent })
+  test.resolve.mockResolvedValue(agent)
   const commit = vi.fn(async (task: ScheduleTask) => {
     const index = tasks.findIndex(current => current.record.id === task.record.id)
     tasks[index] = task
@@ -110,15 +110,14 @@ describe('Host Schedule timer', () => {
     })
   })
 
-  it.each(['returned', 'rejected'] as const)('rearms a future target after clock rollback and %s restoration failure', async (mode) => {
+  it('rearms a future target after clock rollback and activation rejection', async () => {
     const start = Date.now()
     const tasks = [task(createAfterScheduleRecord(ScheduleId('rollback-failure'), 'Later', 2, start, 'Later'))]
     const test = await setup(tasks)
     const error = new RemoteError('session/not-found', 'Session unavailable', { sessionId: SessionId('original') })
     test.resolve.mockImplementationOnce(async () => {
       vi.setSystemTime(start)
-      if (mode === 'rejected') throw error
-      return { error }
+      throw error
     })
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(2000)
@@ -286,12 +285,12 @@ describe('Host Schedule timer', () => {
   it('drains an in-flight resolution on disposal without enqueueing after stop', async () => {
     const tasks = [task(createAfterScheduleRecord(ScheduleId('stop'), 'Stopped', 1, Date.now() - 2000, 'Stopped'))]
     const test = await setup(tasks)
-    const resolved = Promise.withResolvers<{ agent: typeof test.agent }>()
+    const resolved = Promise.withResolvers<typeof test.agent>()
     test.resolve.mockReturnValue(resolved.promise)
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(0)
     const stopped = test.runtime.dispose()
-    resolved.resolve({ agent: test.agent })
+    resolved.resolve(test.agent)
     await stopped
     expect(test.followup).not.toHaveBeenCalled()
   })
@@ -387,12 +386,12 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     const records = [task(record)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
-    const resolved = Promise.withResolvers<{ agent: Agent }>()
+    const resolved = Promise.withResolvers<Agent>()
     test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return resolved.promise })
     test.runtime.requestDrive()
     await entered.promise
     vi.setSystemTime(new Date('2026-09-15T23:59:59.000Z'))
-    resolved.resolve({ agent: test.agent })
+    resolved.resolve(test.agent)
     await vi.advanceTimersByTimeAsync(0)
     expect(test.followup).not.toHaveBeenCalled()
     expect(test.flush).not.toHaveBeenCalled()
@@ -422,12 +421,12 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     const records = [task(every), task(daily)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
-    const resolved = Promise.withResolvers<{ agent: Agent }>()
+    const resolved = Promise.withResolvers<Agent>()
     test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return resolved.promise })
     test.runtime.requestDrive()
     await entered.promise
     vi.setSystemTime(new Date('2026-09-15T23:59:45.000Z'))
-    resolved.resolve({ agent: test.agent })
+    resolved.resolve(test.agent)
     await vi.advanceTimersByTimeAsync(0)
     expect(test.resolve).toHaveBeenCalledTimes(1)
     expect(test.followup).toHaveBeenCalledTimes(1)
@@ -475,12 +474,12 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     const records = [task(daily), task(every)]
     const test = await setup(records)
     const entered = Promise.withResolvers<undefined>()
-    const resolved = Promise.withResolvers<{ agent: Agent }>()
+    const resolved = Promise.withResolvers<Agent>()
     test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return resolved.promise })
     test.runtime.requestDrive()
     await entered.promise
     vi.setSystemTime(new Date('2026-09-15T23:59:59.000Z'))
-    resolved.resolve({ agent: test.agent })
+    resolved.resolve(test.agent)
     await vi.advanceTimersByTimeAsync(0)
     expect(test.followup).not.toHaveBeenCalled()
     expect(test.flush).not.toHaveBeenCalled()
@@ -503,10 +502,10 @@ describe('Schedule dispatch failures and concurrent changes', () => {
     })))
   })
 
-  it('keeps a task when the Session controller returns a declared resolution error', async () => {
+  it('keeps a task when the activation provider rejects a declared resolution error', async () => {
     const records = [task(createAfterScheduleRecord(ScheduleId('missing'), 'Missing', 1, Date.now() - 2000, 'Missing'))]
     const test = await setup(records)
-    test.resolve.mockResolvedValueOnce({ error: new Error('missing Session') } as never)
+    test.resolve.mockRejectedValueOnce(new Error('missing Session'))
     test.runtime.requestDrive()
     await vi.advanceTimersByTimeAsync(0)
     expect(test.followup).not.toHaveBeenCalled()
@@ -588,12 +587,12 @@ describe('Schedule dispatch failures and concurrent changes', () => {
   it('coalesces management wakes while a delivery is waiting for Session resolution', async () => {
     const records = [task(createAfterScheduleRecord(ScheduleId('waiting'), 'Wait', 1, Date.now() - 2000, 'Wait'))]
     const test = await setup(records)
-    const resolved = Promise.withResolvers<{ agent: Agent }>()
+    const resolved = Promise.withResolvers<Agent>()
     test.resolve.mockReturnValueOnce(resolved.promise)
     test.runtime.requestDrive()
     test.runtime.requestDrive()
     test.runtime.requestDrive()
-    resolved.resolve({ agent: test.agent })
+    resolved.resolve(test.agent)
     await vi.advanceTimersByTimeAsync(0)
     expect(test.followup).toHaveBeenCalledTimes(1)
     expect(records).toHaveLength(1)
@@ -620,7 +619,7 @@ describe('Schedule dispatch failures and concurrent changes', () => {
         test.resolve.mockImplementationOnce(async () => {
           entered.resolve(undefined)
           await release.promise
-          return { agent: test.agent }
+          return test.agent
         })
       } else {
         test.flush.mockImplementationOnce(async () => {

@@ -770,7 +770,7 @@ describe('Web session model selection', () => {
     const { ctx, agent, sessionId } = await harness()
     const followup = vi.fn()
     Object.assign(agent, { followup })
-    const remote = await createSessionTestRemote(ctx, {
+    const remote = createSessionTestRemote(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
       cwd: '/tmp',
     })

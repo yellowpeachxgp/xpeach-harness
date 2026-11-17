@@ -366,6 +366,51 @@ function writeWorkspace(files: Readonly<Record<string, string | object>>): strin
 const CORDIS_PEER = { peerDependencies: { [CORDIS]: 'workspace:~' }, devDependencies: { [CORDIS]: 'workspace:~' } }
 
 describe('experimental packages and Host build entries', () => {
+  it('领域声明工厂可作普通依赖，但同包的其他导出仍须单独分类', async () => {
+    const provider = '@xpeach/xph-storage-domain'
+    const consumer = 'packages/experimental/domain-consumer'
+    const source = `import { defineDomain } from '${provider}'\nexport const domain = defineDomain({})\n`
+    const root = writeWorkspace({
+      [`${consumer}/package.json`]: {
+        name: '@xpeach/xph-experimental-domain-consumer',
+        dsh: { client: {} },
+        dependencies: { [provider]: 'workspace:*' },
+        ...CORDIS_PEER,
+      },
+      [`${consumer}/src/index.ts`]: source,
+      'packages/storage/storage-domain/package.json': { name: provider, ...CORDIS_PEER },
+    })
+    const reviewed = policy({
+      safeHostDependencyExports: {
+        [provider]: PACKAGE_DEPENDENCY_POLICY.safeHostDependencyExports[provider] ?? [],
+      },
+    })
+
+    expect(collectPackageDependencyViolations(await readPackageDependencyState(root, reviewed))).toEqual([])
+    expect(PACKAGE_DEPENDENCY_POLICY.duplicateSafePackages).not.toContain(provider)
+
+    writeFileSync(join(root, consumer, 'src/index.ts'), `${source}export { DomainError } from '${provider}'\n`)
+
+    expect(collectPackageDependencyViolations(await readPackageDependencyState(root, reviewed))).toEqual([
+      expect.stringContaining(`${provider}#DomainError is not classified as safe or peer-required`),
+    ])
+  })
+
+  it('已移除的 Host 配置调用不会使陈旧导出分类继续生效', async () => {
+    const specifier = '@xpeach/xph-ptc-runtime-node/configuration'
+    const root = writeWorkspace({
+      'packages/ptc-runtime/ptc-runtime-node/package.json': { name: '@xpeach/xph-ptc-runtime-node', ...CORDIS_PEER },
+    })
+    const state = await readPackageDependencyState(root, policy({
+      peerRequiredHostExports: { [specifier]: ['resolvePersistentExecution'] },
+    }))
+
+    expect(collectPackageDependencyViolations(state)).toEqual([
+      `peerRequiredHostExports lists unused ${specifier} export resolvePersistentExecution`,
+    ])
+    expect(PACKAGE_DEPENDENCY_POLICY.peerRequiredHostExports[specifier]).toBeUndefined()
+  })
+
   it('applies the published policy to an experimental Client package that declares browser packages as peers', async () => {
     const root = writeWorkspace({
       'packages/client/ui-probe/package.json': { name: '@xpeach/xph-client-ui-probe', ...CORDIS_PEER },

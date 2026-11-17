@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Execução de ferramentas por PTC",
+    "description": "Executa ferramentas por meio de programas run_code e gera vinculações do SDK."
+  }
+}

@@ -1,4 +1,5 @@
 import { MESSAGES_RESPONSE } from './messages-response.ts'
+import { useLocalDeepSeekEndpoint } from './local-deepseek-endpoint.ts'
 import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
@@ -15,6 +16,8 @@ import { LlmAdapter } from '@xpeach/xph-llm'
 import type { GenerateOptions, StreamChunk } from '@xpeach/xph-llm'
 import * as JsonlSessionPersistence from '@xpeach/xph-session-persistence-jsonl'
 import * as jsonrpc from '../src/index.ts'
+
+useLocalDeepSeekEndpoint()
 
 /**
  * Mount the real namespace plugin with in-memory stdio and exit hooks. Covers

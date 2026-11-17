@@ -52,6 +52,8 @@ dsh --profile sdk-minimal
 
 该 bundle 的单个 insert 就是完整应用配置树：SDK stdio 启动与 JSON-RPC 服务、一个由环境配置的 DeepSeek 适配器、显式 agent 核心、按配置启用的 MCP 资源工具、本地文件系统、图片附件、自动上下文压缩与子进程服务、Session 工作目录状态及其工具、按平台选择的持久 shell PTY，以及位于 `$DSH_HOME/sessions` 的未压缩 JSONL 持久化。它不继承其他 bundle，因此每个额外配置项都是显式 profile 变更。
 
+覆盖持久化配置时应指定 `sessions` 配置项，其完整配置为 `root: !!js dshHomePath('sessions')` 与 `compression: none`。唯一的 `session-checkpoint-policy` 配置项没有配置字段。
+
 ### 源码地图
 
 | 文件 | 职责 |

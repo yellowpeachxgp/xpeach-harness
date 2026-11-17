@@ -39,12 +39,14 @@ kind: "package-reference"
 
 共享分派事件与 `ptc-mode` 消息来源声明位于 `@xpeach/xph-tool-executor-ptc/types`；Client 代码通过 `@xpeach/xph-tool-executor-ptc/client` 导入同一组声明。两个入口都不引入 Host 服务声明。Host 策略扩展通过包主入口的 `import type` 获取 `PtcDispatchLog` 与 `tools/ptc-dispatch-log`，无需挂载执行器。
 
-[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-tool-executor-ptc)
+[配置目录](../../../docs/config-catalog.zh.md#xpeachxph-tool-executor-ptc)
 
 -----
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
+
+AgentLoop 步骤提供 `toolSet` 时，SDK 文本、运行时 bindings 和每次嵌套执行均使用该准入集合。未准入工具不进入 bindings；移除注册后，已经取得的 binding 也会被拒绝。没有步骤准入时仅允许无条件能力执行。保留的 `run_code` 传输工具仍由执行器拥有，不加入能力注册。
 
 <details>
 <summary>实现细节——点击展开</summary>
@@ -83,7 +85,7 @@ PTC 执行器公开保留的 `run_code` 传输以及按所加载运行时语言�
 
 #### 模型看到什么
 
-PTC mode 会公开生成的 [`run_code` schema](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-executor-ptc)、下方 SDK 说明，以及按所加载运行时语言生成的精确 SDK 块。两种运行时语言都将 `code` 列在 `description` 前；这是呈现顺序，不强制 JSON 成员顺序。TypeScript 说明对函数体运行时使用返回值示例，对 REPL 运行时使用打印输出示例，并把生成声明明确标为只能在程序内使用的绑定。当当前 `bash` 参数 schema 接受示例参数时，说明还会给出以 `run_code` 包住 `tools.bash(...)` 的完整调用。`tools:sdk` 段使用 first-party 顺序 5000，并关闭提示词变量插值，使两种运行时语言都原样保留工具描述和 schema 中的 `{{…}}` 文本。在 `ptc` 下，提示词还会带上处于更早 first-party 顺序的 `tools:ptc-only` 规则，让模型先读到「可以调用哪些工具」再读「每个工具做什么」。
+PTC mode 会公开生成的 [`run_code` schema](../../../docs/tool-catalog.zh.md#xpeachxph-tool-executor-ptc)、下方 SDK 说明，以及按所加载运行时语言生成的精确 SDK 块。两种运行时语言都将 `code` 列在 `description` 前；这是呈现顺序，不强制 JSON 成员顺序。TypeScript 说明对函数体运行时使用返回值示例，对 REPL 运行时使用打印输出示例，并把生成声明明确标为只能在程序内使用的绑定。当当前 `bash` 参数 schema 接受示例参数时，说明还会给出以 `run_code` 包住 `tools.bash(...)` 的完整调用。`tools:sdk` 段使用 first-party 顺序 5000，并关闭提示词变量插值，使两种运行时语言都原样保留工具描述和 schema 中的 `{{…}}` 文本。在 `ptc` 下，提示词还会带上处于更早 first-party 顺序的 `tools:ptc-only` 规则，让模型先读到「可以调用哪些工具」再读「每个工具做什么」。
 
 ##### 带 bash 的 TypeScript PTC mode SDK 说明
 

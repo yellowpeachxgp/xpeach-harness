@@ -55,14 +55,14 @@ const SAFE_HOST_DEPENDENCY_EXPORTS = {
   '@xpeach/xph-deque': ['Deque'],
   '@xpeach/xph-llm': ['callConfigEquals'],
   '@xpeach/xph-session-format': ['sessionFormatLogFilename'],
+  // 仅校验并原样返回调用方的领域声明，不依赖服务实例或模块身份。
+  '@xpeach/xph-storage-domain': ['defineDomain'],
   '@xpeach/xph-timeout': ['MAX_TIMER_DELAY_MS'],
   '@xpeach/xph-schemastery': ['default'],
 } as const satisfies HostDependencyExports
 
 /** Runtime exports that require every consumer to resolve the provider's shared peer instance. */
 const PEER_REQUIRED_HOST_EXPORTS = {
-  // Profile settings must match the installed Node provider's configuration schema.
-  '@xpeach/xph-ptc-runtime-node/configuration': ['resolvePersistentExecution'],
   // `instanceof` checks need the translator's own class instance.
   '@xpeach/xph-experimental-translator': ['TranslationError'],
   // Stateless; a safe classification would turn the forge panel's forge and worktree peers into dependencies.

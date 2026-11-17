@@ -169,8 +169,12 @@ describe('loop-owned request freezing', () => {
       const tools: ToolSchema[] = [{ name: 'nested', description: 'test', parameters: {
         type: 'object', properties: { value: { type: 'array', items: { type: 'string', enum: ['a', 'b'] } } },
       } }]
-      schemas.push(tools)
-      return { ...assembly, tools }
+      const previous = assembly.finalizeTools
+      return { ...assembly, finalizeTools: (bound) => {
+        const accepted = previous === undefined ? bound : previous(bound)
+        schemas.push(tools)
+        return { ...accepted, tools }
+      } }
     })
     ctx.on('agent/request', async (_payload, next) => {
       const config = await next()

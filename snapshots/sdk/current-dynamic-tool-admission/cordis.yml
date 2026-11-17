@@ -1,0 +1,24 @@
+# 保留正式 sdk 组合，仅固定外部模型、用户技能发现、日志编码与测试时钟。
+- id: skill-filesystem
+  config:
+    includeDefaultRoots: false
+- id: llm-deepseek
+  disabled: true
+- id: session-log-deepseek
+  config:
+    enabled: false
+- id: session-title-llm
+  disabled: true
+- id: session-persistence-jsonl
+  config:
+    root: !!js dshHomePath('sessions')
+    compression: none
+- id: time-context
+  config:
+    timeZone: UTC
+- insert:
+    - id: snapshot-clock
+      name: '../desktop-context/clock.mjs'
+- insert:
+    - id: conditional-tool-admission
+      name: '../../../packages/test-support/session-snapshot/tests/fixtures/conditional-tool-admission.ts'

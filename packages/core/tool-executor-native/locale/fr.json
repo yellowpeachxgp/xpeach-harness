@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Exécution native des outils",
+    "description": "Exécute directement les appels d’outils du modèle."
+  }
+}

@@ -24,7 +24,7 @@
 
 - insert:
     - id: subagent-dsh-sdk-diagnostic
-      name: '@xpeach/xph-subagent-dsh-sdk'
+      name: '../../../packages/subagent/subagent-dsh-sdk/lib/index.js'
       config:
         providerName: dsh-sdk-diagnostic
         profile: sdk
@@ -43,7 +43,7 @@
         toolName: subagent_dsh_sdk
         maxDepth: provider-managed
     - id: subagent-dsh-sdk-diagnostic-second
-      name: '@xpeach/xph-subagent-dsh-sdk'
+      name: '../../../packages/subagent/subagent-dsh-sdk/lib/index.js'
       config:
         providerName: dsh-sdk-diagnostic-second
         profile: sdk

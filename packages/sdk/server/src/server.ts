@@ -5,7 +5,7 @@
  * @module @xpeach/xph-sdk-jsonrpc-server/server
  */
 
-import type { Context } from '@xpeach/xph-cordis'
+import type { Context, Fiber } from '@xpeach/xph-cordis'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { resolve } from 'node:path'
 import { QueryActivity } from './query-activity.ts'
@@ -13,7 +13,7 @@ import { SdkUserQuestionBridge } from './user-questions.ts'
 import { queryCommand } from './query-input.ts'
 import { queryCommandImages, queryContent } from './query-content.ts'
 import { brandString } from '@xpeach/xph-brand'
-import type { Agent, AgentHandle } from '@xpeach/xph-agent'
+import { SessionActivationOwner, type Agent, type AgentHandle } from '@xpeach/xph-agent'
 import { admitEncodedImages, type EncodedImageAttachment, type ImageAttachmentRef } from '@xpeach/xph-attachment'
 import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntime } from '@xpeach/xph-llm'
 import { carrierKeyOf, type Scoped } from '@xpeach/xph-scope'
@@ -98,6 +98,9 @@ export class HarnessSdkJsonRpcServer {
   private reasoningEffort: ReturnType<typeof ReasoningEffortId> | undefined
   private maxTokens: number | undefined
   private llmFiber: { dispose(): Promise<void> } | undefined
+  private activationFiber: { dispose(): Promise<void>; await(): PromiseLike<unknown> } | undefined
+  private readonly sessionOwner: Fiber
+  private readonly activationWork: SessionActivationOwner
   private readonly sessions = new Map<string, SessionRecord>()
   private readonly sessionCreations = new Map<string, Promise<SessionRecord>>()
   private readonly commandTasks = new Set<Promise<CommandExecution | undefined>>()
@@ -109,6 +112,7 @@ export class HarnessSdkJsonRpcServer {
   private shutdownTask: Promise<Record<string, never>> | undefined
   private shuttingDown = false
   private initialized = false
+  private initializing = false
   private approvalRequests = false
   private readonly lifetime = new AbortController()
 
@@ -117,6 +121,20 @@ export class HarnessSdkJsonRpcServer {
     private readonly transport: JsonRpcTransportPeer,
     private readonly options: HarnessSdkJsonRpcServerOptions = {},
   ) {
+    const sessionOwner = this.sessionOwner = ctx.plugin({ name: 'sdk-session-owner', inject: ['agents'], apply() {} })
+    this.activationWork = new SessionActivationOwner(async (sessionId) => {
+      if (this.shuttingDown) throw new Error('SDK server is shutting down')
+      const record = this.sessions.get(sessionId)
+        ?? await (this.sessionCreations.get(sessionId) ?? this.openSession(sessionId, true))
+      this.lifetime.signal.throwIfAborted()
+      this.assertLiveAgent(record, sessionId)
+      return record.handle.agent
+    })
+    const shutdown = async (): Promise<void> => { await this.shutdown() }
+    ctx.effect(function* () {
+      yield sessionOwner.dispose
+      yield shutdown
+    }, 'sdk: 排空借用后释放会话资源')
     this.goalLifetime = ctx.inject(['goals'], (goalCtx) => {
       goalCtx.effect(() => () => {
         for (const activity of this.queryActivities) activity.goalUnavailable()
@@ -162,7 +180,7 @@ export class HarnessSdkJsonRpcServer {
     }))
     this.disposers.push(ctx.on('session/created', (session) => {
       const parentSession = session.header.parentSession
-      if (parentSession === undefined) return
+      if (session.header.origin !== 'subagent' || parentSession === undefined) return
       const payload: SubagentStartedNotification = {
         parentSessionId: String(parentSession),
         childSessionId: String(session.id),
@@ -196,6 +214,7 @@ export class HarnessSdkJsonRpcServer {
    * @returns server identity for the handshake.
    */
   async initialize(params: InitializeParams): Promise<InitializeResult> {
+    if (this.shuttingDown) throw new Error('SDK server is shutting down')
     if (params.approvalRequests !== undefined && typeof params.approvalRequests !== 'boolean') {
       throw new TypeError('initialize approvalRequests must be a boolean')
     }
@@ -207,6 +226,17 @@ export class HarnessSdkJsonRpcServer {
       && (!Number.isSafeInteger(params.maxTokens) || params.maxTokens <= 0)) {
       throw new TypeError('initialize maxTokens must be a positive safe integer')
     }
+    if (this.initialized) throw new Error('SDK server is already initialized')
+    if (this.initializing) throw new Error('SDK server initialization is in progress')
+    this.initializing = true
+    try {
+      return await this.initializeRoute(params)
+    } finally {
+      this.initializing = false
+    }
+  }
+
+  private async initializeRoute(params: InitializeParams): Promise<InitializeResult> {
     const cwd = resolve(params.cwd)
     const provider = params.provider
     const model = params.model
@@ -225,6 +255,7 @@ export class HarnessSdkJsonRpcServer {
       ...reasoningEffort === undefined ? {} : { reasoningEffort },
       ...params.maxTokens === undefined ? {} : { maxTokens: params.maxTokens },
     })
+    this.lifetime.signal.throwIfAborted()
     this.cwd = cwd
     this.provider = provider
     this.model = model
@@ -232,6 +263,20 @@ export class HarnessSdkJsonRpcServer {
     this.maxTokens = params.maxTokens
     this.userQuestions.enabled = params.capabilities?.userQuestions === true
     this.approvalRequests = params.approvalRequests === true
+    await this.sessionOwner.await()
+    const activationWork = this.activationWork
+    const activationFiber = this.sessionOwner.ctx.plugin(function sdkSessionActivation(ctx: Context) {
+      ctx.provide('sessionActivation', activationWork)
+    })
+    this.activationFiber = activationFiber
+    try {
+      await activationFiber
+      await this.ctx.get('loader')?.await()
+      this.lifetime.signal.throwIfAborted()
+    } catch (error: unknown) {
+      await this.shutdown()
+      throw error
+    }
     this.initialized = true
     return { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } }
   }
@@ -419,6 +464,16 @@ export class HarnessSdkJsonRpcServer {
     this.shuttingDown = true
     this.lifetime.abort(new Error('SDK server is shutting down'))
     this.userQuestions.close()
+    const failures: unknown[] = []
+    await this.activationWork.close()
+    try {
+      await this.activationFiber?.dispose()
+      // 并发的父级卸载可能已开始撤回服务，仍需等待依赖方排空。
+      await this.activationFiber?.await()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
+    this.activationFiber = undefined
     const pendingCreations = [...this.sessionCreations.values()]
     await Promise.allSettled(pendingCreations)
     await Promise.allSettled([...this.commandTasks])
@@ -426,7 +481,6 @@ export class HarnessSdkJsonRpcServer {
     this.sessionCreations.clear()
     const records = [...this.sessions.values()]
     this.sessions.clear()
-    const failures: unknown[] = []
     while (this.disposers.length > 0) {
       try {
         this.disposers.pop()?.()
@@ -448,6 +502,12 @@ export class HarnessSdkJsonRpcServer {
     failures.push(...teardownResults
       .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
       .map(result => result.reason as unknown))
+    try {
+      await this.sessionOwner.dispose()
+      await this.sessionOwner.await()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
     if (failures.length === 1) throw failures[0]
     if (failures.length > 1) throw new AggregateError(failures, 'SDK server teardown failed')
     return {}
@@ -525,6 +585,8 @@ export class HarnessSdkJsonRpcServer {
   }
 
   private async createSession(sessionId: string, resume: boolean): Promise<SessionRecord> {
+    await this.sessionOwner.await()
+    this.lifetime.signal.throwIfAborted()
     // No preset composition: this server's compositions keep the model-facing
     // rows in the host plane, so this agent reads them from the global layer. A
     // deployment that configures a roster has to join one here first
@@ -535,14 +597,20 @@ export class HarnessSdkJsonRpcServer {
       ...this.reasoningEffort === undefined ? {} : { reasoningEffort: this.reasoningEffort },
       ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
     }
-    const handle = await (resume ? this.ctx.agents.resume({
+    const handle = await (resume ? this.sessionOwner.ctx.agents.resume({
       resumeSessionId: brandString<SessionId>(sessionId),
       agentOptions,
-    }) : this.ctx.agents.create({
+      signal: this.lifetime.signal,
+    }) : this.sessionOwner.ctx.agents.create({
       sessionId: brandString<SessionId>(sessionId),
       meta: { cwd: this.cwd },
       agentOptions,
+      signal: this.lifetime.signal,
     }))
+    if (this.shuttingDown) {
+      await handle.dispose()
+      this.lifetime.signal.throwIfAborted()
+    }
     const rec: SessionRecord = { handle, failure: undefined }
     this.sessions.set(sessionId, rec)
     return rec

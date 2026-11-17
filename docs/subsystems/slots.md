@@ -78,7 +78,7 @@ A hoc entry is a layer addressed by its required `id`. Layers nest by ascending 
 - Errors: a crashed layer renders its `children` and leaves the slot. An error thrown by the wrapped content passes every layer and is reported against none; a layer that wraps its `children` in its own error boundary catches it as an internal wrapper error rather than the original.
 - Layout: the outlet inserts a `display: contents` `[data-slot]` element between the owner and its content, so owner selectors cannot rely on the content being a direct child. A layer must not create a box of its own — for example, use `display: contents` — or the content leaves its parent's layout.
 
-The [context-menu plugin](../../packages/client/ui-context-menu/README.md) contributes `useContextMenu` through `provideRoot`; every scope receives the same plugin-owned trigger factory. Its prop and retained handlers retire when the provider unloads. Its root-scoped keyed `contextMenu.icon` Slot renders business-owned icons from action metadata.
+<a id="component-inputs"></a>
 
 ## Component inputs
 
@@ -216,6 +216,8 @@ Factory: conversation.chat.reasoning.content [ReasoningContent / MarkdownText]
 All four image Slots default to `MessageImages`, which calls `conversation.images.content` with the caller's image references and authorized loader. User and output image replacements are independent. The `conversation.user.text` Factory is shared by user content, Queue, and Goal; its `inline: true` keyed Slot renders span anchors and inline error placeholders rather than block wrappers.
 
 The generated [Client inspect catalog](../../packages/extensions/cordis-client-runner/src/client/slot-catalog.ts) covers all shell branches and is the exhaustive contract for each key: cardinality, scope, owner props, standard props, current occupants, declaration owner, and replacement risk. A running dynamic package can query the live tree and an exact key with `cordis_inspect what:"client"`; the source catalog is generated from `SlotMap` declarations and `slots.register()` call sites by `pnpm run gen-client-catalog`.
+
+<a id="extension-rules"></a>
 
 ## Extension rules
 

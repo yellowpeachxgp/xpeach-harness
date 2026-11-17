@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Library without state for plugin detail documents, the long Markdown description a plugin's page shows. It owns the order in which a package's document is chosen, the language fallback, image destinations beside a document, and two read-only file sources: a local package directory and a published npm version on public file CDNs. [`plugin-manager`](../../boot/plugin-manager/README.md#bundle-detail-documents) reads profile bundles with it, and [`plugin-market`](../../boot/plugin-market/README.md#plugin-detail-documents) reads market entries with it and adds repository sources.
+Library without state for plugin detail documents, the long Markdown description a plugin's page shows. It owns the order in which a package's document is chosen, the language fallback, image destinations beside a document, and two read-only file sources: a local package directory and a published npm version on public file CDNs. [`plugin-manager`](../../boot/plugin-manager/README.md#use-this-package) reads profile bundles with it, and [`plugin-market`](../../boot/plugin-market/README.md#plugin-detail-documents) reads market entries with it and adds repository sources.
 
 ## Table of Contents
 
@@ -66,10 +66,10 @@ Every read is bounded by the caller's `maxBytes` and fails with `DetailFailure` 
 import {
   DetailFailure, detailImage, detailImageResponse, languageChain, localFiles, NPM_FILE_SOURCES, npmFiles, npmFileSourceOrder,
   readPackageDocument,
-} from '@deepseek-ai/dsh-plugin-detail'
+} from '@xpeach/xph-plugin-detail'
 ```
 
-`DetailFailureReason` and `NpmFileSource`, which Remote methods of other packages use, are also exported type-only from `@deepseek-ai/dsh-plugin-detail/types`.
+`DetailFailureReason` and `NpmFileSource`, which Remote methods of other packages use, are also exported type-only from `@xpeach/xph-plugin-detail/types`.
 
 `DetailFiles` is the source interface: `read(path, maxBytes, signal)` returns a file's bytes or `undefined`, and `readme(dir, maxBytes, signal)` returns a directory's README. Repository sources implement it in `plugin-market`.
 

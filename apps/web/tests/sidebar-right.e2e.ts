@@ -1114,7 +1114,7 @@ describe('web e2e: shipped right Sidebar', () => {
       expect(tripwire.warnings).toEqual([])
     }, 90_000)
 
-    // FIXME(upstream float-spring): needs the dockkit springback machinery (7bfe4ad0/38c1b9b8).
+    // FIXME(upstream float-spring): 需要尚未移植的 dockkit 浮窗回弹机制。
     it.skip('resists a floating panel dragged past the viewport edges and springs it back inside', async () => {
       onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-right-float-edge'))
       const column = await resetSidebar(page)

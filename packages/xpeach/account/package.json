@@ -50,15 +50,27 @@
     "@xpeach/xph-launch-environment": "workspace:*"
   },
   "devDependencies": {
+    "@xpeach/xph-atomic-write": "workspace:*",
     "@xpeach/xph-api-remotes": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-credentials": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",
     "@xpeach/xph-launch-environment": "workspace:*",
-    "@xpeach/xph-schemastery": "workspace:~"
+    "@xpeach/xph-schemastery": "workspace:~",
+    "@xpeach/xph-app-boot": "workspace:*",
+    "@xpeach/xph-config-editor": "workspace:*",
+    "@xpeach/xph-settings": "workspace:*",
+    "@xpeach/xph-llm": "workspace:*",
+    "@xpeach/xph-llm-pi-ai": "workspace:*",
+    "@xpeach/xph-typert-registry": "workspace:*",
+    "@xpeach/xph-cordis-plugin-loader": "workspace:~",
+    "vitest": "^4.1.11",
+    "@types/js-yaml": "^4.0.9"
   },
   "dependencies": {
+    "@xpeach/xph-atomic-write": "workspace:*",
     "@xpeach/xph-schemastery": "workspace:~",
-    "@xpeach/xph-util-values": "workspace:*"
+    "@xpeach/xph-util-values": "workspace:*",
+    "js-yaml": "^4.3.2"
   }
 }

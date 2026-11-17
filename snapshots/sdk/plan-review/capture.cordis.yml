@@ -1,4 +1,8 @@
 - insert:
+    - id: legacy-plan-tool-descriptions
+      name: '../command-attachments/legacy-tool-descriptions.mjs'
+    - id: legacy-plan-admission
+      name: './legacy-plan-admission.mjs'
     - id: plan-request-capture
       name: '../manual-compact/capture-requests.mjs'
       config:

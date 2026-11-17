@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Ejecución nativa de herramientas",
+    "description": "Ejecuta directamente las llamadas a herramientas del modelo."
+  }
+}

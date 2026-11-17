@@ -55,6 +55,8 @@ profile 目录包含一个 `package.json`，其中记录树外插件依赖，以
 
 ## 开发
 
+`xph` 命令从 CLI 包的 `resources/xpeach.profile.yml` 为首次或空产品补丁播种。源码和安装版 CLI 均读取该固定资源；资源不可读时以 `XPH_PROFILE_RESOURCE_UNAVAILABLE` 停止播种，并提示重新安装完整包。空 YAML 文档和空数组可播种；非空块式或流式数组保留用户配置，YAML 语法或补丁条目无效时在改写前失败。该检查不求值 `!!js` 表达式。产品补丁通过 `inject: [xpeachAccount]` 声明 `llm-pi-ai` 行依赖账号服务。Desktop 将同一资源复制到应用资源目录。
+
 生产运行需要已构建的包与前端产物。请在仓库根目录单独运行 `pnpm run build`，然后使用 `pnpm dsh <args...>` 运行 TypeScript 入口并转发所有参数；模块解析约定以[源码执行参考](reference/README.zh.md#source-execution)为准。
 
 `@deepseek-ai/dsh/profile-boot` 导出向 Desktop Host 提供共享 profile 生命周期。已解析的应用 profile 为运行时包解析指定自己的安装锚点，同时沿用 Harness home patch、代理环境、遥测开关、patch 热重载和有界关闭。

@@ -1,0 +1,8 @@
+version: 1
+scenario: desktop-ptc-context
+profile: sdk
+composition: sdk-current-ptc
+recording: authored
+header:
+  class: sdk-current-ptc
+  pin: true

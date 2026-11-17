@@ -165,15 +165,18 @@ interface RuntimeResources {
   readonly dsh: string
 }
 
-/** Shipped XPeach product profile patch path, when available. */
-function productProfilePatch(): string | undefined {
-  if (!app.isPackaged) {
-    if (process.env.DSH_DESKTOP_PRODUCT_PATCH !== undefined) return process.env.DSH_DESKTOP_PRODUCT_PATCH
-    const development = join(app.getAppPath(), 'resources', 'xpeach.profile.yml')
-    return existsSync(development) ? development : undefined
+/** 返回随应用分发的产品补丁；缺失时停止启动，不生成无产品配置的 profile。 */
+function productProfilePatch(): string {
+  const source = app.isPackaged
+    ? join(process.resourcesPath, 'xpeach.profile.yml')
+    : (process.env.DSH_DESKTOP_PRODUCT_PATCH ?? join(app.getAppPath(), '..', 'cli', 'resources', 'xpeach.profile.yml'))
+  if (!existsSync(source)) {
+    throw Object.assign(new Error('XPeach 产品补丁资源缺失，请恢复 CLI 资源或重新安装完整的桌面应用。'), {
+      code: 'XPH_PROFILE_RESOURCE_UNAVAILABLE',
+      path: source,
+    })
   }
-  const packaged = join(process.resourcesPath, 'xpeach.profile.yml')
-  return existsSync(packaged) ? packaged : undefined
+  return source
 }
 
 function runtimeResources(): RuntimeResources {

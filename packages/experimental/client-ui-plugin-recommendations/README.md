@@ -55,7 +55,7 @@ Cards use the application font, a distinct title and compact body scale, and a s
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through card actions: the shared Host card service adds a logged status notice to the next model request. The browser contribution adds no model tools or prompt content.
+Indirectly, through card actions that let the shared Host card service add a logged status notice to the next model request; the browser contribution adds no model tools or prompt content.
 
 #### KV Cache effect
 

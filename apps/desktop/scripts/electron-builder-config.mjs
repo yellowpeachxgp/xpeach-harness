@@ -165,7 +165,7 @@ export function createElectronBuilderConfig(
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
       // The XPeach product profile: brand, sign-in surface and relay provider.
-      { from: fileURLToPath(new URL('../resources/xpeach.profile.yml', import.meta.url)), to: 'xpeach.profile.yml' },
+      { from: fileURLToPath(new URL('../../cli/resources/xpeach.profile.yml', import.meta.url)), to: 'xpeach.profile.yml' },
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
       // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),

@@ -47,7 +47,6 @@
   "license": "MIT",
   "peerDependencies": {
     "@xpeach/xph-agent": "workspace:*",
-    "@xpeach/xph-api-session-controller": "workspace:*",
     "@xpeach/xph-brand": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",
@@ -71,7 +70,6 @@
     "@xpeach/xph-agent": "workspace:*",
     "@xpeach/xph-agent-loop": "workspace:*",
     "@xpeach/xph-agent-loop-testkit": "workspace:*",
-    "@xpeach/xph-api-session-controller": "workspace:*",
     "@xpeach/xph-brand": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-session": "workspace:*",

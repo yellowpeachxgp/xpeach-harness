@@ -163,7 +163,7 @@ describe('tool-call scheduler: grouping and barriers', () => {
     expect(order).toEqual(['r-start-A1', 'r-end-A1', 'w-A2', 'r-start-A3', 'r-end-A3'])
   })
 
-  it('reclassifies pending calls after an exclusive barrier replaces their tool', async () => {
+  it('独占屏障改变同一注册的并发分类后重新分类待执行调用', async () => {
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'replace', args: { id: '0' } },
@@ -174,20 +174,15 @@ describe('tool-call scheduler: grouping and barriers', () => {
     ])
     const ctx = await harness(adapter)
     const replacement = gatedExclusiveTool('x')
-    const disposeSafe = ctx.tools.register(defineContentToolFixture({
-      name: 'x',
-      description: 'initially safe',
-      parameters: { id: { type: 'string', required: true } },
-      isConcurrencySafe: () => true,
-      async execute(args) { return [{ type: 'text', text: `old-${args.id}` }] },
-    }))
+    let safe = true
+    replacement.tool.isConcurrencySafe = () => safe
+    ctx.tools.register(replacement.tool)
     ctx.tools.register(defineContentToolFixture({
       name: 'replace',
       description: 'replace x',
       parameters: { id: { type: 'string', required: true } },
       async execute() {
-        disposeSafe()
-        ctx.tools.register(replacement.tool)
+        safe = false
         return [{ type: 'text', text: 'replaced' }]
       },
     }))
@@ -216,11 +211,11 @@ describe('tool-call scheduler: grouping and barriers', () => {
     const ctx = await harness(adapter, 2)
     const initial = gatedParallelTool('x')
     const replacement = gatedExclusiveTool('x')
-    const disposeInitial = ctx.tools.register(initial.tool)
+    ctx.tools.register(initial.tool)
     ctx.on('tools/result', (exec) => {
       if (exec.callId !== ToolCallId('c1')) return
-      disposeInitial()
-      ctx.tools.register(replacement.tool)
+      initial.tool.isConcurrencySafe = () => false
+      initial.tool.execute = replacement.tool.execute.bind(replacement.tool)
     })
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 

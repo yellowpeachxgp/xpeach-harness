@@ -111,8 +111,53 @@ describe('ensureXpeachProfile', () => {
     const patchPath = join(profileDir, 'cordis.patch.yml')
     expect(existsSync(patchPath)).toBe(true)
     const patchContent = readFileSync(patchPath, 'utf8')
+    expect(patchContent).toBe(readFileSync(new URL('../resources/xpeach.profile.yml', import.meta.url), 'utf8'))
     expect(patchContent).toContain('@xpeach/xph-account')
     expect(patchContent).toContain('@xpeach/xph-client-ui')
+  })
+
+  it.each(['', '# 用户尚未配置\n', '[]\n', '[ # 空数组\n]\n', '---\n# 空文档\n...\n'])('只为无条目的补丁播种：%j', async (empty) => {
+    const home = makeTempHome()
+    const profile = join(home, 'profiles', 'xpeach')
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, 'cordis.patch.yml'), empty)
+    vi.stubEnv('XPH_HOME', home)
+    vi.stubEnv('XPEACH_RELAY_KEY', 'fixture-key')
+
+    await ensureXpeachProfile(home)
+
+    expect(readFileSync(join(profile, 'cordis.patch.yml')))
+      .toEqual(readFileSync(new URL('../resources/xpeach.profile.yml', import.meta.url)))
+  })
+
+  it.each([
+    '# 用户选择\n- id: agent-default-model\n  config:\n    provider: custom\n    model: chosen\n',
+    '[{id: agent-default-model, config: {provider: custom, model: chosen}}]\n',
+    '- id: locale\n  config:\n    preference: !!js (() => { throw new Error("不得求值") })()\n',
+  ])('保留已有非空用户补丁：%j', async (patch) => {
+    const home = makeTempHome()
+    const profile = join(home, 'profiles', 'xpeach')
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, 'cordis.patch.yml'), patch)
+    vi.stubEnv('XPH_HOME', home)
+    vi.stubEnv('XPEACH_RELAY_KEY', 'fixture-key')
+
+    await ensureXpeachProfile(home)
+
+    expect(readFileSync(join(profile, 'cordis.patch.yml'), 'utf8')).toBe(patch)
+  })
+
+  it.each(['[{id: locale}\n', 'id: locale\n', '[42]\n', '!!js\n', '[]\n---\n[]\n', '- name: "@deepseek-ai/dsh-old"\n  config: [\n'])('无效补丁明确失败且不覆盖：%j', async (invalid) => {
+    const home = makeTempHome()
+    const profile = join(home, 'profiles', 'xpeach')
+    mkdirSync(profile, { recursive: true })
+    const target = join(profile, 'cordis.patch.yml')
+    writeFileSync(target, invalid)
+    vi.stubEnv('XPH_HOME', home)
+    vi.stubEnv('XPEACH_RELAY_KEY', 'fixture-key')
+
+    await expect(ensureXpeachProfile(home)).rejects.toThrow()
+    expect(readFileSync(target, 'utf8')).toBe(invalid)
   })
 
   it('loads xpeach.key into XPEACH_RELAY_KEY and XPEACH_API_KEY when XPEACH_RELAY_KEY is unset', async () => {

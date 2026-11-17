@@ -42,6 +42,8 @@ MCP 提供方使用 `@deepseek-ai/dsh-experimental-browser-use-runtime/mcp` 中�
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
+MCP 提示词过滤通过组合 `finalizeTools` 回调，在立即组装和 AgentLoop 延迟工具绑定中均保留片段移除效果；它不替代工具准入或分发检查。
+
 <details>
 <summary>实现内部机制 — 点击展开</summary>
 

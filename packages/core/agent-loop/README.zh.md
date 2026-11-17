@@ -84,6 +84,8 @@ const handle = await ctx.agents.create({
 
 ### 设计理念
 
+每个已接纳步骤从首次准备完成的 config 捕获 provider、model 与已解析 reasoningEffort，仅解析一次 `when`。`SystemPrompt.prepare()` 保留 pre-step 所需运行时上下文及一次原组装 waterfall；请求准备后的绑定用同一个 `ResolvedToolSet` 生成 schema、执行器 SDK 说明，并将它传入原始批次及嵌套 PTC 分发。reject 与空首步不分配集合；成功、取消、绑定失败和执行失败均关闭已分配集合。重试复用已绑定提示词和集合；模型选择变化时在再次请求或接纳输入前以 `TOOL_MODEL_SELECTION_CHANGED` 结束，模型切换应在后续步骤生效。最终工具专家使用 `finalizeTools`，参见[迁移指南](../../../docs/upgrade-guide/v0.0.35-alpha/prepared-tool-binding/guide.zh.md)。
+
 该包是公开 `Agent` 约定的唯一具象实现。它在 `ctx.agents` 上把自身注册为 `AgentFactory`，因此消费方从不导入本包；每个创建 agent 的所有权归属于调用方 fiber 与循环提供方，并汇合到同一个记忆化的完全停稳边界。每个可观察效果都通过会话事件与 `agent/*` 分类体系发生——包内部实现绝不属于公开接口。
 
 ### 请求 header 与适配器默认值

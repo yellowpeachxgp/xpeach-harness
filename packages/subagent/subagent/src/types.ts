@@ -27,9 +27,10 @@ export function SubagentRunId(id: string): SubagentRunId {
   return id as SubagentRunId
 }
 
-/** One managed child execution and its result delivery policy. */
+/** 将任务字段直接放在顶层的子 Agent 激活请求。 */
 export type FlatSubagentActivationSpec = Omit<SubagentActivationSpec, 'request'> & Omit<SubagentStartRequest, 'label' | 'signal'>
 
+/** 一个受管理的子 Agent 执行及其结果交付策略。 */
 export interface SubagentActivationSpec {
   /** Registered backend to use. */
   readonly provider: string

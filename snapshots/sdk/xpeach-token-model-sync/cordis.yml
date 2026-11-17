@@ -1,0 +1,47 @@
+# 使用真实 SDK、账号和 pi-ai；只替换站点与模型的外部 HTTP 响应。
+- id: sdk-app-startup
+  inject: [issue65Ready]
+- id: session-log-deepseek
+  disabled: true
+- id: skill-filesystem
+  config:
+    includeDefaultRoots: false
+- id: session-persistence-jsonl
+  config:
+    root: !!js dshHomePath('sessions')
+    compression: none
+- id: time-context
+  disabled: true
+- id: session-title-llm
+  disabled: true
+- id: tool-plugin-manager
+  disabled: true
+- id: llm-deepseek
+  disabled: true
+- id: deepseek-account
+  disabled: true
+- id: llm-deepseek-account
+  disabled: true
+- id: llm-pi-ai
+  inject: [xpeachAccount, issue65Site]
+- insert:
+    - id: issue65-site
+      name: './site.mjs'
+    - id: issue65-setup
+      name: './operations.mjs'
+    - id: xpeach-account
+      name: '@xpeach/xph-account'
+      inject: [issue65Site]
+      config:
+        baseURL: https://issue65.invalid
+        keyFile: !!js dshHomePath('profiles/sdk/xpeach.key')
+        adminKeyFile: !!js dshHomePath('profiles/sdk/xpeach.admin')
+        sessionKeyFile: !!js dshHomePath('profiles/sdk/xpeach.session')
+        ssoStateFile: !!js dshHomePath('profiles/sdk/xpeach.sso.json')
+        keyVar: !!js ctx.get('issue65Site').credentialRef
+        apiKeyEnv: !!js ctx.get('issue65Site').credentialRef
+        adminKeyVar: ISSUE65_ADMIN
+        sessionKeyVar: ISSUE65_SESSION
+        autoSyncModels: false
+        autoCheckUpdate: false
+        modelMetadataUrl: https://issue65.invalid/metadata

@@ -97,6 +97,8 @@ ctx.systemPrompt.variable('response_language', () => 'English')
 
 ### 设计理念
 
+AgentLoop 的准备路径通过 `prepare(context)` 只执行一次原组装 waterfall，保留立即贡献的片段、变量与运行时上下文。标记 `deferUntilTools: true` 的贡献等待返回句柄的 `bindTools(context)`，使工具声明、SDK 说明和分发使用同一准入集合；作用域与信号沿用准备阶段，绑定只能执行一次。读取、过滤或排序延迟工具内容的专家须返回 `finalizeTools(assembly)` 并组合已有回调；普通额外贡献保留，配置的 `complete` 片段仍在最终处理后覆盖提示词。`assemble()` 保留立即组装行为。提供者的 `knownNames` 元数据可在不执行工具条件的情况下提前验证工具顺序。参见[迁移指南](../../../docs/upgrade-guide/v0.0.35-alpha/prepared-tool-binding/guide.zh.md)。
+
 该包是一个注册表加一条协作式组装流水线。一次 `assemble()` 调用把全局层与所请求作用域的层合并，分离工具参数，先按数值再按名称规范化段顺序，运行按作用域筛选的 `system-prompt/assemble` waterfall，把有效的 complete 段恢复为唯一的提示词段，并实施任何当前生效的运行时上下文抑制器。段与动态上下文是独立的输入：段成为提示词文本，而上下文在循环下成为模型历史中带来源的 user 角色快照。工具 schema 按设计属于组装结果——「模型获知自己能做什么」是一个连贯整体，尽管适配器把 schema 作为独立 wire 字段传输。
 
 ### 源码地图
@@ -157,7 +159,7 @@ You are an AI agent powered by DeepSeek Harness.
 
 #### 模型看到什么
 
-对于已交付工具，模型会收到[生成工具 schema](../../../docs/tool-catalog.zh.md#xpeachxph-tool-executor-ptc)中对每个 agent 可见的子集；限制与组装拦截完成后，按配置或字典序排列。扩展可以通过同一注册表贡献其他定义。段与 schema 提供方是独立的组装输入。限制不会移除段落注册：工具指导插件通过 `text({ scope })` 与 `ctx.tools.get(name, scope)` 返回空文本或选择适用片段。任意静态段落不会被自动改写。
+对于已交付工具，模型会收到[生成工具 schema](../../../docs/tool-catalog.zh.md#tool-package-map)中对每个 agent 可见的子集；限制与组装拦截完成后，按配置或字典序排列。扩展可以通过同一注册表贡献其他定义。段与 schema 提供方是独立的组装输入。限制不会移除段落注册：工具指导插件通过 `text({ scope })` 与 `ctx.tools.get(name, scope)` 返回空文本或选择适用片段。任意静态段落不会被自动改写。
 
 #### Token 影响
 

@@ -1,0 +1,18 @@
+- id: llm-deepseek
+  disabled: true
+
+- insert:
+    - id: llm-replay
+      name: '@xpeach/xph-llm-replay'
+      config:
+        providers:
+          - id: deepseek-official
+            name: DeepSeek
+            models:
+              - id: deepseek-v4-flash
+                toolUpdate: in-history
+                defaultMaxTokens: 256000
+                reasoningEfforts: [off, low, high, max]
+                defaultReasoningEffort: high
+    - id: conditional-tool-admission
+      name: '../../../packages/test-support/session-snapshot/tests/fixtures/conditional-tool-admission.ts'

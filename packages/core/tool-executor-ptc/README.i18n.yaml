@@ -15,11 +15,11 @@
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
 /xpeach-xph-tool-executor-ptc/use-this-package:
-  en: 266045fa96418210
-  zh: 93fd3be59daf0cde
+  en: 13d4ac287b7f8e6b
+  zh: f9dcd07423a535a7
 /xpeach-xph-tool-executor-ptc/understand-the-implementation:
-  en: 9d4f61c351945d30
-  zh: 1c575526230b0e02
+  en: cd5c5b0a6ac81315
+  zh: d2749c400a405cad
 /xpeach-xph-tool-executor-ptc/understand-the-implementation/ptc-mode:
   en: 11d32e05ba397f86
   zh: 4e071ec4e6222d9d
@@ -33,8 +33,8 @@
   en: eaefd7303f22977d
   zh: 9c425f9501128224
 /xpeach-xph-tool-executor-ptc/model-experience/ptc-mode-schema-and-system-prompt/what-the-model-sees:
-  en: 4980bfab8310efc0
-  zh: ef318d5b8ac7bf76
+  en: 7474ce20adea5875
+  zh: 74e4a24832564343
 /xpeach-xph-tool-executor-ptc/model-experience/ptc-mode-schema-and-system-prompt/what-the-model-sees/typescript-ptc-mode-sdk-instructions-with-bash:
   en: 3a8df15e4ae32f9e
   zh: fc4a800ba363e835

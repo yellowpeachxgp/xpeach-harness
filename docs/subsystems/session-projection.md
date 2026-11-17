@@ -12,16 +12,13 @@ Source: [`packages/session/session-projection/src/index.ts`](../../packages/sess
 
 ```ts type-equiv
 /**
- * One domain's state-driven computation unit: a pure synchronous fold plus
- * declarations and an optional client view — never an opaque getter. The framework drives
- * `apply` on every committed session event; the domain holds no
- * subscriptions and owns only the computation. All functions MUST be
- * synchronous (an async unit would tear the carriers' consistency cut), and
- * `state` MUST be plain JSON (the persisted-cache precondition).
+ * 由框架驱动的领域投影：纯同步折叠、状态声明和可选客户端视图。
+ * 框架对每个已提交事件调用 apply；领域只负责计算，不自行订阅事件。
+ * 所有函数必须同步执行，以保持载体读取的一致性；状态必须为可持久化的普通 JSON。
  */
 interface ProjectionDefinition<
-  K extends keyof SessionProjectionStateMap,
-  S extends SessionProjectionStateMap[K] = SessionProjectionStateMap[K],
+  K extends string = Extract<keyof SessionProjectionStateMap, string>,
+  S = K extends keyof SessionProjectionStateMap ? SessionProjectionStateMap[K] : unknown,
 > {
   /** The projection key this unit owns (its `SessionProjectionStateMap` entry). */
   key: K
@@ -189,6 +186,40 @@ type ProjectionKeySelection =
 
 `SessionProjectionRegistry` ([signatures](#ctxsessionprojections--sessionprojectionregistry)) owns the drive: one `session/event` subscription, eager `apply` over every registered unit, and per-session per-unit watermark cells. Cells build lazily — a unit registered after events flowed, or a session older than the registry, folds `init` over the in-memory log on first touch (event or read). Registration is an effect whose disposer rides the calling fiber: an unloaded domain plugin's key (with its cached cells) disappears from subsequent drives and snapshots, and clients read that as capability absence; a duplicate key with a different `stateVersion` throws, while same-version registrants share one unit and are counted. Domain plugins register under `ctx.inject(['sessionProjections'], …)` so headless assemblies without the registry stay unaffected.
 
+<a id="session-controller-model-selection"></a>
+## Session-controller model selection
+
+The [Session controller](../../packages/api/session-controller/README.md) declares the following wire selection, Host fold state, and Client view. These are controller-owned types; the Agent package separately declares its live selection fields.
+
+```ts type-equiv
+/** Complete model selection for one Session. */
+interface ModelSelection {
+  readonly provider: string
+  readonly model: string
+  readonly reasoningEffort?: string
+}
+```
+
+```ts type-equiv
+/** Host fold state for durable model selection. */
+interface ModelSelectionProjectionState {
+  /** Selection consumed by the latest recorded model request. */
+  readonly lastUsed: ModelSelection | null
+  /** Later user selection not yet consumed by a matching model request. */
+  readonly pending: ModelSelection | null
+}
+```
+
+```ts type-equiv
+/** Client view of the durable model-selection fold. */
+interface ModelSelectionProjection {
+  /** Selection consumed by the latest recorded model request. */
+  readonly lastUsed: ModelSelection | null
+  /** Selection the next request should use, falling back to {@link lastUsed}. */
+  readonly next: ModelSelection | null
+}
+```
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -299,15 +330,7 @@ Source: [`packages/session/session-projection-cache/src/index.ts`](../../package
  * @param definition - key, state schema, pure unit functions, and stateVersion.
  * @returns the exact disposer that unregisters this unit.
  */
-register< K extends keyof SessionProjectionMap, S extends SessionProjectionStateMap[K], >( definition: Omit<ProjectionDefinition<K, S>, 'wire'> & { wire: NonNullable<ProjectionDefinition<K, S>['wire']> }, ): () => void
-
-/**
- * Register one host-only unit. Its state is omitted from client snapshots
- * and always checkpointed like every other unit.
- * @param definition - key, state schema, pure unit functions, and stateVersion.
- * @returns the exact disposer that unregisters this unit.
- */
-register< K extends Exclude<keyof SessionProjectionStateMap, keyof SessionProjectionMap>, S extends SessionProjectionStateMap[K], >( definition: Omit<ProjectionDefinition<K, S>, 'wire'>, ): () => void
+register< K extends string, S = K extends keyof SessionProjectionStateMap ? SessionProjectionStateMap[K] : unknown, >( definition: Omit<ProjectionDefinition<K, S>, 'wire'> & { wire?: ProjectionDefinition<K, S>['wire'] }, ): ProjectionHandle<S> & PromiseLike<ProjectionHandle<S>>
 
 /**
  * Subscribe to the change feed. The registration is an effect on the
@@ -340,18 +363,6 @@ stateOf<K extends keyof SessionProjectionStateMap>( session: Session, key: K, ):
  * @returns the snapshot; `values` is empty when no selected client-visible unit is registered.
  */
 snapshot( session: Session, keys?: ProjectionKeySelection, ): ProjectionSnapshot
-
-/**
- * Read only already-materialized client-visible cells without folding history.
- * Values may trail the live Session and are therefore hints, not a complete
- * baseline. Missing cells are omitted.
- * @param session - attached Session whose cached cells are inspected.
- * @param keys - optional wire keys to view.
- * @returns the lowest common cached cut, or `undefined` when no wire cell exists.
- * @deprecated Returns only values another read already computed and may omit keys; never use it to decide behavior.
- *   Use snapshot(session, keys) for complete values, or stateOf(session, key) for host state.
- */
-cachedSnapshot( session: Session, keys?: ProjectionKeySelection, ): ProjectionSnapshot | undefined
 
 /**
  * The keys a Session summary carries: every registered client-visible key

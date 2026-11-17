@@ -249,20 +249,23 @@ export class SubagentRuntime extends TypertRemoteService {
   }
 
   /**
-   * Start a local child under its reserved identity.
-   * @param spec - local task, reserved child id, and result recipient.
-   * @returns activation with its accepted initial message id.
+   * 使用预留身份启动本地子 Agent，接受顶层或 request 内的任务字段。
+   * @param spec - 本地任务、预留子 Agent id 和结果接收方。
+   * @returns 包含已接收首条消息 id 的激活句柄。
    */
-  startActivation(spec: FlatSubagentActivationSpec & { readonly childId: SessionId }):
-  Promise<SubagentActivation & { readonly messageId: MessageId }>
-  startActivation(spec: FlatSubagentActivationSpec): Promise<SubagentActivation>
-  startActivation(spec: SubagentActivationSpec & { readonly childId: SessionId }):
-  Promise<SubagentActivation & { readonly messageId: MessageId }>
-  startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>
-  async startActivation( rawSpec: SubagentActivationSpec | FlatSubagentActivationSpec ): Promise<SubagentActivation> {
-    const spec: SubagentActivationSpec = 'request' in rawSpec && rawSpec.request !== undefined
+  startActivation(
+    spec: (FlatSubagentActivationSpec | SubagentActivationSpec) & { readonly childId: SessionId },
+  ): Promise<SubagentActivation & { readonly messageId: MessageId }>
+  /**
+   * 启动受管理的子 Agent；句柄返回时，子 Agent 已接收任务并完成所有权交付。
+   * @param spec - 提供方、顶层或 request 内的任务字段、发布前取消信号和结果交付策略。
+   * @returns 管理该次执行的句柄；本地后端包含已接收消息的 id。
+   */
+  startActivation(spec: FlatSubagentActivationSpec | SubagentActivationSpec): Promise<SubagentActivation>
+  async startActivation(rawSpec: SubagentActivationSpec | FlatSubagentActivationSpec): Promise<SubagentActivation> {
+    const spec: SubagentActivationSpec = 'request' in rawSpec
       ? rawSpec
-      : { ...rawSpec, request: rawSpec as Omit<SubagentStartRequest, 'label' | 'signal'> }
+      : { ...rawSpec, request: rawSpec }
     const provider = this.expectProvider(spec.provider)
     if (spec.childId !== undefined && provider.prepareContinuable === undefined) {
       throw new SubagentError('reserved child ids require a local backend', 'UNSUPPORTED_CAPABILITY')

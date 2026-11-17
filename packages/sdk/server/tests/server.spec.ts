@@ -1,4 +1,5 @@
 import { MESSAGES_RESPONSE } from './messages-response.ts'
+import { useLocalDeepSeekEndpoint } from './local-deepseek-endpoint.ts'
 import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
 import { createUserMessage, LlmAdapter, ReasoningEffortId } from '@xpeach/xph-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@xpeach/xph-llm'
@@ -36,6 +37,9 @@ class FakeTransport implements JsonRpcTransportPeer {
 }
 
 const servers: Server[] = []
+const catalogRequests: string[] = []
+
+useLocalDeepSeekEndpoint(catalogRequests)
 
 function testContext(): Context {
   const ctx = new Context()
@@ -470,14 +474,14 @@ describe('HarnessSdkJsonRpcServer', () => {
     await ctx.fiber.dispose()
   })
 
-  it('notifies the host only for subagent sessions with a direct creator', async () => {
+  it('仅通知有直接创建者的子 agent，历史 seeded fork 不产生开始通知', async () => {
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-'))
     const ctx = await makeHarness(storageDir)
     try {
       const transport = new FakeTransport()
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
 
-      ctx.sessions.create(SessionId('root-session'), {
+      const root = ctx.sessions.create(SessionId('root-session'), {
         meta: { cwd: storageDir },
       })
       ctx.sessions.create(SessionId('child-session'), {
@@ -485,7 +489,8 @@ describe('HarnessSdkJsonRpcServer', () => {
       })
 
       ctx.sessions.create(SessionId('legacy-fork'), {
-        meta: { cwd: storageDir, parentSession: SessionId('main') },
+        seed: root.snapshotEvents(), inheritedEventCount: root.seq,
+        meta: { cwd: storageDir, parentSession: SessionId('main'), isSeeded: true },
       })
       ctx.sessions.fork(SessionId('child-session'), undefined, SessionId('ordinary-fork'))
       ctx.sessions.create(SessionId('unparented-subagent'), { meta: { origin: 'subagent' } })
@@ -1010,6 +1015,7 @@ describe('HarnessSdkJsonRpcServer', () => {
       expect(inspect.hasAdapterFor('deepseek-official')).toBe(true)
       expect(inspect.hasAdapterFor('missing-provider')).toBe(false)
       await server.initialize({ cwd: storageDir, provider: 'deepseek-official', model: 'preinstalled-model' })
+      expect(catalogRequests).toEqual([])
 
       expect(ctx.get('llm')?.listProviders().filter(provider => provider.id === 'deepseek-official')).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
       await server.shutdown()
@@ -1160,6 +1166,7 @@ describe('HarnessSdkJsonRpcServer', () => {
         model: 'deepseek-v4-flash',
         reasoningEffort: 'impossible',
       })).rejects.toThrow('does not support reasoning effort "impossible"')
+      expect(catalogRequests).toEqual([])
       expect((server as unknown as { sessions: Map<string, unknown> }).sessions.size).toBe(0)
       await server.shutdown()
     } finally {
@@ -1218,7 +1225,8 @@ describe('HarnessSdkJsonRpcServer', () => {
 
     const first = server.getOrCreateSession('shared')
     const second = server.getOrCreateSession('shared')
-    expect(create).toHaveBeenCalledTimes(1)
+    onTestFinished(() => { resolveShared?.(sharedHandle) })
+    await expect.poll(() => create.mock.calls.length).toBe(1)
     resolveShared?.(sharedHandle)
     const [firstRecord, secondRecord] = await Promise.all([first, second])
     expect(firstRecord).toBe(secondRecord)

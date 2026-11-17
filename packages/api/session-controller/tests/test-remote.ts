@@ -232,14 +232,13 @@ export function installSessionReadTestServices(ctx: Context): void {
   if (ctx.get('sessionQuery') === undefined) new TestSessionQuery(ctx)
 }
 
-function installControllers(
-  ctx: Context,
-  defaults: TestSessionRemoteDefaults,
-): SessionController {
-  const found = installed.get(ctx)
-  if (found !== undefined) return found
-
-  if (ctx.get('typert') === undefined) {
+/**
+ * 在活动父 Context 上准备控制器依赖，便于单独卸载被测提供方。
+ * @param ctx - 拥有测试依赖的父 Context。
+ * @param defaults - 模型选择和原生路径夹具。
+ */
+export function installSessionControllerTestDependencies(ctx: Context, defaults: TestSessionRemoteDefaults): void {
+  if (ctx.get('typert', false) === undefined) {
     const dispose = (): void => {}
     ctx.provide('typert', {
       lookups: { configure: () => dispose },
@@ -247,7 +246,7 @@ function installControllers(
       resources: { register: () => dispose },
     } as never)
   }
-  if (ctx.get('agentDefaultModel') === undefined) {
+  if (ctx.get('agentDefaultModel', false) === undefined) {
     ctx.provide('agentDefaultModel', {
       currentSelection: defaults.defaultModelSelection,
       saveSelection: async (selection: AgentModelSelection) => {
@@ -255,7 +254,7 @@ function installControllers(
       },
     } as never)
   }
-  if (ctx.get('llm') === undefined) {
+  if (ctx.get('llm', false) === undefined) {
     ctx.provide('llm', {
       listModels: async () => {
         const selection = defaults.defaultModelSelection()
@@ -267,7 +266,7 @@ function installControllers(
       },
     } as never)
   }
-  if (ctx.get('attachments') === undefined) {
+  if (ctx.get('attachments', false) === undefined) {
     ctx.provide('attachments', {
       imageLimits: TEST_IMAGE_LIMITS,
       admitPromptContent: async (
@@ -282,7 +281,7 @@ function installControllers(
       },
     } as never)
   }
-  if (ctx.get('fileUploads') === undefined) {
+  if (ctx.get('fileUploads', false) === undefined) {
     ctx.provide('fileUploads', {
       registerAgentResolver: () => () => {},
       resolve: () => undefined,
@@ -291,7 +290,20 @@ function installControllers(
     } as never)
   }
   installSessionReadTestServices(ctx)
-  if (ctx.get('remoteAccess') === undefined) new RemoteAccessService(ctx)
+  if (ctx.get('remoteAccess', false) === undefined) new RemoteAccessService(ctx)
+  for (const dependency of SessionController.inject) {
+    if (ctx.get(dependency, false) === undefined) ctx.provide(dependency, {} as never)
+  }
+}
+
+function installControllers(
+  ctx: Context,
+  defaults: TestSessionRemoteDefaults,
+): SessionController {
+  const found = installed.get(ctx)
+  if (found !== undefined) return found
+
+  installSessionControllerTestDependencies(ctx, defaults)
   const cwd = vi.spyOn(process, 'cwd').mockReturnValue(defaults.cwd)
   let controller: SessionController
   try {
@@ -379,6 +391,7 @@ export function createSessionTestRemote(
       signal,
     ),
     page: (request, signal = new AbortController().signal) => remoteResult(
+      // oxlint-disable-next-line typescript/no-deprecated -- 兼容夹具必须覆盖仍向旧 Web 调用方提供的 page 方法。
       () => direct.page(request, signal),
       signal,
     ),

@@ -16,6 +16,7 @@ import SubagentRuntime, {
   type SubagentCapabilities,
   type SubagentActivation,
   type SubagentActivationSpec,
+  type FlatSubagentActivationSpec,
   type SubagentProvider,
   type SubagentResult,
   type SubagentRun,
@@ -165,22 +166,30 @@ describe('SubagentRuntime', () => {
       .rejects.toMatchObject({ code: 'NO_PROVIDER' })
   })
 
-  it('forwards external execution options and exposes no provider continuation operations', async () => {
-    const { subagents } = await service()
+  it.each(['nested', 'flat'] as const)('以 %s 输入转发外部执行选项，且不暴露提供方续接操作', async (format) => {
+    const { ctx, subagents } = await service()
     const provider = new StubProvider('one-shot')
     subagents.registerProvider(provider)
     const request = baseRequest()
-    await start(subagents, 'one-shot', request)
+    const parent = (await ctx.agents.create({ sessionId: request.parent.id })).agent
+    const { signal, label, ...options } = request
+    const spec: SubagentActivationSpec = {
+      provider: 'one-shot', label: label ?? 'one-shot', request: { ...options, parent }, signal, delivery: 'caller',
+    }
+    const { request: task, ...metadata } = spec
+    await subagents.startActivation(format === 'nested' ? spec : { ...task, ...metadata })
 
     expect(provider.lastRequest).toEqual({
       ...request,
+      ...(format === 'flat' ? metadata : {}),
       cwd: process.cwd(),
       label: 'one-shot',
       parent: provider.lastRequest!.parent,
       signal: provider.lastRequest!.signal,
     })
     expect(provider.lastRequest).not.toBe(request)
-    expectTypeOf<Parameters<SubagentRuntime['startActivation']>[0]>().toEqualTypeOf<SubagentActivationSpec>()
+    expectTypeOf<Parameters<SubagentRuntime['startActivation']>[0]>()
+      .toEqualTypeOf<SubagentActivationSpec | FlatSubagentActivationSpec>()
     expect('resume' in subagents).toBe(false)
     expect('resume' in provider).toBe(false)
   })

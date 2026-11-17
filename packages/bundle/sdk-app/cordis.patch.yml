@@ -56,7 +56,7 @@
 
     - id: schedule
       name: '@xpeach/xph-schedule'
-      inject: [sdkSessionActivation]
+      inject: [sessionActivation]
 
     - id: time-context
       name: '@xpeach/xph-time-context'

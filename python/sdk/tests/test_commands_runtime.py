@@ -525,7 +525,10 @@ def test_unimplemented_slash_remains_plain_text_without_recording_feedback(tmp_p
 
 
 _PERMISSION_FACTS = {"permission/preset", "sandbox/mode", "approval/policy"}
-_ASK_POLICY = "Approval prompts are enabled in this session"
+_ASK_POLICY = (
+    "Approval policy: ask. Operations that require approval may ask through the configured answerers; "
+    "without an available answerer, the request fails closed."
+)
 _NEVER_POLICY = "Approval prompts are disabled in this session"
 
 

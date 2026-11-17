@@ -3,7 +3,7 @@ description: "The SDK wire protocol for client and server implementers: the newl
 kind: "package-library"
 ---
 
-# @deepseek-ai/dsh-sdk-protocol
+# @xpeach/xph-sdk-protocol
 
 English | [中文](README.zh.md)
 
@@ -33,7 +33,7 @@ Wire one JSON-RPC 2.0 message per `\n`-terminated line over byte streams you own
 
 ### The SDK methods
 
-Both wire ends share one method set: seven client-to-server requests and four server-to-client notifications.
+The method maps declare eight client-to-server requests, six server-to-client notifications, and two opt-in server-to-client requests.
 
 | Direction | Method | Payload types |
 |---|---|---|
@@ -45,14 +45,16 @@ Both wire ends share one method set: seven client-to-server requests and four se
 | client→server | `session/working-directory/get` | `SessionWorkingDirectoryParams` → `SessionWorkingDirectoryResult` |
 | client→server | `session/working-directory/set` | `SessionWorkingDirectorySetParams` → `SessionWorkingDirectoryResult` |
 | client→server | `shutdown` | no params → `{}` |
-
 | server→client | `session.event` | `SessionEventNotification` (every session in the runtime, unfiltered) |
 | server→client | `session.status` | `SessionStatusNotification` (whole-agent `running`/`idle` transition) |
 | server→client | `session.query.completed` | `{ sessionId, commandId, finalResponse, finishReason }` |
 | server→client | `subagent.started` | `SubagentStartedNotification` |
 | server→client | `subagent.finished` | `SubagentFinishedNotification` (in-process runs only) |
+| server→client | `user-question.cancelled` | `SdkUserQuestionCancelled` |
+| server→client | `approval/request` | `ApprovalRequestParams` → `ApprovalRequestResult` (opt-in request) |
+| server→client | `user-question/ask` | `SdkUserQuestionRequest` → `SdkUserQuestionResult` (opt-in request) |
 
-`HarnessSdkRequestMap` and `HarnessSdkNotificationMap` index these shapes by method name; the package root exports them together with the transport.
+`HarnessSdkRequestMap` and `HarnessSdkNotificationMap` index client requests and runtime notifications by method name. `HarnessSdkClientRequestMap` indexes approval requests; `HarnessSdkHostRequestMap` indexes user-question requests. The package root exports all four maps with the transport.
 
 `session/wait` accepts `{ sessionId }` for an existing SDK-owned session and returns `{}` after the root stays idle and progressing managed descendant work finishes. Idle descendants with parked input remain resident without blocking this wait. Unknown ids and live Agent failures without a newer committed terminal are rejected. Notifications committed during the wait precede its response on the same transport; raw `session.status` transitions retain their whole-agent meaning.
 
@@ -129,7 +131,7 @@ These limits define what the protocol does not cover or promise. They are curren
 
 - **No protocol-version negotiation** — the handshake carries only `serverInfo.version` (`0.0.1`, unvalidated by clients); pre-release stance, no compatibility promise.
 - **No cancel or session-close methods** — a client abandons a turn by closing the runtime process; see the [JSON-RPC serving plugin](../server/README.md).
-- **Server→client requests are a dead capability** — the transport supports them, but the server never sends one; the Python SDK's responder surface exists for future approval flows.
+- **Runtime requests require client opt-in** — approval requests require `InitializeParams.approvalRequests`; user-question requests require `InitializeParams.capabilities.userQuestions`. Without opt-in, native in-process answerers retain control.
 
 <a id="dev-note"></a>
 ### Dev Note

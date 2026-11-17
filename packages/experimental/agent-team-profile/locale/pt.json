@@ -1,6 +1,7 @@
 {
   "meta": {
     "title": "Equipes de agentes",
-    "description": "Habilite a colaboração em equipe, as ferramentas da equipe, a lista de membros e o quadro de tarefas compartilhado."
+    "description": "Permite que o agente com quem você conversa distribua o trabalho entre colegas com nome, acompanhe o progresso em um quadro de tarefas compartilhado e apresente os resultados deles.",
+    "detail": "docs/DETAIL.pt.md"
   }
 }

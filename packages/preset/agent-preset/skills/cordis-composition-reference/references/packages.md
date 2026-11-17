@@ -174,9 +174,8 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-deliverable-file-references` | no | Shared model guidance for file links and deliverables across DeepSeek Harness hosts |
 | `@xpeach/xph-tool-present` | yes | Explicit workspace file delivery declarations for the DeepSeek Harness |
-| `@xpeach/xph-workspace-changes` | yes | Per-turn workspace file changes recorded from git working-tree snapshots and whole-file captures, with per-file comparisons, for the DeepSeek Harness |
+| `@xpeach/xph-workspace-changes` | yes | Per-turn workspace file changes recorded from git working-tree snapshots and whole-file captures, with per-file comparisons, for the XPeach Harness |
 
 ## document
 
@@ -188,7 +187,11 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-cua` | no | Shared Computer Use application objects, authorization, and logged tool execution |
+| `@xpeach/xph-action-cards` | yes | Optional action cards below answers: one shared proposal tool, card state, user actions and status notices |
+| `@xpeach/xph-client-ui-action-cards` | no | Action cards below completed answers: the shared card frame, kind bodies and the compact tool row |
+| `@xpeach/xph-client-ui-creation-recommendations` | no | Body of the personalized page card: location choice, creation progress, Undo and Restore |
+| `@xpeach/xph-client-ui-plugin-recommendations` | no | Official plugin card body with catalog text and enabling |
+| `@xpeach/xph-creation-recommendations` | no | Create persistent removable interface plugins from explicit conversation needs |
 | `@xpeach/xph-experimental-agent-team` | yes | Implicit-root Agent Teams roster, direct peer messaging, and shared task DAG |
 | `@xpeach/xph-experimental-api-speech-to-text` | yes | Authenticated experimental speech transcription for browser clients |
 | `@xpeach/xph-experimental-auto-review` | no | Per-tool LLM authorization review for the DeepSeek Harness Auto permission preset |
@@ -198,9 +201,9 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-claude-code-mods` | yes | Experimental bridge: load Claude Code mods (hooks modules) and run their hook chains on DeepSeek Harness extension points |
 | `@xpeach/xph-experimental-client-ui-agent-team` | no | Web Agent Teams roster, task board, and teammate navigation |
 | `@xpeach/xph-experimental-client-ui-claude-code-mods` | no | Web band above the prompt for Claude Code mods: draws each session's mod tree and sends button presses back to the bridge |
-| `@xpeach/xph-experimental-client-ui-stats` | no | Per-turn and per-step context, timing, cache, and tool-cost table contributed as an experimental conversation View |
 | `@xpeach/xph-experimental-client-ui-cot-translation` | yes | Optional machine translation of expanded reasoning, preserving original Session text |
 | `@xpeach/xph-experimental-client-ui-forge` | yes | Sidebar panel for a Session's change requests, with a worktree option for new Sessions and its Host Remote |
+| `@xpeach/xph-experimental-client-ui-stats` | no | Per-turn and per-step context, timing, cache, and tool-cost table contributed as an experimental conversation View |
 | `@xpeach/xph-experimental-client-ui-voice-input` | no | Record speech and insert editable text into the conversation draft |
 | `@xpeach/xph-experimental-computer-use-cua-driver-mcp` | yes | Experimental computer use through an installed Cua Driver MCP executable |
 | `@xpeach/xph-experimental-computer-use-cua-driver-native` | no | Experimental computer-use provider embedding the Cua Driver native npm SDK |
@@ -221,6 +224,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-experimental-worktree` | yes | Creates a named Git worktree and changes the calling Session working directory |
 | `@xpeach/xph-hooks-claude-code` | yes | Bridge plugin: run a Claude Code hooks.json / settings hook config on the DeepSeek Harness interception seams |
 | `@xpeach/xph-hooks-codex` | yes | Bridge plugin: run a Codex hooks.json hook config on the DeepSeek Harness interception seams |
+| `@xpeach/xph-plugin-recommendations` | no | Official plugin suggestions with explicit user activation and persistent conversation decisions |
 | `@xpeach/xph-session-title-all-prompts-llm` | yes | All-user-messages LLM provider plugin for DeepSeek Harness session titles |
 | `@xpeach/xph-skill-badge` | no | Bundled dsh badge skill provider for DeepSeek Harness |
 | `@xpeach/xph-tool-ralph` | yes | Model-facing fresh-agent Ralph loop over the workflow and subagent seams |
@@ -249,10 +253,10 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@xpeach/xph-fs-local` | yes | Local-filesystem implementation of the DeepSeek Harness filesystem seam (ctx.fs) |
+| `@xpeach/xph-fs-local` | yes | Local-filesystem implementation of the XPeach Harness filesystem seam (ctx.fs) |
 | `@xpeach/xph-fs-observation-policy` | no | File-context policy plugin for the DeepSeek Harness — observed-state, read-before-edit, and version-guarded write/edit added over the ctx.fs provider seam through the fs/* event gate (no service API) |
 | `@xpeach/xph-fs-sandbox` | yes | Sandbox-enforcing implementation of the DeepSeek Harness filesystem seam: fences write/edit by the per-call sandbox mode (read-only denies mutation, workspace-write contains it to the workspace + temp roots) while reads pass through |
-| `@xpeach/xph-tool-fs` | yes | Model-facing filesystem tools (read, write, edit) over the DeepSeek Harness filesystem seam (ctx.fs) |
+| `@xpeach/xph-tool-fs` | yes | Model-facing filesystem tools (read, write, edit) over the XPeach Harness filesystem seam (ctx.fs) |
 | `@xpeach/xph-tool-fs-search` | yes | Model-facing filesystem discovery tools (glob, grep) backed by the packaged ripgrep binary (@vscode/ripgrep) |
 | `@xpeach/xph-tool-str-replace-editor` | yes | Model-facing view, create, literal replace, and line insert tool over the Harness filesystem service |
 
@@ -462,7 +466,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-subagent-fork-in-process` | yes | In-process fork subagent backend: runs a child agent seeded with a prefix of the parent's log |
 | `@xpeach/xph-subagent-spawn-in-process` | yes | In-process spawn subagent backend: runs a fresh child agent on ctx.agents |
 | `@xpeach/xph-tool-subagent` | yes | Model-facing subagent delegation tool over the ctx.subagents seam |
-| `@xpeach/xph-tool-subagent-control` | no | Shared messaging, interruption, and child discovery tools for subagents |
+| `@xpeach/xph-tool-subagent-control` | no | Globally named send_message, interrupt_agent, and list_agents tools over ctx.subagents continuations |
 
 ## subprocess
 
@@ -508,7 +512,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@xpeach/xph-tool-web` | yes | Model-facing web tools (web_search, web_fetch) over the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web` | yes | Abstract web access capability seam (ctx.web) for the DeepSeek Harness — search/fetch provider registry, registration-order-independent selection, request/result vocabulary, and the WebError taxonomy |
 | `@xpeach/xph-web-deepseek-api` | yes | DeepSeek Search and Fetch API providers for the DeepSeek Harness web capability seam (ctx.web) |
-| `@xpeach/xph-web-fetch-http` | yes | Anonymous HTTP(S) fetch provider for the DeepSeek Harness web capability seam (ctx.web) |
+| `@xpeach/xph-web-fetch-http` | yes | Anonymous public HTTP(S) fetch provider for the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web-search-deepseek` | yes | DeepSeek-backed search provider (native web_search via the Anthropic-compatible API) for the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web-search-exa` | yes | Exa-backed search provider for the DeepSeek Harness web capability seam (ctx.web) |
 | `@xpeach/xph-web-search-perplexity` | yes | Perplexity-backed search provider for the DeepSeek Harness web capability seam (ctx.web) |

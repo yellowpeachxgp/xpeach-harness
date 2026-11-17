@@ -420,7 +420,7 @@ describe('Schedule model tools', () => {
     const target = await test.service.create(sessionId, { prompt: 'Keep target', after_seconds: 300, title: 'Keep target' })
     await test.service.create(sessionId, { prompt: 'Queue blocker', after_seconds: 1, title: 'Queue blocker' })
     const entered = Promise.withResolvers<undefined>()
-    const restored = Promise.withResolvers<{ agent: Agent }>()
+    const restored = Promise.withResolvers<Agent>()
     test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return restored.promise })
     const controller = new AbortController()
     try {
@@ -431,12 +431,12 @@ describe('Schedule model tools', () => {
         : { id: target.id }
       const pending = executeBody(test, name, args, controller.signal)
       controller.abort()
-      restored.resolve({ agent: test.agent })
+      restored.resolve(test.agent)
       const result = await pending
       expect(await test.service.list({ sessionId })).toEqual([target])
       expect(result).toMatchObject({ code: 'internal_error' })
     } finally {
-      restored.resolve({ agent: test.agent })
+      restored.resolve(test.agent)
     }
   })
 

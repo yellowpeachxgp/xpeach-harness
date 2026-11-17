@@ -107,9 +107,8 @@ export interface PiAiProviderProfile {
   /** Endpoint for this route's models; defaults to the installed catalog's endpoint. */
   baseURL?: string
   /**
-   * This route's model catalog. Omission serves the installed catalog for the
-   * route unchanged; an explicit list replaces it, each entry defaulting its
-   * unset fields from the installed model of the same id.
+   * 本路由的模型目录。省略时继承内置目录；显式列表整体替换，空列表停用目录。
+   * 非空条目的未配置字段从内置同 id 模型继承。
    */
   models?: PiAiModelProfile[]
   /**
@@ -349,12 +348,16 @@ const modelProfile: z<PiAiModelProfile> = z.object({
 /** A {@link modelProfile} whose id lives in the `modelOverrides` dict key. */
 const modelOverride: z<PiAiModelOverride> = z.object(modelFields)
 
+// 数组的隐式 [] 默认值会吞掉省略与显式空目录的区别。
+const modelList = z.array(modelProfile)
+delete modelList.meta.default
+
 const profile = z.object({
   apiKeyEnv: z.string().role('credential-ref'),
   displayName: z.string(),
   api: z.union(supportedProtocols()),
   baseURL: z.string(),
-  models: z.array(modelProfile),
+  models: modelList,
   modelOverrides: z.dict(modelOverride),
   compat: compatProfile,
   defaultContextWindow: z.number().step(1).min(1).default(DEFAULT_CONTEXT_WINDOW),

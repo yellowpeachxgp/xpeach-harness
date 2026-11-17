@@ -19,7 +19,6 @@ import type {
   SessionListMetadata, SessionProjectionHints, SessionSearchItem,
   SessionSearchValue, SessionSummary,
 } from './types.ts'
-import type { SessionProjectionSummaryValues } from '@xpeach/xph-session-projection/types'
 
 const SEARCH_PROVIDER_CALL_LIMIT = 100
 const SESSION_SEARCH_QUERY_MAX_CHARS = 500
@@ -339,7 +338,7 @@ function hintsOf(
   if (block === undefined || Object.keys(block.values).length === 0) return undefined
   // Listing hints contain every summary wire value the source holds; cached
   // hints remain partial because missing cache rows are never folded here.
-  return { kind, asOfSeq: block.asOfSeq, values: block.values as Partial<SessionProjectionSummaryValues> }
+  return { kind, asOfSeq: block.asOfSeq, values: block.values }
 }
 
 function normalizeSearchQuery(query: string): string {

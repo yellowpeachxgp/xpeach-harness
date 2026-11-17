@@ -157,7 +157,7 @@ describe('SDK persisted session resume', () => {
     }
   })
 
-  it('waits for pending restoration during shutdown and releases the restored Agent', async () => {
+  it('关闭时取消等待中的恢复，排空恢复工作且不留下 Agent', async () => {
     const root = await storageRoot()
     const first = await initialized(root)
     await first.server.prompt({ sessionId: 'saved', contentBlocks: [{ type: 'text', text: 'original' }] })
@@ -175,11 +175,12 @@ describe('SDK persisted session resume', () => {
     })
     try {
       const restoring = server.resume({ sessionId: 'saved' })
+      const rejected = expect(restoring).rejects.toThrow('SDK server is shutting down')
       await opened.promise
       const shutdown = server.shutdown()
       await expect(server.resume({ sessionId: 'another' })).rejects.toThrow('shutting down')
       gate.resolve(undefined)
-      await Promise.all([restoring, shutdown])
+      await Promise.all([rejected, shutdown])
       expect(ctx.agents.list()).toHaveLength(0)
     } finally {
       gate.resolve(undefined)

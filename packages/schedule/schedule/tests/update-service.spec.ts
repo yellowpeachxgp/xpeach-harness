@@ -260,7 +260,7 @@ it('observes a deletion ordered before an edit in the same FIFO', async () => {
 it.each(['every', 'after', 'daily'] as const)('waits for %s delivery then observes the advanced target or ended status', async (kind) => {
   const test = await setup()
   const agent = agentFor(test.ctx, sessionId)
-  test.resolve.mockResolvedValue({ agent })
+  test.resolve.mockResolvedValue(agent)
   const record = await test.service.create(sessionId, { prompt: 'Deliver first', title: 'Deliver first',
     ...(kind === 'every' ? { every_seconds: 300 } : kind === 'after'
       ? { after_seconds: 300 } : { daily: { time: '00:05:00.125', time_zone: 'UTC' } }),

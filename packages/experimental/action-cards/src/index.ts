@@ -224,10 +224,10 @@ export class ActionCards extends TypertRemoteService {
       if (exec.parent !== undefined || !this.isLiveRoot(agent)) return
       const skill = exec.name === SKILL_TOOL && !result.isError ? skillArguments.safeParse(exec.arguments) : undefined
       if (skill?.success !== true || ![...this.kinds.values()].some(kind => kind.skill === skill.data.name)) return
-      const turn = this.ctx.agents.turnBoundaryOf(agent.session).lastTurn
+      const turn = this.currentTurn(agent.session)
       const loads = this.turnLoads.get(agent)
-      if (turn !== null && loads !== undefined && loads.turn === turn) loads.skills.add(skill.data.name)
-      else if (turn !== null) this.turnLoads.set(agent, { turn, skills: new Set([skill.data.name]) })
+      if (loads !== undefined && loads.turn === turn) loads.skills.add(skill.data.name)
+      else this.turnLoads.set(agent, { turn, skills: new Set([skill.data.name]) })
       this.loaded.set(agent, new Set([...this.loaded.get(agent) ?? [], skill.data.name]))
     })
     this.ctx.on('agent/disposed', ({ agent }) => {
@@ -416,6 +416,13 @@ export class ActionCards extends TypertRemoteService {
     return skills !== undefined && [...this.kinds.values()].some(kind => skills.has(kind.skill))
   }
 
+  /** 从本服务注入的投影读取轮次；缺少 AgentLoop 投影时拒绝继续激活或提案。 */
+  private currentTurn(session: Session): number {
+    const boundary = this.ctx.sessionProjections.stateOf(session, 'turnBoundary')
+    if (boundary === undefined) throw new Error('action-cards：缺少 turnBoundary 会话投影，请挂载 AgentLoop。')
+    return boundary.lastTurn
+  }
+
   private propose(
     args: { readonly action: string; readonly title: string; readonly brief: string; readonly details: ActionCardFields },
     exec: ToolRunContext,
@@ -432,9 +439,9 @@ export class ActionCards extends TypertRemoteService {
     const kind = this.kinds.get(args.action)
     // Admission is decided when the step starts, so the last kind can unregister before this call runs.
     if (kind === undefined) throw new ActionCardError(`Unknown action "${args.action}". Registered actions: ${[...this.kinds.keys()].join(', ') || 'none'}.`, 'ACTION_CARD_UNKNOWN')
-    const turn = this.ctx.agents.turnBoundaryOf(agent.session).lastTurn
+    const turn = this.currentTurn(agent.session)
     const loads = this.turnLoads.get(agent)
-    if (turn === null || loads === undefined || loads.turn !== turn || !loads.skills.has(kind.skill)) {
+    if (loads === undefined || loads.turn !== turn || !loads.skills.has(kind.skill)) {
       throw new ActionCardError(`Load skill ${kind.skill} first, then call propose_action.`, 'ACTION_CARD_SKILL')
     }
     if (args.title.trim() === '' || args.brief.trim() === '') throw new ActionCardError('Write a title and a brief.', 'ACTION_CARD_BLANK')

@@ -141,17 +141,17 @@ IN_HISTORY_SNAPSHOT_DIRECTORY = (
 )
 IN_HISTORY_SNAPSHOT_FILENAMES = ("prompt-history.json",)
 DYNAMIC_TOOLS_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "dynamic-tools"
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "dynamic-tools-current"
 )
 DYNAMIC_TOOLS_SNAPSHOT_FILENAMES = ("tool-history.json",)
 RESTART_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "restart"
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "restart-current"
 )
 RESTART_SNAPSHOT_FILENAMES = (
-    "result.json", "requests.json", "session.1.v4.jsonl", "session.2.v4.jsonl",
+    "result.json", "requests.json", "session.1.v4.jsonl", "session.2.v4.jsonl", "resume.json",
 )
 RECOVERY_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "scheduler-recovery"
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "scheduler-recovery-current"
 )
 RECOVERY_SNAPSHOT_FILENAMES = ("result.json", "requests.json", "session.v4.jsonl")
 MCP_SERVER_SCRIPT = """\
@@ -1868,6 +1868,19 @@ def smoke_sdk_snapshot_mode(
         )
 
 
+def write_snapshot_clock_patch(root: Path) -> Path:
+    """固定当前 SDK 的时间贡献，不更改比较算法或隐藏消息。"""
+    path = root / "clock.patch.yml"
+    path.write_text(json.dumps([
+        {"id": "time-context", "config": {"timeZone": "UTC"}},
+        {"insert": [{
+            "id": "python-sdk-fixed-clock",
+            "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-fixed-clock.mjs").as_uri(),
+        }]},
+    ]), encoding="utf-8")
+    return path
+
+
 def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots: bool) -> None:
     """Check isolated sessions and explicit history restoration across runtime restarts."""
     from deepseek_harness import DeepSeekHarness
@@ -1877,6 +1890,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
         dsh_home = root / "home"
         sessions = dsh_home / "sessions"
         patch = write_advanced_profile_patch(root, "restart.patch.yml", sessions)
+        clock_patch = write_snapshot_clock_patch(root)
         first_request = len(MockModelHandler.requests)
 
         def connect() -> DeepSeekHarness:
@@ -1886,7 +1900,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
                 cwd=str(root),
                 dsh_bin=str(executable),
                 dsh_home=str(dsh_home),
-                patches=(str(patch),),
+                patches=(str(patch), str(clock_patch)),
                 env={
                     "DSH_PERMISSION_MODE": "danger-full-access",
                     "DSH_TELEMETRY_DISABLED": "1",
@@ -1930,11 +1944,6 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
             root,
             sessions,
         )
-        compare_snapshot_files(
-            files, update_snapshots, RESTART_SNAPSHOT_DIRECTORY, RESTART_SNAPSHOT_FILENAMES,
-            native_writer_output=True,
-        )
-
         before_resume = logs[RESTART_FIRST_SESSION_ID]
         with connect() as harness:
             session = harness.resume_session(RESTART_FIRST_SESSION_ID)
@@ -1942,6 +1951,12 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
                 raise AssertionError(f"resume changed the saved identity: {session.id}")
             if len(MockModelHandler.requests) != first_request + 2:
                 raise AssertionError("resume sent a model request before receiving new input")
+            after_restore = read_session_logs(sessions)[RESTART_FIRST_SESSION_ID]
+            if after_restore[:len(before_resume)] != before_resume:
+                raise AssertionError("恢复操作改写了已有持久化历史")
+            restore_events = after_restore[len(before_resume):]
+            if [event.get("type") for event in restore_events] != ["session/end-seed"]:
+                raise AssertionError(f"恢复操作的持久化事件不符：{restore_events}")
             resumed = session.run(RESUME_PROMPT)
 
         requests = MockModelHandler.requests[first_request + 2:]
@@ -1973,6 +1988,28 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
             raise AssertionError(f"resume did not continue the saved turn sequence: {turns}")
         if RESUME_TEXT not in render_jsonl(restored):
             raise AssertionError("resumed response was not appended to the saved session")
+        appended = restored[len(after_restore):]
+        if resumed.events != appended:
+            raise AssertionError("恢复后的 SDK 事件与新增持久化事件不一致：" + json.dumps({
+                "events": [{"seq": event.get("seq"), "type": event.get("type")} for event in resumed.events],
+                "appended": [{"seq": event.get("seq"), "type": event.get("type")} for event in appended],
+                "differences": [{"index": index, "event": event, "persisted": stored}
+                                for index, (event, stored) in enumerate(zip(resumed.events, appended)) if event != stored][:1],
+            }, ensure_ascii=False))
+        files["resume.json"] = json.dumps({
+            "session_id": "{{session-1}}",
+            "final_response": resumed.final_response,
+            "finish_reason": resumed.finish_reason,
+            "turns": [record["data"]["turn"] for record in turns],
+            "eventTypes": [event.get("type") for event in resumed.events],
+            "notificationMethods": [notification.method for notification in resumed.notifications],
+            "savedPrefixPreserved": restored[:len(before_resume)] == before_resume,
+            "restoreEventTypes": [event.get("type") for event in restore_events],
+        }, indent=2, ensure_ascii=False) + "\n"
+        compare_snapshot_files(
+            files, update_snapshots, RESTART_SNAPSHOT_DIRECTORY, RESTART_SNAPSHOT_FILENAMES,
+            native_writer_output=True,
+        )
 
 
 def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapshots: bool) -> None:
@@ -1985,6 +2022,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
         dsh_home = root / "home"
         sessions = dsh_home / "sessions"
         base_patch = write_advanced_profile_patch(root, "base.patch.yml", sessions)
+        clock_patch = write_snapshot_clock_patch(root)
         patch = write_profile_patch(root, "recovery.patch.yml", sessions, [
             {"id": "tool-todo", "disabled": False},
             {"id": "session-title-llm", "disabled": True},
@@ -2002,7 +2040,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
             return DeepSeekHarness(
                 provider="deepseek-official", model="smoke-model", cwd=str(root),
                 dsh_bin=str(executable), dsh_home=str(dsh_home),
-                patches=(str(base_patch), str(patch)),
+                patches=(str(base_patch), str(patch), str(clock_patch)),
                 env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1"},
                 api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
             )

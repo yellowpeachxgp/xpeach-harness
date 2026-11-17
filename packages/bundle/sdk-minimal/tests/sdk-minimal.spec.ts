@@ -11,20 +11,26 @@ function packageName(specifier: string): string {
   return specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0]!
 }
 
+function readBundle() {
+  const root = fileURLToPath(new URL('..', import.meta.url))
+  const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+    dependencies?: Record<string, string>
+    dsh?: { bundle?: { patch?: string } }
+  }
+  expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+  const patches = yaml.load(
+    readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
+    { schema: entryListSchema },
+  ) as Array<{ insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }> }>
+  expect(patches).toHaveLength(1)
+  return { manifest, rows: patches[0]?.insert ?? [] }
+}
+
 describe('dsh-sdk-minimal bundle', () => {
-  it('declares one standalone allowlisted tree with every row dependency', () => {
-    const root = fileURLToPath(new URL('..', import.meta.url))
-    const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
-      dependencies?: Record<string, string>
-      dsh?: { bundle?: { patch?: string } }
-    }
-    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
-    const patches = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
-      { schema: entryListSchema },
-    ) as Array<{ insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }> }>
-    expect(patches).toHaveLength(1)
-    const rows = patches[0]?.insert ?? []
+  it('声明独立的工具组合及其依赖，所有配置项 id 唯一', () => {
+    const { manifest, rows } = readBundle()
+    expect(rows).toHaveLength(37)
+    expect(new Set(rows.map(row => row.id)).size).toBe(rows.length)
     expect(rows.map(row => [row.id, row.name])).toEqual([
       ['sdk-app-startup', '@xpeach/xph-sdk-app'],
       ['sdk-jsonrpc-server', '@xpeach/xph-sdk-jsonrpc-server'],
@@ -92,5 +98,18 @@ describe('dsh-sdk-minimal bundle', () => {
     expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(
       [...new Set(rows.map(row => row.name).filter((name): name is string => name !== undefined).map(packageName))].sort(),
     )
+  })
+
+  it('将存储目录与压缩配置归属 sessions，仅声明一个无配置的检查点插件', () => {
+    const { rows } = readBundle()
+    expect(rows.filter(row => row.id === 'sessions')).toEqual([{
+      id: 'sessions',
+      name: '@xpeach/xph-session-persistence-jsonl',
+      config: { root: { __jsExpr: "dshHomePath('sessions')" }, compression: 'none' },
+    }])
+    expect(rows.filter(row => row.id === 'session-checkpoint-policy')).toEqual([{
+      id: 'session-checkpoint-policy',
+      name: '@xpeach/xph-session-checkpoint-policy',
+    }])
   })
 })

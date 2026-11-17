@@ -1,42 +1,25 @@
-# TypeScript SDK snapshot-record patch over `dsh --profile sdk`.
-
-# The fixture corpus must not depend on the developer's personal skill roots.
-# Ordinary product launches retain the sdk profile's default skill discovery.
+# 保留正式 sdk 组合，仅固定外部模型、用户技能发现、日志编码与测试时钟。
 - id: skill-filesystem
-  name: '@xpeach/xph-skill-filesystem'
   config:
     includeDefaultRoots: false
-
 - id: llm-deepseek
-  name: '@xpeach/xph-llm-deepseek-api-key'
+  disabled: true
+- id: session-log-deepseek
   config:
-    thinking: enabled
-    reasoningEffort: max
-
+    enabled: false
+- id: session-title-llm
+  disabled: true
 - id: session-persistence-jsonl
-  name: '@xpeach/xph-session-persistence-jsonl'
   config:
     root: !!js dshHomePath('sessions')
-    compression: !!js "process.env.DSH_SNAPSHOT === undefined ? 'zstd' : 'none'"
-
-- id: tool-subagent
-  name: '@xpeach/xph-tool-subagent'
-  config:
-    provider: spawn
-    toolName: subagent
-    maxDepth: 1
-
-# The process-local clock is deterministic; native timers remain live.
-- insert:
-    - id: snapshot-clock
-      name: './clock.mjs'
-
+    compression: none
 - id: time-context
   config:
     timeZone: UTC
-
+- insert:
+    - id: snapshot-clock
+      name: '../desktop-context/clock.mjs'
 - id: tool-executor-native
   disabled: true
-
 - id: tool-executor-ptc
   disabled: false

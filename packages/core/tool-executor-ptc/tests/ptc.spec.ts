@@ -140,6 +140,7 @@ async function executeCall(ctx: Context, input: ToolExecutionInput): Promise<Too
   const batch = await ctx.tools.execute({
     calls: [{ type: 'tool-call', id: input.callId, name: input.name, arguments: JSON.stringify(input.arguments) }],
     signal: input.signal,
+    ...input.toolSet === undefined ? {} : { toolSet: input.toolSet },
     ...input.agent === undefined ? {} : { agent: input.agent },
   })
   return batch.results[0]!.result
@@ -160,6 +161,39 @@ async function runCode(
     ...extras.signal ? { signal: extras.signal } : {},
   })
 }
+
+it('SDK 与嵌套调用仅使用同一步已准入工具，撤销注册后旧 binding 也被拒绝', async () => {
+  const { ctx, runtime } = await setup({ mode: 'ptc' })
+  onTestFinished(() => ctx.fiber.dispose())
+  const { agent } = await mintAgentScope(ctx)
+  const allowed = vi.fn(async () => '允许')
+  const denied = vi.fn(async () => '不应执行')
+  const dispose = ctx.tools.register(defineTool({ name: 'allowed', description: '允许', parameters: {},
+    output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, execute: allowed,
+  }), { when: () => true })
+  ctx.tools.register(defineTool({ name: 'denied', description: '拒绝', parameters: {},
+    output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, execute: denied,
+  }), { when: () => false })
+  const toolSet = await ctx.tools.resolve({ agent, modelSelection: { provider: 'mock', model: 'mock' }, signal: testToolSignal })
+  onTestFinished(() => { toolSet.dispose() })
+  const prepared = await ctx.systemPrompt.prepare({ agent, scope: agent, signal: testToolSignal })
+  const prompt = renderPrompt(prepared.bindTools({ toolSet }))
+  expect(prompt).toContain('allowed: Record<string, JsonValue>;')
+  expect(prompt).not.toContain('denied:')
+  runtime.behavior = async (request) => {
+    const functions = request.bindings[0]!.functions
+    expect(Object.keys(functions)).toEqual(['allowed'])
+    expect(await functions.allowed!({})).toBe('允许')
+    dispose()
+    await expect(functions.allowed!({})).rejects.toThrow('unknown tool')
+    return { logs: [], value: '完成' }
+  }
+  const result = await executeCall(ctx, { signal: testToolSignal, callId: ToolCallId('admitted'), name: RUN_CODE_NAME,
+    arguments: { code: '', description: '执行准入回归' }, agent, toolSet })
+  expect(result.isError).toBe(false)
+  expect(allowed).toHaveBeenCalledTimes(1)
+  expect(denied).not.toHaveBeenCalled()
+})
 
 it('logs detached frozen nested metadata without changing the binding value or log-content policy', async () => {
   const { ctx, runtime } = await setup({ mode: 'ptc' })

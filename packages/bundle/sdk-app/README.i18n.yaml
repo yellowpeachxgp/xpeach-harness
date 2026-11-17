@@ -5,36 +5,36 @@
 /:
   en: 8148fef9eb6f852e
   zh: f4419bed153c9760
-/deepseek-ai-dsh-sdk-app:
-  en: 1393fc0c2c6cf60c
-  zh: 61e2f2c46463101b
-/deepseek-ai-dsh-sdk-app/summary:
+/xpeach-xph-sdk-app:
+  en: 8516b161349f47b7
+  zh: 79446605a6a1b272
+/xpeach-xph-sdk-app/summary:
   en: 5583f814d74d685f
   zh: 7d52ecc2cdcd78d4
-/deepseek-ai-dsh-sdk-app/table-of-contents:
+/xpeach-xph-sdk-app/table-of-contents:
   en: 4e53164159b5ce41
   zh: 89582dc0294d0776
-/deepseek-ai-dsh-sdk-app/use-this-package:
-  en: 6c4bb998302dbd1e
-  zh: 8bd23f9d8698affd
-/deepseek-ai-dsh-sdk-app/model-experience:
+/xpeach-xph-sdk-app/use-this-package:
+  en: 585d63df5aa1a753
+  zh: 84f810041ae6364e
+/xpeach-xph-sdk-app/model-experience:
   en: 215e7ba838619b7b
   zh: a311da3843709f90
-/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context:
+/xpeach-xph-sdk-app/model-experience/sdk-model-context:
   en: 4f88e647c6df4f42
   zh: 2bd3e4b0bdfe9412
-/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context/what-the-model-sees:
+/xpeach-xph-sdk-app/model-experience/sdk-model-context/what-the-model-sees:
   en: 6b46520441d75a00
   zh: 04851fd123960847
-/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context/token-effect:
+/xpeach-xph-sdk-app/model-experience/sdk-model-context/token-effect:
   en: cef8efe97fe1ff16
   zh: c052ab3e6706efa6
-/deepseek-ai-dsh-sdk-app/model-experience/sdk-model-context/kv-cache-effect:
+/xpeach-xph-sdk-app/model-experience/sdk-model-context/kv-cache-effect:
   en: b1169743449b2272
   zh: 98d465d802bf55c1
-/deepseek-ai-dsh-sdk-app/known-limitations-and-deferred-work:
+/xpeach-xph-sdk-app/known-limitations-and-deferred-work:
   en: ef13cf492fdb9ab4
   zh: d04018c6922a1b98
-/deepseek-ai-dsh-sdk-app/known-limitations-and-deferred-work/dev-note:
+/xpeach-xph-sdk-app/known-limitations-and-deferred-work/dev-note:
   en: b9b4e27513ebba78
   zh: 51b123ac60ff28c6

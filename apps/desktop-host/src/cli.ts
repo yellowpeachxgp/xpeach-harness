@@ -3,11 +3,17 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
+import * as yaml from 'js-yaml'
 import { runCli } from '@xpeach/xph-dsh/lib/bin.js'
+import { loadOptionalPatches } from '@xpeach/xph-app-boot'
 import { installOfficeEngineResolution, runtimeArchivePath } from './office-engine.ts'
 
 const HELP_OR_VERSION_FLAGS = new Set(['-h', '--help', '-V', '--version'])
 const POSITIONAL_PROFILES = new Set(['headless', 'acp', 'sdk'])
+const productPatchSchema = yaml.JSON_SCHEMA.extend(new yaml.Type('tag:yaml.org,2002:js', {
+  kind: 'scalar', resolve: (expression: unknown) => typeof expression === 'string',
+  construct: (expression: string) => expression,
+}))
 
 /**
  * Normalize raw Desktop CLI arguments using `xph` profile rules.
@@ -75,23 +81,23 @@ function bootstrapDesktopXpeachHome(runtimeDir: string): void {
   process.env.XPH_HOME ??= xphHome
   process.env.DSH_HOME ??= xphHome
 
-  if (!existsSync(runtimeDir)) return
-
   const xphProfile = join(xphHome, 'profiles', 'xpeach')
   const patchFile = join(xphProfile, 'cordis.patch.yml')
-  const resourcesDir = dirname(runtimeArchivePath(runtimeDir) ?? runtimeDir)
-  const shippedPatchCandidates = [
-    join(resourcesDir, 'xpeach.profile.yml'),
-    resolve(runtimeDir, '../../resources/xpeach.profile.yml'),
-  ]
-  if (!existsSync(patchFile) || !/^\s*-/m.test(readFileSync(patchFile, 'utf8'))) {
-    for (const candidate of shippedPatchCandidates) {
-      if (existsSync(candidate)) {
-        mkdirSync(xphProfile, { recursive: true })
-        writeFileSync(patchFile, readFileSync(candidate, 'utf8'))
-        break
-      }
+  const currentPatch = existsSync(patchFile) ? readFileSync(patchFile, 'utf8') : ''
+  const parsed: unknown = yaml.load(currentPatch, { schema: productPatchSchema, filename: patchFile })
+  if (parsed === undefined || parsed === null || (loadOptionalPatches('xph', patchFile)?.length ?? 0) === 0) {
+    const resource = join(runtimeDir, 'node_modules', '@xpeach', 'xph-dsh', 'resources', 'xpeach.profile.yml')
+    let content: string
+    try {
+      content = readFileSync(resource, 'utf8')
+    } catch (cause) {
+      throw Object.assign(new Error('xph：无法读取随包产品补丁，请重新安装完整的桌面应用。', { cause }), {
+        code: 'XPH_PROFILE_RESOURCE_UNAVAILABLE',
+        path: resource,
+      })
     }
+    mkdirSync(xphProfile, { recursive: true })
+    writeFileSync(patchFile, content)
   }
 
   if (!process.env.XPEACH_RELAY_KEY) {

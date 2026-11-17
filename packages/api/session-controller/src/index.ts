@@ -2,9 +2,9 @@
 
 import { hostname } from 'node:os'
 import { resolve } from 'node:path'
-import type { Agent } from '@xpeach/xph-agent'
+import { SessionActivationOwner, type Agent } from '@xpeach/xph-agent'
 import type {} from '@xpeach/xph-fs'
-import { Context } from '@xpeach/xph-cordis'
+import { Context, Service } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { errorChain, ReasoningEffortId, type MessageSource } from '@xpeach/xph-llm'
 import type {} from '@xpeach/xph-client-file-upload'
@@ -151,6 +151,7 @@ export class SessionController extends TypertRemoteService {
   private readonly openFileApplication: typeof openNativeFileApplication
   private readonly revealPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly canOpenPath: () => boolean
+  private readonly activationReady: PromiseLike<unknown>
   private readonly promotions = new Set<Promise<void>>()
 
   /**
@@ -160,6 +161,10 @@ export class SessionController extends TypertRemoteService {
    */
   constructor(ctx: Context, config: Config, internals: SessionControllerInternals = {}) {
     super(ctx, 'sessionController', { namespace: 'session' })
+    const providerCtx = ctx
+    // 子 fiber 持有原始注册；组合 effect 接管其真实 disposer 后才发布激活服务。
+    const resources = ctx.plugin({ name: 'session-controller-resources', inject: SessionController.inject, apply() {} })
+    ctx = resources.ctx
     ctx.typert.resources.register('session', { field: 'sessionId' })
     const resolved = SessionController.Config(config)
     installModelSelectionProjection(ctx)
@@ -226,6 +231,31 @@ export class SessionController extends TypertRemoteService {
       if (event.type !== 'user/message' || event.data.source.kind !== 'user') return
       ctx.emit('api-session/activity', session.id, event.time)
     })
+    const owner = new SessionActivationOwner(async (sessionId) => {
+      const result = await this.agents.resolveAgent(sessionId)
+      if ('error' in result) throw result.error
+      return result.agent
+    })
+    const activation = providerCtx.plugin({
+      name: 'session-controller-activation',
+      inject: SessionController.inject,
+      apply: async (activationCtx: Context) => {
+        await resources
+        activationCtx.provide('sessionActivation', owner)
+      },
+    })
+    providerCtx.effect(function* () {
+      yield resources.dispose
+      yield activation.dispose
+      // 逆序清理先排空借用，包含已从依赖 registry 移除的消费者。
+      yield () => owner.close()
+    }, 'session-controller: 会话激活提供方')
+    this.activationReady = activation
+  }
+
+  /** 等待应用资源和会话激活服务均已发布。 */
+  async [Service.init](): Promise<void> {
+    await this.activationReady
   }
 
   /**
@@ -269,6 +299,7 @@ export class SessionController extends TypertRemoteService {
       return Promise.resolve({
         meta: attached.header,
         inheritedEventCount: attached.inheritedEventCount,
+        // oxlint-disable-next-line typescript/no-deprecated -- 既有 inspect 返回完整历史，等待存储分页接口迁移。
         events: attached.snapshotEvents(),
       })
     }

@@ -9,7 +9,7 @@ kind: "package-library"
 
 ## 概述
 
-用于插件详细介绍文档的无状态库。详细介绍是插件页面显示的较长 Markdown 描述。本包负责选择包文档的顺序、语言回退、文档旁图片的目标路径，以及两种只读文件来源：本地包目录，以及公共文件 CDN 上已发布的 npm 版本。[`plugin-manager`](../../boot/plugin-manager/README.zh.md#bundle-detail-documents) 用它读取 profile 中的组合包，[`plugin-market`](../../boot/plugin-market/README.zh.md#plugin-detail-documents) 用它读取市场条目，并额外提供仓库来源。
+用于插件详细介绍文档的无状态库。详细介绍是插件页面显示的较长 Markdown 描述。本包负责选择包文档的顺序、语言回退、文档旁图片的目标路径，以及两种只读文件来源：本地包目录，以及公共文件 CDN 上已发布的 npm 版本。[`plugin-manager`](../../boot/plugin-manager/README.zh.md#use-this-package) 用它读取 profile 中的组合包，[`plugin-market`](../../boot/plugin-market/README.zh.md#plugin-detail-documents) 用它读取市场条目，并额外提供仓库来源。
 
 ## 目录
 
@@ -66,10 +66,10 @@ kind: "package-library"
 import {
   DetailFailure, detailImage, detailImageResponse, languageChain, localFiles, NPM_FILE_SOURCES, npmFiles, npmFileSourceOrder,
   readPackageDocument,
-} from '@deepseek-ai/dsh-plugin-detail'
+} from '@xpeach/xph-plugin-detail'
 ```
 
-`DetailFailureReason` 和 `NpmFileSource` 供其他包的 Remote 方法使用，也从 `@deepseek-ai/dsh-plugin-detail/types` 以仅类型方式导出。
+`DetailFailureReason` 和 `NpmFileSource` 供其他包的 Remote 方法使用，也从 `@xpeach/xph-plugin-detail/types` 以仅类型方式导出。
 
 `DetailFiles` 是来源接口：`read(path, maxBytes, signal)` 返回文件的字节或 `undefined`，`readme(dir, maxBytes, signal)` 返回目录的 README。仓库来源在 `plugin-market` 中实现该接口。
 

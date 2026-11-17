@@ -662,7 +662,9 @@ describe('sessions.fork', () => {
     const child = ctx.agents.get(response.value.sessionId)
     if (child === undefined) throw new Error('fork did not publish the child agent')
     expect(child.session.snapshotEvents().slice(0, child.session.inheritedEventCount)).toEqual(inherited)
-    const assembly = await child.ctx.systemPrompt.assemble()
+    const systemPrompt = child.ctx.get('systemPrompt')
+    if (systemPrompt === undefined) throw new Error('派生会话缺少系统提示词服务')
+    const assembly = await systemPrompt.assemble()
     expect(assembly.variables).toMatchObject({
       provider: 'inherited-provider',
       model: 'inherited-model',

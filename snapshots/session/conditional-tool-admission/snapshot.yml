@@ -1,0 +1,9 @@
+version: 1
+scenario: conditional-tool-admission
+profile: headless
+composition: conditional-tool-admission
+recording: authored
+header:
+  class: conditional-tool-admission
+  pin: true
+  changes: 2
