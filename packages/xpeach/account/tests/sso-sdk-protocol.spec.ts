@@ -31,7 +31,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
   let lastNonce: string | undefined
   let devicePollCount = 0
   const revoked: string[] = []
-  const peachcodeRevokeCalls: { auth?: string; body: unknown }[] = []
+  const peachcodeRevokeCalls: { auth?: string | undefined; body: unknown }[] = []
   const callOrder: string[] = []
   const tempRoots: string[] = []
 
@@ -300,7 +300,13 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
   afterAll(() => new Promise<void>(resolve => ssoSrv.close(() => { resolve() })))
 
   it('通过 @xpeach/ts-xpeach 完成 PKCE 一键登录、RFC8628 设备流、自动 refresh_token 轮换与 RFC7009 吊销', async () => {
-    const api = new XPeachApi({ baseURL: 'http://127.0.0.1:13000', timeoutMs: 5000 })
+    const api = new XPeachApi({
+      baseURL: 'http://127.0.0.1:13000',
+      timeoutMs: 5000,
+      resolveKey: async () => '',
+      resolveAdmin: () => undefined,
+      resolveCookie: () => undefined,
+    })
     const signal = AbortSignal.timeout(8000)
 
     const pkce = await api.ssoPkceLoopbackStart(ssoBase, 'xpeach-harness', signal, [0])
@@ -340,7 +346,13 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
   })
 
   it('通过 @xpeach/ts-xpeach CaptchaClient 统一获取 SSO 本地 Cap 人机校验策略与分场景挑战', async () => {
-    const api = new XPeachApi({ baseURL: 'http://127.0.0.1:13000', timeoutMs: 5000 })
+    const api = new XPeachApi({
+      baseURL: 'http://127.0.0.1:13000',
+      timeoutMs: 5000,
+      resolveKey: async () => '',
+      resolveAdmin: () => undefined,
+      resolveCookie: () => undefined,
+    })
     const signal = AbortSignal.timeout(5000)
 
     const policy = await api.ssoCaptchaPolicy(ssoBase, signal)
