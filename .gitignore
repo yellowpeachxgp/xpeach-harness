@@ -61,3 +61,5 @@ packages/*/*/src/index.d.ts
 packages/*/*/src/**/index.d.ts
 
 packages/*/*/src/**/*.d.ts.map
+
+.serena/
