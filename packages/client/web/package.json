@@ -40,7 +40,7 @@
     "typescript": "^6.0.3",
     "@xpeach/xph-host-webserver": "workspace:*",
     "zod": "4.4.3",
-    "@tanstack/react-virtual": "3.14.10"
+    "@tanstack/react-virtual": "3.14.21"
   },
   "peerDependencies": {
     "@xpeach/xph-cordis": "workspace:~"
