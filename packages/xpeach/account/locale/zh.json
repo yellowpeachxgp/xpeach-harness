@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "XPeach 账户远程服务",
+    "description": "通过生成的 xpeach Remote 命名空间，向 Harness 客户端提供 XPeach 站点账户数据——个人资料、令牌、用量与计费。"
+  }
+}

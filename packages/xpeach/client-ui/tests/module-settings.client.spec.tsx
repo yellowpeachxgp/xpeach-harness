@@ -198,7 +198,9 @@ describe('ModuleSettingsSection & GeneralPreferencesRow', () => {
       </div>,
     )
 
-    expect(screen.getAllByText(zh['modules.subagent.modelSel.title']).length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText(zh['modules.subagent.modelSel.title'])).toHaveLength(1)
+    expect(screen.getByText(zh['prefs.updateChannel.title'])).toBeTruthy()
+    expect(screen.getByText(zh['prefs.notify.title'])).toBeTruthy()
   })
 
   it('enforces mandatory SSO login gate when unbound and hides manual sk/access_token inputs', async () => {
@@ -251,14 +253,19 @@ describe('ModuleSettingsSection & GeneralPreferencesRow', () => {
       expect(screen.getAllByRole('button', { name: zh['sso.loginBtn'] }).length).toBeGreaterThanOrEqual(2)
     })
 
-    // Mandatory SSO gate is active with no close/skip escape and no manual token inputs
+    // SSO login modal hides manual token inputs while providing an escape hatch
     const dialog = screen.getByRole('dialog')
     expect(dialog.getAttribute('data-gate')).toBe('true')
     expect(screen.queryByPlaceholderText(zh['bind.placeholder'])).toBeNull()
     expect(screen.queryByText(zh['sso.manualToken'])).toBeNull()
-    expect(screen.queryByText(zh['onb.skipGuide'])).toBeNull()
-    expect(screen.queryByText(zh['onb.loginLater'])).toBeNull()
+    expect(screen.getByRole('button', { name: zh['onb.loginLater'] })).toBeTruthy()
+    expect(screen.getByRole('button', { name: zh['onb.skipGuide'] })).toBeTruthy()
     expect(screen.queryByText(zh['slots.title'])).toBeNull()
     expect(screen.queryByText(zh['session.title'])).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: zh['onb.loginLater'] }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
   })
 })

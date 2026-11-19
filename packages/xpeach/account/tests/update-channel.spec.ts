@@ -131,10 +131,10 @@ describe('XPeach version parsing and channel normalization', () => {
 describe('selectBestUpdateForChannel and preference persistence', () => {
   const sampleReleases: readonly XPeachReleaseCandidate[] = [
     {
-      version: '0.0.26-alpha',
-      tag: 'v0.0.26-alpha',
+      version: '0.0.27-alpha',
+      tag: 'v0.0.27-alpha',
       channel: 'alpha',
-      releaseUrl: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.26-alpha',
+      releaseUrl: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.27-alpha',
       releaseNotes: 'Alpha 26 build',
       publishedAt: '2026-10-30T12:00:00Z',
     },
@@ -169,7 +169,7 @@ describe('selectBestUpdateForChannel and preference persistence', () => {
 
     const forAlpha = selectBestUpdateForChannel(sampleReleases, '0.0.25-beta', 'alpha')
     expect(forAlpha.updateAvailable).toBe(true)
-    expect(forAlpha.targetVersion).toBe('0.0.26-alpha')
+    expect(forAlpha.targetVersion).toBe('0.0.27-alpha')
     expect(forAlpha.targetChannel).toBe('alpha')
 
     // Same-core channel promotion: 0.0.24-alpha -> 0.0.24-least on least channel
@@ -177,7 +177,7 @@ describe('selectBestUpdateForChannel and preference persistence', () => {
     expect(promotion.updateAvailable).toBe(true)
     expect(promotion.targetVersion).toBe('0.0.24-least')
 
-    // Up to date on least when 0.0.24-least is already installed (ignores 0.0.25-beta and 0.0.26-alpha)
+    // Up to date on least when 0.0.24-least is already installed (ignores 0.0.25-beta and 0.0.27-alpha)
     const upToDate = selectBestUpdateForChannel(sampleReleases, '0.0.24-least', 'least')
     expect(upToDate.updateAvailable).toBe(false)
     expect(upToDate.targetVersion).toBeUndefined()
@@ -256,7 +256,7 @@ describe('GitHub Releases Atom and REST parsers and XPeachAccount Remote methods
         ],
       },
       {
-        tag_name: 'v0.0.26-alpha',
+        tag_name: 'v0.0.27-alpha',
         draft: true,
       },
     ])

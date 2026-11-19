@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "XPeach-Konto-Remote",
+    "description": "Liefert XPeach-Site-Kontodaten — Profil, Tokens, Nutzung und Abrechnung — über den generierten xpeach-Remote-Namensraum an Harness-Clients."
+  }
+}

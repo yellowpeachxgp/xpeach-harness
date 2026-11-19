@@ -21,6 +21,7 @@ export type { NotificationSubscription } from './client.ts'
 export { JsonRpcResponseError } from '@xpeach/xph-sdk-protocol'
 export type {
   ContentBlock,
+  SdkEncodedImageBlock,
   SdkPromptContentBlock,
   DeepSeekHarnessOptions,
   HarnessClientOptions,

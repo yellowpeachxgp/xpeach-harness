@@ -36,6 +36,7 @@ import {
 } from '@xpeach/xph-typert-protocol'
 import type {
   InvokeRemoteRequest,
+  PendingRemoteEventInfo,
   TypertGateway,
   TypertGatewayErrorCode,
   TypertGatewayWireStream,
@@ -70,6 +71,7 @@ import {
 
 export type {
   InvokeRemoteRequest,
+  PendingRemoteEventInfo,
   TypertGateway,
   TypertGatewayErrorCode,
   TypertGatewayWireStream,
@@ -327,6 +329,14 @@ export class TypertGatewayService extends Service implements TypertGateway {
   }
 
   /**
+   * Inspect unsettled forwarded events without changing their lifetime.
+   * @returns detached event names and Agent identities.
+   */
+  getPendingRemoteEvents(): readonly PendingRemoteEventInfo[] {
+    return [...this.pendingRemoteEvents.values()].map(({ frame }) => ({ event: frame.event, agentId: frame.agentId }))
+  }
+
+  /**
    * Register the sole application-selected forwarded-event source.
    * @param source - stream factory installed by the Remote assembly.
    * @param host - stable Host facts included in each Client generation's opening frame.
@@ -481,8 +491,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       try {
         assertPeerLive(peer, endpoint)
         requireInteractions(peer, endpoint)
-        // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-        if (peer.principal.kind !== 'owner') {
+        if (!isOwnerPrincipal(peer.principal)) {
           throw new TypertGatewayError('gateway/invocation-unavailable', endpoint, 'only owner Peers answer forwarded Remote events')
         }
         const result = parseRemoteEventResultPayload(payload)
@@ -563,8 +572,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       signal: lifetime,
       deliveries: new Map(),
       principal: peer.principal,
-      // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-      answers: peer.principal.kind === 'owner',
+      answers: isOwnerPrincipal(peer.principal),
     }
     this.remoteEventClients.set(clientId, client)
     if (client.answers) {
@@ -783,8 +791,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
     assertExactArguments(request.args, descriptor, endpoint)
     const validated = validateArguments(descriptor, request.args, endpoint)
     // Access precedes lookup resolution, so a refused call activates nothing.
-    // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-    if (request.peer.principal.kind !== 'owner') {
+    if (!isOwnerPrincipal(request.peer.principal)) {
       const resources = callResources(
         this.ctx.typert,
         this.resourceReaders(descriptor),
@@ -1220,6 +1227,11 @@ function assertRemoteEventName(frame: { readonly event: unknown }): void {
   if (typeof frame.event !== 'string' || frame.event.length === 0) {
     throw new TypeError('typert gateway: Remote event name must be a nonempty string')
   }
+}
+
+/** 身份表允许声明合并扩展；只依赖 kind 字符串保留非 owner 的运行时访问检查。 */
+function isOwnerPrincipal(principal: { readonly kind: string }): boolean {
+  return principal.kind === 'owner'
 }
 
 function requireInteractions(peer: PeerScope, endpoint: string): void {

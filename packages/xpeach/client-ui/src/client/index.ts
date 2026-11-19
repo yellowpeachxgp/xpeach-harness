@@ -13,6 +13,7 @@ import type {} from '@xpeach/xph-client-ui-settings/client'
 import type {} from '@xpeach/xph-client-ui-chat/client'
 import type {} from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-client-ui-sidebar-right/client'
+import type {} from '@xpeach/xph-client-ui-model-selection/client'
 import type { QuotaNoticeOwnerProps } from '@xpeach/xph-client-ui-chat/client'
 import xpeachRemote from '@xpeach/xph-account/remote'
 import type {
@@ -24,6 +25,8 @@ import type {
   XPeachMcpSaveRequest,
   XPeachMcpSnapshot,
   XPeachMcpToggleRequest,
+  XPeachModelPerfDetail,
+  XPeachModelPerfSummary,
   XPeachOps,
   XPeachReleaseChannel,
   XPeachRulesSaveRequest,
@@ -51,27 +54,68 @@ import { XPeachSkillsIcon, XPeachSkillsPage } from './XPeachSkills.tsx'
 import { XPeachMcpIcon, XPeachMcpPage } from './XPeachMcp.tsx'
 import { footerBridge } from './FooterAction.tsx'
 import { XPeachCostPill } from './XPeachCostPill.tsx'
-import { en, NS, zh } from './locales.ts'
+import { en, es, fr, de, ru, pt, ja, NS, zh } from './locales.ts'
 import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
 import { PaletteRow } from './PaletteRow.tsx'
-import { inferClientModelSpec, XPeachModelLabel } from './model-meta.tsx'
+import { FontPackRow } from './FontPackRow.tsx'
+import { inferClientModelSpec, updateClientModelTelemetryCache, XPeachModelLabel } from './model-meta.tsx'
+import { XPeachNotificationOverlay } from './NotificationOverlay.tsx'
+import {
+  installTaskNotificationMonitor,
+  type NotificationMonitorContextLike,
+} from './notifications.ts'
 
-declare module '@xpeach/xph-client-ui-slots' {
-  interface SlotMap {
-    'conversation.input.model.label': {
-      kind: 'single'
-      scope: 'session'
-      inline: true
-      owner: {
-        provider: { readonly id: string; readonly name: string }
-        model: { readonly id: string; readonly name: string }
-        placement: 'trigger' | 'menu' | 'option'
-        selected: boolean
-      }
-    }
-  }
-}
+export {
+  clearSessionInteractionBanners,
+  dismissNotificationBanner,
+  dispatchTaskNotification,
+  formatApprovalNotification,
+  formatCompletionNotification,
+  formatErrorNotification,
+  formatNotificationDuration,
+  formatQuestionNotification,
+  formatToolDisplayName,
+  formatWorkspaceSessionSubtitle,
+  getActiveNotificationBanners,
+  installTaskNotificationMonitor,
+  openNotificationSession,
+  playNotificationChime,
+  readNotificationPreferences,
+  resetNotificationStateForTests,
+  subscribeNotificationBanners,
+  subscribeNotificationPreferences,
+  triggerTestSystemNotification,
+  writeNotificationPreferences,
+  type DispatchTaskNotificationOptions,
+  type FormatApprovalNotificationInput,
+  type FormatCompletionNotificationInput,
+  type FormatErrorNotificationInput,
+  type FormatQuestionNotificationInput,
+  type NotificationMonitorContextLike,
+  type NotificationQuestionItemLike,
+  type NotificationQuestionOptionLike,
+  type XPeachNotificationPreferences,
+  type XPeachTaskNotificationItem,
+  type XPeachTaskNotificationKind,
+  type XPeachTranslateFn,
+} from './notifications.ts'
+export {
+  XPeachNotificationOverlay,
+  type XPeachNotificationOverlayProps,
+} from './NotificationOverlay.tsx'
+export {
+  CODE_FONT_PRESETS,
+  FontPackRow,
+  isFontPresetActive,
+  normalizeFontStack,
+  UI_FONT_PRESETS,
+  type FontPackRowProps,
+  type XPeachCodeFontPreset,
+  type XPeachFontFamiliesSnapshot,
+  type XPeachFontRole,
+  type XPeachUiFontPreset,
+} from './FontPackRow.tsx'
 
 type RemoteOutcome<T> =
   | { readonly ok: true; readonly value: T }
@@ -104,6 +148,22 @@ interface XPeachExtRemote {
     readonly channel?: XPeachReleaseChannel
     readonly force?: boolean
   }): Promise<RemoteOutcome<XPeachUpdateCheckResult>>
+  sendSystemNotification(request: {
+    readonly id: string
+    readonly kind: 'completed' | 'approval' | 'question' | 'plan-review' | 'error'
+    readonly title: string
+    readonly subtitle?: string | undefined
+    readonly body: string
+    readonly urgent?: boolean | undefined
+    readonly silent?: boolean | undefined
+  }): Promise<RemoteOutcome<{ readonly delivered: boolean; readonly platform: string; readonly reason?: string | undefined }>>
+  perfMetricsSummary(request: {
+    readonly hours?: number | undefined
+  }): Promise<RemoteOutcome<readonly XPeachModelPerfSummary[]>>
+  perfMetricsDetail(request: {
+    readonly model: string
+    readonly hours?: number | undefined
+  }): Promise<RemoteOutcome<XPeachModelPerfDetail>>
 }
 
 /** Services needed at mount time (the xpeach namespace joins as remote.xpeach). */
@@ -183,30 +243,26 @@ function registerUi(ctx: Context): Array<() => void> {
       const described = await ctx.remote.settings.describe()
       if (!described.ok) return described.error.message
       const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
-      type ProviderCfg = { api?: string; apiKeyEnv?: string; baseUrl?: string; models?: { id: string }[] }
+      type ProviderCfg = {
+        displayName?: string
+        api?: string
+        apiKeyEnv?: string
+        baseURL?: string
+        models?: { id: string }[]
+      }
       const providers = (view?.value as { providers?: Record<string, ProviderCfg> } | undefined)?.providers
-      const completions = 'xpeach-completions'
-      const xpeachApi = providers?.xpeach?.api
-      const key = /^swe-/i.test(id)
-        ? 'xpeach'
-        : xpeachApi === 'openai-completions'
-          ? 'xpeach'
-          : completions
-      const source = providers?.xpeach
-      for (const [pKey, pVal] of Object.entries(providers ?? {})) {
-        if (pKey.startsWith('xpeach') && pVal.models?.some(m => m.id === id)) return null
+      const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(id.trim()) || /^claude$/iu.test(id.trim())
+      const key = isClaude ? 'xpeach-anthropic' : 'xpeach'
+      if (providers?.[key]?.models?.some(m => m.id === id) === true) {
+        return null
       }
       type JsonV = null | boolean | number | string | JsonV[] | { [k: string]: JsonV }
       const opsList: { op: 'set'; path: string[]; value: JsonV }[] = []
-      if (key === completions && providers?.[completions] === undefined) {
-        const { models: _m, ...rest } = (source ?? {}) as Record<string, JsonV>
-        opsList.push({
-          op: 'set',
-          path: ['providers', completions],
-          value: { ...rest, api: 'openai-completions', defaultInput: ['text', 'image'], reasoning: 'high', models: [] },
-        })
+      if (isClaude && providers?.['xpeach']?.models?.some(m => m.id === id) === true) {
+        const filteredXpeach = (providers['xpeach'].models ?? []).filter(m => m.id !== id)
+        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach })
       }
-      const existing = providers?.[key]?.models ?? []
+      const existing = (providers?.[key]?.models ?? []).filter(m => m.id !== id)
       const spec = inferClientModelSpec(id)
       const entry = {
         id,
@@ -215,6 +271,19 @@ function registerUi(ctx: Context): Array<() => void> {
         maxTokens: spec.maxTokens,
         input: spec.supportsImage ? ['text', 'image'] : ['text'],
         reasoningEfforts: { off: null, low: 'low', medium: 'medium', high: 'high' },
+      }
+      if (isClaude) {
+        const rawBase = providers?.['xpeach-anthropic']?.baseURL
+          ?? providers?.['xpeach']?.baseURL
+          ?? 'https://fast.xpeach.codes'
+        const anthropicBase = rawBase.replace(/\/+$/u, '').replace(/\/v1$/u, '')
+        const apiKeyEnv = providers?.['xpeach-anthropic']?.apiKeyEnv
+          ?? providers?.['xpeach']?.apiKeyEnv
+          ?? 'XPEACH_RELAY_KEY'
+        opsList.push({ op: 'set', path: ['providers', key, 'displayName'], value: '🍑Code anthropic-messages' })
+        opsList.push({ op: 'set', path: ['providers', key, 'api'], value: 'anthropic-messages' })
+        opsList.push({ op: 'set', path: ['providers', key, 'apiKeyEnv'], value: apiKeyEnv })
+        opsList.push({ op: 'set', path: ['providers', key, 'baseURL'], value: anthropicBase })
       }
       opsList.push({ op: 'set', path: ['providers', key, 'reasoning'], value: 'high' })
       opsList.push({ op: 'set', path: ['providers', key, 'defaultInput'], value: ['text', 'image'] })
@@ -693,8 +762,36 @@ function registerUi(ctx: Context): Array<() => void> {
       })
       return r.ok ? r.value : { error: r.error.message }
     },
+    sendSystemNotification: async (req) => {
+      const r = await extRemote.sendSystemNotification(req)
+      return r.ok ? r.value : { delivered: false, platform: 'unknown', reason: r.error.message }
+    },
+    perfMetricsSummary: async (hours = 24) => {
+      const r = await extRemote.perfMetricsSummary({ hours })
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    perfMetricsDetail: async (model, hours = 24) => {
+      const r = await extRemote.perfMetricsDetail({ model, hours })
+      return r.ok ? r.value : { error: r.error.message }
+    },
   }
-  const undo: Array<() => void> = []
+  const warmModelTelemetry = (): void => {
+    void Promise.all([
+      ops.perfMetricsSummary?.(24),
+      ops.adminPricing(),
+      ops.siteCatalog(),
+    ]).then(([perfRes, priceRes, siteRes]) => {
+      updateClientModelTelemetryCache({
+        ...(Array.isArray(perfRes) ? { perf: perfRes } : {}),
+        ...(!('error' in priceRes) ? { pricing: priceRes } : {}),
+        ...(!('error' in siteRes) && siteRes.tokenGroups[0] !== undefined
+          ? { activeGroup: siteRes.tokenGroups[0] }
+          : {}),
+      })
+    }).catch(() => {})
+  }
+  warmModelTelemetry()
+  const undo: Array<() => void> = [ops.subscribeCredentialChange(warmModelTelemetry)]
   // Composer-dock session cost: live $ from the tokenUsage projection against
   // the rates our token actually pays (operator surface; needs the admin token).
   undo.push(ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
@@ -703,7 +800,7 @@ function registerUi(ctx: Context): Array<() => void> {
   undo.push(ctx.slots.inject('conversation.input.model.label', () => ctx.slots.register(
     { name: 'conversation.input.model.label', priority: -10 },
     XPeachModelLabel)))
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-xpeach: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-xpeach: dictionaries')
   undo.push(ctx.slots.inject('sidebar.brand.mark', () => ctx.slots.register(
     { name: 'sidebar.brand.mark', priority: -10 }, XPeachMark)))
   undo.push(ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register(
@@ -721,24 +818,51 @@ function registerUi(ctx: Context): Array<() => void> {
       inject: (): XPeachOps => ({
         ...ops,
         selectModel: async (sessionId: string | undefined, model: string) => {
-          let targetId = sessionId as Parameters<typeof ctx.remote.session.selectModel>[0]['sessionId'] | undefined
-          if (targetId === undefined) {
-            const listed = await ctx.remote.session.list({})
-            if (!listed.ok) return listed.error.message
-            targetId = listed.value.items[0]?.sessionId
-          }
-          if (targetId === undefined) return 'no active session'
-          let provider = 'xpeach'
+          const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(model.trim()) || /^claude$/iu.test(model.trim())
+          let provider = isClaude ? 'xpeach-anthropic' : 'xpeach'
           const described = await ctx.remote.settings.describe()
+          let defaultModelRevision: number | undefined
           if (described.ok) {
+            defaultModelRevision = described.value.namespaces.find(ns => ns.ns === 'agent-default-model')?.revision
             const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
             const providers = (view?.value as { providers?: Record<string, { models?: { id: string }[] }> } | undefined)?.providers ?? {}
-            const matched = Object.entries(providers).find(([k, p]) => k.startsWith('xpeach') && p.models?.some(m => m.id === model))?.[0]
-            if (matched !== undefined) provider = matched
+            if (isClaude && providers['xpeach-anthropic']?.models?.some(m => m.id === model) === true) {
+              provider = 'xpeach-anthropic'
+            } else {
+              const matched = Object.entries(providers).find(([k, p]) => k.startsWith('xpeach') && p.models?.some(m => m.id === model))?.[0]
+              if (matched !== undefined) provider = matched
+            }
           }
           rememberModel(provider, model)
-          const result = await ctx.remote.session.selectModel({ sessionId: targetId, provider, model })
-          return result.ok ? null : result.error.message
+          await ctx.remote.settings.mutate(
+            'agent-default-model',
+            [{ op: 'set', path: ['defaultModel'], value: { provider, model } }],
+            defaultModelRevision,
+          ).catch(() => undefined)
+          type SessionIdParam = Parameters<typeof ctx.remote.session.selectModel>[0]['sessionId']
+          if (sessionId !== undefined) {
+            const result = await ctx.remote.session.selectModel({
+              sessionId: sessionId as SessionIdParam,
+              provider,
+              model,
+            })
+            return result.ok ? null : result.error.message
+          }
+          const listed = await ctx.remote.session.list({})
+          if (!listed.ok) return null
+          const targets = listed.value.items.slice(0, 5)
+          if (targets.length === 0) return null
+          const results = await Promise.all(
+            targets.map(item =>
+              ctx.remote.session.selectModel({
+                sessionId: item.sessionId,
+                provider,
+                model,
+              }),
+            ),
+          )
+          const firstResult = results[0]
+          return firstResult === undefined || firstResult.ok ? null : firstResult.error.message
         },
       }),
     }, XPeachConsolePage)))
@@ -762,12 +886,32 @@ function registerUi(ctx: Context): Array<() => void> {
     { name: 'shell.overlay', id: 'xpeach.status', locale: NS, inject: () => ops }, XPeachStatusPill)))
   undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
     { name: 'shell.overlay', id: 'xpeach.bindgate', locale: NS, inject: () => ops }, XPeachOnboarding)))
+  undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
+    { name: 'shell.overlay', id: 'xpeach.notifications', locale: NS, inject: () => ops }, XPeachNotificationOverlay)))
+  const monitorCtx: NotificationMonitorContextLike = {
+    get: name => (ctx as { get: (key: string) => unknown }).get(name),
+    on: (event, listener) =>
+      (ctx as { on: (ev: string, cb: (...args: unknown[]) => void) => () => void }).on(event, listener),
+    locale: ctx.locale,
+    layout: ctx.layout,
+    remote: {
+      $on: (event, listener) =>
+        (ctx.remote.$on as (ev: string, cb: (...args: never[]) => void) => () => void)(event, listener),
+    },
+  }
+  undo.push(installTaskNotificationMonitor(monitorCtx, ops.sendSystemNotification))
   undo.push(ctx.slots.inject('shell.quota-notice', () => ctx.slots.register(
     {
       name: 'shell.quota-notice', locale: NS, priority: -10,
-      select: (owner): QuotaNoticeOwnerProps | null =>
-        (owner.code === 'ACCOUNT_QUOTA' ? owner : null),
+      select: (owner): QuotaNoticeOwnerProps | null => {
+        const code: string = owner.code
+        return code === 'ACCOUNT_QUOTA' || code === 'QUOTA' ? owner : null
+      },
     }, XPeachQuotaNotice)))
+  ;(globalThis as { __XPH_UPDATE_CHANNEL_OWNER__?: boolean }).__XPH_UPDATE_CHANNEL_OWNER__ = true
+  undo.push(() => {
+    delete (globalThis as { __XPH_UPDATE_CHANNEL_OWNER__?: boolean }).__XPH_UPDATE_CHANNEL_OWNER__
+  })
   undo.push(ctx.slots.inject('settings.general.item', () => ctx.slots.register(
     { name: 'settings.general.item', id: 'xpeach-general-preferences', order: 20, locale: NS, inject: () => ops },
     GeneralPreferencesRow)))
@@ -810,6 +954,10 @@ const PEACH_BRAND_OVERRIDES = {
  */
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const earlyUndo: Array<() => void> = []
+  ;(globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__ = true
+  earlyUndo.push(() => {
+    delete (globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__
+  })
   for (const definition of PALETTES) {
     for (const mode of ['light', 'dark'] as const) {
       const id = mode === 'light' ? definition.id : `${definition.id}-dark`
@@ -829,8 +977,20 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     inject: () => ({
       active: () => ctx.theme.getTheme().active.id,
       setTheme: (id: string) => { ctx.theme.setTheme(id) },
+      subscribe: (listener: () => void) => ctx.on('theme/change', () => { listener() }),
     }),
   }, PaletteRow)))
+  earlyUndo.push(ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'xpeach-font-pack',
+    order: 12,
+    locale: 'xpeach.account',
+    inject: () => ({
+      getFontFamilies: () => ctx.theme.getTheme().fontFamilies,
+      setFontFamily: (role, value) => { ctx.theme.setFontFamily(role, value) },
+      subscribeThemeChange: listener => ctx.on('theme/change', () => { listener() }),
+    }),
+  }, FontPackRow)))
 
   let isOverriding = false
   let undoBrandOverride: (() => void) | undefined

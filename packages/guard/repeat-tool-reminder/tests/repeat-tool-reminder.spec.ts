@@ -1,9 +1,10 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import { createUserMessage, ToolCallId  } from '@xpeach/xph-llm'
 import type { ContextFormed } from '@xpeach/xph-llm'
 import { SessionId, type SessionEvent } from '@xpeach/xph-session'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import type { Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import { mountAgentLoopTestDependencies } from '@xpeach/xph-agent-loop-testkit'
@@ -299,7 +300,7 @@ describe('chain semantics', () => {
 
   it('ignores direct executes with no agent (they neither crash nor advance any chain)', async () => {
     const ctx = await harness({ thresholds: [2] })
-    const direct = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('d1'), name: 'probe', arguments: { q: 1 } })
+    const direct = await executeToolFixture(ctx, { signal: testToolSignal, callId: ToolCallId('d1'), name: 'probe', arguments: { q: 1 } })
     expect(direct.isError).toBe(false)
 
     ctx.llm.registerAdapter(['mock'], new MockAdapter([

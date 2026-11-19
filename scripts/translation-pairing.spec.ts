@@ -101,6 +101,18 @@ describe('translation pairing index reads', () => {
 })
 
 describe('translation pairing manifest', () => {
+  it('根交接资料的排除不影响其他位置或相邻目录的维护文档', () => {
+    const manifest = parseTranslationPairingManifest(JSON.stringify({ excluded: [] }))
+    const maintained = translationPairSourcePredicate(manifest)
+    expect(maintained('handoff/README.md')).toBe(false)
+    expect(maintained('handoff/coordination/README.md')).toBe(false)
+    expect(maintained('handoff/README.zh.md')).toBe(false)
+    expect(maintained('handoff/README.i18n.yaml')).toBe(false)
+    for (const path of ['handoff-product/README.md', 'docs/handoff/guide.md', 'packages/example/handoff/README.md']) {
+      expect(maintained(path)).toBe(true)
+    }
+  })
+
   it('accepts an exclusions-only manifest', () => {
     const manifest = parseTranslationPairingManifest(JSON.stringify({
       excluded: ['docs/generated/'],
@@ -395,6 +407,7 @@ describe('translation scope discovery', () => {
 
   it.each([
     'packages/example/guide.md',
+    'packages/example/docs/DETAIL.md',
     'packages/example/CONTRIBUTING.md',
     'packages/example/BRAND_GUIDELINES.md',
     'other/tutorial.md',

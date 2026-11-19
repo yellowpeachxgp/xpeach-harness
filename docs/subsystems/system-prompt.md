@@ -23,6 +23,8 @@ interface AssembleContext {
 }
 ```
 
+`TOOL_APPLY_PATCH` takes order 1350 between `TOOL_EDIT` (1300) and `TOOL_GLOB` (1400).
+
 ## Tool-provider result
 
 `ToolProviderResult.schemas` is the model-visible set for the current assembly. `knownNames` is the provider's pre-restriction name universe used to distinguish a configured-name typo from a known tool that is deliberately hidden in this scope.
@@ -68,6 +70,8 @@ interface PromptSection {
    * More than one effective complete section makes assembly fail.
    */
   readonly complete?: boolean
+  /** 在 prepare() 中延后到 bindTools() 才求值；assemble() 仍立即求值。不与 complete 同用。 */
+  readonly deferUntilTools?: true
 }
 ```
 
@@ -165,9 +169,10 @@ suppressRuntimeContext(): () => void
  * matching scoped providers both contribute; returning the reserved
  * {@link TOOL_ORDER_REST} name makes assembly fail.
  * @param provider - evaluated for each assembly with its context.
+ * @param options - 省略时立即求值；延迟贡献在 prepare() 返回结果的 bindTools() 中求值。
  * @returns the exact Cordis effect disposer.
  */
-tools(provider: (context: AssembleContext) => ToolProviderResult): () => void
+tools(provider: (context: AssembleContext) => ToolProviderResult, options: ToolProviderOptions = {}): () => void
 
 /**
  * Register a prompt variable in the calling context's scope. Scoped values
@@ -201,6 +206,14 @@ refreshContext(assembly: PromptAssembly, context: AssembleContext = {}): PromptA
  * @returns the post-waterfall assembly with any complete prompt enforced.
  */
 async assemble(context: AssembleContext = {}): Promise<PromptAssembly>
+
+/**
+ * 保留原专家 waterfall 与运行时上下文，将声明为延迟的工具贡献留到真实请求选路后绑定。
+ * 专家在该阶段看不到延迟贡献；需要改写最终工具内容时返回 finalizeTools。
+ * @param context - 本次组装的作用域与取消信号。
+ * @returns 一次性工具绑定句柄；被拒绝的 pre-step 可以直接丢弃它。
+ */
+prepare(context: AssembleContext = {}): Promise<PreparedPromptAssembly>
 ```
 
 Source: [`packages/core/system-prompt/src/index.ts`](../../packages/core/system-prompt/src/index.ts)
@@ -213,7 +226,7 @@ Source: [`packages/core/system-prompt/src/index.ts`](../../packages/core/system-
 
 #### `system-prompt/assemble` — waterfall
 
-Expert waterfall over the assembled sections, contexts, tools, and variables. Scope-filtered dispatch (`@xpeach/xph-scope`): scoped listeners receive only that scope's assemblies. The returned value is authoritative. A supplied signal controls only this explicit assembly request and must not be retained to control later turns. A registered complete section is restored after this waterfall, so listeners cannot add to or replace that scope's system prompt.
+Expert waterfall over the assembled sections, contexts, tools, and variables. Scope-filtered dispatch (`@xpeach/xph-scope`): scoped listeners receive only that scope's assemblies. The returned value is authoritative. A supplied signal controls only this explicit assembly request and must not be retained to control later turns. A registered complete section is restored after this waterfall, so listeners cannot add to or replace that scope's system prompt. prepare() 中延迟工具贡献尚未求值；依赖最终工具内容的读取、过滤或排序须通过返回值的 finalizeTools 执行。
 
 ```ts cordis-catalog
 /**
@@ -224,6 +237,7 @@ Expert waterfall over the assembled sections, contexts, tools, and variables. Sc
  * be retained to control later turns. A registered complete section is
  * restored after this waterfall, so listeners cannot add to or replace
  * that scope's system prompt.
+ * prepare() 中延迟工具贡献尚未求值；依赖最终工具内容的读取、过滤或排序须通过返回值的 finalizeTools 执行。
  * @param assembly - the mutable assembly built from registered providers.
  * @param context - the caller's per-assembly context.
  * @mode waterfall

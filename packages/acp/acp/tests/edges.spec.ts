@@ -3,7 +3,7 @@ import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { createUserMessage, ToolCallId, type StreamChunk  } from '@xpeach/xph-llm'
 import type { ContextFormed } from '@xpeach/xph-llm'
 import { SessionId } from '@xpeach/xph-session'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { makeBridgeHarness, textResponse, type BridgeHarness } from './harness.ts'
 
 declare module '@xpeach/xph-llm' {

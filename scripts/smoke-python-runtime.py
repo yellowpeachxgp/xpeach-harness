@@ -21,6 +21,7 @@ import tempfile
 import threading
 import time
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal
@@ -47,6 +48,7 @@ MCP_TEXT = "MCP client smoke ok"
 PROFILE_PLUGIN_PROMPT = "Verify the Python-installed dsh profile plugin."
 PROFILE_PLUGIN_TEXT = "profile plugin smoke ok"
 PROFILE_PLUGIN_MARKER = "PYTHON_INSTALLED_DSH_PROFILE_PLUGIN"
+PLUGIN_INSTALL_PROMPT = "Install SDK bundle: "
 AUTHORING_PROMPT = "Query the packaged Python environment for Office authoring."
 IS_WINDOWS = sys.platform == "win32"
 MINIMAL_SHELL_TOOL = "pwsh" if IS_WINDOWS else "bash"
@@ -86,6 +88,7 @@ LEGACY_CUSTOM_DISABLED_ROWS = (
     "tool-fs",
     "tool-fs-search",
     "tool-goal",
+    "tool-plugin-manager",
     "tool-skill",
     "tool-str-replace-editor",
     "tool-subagent-control",
@@ -138,17 +141,17 @@ IN_HISTORY_SNAPSHOT_DIRECTORY = (
 )
 IN_HISTORY_SNAPSHOT_FILENAMES = ("prompt-history.json",)
 DYNAMIC_TOOLS_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "dynamic-tools"
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "dynamic-tools-current"
 )
 DYNAMIC_TOOLS_SNAPSHOT_FILENAMES = ("tool-history.json",)
 RESTART_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "restart"
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "restart-current"
 )
 RESTART_SNAPSHOT_FILENAMES = (
-    "result.json", "requests.json", "session.1.v4.jsonl", "session.2.v4.jsonl",
+    "result.json", "requests.json", "session.1.v4.jsonl", "session.2.v4.jsonl", "resume.json",
 )
 RECOVERY_SNAPSHOT_DIRECTORY = (
-    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "scheduler-recovery"
+    Path(__file__).resolve().parent / "snapshots" / "python-sdk-single-exe" / "scheduler-recovery-current"
 )
 RECOVERY_SNAPSHOT_FILENAMES = ("result.json", "requests.json", "session.v4.jsonl")
 MCP_SERVER_SCRIPT = """\
@@ -253,7 +256,8 @@ def write_advanced_profile_patch(
 ) -> Path:
     """Write the shared custom, snapshot, and restart profile patch."""
     return write_profile_patch(root, name, sessions, [
-        {"id": "tools", "config": {"mode": mode}},
+        {"id": "tool-executor-native", "disabled": mode != "native"},
+        {"id": "tool-executor-ptc", "disabled": mode != "ptc"},
         {
             "id": "system-prompt",
             "config": {
@@ -272,9 +276,9 @@ def write_advanced_profile_patch(
             },
         },
         {"insert": [
-            {"id": "ptc-runtime", "name": "@deepseek-ai/dsh-ptc-runtime-node"},
-            {"id": "cordis-host-runner", "name": "@deepseek-ai/dsh-cordis-host-runner"},
-            {"id": "cordis-tool", "name": "@deepseek-ai/dsh-tool-cordis"},
+            {"id": "ptc-runtime", "name": "@xpeach/xph-ptc-runtime-node"},
+            {"id": "cordis-host-runner", "name": "@xpeach/xph-cordis-host-runner"},
+            {"id": "cordis-tool", "name": "@xpeach/xph-tool-cordis"},
         ]},
     ])
 
@@ -284,7 +288,7 @@ def write_mcp_patch(root: Path, sessions: Path, server_script: Path) -> Path:
     return write_profile_patch(root, "mcp.patch.yml", sessions, [{
         "insert": [{
             "id": "mcp-fixture",
-            "name": "@deepseek-ai/dsh-mcp-client",
+            "name": "@xpeach/xph-mcp-client",
             "config": {
                 "serverName": "fixture",
                 "transport": "stdio",
@@ -372,6 +376,32 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         result = tool_results[-1]
         call_id, tool_name = latest_tool_call(messages, result.get("tool_use_id"))
         tool_text = message_text(result.get("content"))
+        if call_id == "python-plugin-managed-install" and tool_name == "plugin_manager":
+            if result.get("is_error"):
+                if "rejected" not in tool_text.lower():
+                    raise AssertionError(f"unexpected plugin approval failure: {tool_text}")
+                return text_chunks("plugin installation rejected")
+            outcome = json.loads(tool_text)
+            if (not outcome.get("changed") or outcome.get("application") != "restart-required"
+                    or outcome.get("restartReason") != "no-hmr"
+                    or outcome.get("packageResult", {}).get("exitCode") != 0):
+                raise AssertionError(f"approved package installation failed: {outcome}")
+            if PROFILE_PLUGIN_MARKER in json.dumps(messages):
+                raise AssertionError("installed plugin became active before the SDK runtime restarted")
+            return text_chunks("plugin installation saved")
+        if call_id == "python-plugin-install" and tool_name == "plugin_manager":
+            outcome = json.loads(tool_text)
+            if outcome.get("changed") or outcome.get("application") != "failed":
+                raise AssertionError(f"package operation unexpectedly succeeded without pnpm: {outcome}")
+            package = outcome.get("packageResult", {})
+            error = outcome.get("error", {})
+            diagnostic = error.get("diagnostic", "")
+            # cmd.exe reports 1 for a missing command; POSIX spawn reports 127.
+            if (package.get("exitCode") != (1 if IS_WINDOWS else 127)
+                    or error.get("code") != "operation-error" or "pnpm" not in diagnostic
+                    or diagnostic not in package.get("output", "")):
+                raise AssertionError(f"missing pnpm diagnostic was not preserved: {outcome}")
+            return text_chunks(EXPECTED_TEXT)
         if tool_name == "load_workspace_dependencies":
             if result.get("is_error") or "python" not in json.loads(tool_text):
                 raise AssertionError(f"packaged Python query failed: {tool_text}")
@@ -441,11 +471,24 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         PROFILE_PLUGIN_PROMPT,
         AUTHORING_PROMPT,
         DYNAMIC_TOOLS_PROMPT,
+        "check missing plugin package manager",
     }
     prompt = next(
         (candidate for candidate in user_prompts if candidate in scenario_prompts),
         message_text(latest.get("content")),
     )
+    if prompt.startswith(PLUGIN_INSTALL_PROMPT):
+        assert_advertised_tool(body, "plugin_manager")
+        target, _ = json.JSONDecoder().raw_decode(prompt.removeprefix(PLUGIN_INSTALL_PROMPT))
+        assert isinstance(target, str), target
+        return tool_call_chunks("python-plugin-managed-install", "plugin_manager", {
+            "action": "install_bundle", "target": target,
+        })
+    if prompt == "check missing plugin package manager":
+        assert_advertised_tool(body, "plugin_manager")
+        return tool_call_chunks("python-plugin-install", "plugin_manager", {
+            "action": "install_bundle", "target": "@xpeach/xph-subagent-codex",
+        })
     if prompt == SNAPSHOT_DIRECT_CHILD_PROMPT:
         return text_chunks("DIRECT_CHILD_OK")
     if prompt == AUTHORING_PROMPT:
@@ -470,6 +513,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         return text_chunks(RESUME_TEXT)
     if prompt == DYNAMIC_TOOLS_PROMPT:
         assert_advertised_tool(body, "read")
+        assert_advertised_tool(body, "plugin_manager")
         if "snapshot_ping" in advertised_tool_names(body):
             raise AssertionError("dynamic tool was registered before its enabling read")
         return tool_call_chunks("python-dynamic-read", "read", {"file_path": "dynamic-tool-task.txt"})
@@ -803,7 +847,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--scenario",
-        choices=("all", "sdk-default", "sdk-custom", "sdk-minimal", "sdk-minimal-in-history", "sdk-dynamic-tools", "sdk-fs-search", "sdk-spawn-node", "sdk-mcp", "sdk-snapshot", "sdk-recovery", "sdk-restart", "sdk-profile-plugin", "sdk-office", "sdk-authoring", "sdk-live", "runner", "direct"),
+        choices=("all", "sdk-default", "sdk-custom", "sdk-minimal", "sdk-minimal-in-history", "sdk-dynamic-tools", "sdk-fs-search", "sdk-spawn-node", "sdk-mcp", "sdk-snapshot", "sdk-recovery", "sdk-restart", "sdk-profile-plugin", "sdk-plugin-manager", "sdk-office", "sdk-authoring", "sdk-live", "runner", "direct"),
         default="all",
     )
     parser.add_argument("--exe", type=Path)
@@ -822,7 +866,7 @@ def main() -> None:
         parser.error("--scenario sdk-profile-plugin requires --installed-wheel")
     if args.installed_wheel:
         args.exe = assert_installed_wheel_environment()
-    if args.scenario in {"all", "sdk-custom", "sdk-minimal", "sdk-minimal-in-history", "sdk-dynamic-tools", "sdk-fs-search", "sdk-spawn-node", "sdk-snapshot", "sdk-recovery", "sdk-restart", "sdk-office", "sdk-authoring", "runner", "direct"} and args.exe is None:
+    if args.scenario in {"all", "sdk-custom", "sdk-minimal", "sdk-minimal-in-history", "sdk-dynamic-tools", "sdk-fs-search", "sdk-spawn-node", "sdk-snapshot", "sdk-recovery", "sdk-restart", "sdk-office", "sdk-authoring", "sdk-plugin-manager", "runner", "direct"} and args.exe is None:
         parser.error("--exe is required for custom, minimal, dynamic-tools, fs-search, spawn-node, snapshot, recovery, restart, office, runner, and direct scenarios")
     if args.update_snapshots and args.scenario not in {"all", "sdk-minimal", "sdk-minimal-in-history", "sdk-dynamic-tools", "sdk-snapshot", "sdk-recovery", "sdk-restart", "sdk-authoring"}:
         parser.error("--update-snapshots requires --scenario sdk-minimal, sdk-minimal-in-history, sdk-dynamic-tools, sdk-snapshot, sdk-recovery, sdk-restart, sdk-authoring, or all")
@@ -849,6 +893,12 @@ def main() -> None:
         return
 
     with MockModel() as model:
+        if args.scenario == "sdk-plugin-manager":
+            assert args.exe is not None
+            with tempfile.TemporaryDirectory(prefix="dsh-sdk-plugin-cache-") as cache:
+                subprocess.run([str(args.exe.resolve())], check=True, capture_output=True, text=True,
+                               env={**os.environ, "DSH_RESOURCE_CACHE": cache, "DSH_RUNTIME_DOWNLOAD": "primary"})
+                smoke_sdk_plugin_manager(model.url, args.exe.resolve(), Path(cache))
         if args.scenario in {"all", "sdk-authoring"}:
             assert args.exe is not None
             smoke_sdk_authoring(model.url, args.exe.resolve(), args.update_snapshots)
@@ -965,7 +1015,78 @@ def _smoke_sdk_authoring_cached(base_url: str, executable: Path, update_snapshot
                     update_snapshots, AUTHORING_SNAPSHOT_DIRECTORY,
                     ("model-visible.json",),
                 )
+    smoke_sdk_plugin_manager(base_url, executable, cache)
     print("smoke-python-runtime: bundled Python, default skills, replacement and disabled skills passed")
+
+
+def smoke_sdk_plugin_manager(base_url: str, executable: Path, cache: Path) -> None:
+    """Approve a real local installation with bundled pnpm, then load it after restart."""
+    from deepseek_harness import ApprovalRequestParams, DeepSeekHarness
+
+    with tempfile.TemporaryDirectory(prefix="dsh-sdk-plugin-manager-") as temporary:
+        root = Path(temporary).resolve()
+        plugin = root / "plugin"
+        plugin.mkdir()
+        (plugin / "package.json").write_text(json.dumps({
+            "name": "dsh-sdk-managed-fixture", "version": "1.0.0", "type": "module",
+            "exports": "./index.js", "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
+        }))
+        (plugin / "index.js").write_text(
+            "export const name = 'sdk-managed-fixture'\n"
+            "export const inject = ['systemPrompt']\n"
+            "export function apply(ctx) { ctx.effect(() => ctx.systemPrompt.section({\n"
+            f"  name: 'sdk:managed-fixture', order: 10, text: '{PROFILE_PLUGIN_MARKER}'\n"
+            "})) }\n"
+        )
+        (plugin / "cordis.patch.yml").write_text(json.dumps([{
+            "insert": [{"id": "sdk-managed-fixture", "name": "dsh-sdk-managed-fixture"}],
+        }]))
+        home = root / "home"
+        environment = {"PATH": "", "DSH_RESOURCE_CACHE": str(cache),
+                       "DSH_PERMISSION_MODE": "workspace-write", "DSH_TELEMETRY_DISABLED": "1"}
+        config = dict(provider="deepseek-official", model="smoke-model", cwd=str(root),
+                      dsh_bin=str(executable), dsh_home=str(home), env=environment,
+                      api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60)
+        with ThreadPoolExecutor(max_workers=2) as worker:
+            harness = DeepSeekHarness(**config, approval_requests=True)
+            try:
+                harness.start()
+                manifest_path = home / "profiles/sdk/package.json"
+                before = manifest_path.read_bytes()
+                for decision, expected in (("rejected", "plugin installation rejected"),
+                                           ("allowed-once", "plugin installation saved")):
+                    run = worker.submit(harness.run, PLUGIN_INSTALL_PROMPT + json.dumps(str(plugin)) + "\n",
+                                        session_id=decision)
+                    request = worker.submit(harness.client.next_request).result(timeout=60)
+                    assert request.method == "approval/request", request
+                    approval = ApprovalRequestParams.model_validate(request.payload)
+                    assert approval.toolName == "plugin_manager", approval
+                    assert approval.sessionId == decision, approval
+                    harness.client.respond(request.id, {"outcome": decision})
+                    result = run.result(timeout=60)
+                    assert result.final_response == expected, result.final_response
+                    if decision == "rejected":
+                        assert manifest_path.read_bytes() == before
+                manifest = json.loads(manifest_path.read_text())
+                assert "dsh-sdk-managed-fixture" in manifest["dependencies"], manifest
+                assert "dsh-sdk-managed-fixture" in manifest["dsh"]["profile"]["bundles"], manifest
+            finally:
+                harness.close()
+        with DeepSeekHarness(**config) as restarted:
+            result = restarted.run(PROFILE_PLUGIN_PROMPT, session_id="installed-after-restart")
+            assert result.final_response == PROFILE_PLUGIN_TEXT, result.final_response
+        example = Path(__file__).resolve().parent.parent / "python/sdk/examples/manage_plugins.py"
+        example_home = root / "example-home"
+        example_environment = {**os.environ, **environment, "DEEPSEEK_BASE_URL": base_url,
+                               "DEEPSEEK_API_KEY": "sk-keyless-smoke"}
+        example_args = [sys.executable, str(example), "--dsh-home", str(example_home),
+                        "--workspace", str(root), "--dsh-bin", str(executable)]
+        for decision, expected in (("n", "plugin installation rejected"), ("y", "plugin installation saved")):
+            run = subprocess.run([*example_args, PLUGIN_INSTALL_PROMPT + json.dumps(str(plugin)) + "\n"],
+                                 input=decision + "\n", env=example_environment, text=True, capture_output=True, timeout=120)
+            assert run.returncode == 0, run.stderr
+            assert expected in run.stdout, run.stdout
+        assert "dsh-sdk-managed-fixture" in json.loads((example_home / "profiles/sdk/package.json").read_text())["dependencies"]
 
 
 def smoke_sdk_office(executable: Path) -> None:
@@ -1266,6 +1387,17 @@ def smoke_sdk_default(base_url: str) -> None:
             f"turn_end={safe_turn_end(next((event.get('data', event) for event in reversed(result.events) if event.get('type') == 'turn/end'), {}))!r}"
         )
         assert_zstd_session_log(sessions)
+        # The installed runtime starts with an empty PATH; no checkout or global pnpm can satisfy the tool.
+        before = (dsh_home / "profiles/sdk/package.json").read_bytes()
+        with DeepSeekHarness(
+            provider="deepseek-official", model="smoke-model", cwd=str(root), dsh_home=str(dsh_home),
+            env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1", "PATH": "",
+                 "DSH_PRIMARY_RUNTIME": "", "DSH_RESOURCE_CACHE": str(root / "empty-resource-cache")},
+            api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
+        ) as harness:
+            package_result = harness.run("check missing plugin package manager", session_id="missing-pnpm")
+        assert package_result.final_response == EXPECTED_TEXT, package_result.final_response
+        assert (dsh_home / "profiles/sdk/package.json").read_bytes() == before
 
 
 def smoke_sdk_custom(base_url: str, executable: Path) -> None:
@@ -1533,11 +1665,11 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
             "private": True,
             "type": "module",
             "exports": "./index.js",
-            "peerDependencies": {"@deepseek-ai/cordis": "*"},
+            "peerDependencies": {"@xpeach/xph-cordis": "*"},
             "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
         }, indent=2))
         (plugin / "index.js").write_text(
-            "import { Context } from '@deepseek-ai/cordis'\n"
+            "import { Context } from '@xpeach/xph-cordis'\n"
             "export const name = 'python-sdk-blackbox-plugin'\n"
             "export const inject = ['systemPrompt']\n"
             "export function apply(ctx) {\n"
@@ -1630,7 +1762,7 @@ def smoke_sdk_snapshot_mode(
                 "parentSessionId": SNAPSHOT_SESSION_ID, "prompt": SNAPSHOT_WORKFLOW_CHILD_PROMPT,
                 "direct": {"prompt": SNAPSHOT_DIRECT_CHILD_PROMPT, "callId": "advanced-direct-child"},
             }},
-            {"id": "snapshot-message-feedback", "name": "@deepseek-ai/dsh-message-feedback",
+            {"id": "snapshot-message-feedback", "name": "@xpeach/xph-message-feedback",
              "config": {"maxNoteBytes": 1024}},
             {"id": "snapshot-feedback-producer", "name": (
                 Path(__file__).resolve().parent.parent / "snapshots/sdk/text-turn/feedback-producer.mjs"
@@ -1736,6 +1868,19 @@ def smoke_sdk_snapshot_mode(
         )
 
 
+def write_snapshot_clock_patch(root: Path) -> Path:
+    """固定当前 SDK 的时间贡献，不更改比较算法或隐藏消息。"""
+    path = root / "clock.patch.yml"
+    path.write_text(json.dumps([
+        {"id": "time-context", "config": {"timeZone": "UTC"}},
+        {"insert": [{
+            "id": "python-sdk-fixed-clock",
+            "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-fixed-clock.mjs").as_uri(),
+        }]},
+    ]), encoding="utf-8")
+    return path
+
+
 def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots: bool) -> None:
     """Check isolated sessions and explicit history restoration across runtime restarts."""
     from deepseek_harness import DeepSeekHarness
@@ -1745,6 +1890,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
         dsh_home = root / "home"
         sessions = dsh_home / "sessions"
         patch = write_advanced_profile_patch(root, "restart.patch.yml", sessions)
+        clock_patch = write_snapshot_clock_patch(root)
         first_request = len(MockModelHandler.requests)
 
         def connect() -> DeepSeekHarness:
@@ -1754,7 +1900,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
                 cwd=str(root),
                 dsh_bin=str(executable),
                 dsh_home=str(dsh_home),
-                patches=(str(patch),),
+                patches=(str(patch), str(clock_patch)),
                 env={
                     "DSH_PERMISSION_MODE": "danger-full-access",
                     "DSH_TELEMETRY_DISABLED": "1",
@@ -1798,11 +1944,6 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
             root,
             sessions,
         )
-        compare_snapshot_files(
-            files, update_snapshots, RESTART_SNAPSHOT_DIRECTORY, RESTART_SNAPSHOT_FILENAMES,
-            native_writer_output=True,
-        )
-
         before_resume = logs[RESTART_FIRST_SESSION_ID]
         with connect() as harness:
             session = harness.resume_session(RESTART_FIRST_SESSION_ID)
@@ -1810,6 +1951,12 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
                 raise AssertionError(f"resume changed the saved identity: {session.id}")
             if len(MockModelHandler.requests) != first_request + 2:
                 raise AssertionError("resume sent a model request before receiving new input")
+            after_restore = read_session_logs(sessions)[RESTART_FIRST_SESSION_ID]
+            if after_restore[:len(before_resume)] != before_resume:
+                raise AssertionError("恢复操作改写了已有持久化历史")
+            restore_events = after_restore[len(before_resume):]
+            if [event.get("type") for event in restore_events] != ["session/end-seed"]:
+                raise AssertionError(f"恢复操作的持久化事件不符：{restore_events}")
             resumed = session.run(RESUME_PROMPT)
 
         requests = MockModelHandler.requests[first_request + 2:]
@@ -1841,6 +1988,28 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
             raise AssertionError(f"resume did not continue the saved turn sequence: {turns}")
         if RESUME_TEXT not in render_jsonl(restored):
             raise AssertionError("resumed response was not appended to the saved session")
+        appended = restored[len(after_restore):]
+        if resumed.events != appended:
+            raise AssertionError("恢复后的 SDK 事件与新增持久化事件不一致：" + json.dumps({
+                "events": [{"seq": event.get("seq"), "type": event.get("type")} for event in resumed.events],
+                "appended": [{"seq": event.get("seq"), "type": event.get("type")} for event in appended],
+                "differences": [{"index": index, "event": event, "persisted": stored}
+                                for index, (event, stored) in enumerate(zip(resumed.events, appended)) if event != stored][:1],
+            }, ensure_ascii=False))
+        files["resume.json"] = json.dumps({
+            "session_id": "{{session-1}}",
+            "final_response": resumed.final_response,
+            "finish_reason": resumed.finish_reason,
+            "turns": [record["data"]["turn"] for record in turns],
+            "eventTypes": [event.get("type") for event in resumed.events],
+            "notificationMethods": [notification.method for notification in resumed.notifications],
+            "savedPrefixPreserved": restored[:len(before_resume)] == before_resume,
+            "restoreEventTypes": [event.get("type") for event in restore_events],
+        }, indent=2, ensure_ascii=False) + "\n"
+        compare_snapshot_files(
+            files, update_snapshots, RESTART_SNAPSHOT_DIRECTORY, RESTART_SNAPSHOT_FILENAMES,
+            native_writer_output=True,
+        )
 
 
 def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapshots: bool) -> None:
@@ -1853,6 +2022,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
         dsh_home = root / "home"
         sessions = dsh_home / "sessions"
         base_patch = write_advanced_profile_patch(root, "base.patch.yml", sessions)
+        clock_patch = write_snapshot_clock_patch(root)
         patch = write_profile_patch(root, "recovery.patch.yml", sessions, [
             {"id": "tool-todo", "disabled": False},
             {"id": "session-title-llm", "disabled": True},
@@ -1870,7 +2040,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
             return DeepSeekHarness(
                 provider="deepseek-official", model="smoke-model", cwd=str(root),
                 dsh_bin=str(executable), dsh_home=str(dsh_home),
-                patches=(str(base_patch), str(patch)),
+                patches=(str(base_patch), str(patch), str(clock_patch)),
                 env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1"},
                 api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
             )

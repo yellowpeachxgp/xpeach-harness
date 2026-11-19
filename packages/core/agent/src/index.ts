@@ -11,9 +11,9 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { isPromise } from 'node:util/types'
 import { scopeTarget } from '@xpeach/xph-scope'
 import type { Scoped } from '@xpeach/xph-scope'
-import type { SessionEvent, SessionId, SessionLogOffset } from '@xpeach/xph-session'
+import type { Session, SessionEvent, SessionId, SessionLogOffset } from '@xpeach/xph-session'
 import { installTurnArchiveAdmission } from './archive-admission.ts'
-import type { Agent } from './types.ts'
+import type { Agent, TurnBoundaryProjection } from './types.ts'
 import type { AgentOptions, SessionStartSource } from './runtime-types.ts'
 
 export * from './runtime-types.ts'
@@ -21,6 +21,7 @@ export * from './types.ts'
 export type * from './projection.ts'
 export * from './consumed-work.ts'
 export * from './model-selection.ts'
+export * from './session-activation.ts'
 export { agentCarrier, agentEvents, assembleContextFor, emitAgentEvent } from './dispatch.ts'
 export type { AgentEventDispatch, AgentSubjectEvent } from './dispatch.ts'
 
@@ -285,14 +286,19 @@ export class AgentRegistry extends Service {
   }
 
   /**
-   * Read the Agent that initiated the inherited asynchronous driver chain.
-   * Use this optional form for logging, tracing, metrics, or host attribution
-   * that also supports agentless calls. When a parent creates a child, setup
-   * reports the causal parent while the setup callback's Agent parameter
-   * identifies the child.
-   * @returns the inherited Agent, or `undefined` outside an initiator boundary
-   *   and inside an explicit clearing boundary.
-   * @throws when this service instance has been disposed.
+   * Read the turn and step positions recorded in a Session.
+   * @param session - Session whose committed events are read.
+   * @returns the current turn and step positions; do not mutate the returned value.
+   */
+  turnBoundaryOf(session: Session): TurnBoundaryProjection {
+    return this.ctx.sessionProjections.stateOf(session, 'turnBoundary') as TurnBoundaryProjection
+  }
+
+  /**
+   * 读取当前异步驱动链继承的发起 Agent，允许无 Agent 的日志、追踪和宿主调用。
+   * 父 Agent 创建子 Agent 时，此处返回因果上的父 Agent；setup 参数中的 Agent 标识子 Agent。
+   * @returns 继承的 Agent；未进入发起作用域或显式清除发起者时返回 undefined。
+   * @throws 服务实例已经释放时抛出错误。
    */
   currentInitiator(): Agent | undefined {
     this.assertInitiatorsReadable()

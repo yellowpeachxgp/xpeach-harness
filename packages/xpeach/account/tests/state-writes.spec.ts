@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { zstdDecompressSync } from 'node:zlib'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { chatgptDatabaseFiles } from '../src/chatgpt-db.ts'
+import { XPeachApi } from '../src/api.ts'
 import {
   importAssets,
   importConversations,
@@ -22,7 +23,6 @@ import {
   scanOnboarding,
   writeMcpPatchEntries,
 } from '../src/onboarding.ts'
-import { XPeachApi } from '../src/api.ts'
 import {
   XPeachAccount,
   XPeachDeepSeekAccount,
@@ -30,6 +30,7 @@ import {
   validateSsoBaseUrl,
   validateVerificationUrl,
 } from '../src/index.ts'
+import type { XPeachSiteCatalog } from '../src/types.ts'
 
 const roots: string[] = []
 
@@ -132,12 +133,23 @@ describe('account state writes on a fresh install', () => {
       const sessionDirs = readdirSync(join(destSessions, projectDirs[0]!))
       expect(sessionDirs).toHaveLength(1)
       const archivePath = join(destSessions, projectDirs[0]!, sessionDirs[0]!, 'session.v4.jsonl.zstd')
-      const decompressed = zstdDecompressSync(readFileSync(archivePath)).toString('utf8').trim().split('\n')
-      const header = JSON.parse(decompressed[0]!) as { createdAt: number; cwd: string; version: number }
+      const archiveBytes = readFileSync(archivePath)
+      const zstdMagic = Buffer.from([0x28, 0xb5, 0x2f, 0xfd])
+      const secondFrameOffset = archiveBytes.indexOf(zstdMagic, 4)
+      expect(secondFrameOffset).toBeGreaterThan(0)
+      const headerText = zstdDecompressSync(archiveBytes.subarray(0, secondFrameOffset)).toString('utf8').trim()
+      const bodyText = zstdDecompressSync(archiveBytes.subarray(secondFrameOffset)).toString('utf8').trim()
+      const header = JSON.parse(headerText) as { createdAt: number; cwd: string; version: number }
       expect(header.version).toBe(4)
       expect(Number.isSafeInteger(header.createdAt)).toBe(true)
       expect(header.cwd.startsWith('/')).toBe(true)
-      const events = decompressed.slice(1).map(line => JSON.parse(line) as { type: string; time: number; data: Record<string, unknown> })
+      const events = bodyText.split('\n').map(line => JSON.parse(line) as { type: string; time: number; data: Record<string, unknown> })
+      expect(events.length).toBeGreaterThan(0)
+      // Imported sessions inherit the active deployment preset rather than hardcoding danger-full-access.
+      expect(events.some(ev => ev.type === 'permission/preset' || ev.type === 'sandbox/mode' || ev.type === 'approval/policy')).toBe(false)
+      expect(events.some(ev => ev.type === 'session/end-seed')).toBe(true)
+      expect(events.some(ev => ev.type === 'user/message')).toBe(true)
+      expect(events.some(ev => ev.type === 'assistant/message')).toBe(true)
       let openSteps = 0
       for (const ev of events) {
         expect(Number.isSafeInteger(ev.time)).toBe(true)
@@ -207,6 +219,7 @@ describe('account state writes on a fresh install', () => {
     const set = vi.fn(async () => {})
     const emit = vi.fn()
     const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
+    fakeAccount['liveConfig'] = {}
     fakeAccount['keyFile'] = keyFile
     fakeAccount['adminKeyFile'] = adminKeyFile
     fakeAccount['sessionKeyFile'] = sessionKeyFile
@@ -220,15 +233,32 @@ describe('account state writes on a fresh install', () => {
       get: (name: string) => (name === 'credentials' ? { set, unset } : undefined),
       emit,
     }
+    const setAdminKey = vi.fn()
+    const setSessionKey = vi.fn()
     fakeAccount['api'] = {
-      setAdminKey: vi.fn(),
-      setSessionKey: vi.fn(),
+      siteBaseURL: 'https://bindkey-probe-test.invalid',
+      setAdminKey,
+      setSessionKey,
       ssoRevokeToken: vi.fn().mockResolvedValue(true),
-      adminSelf: vi.fn(async () => { throw new Error('unauthorized') }),
     }
 
     const bindKey = Reflect.get(XPeachAccount.prototype, 'bindKey') as (req: { key: string }, sig: AbortSignal) => Promise<unknown>
-    await expect(bindKey.call(fakeAccount, { key: 'adm-invalid9999' }, new AbortController().signal)).rejects.toThrow('unauthorized')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : input)
+      expect(url.origin).toBe('https://bindkey-probe-test.invalid')
+      expect(url.pathname).toBe('/api/user/self')
+      const headers = new Headers(init?.headers)
+      expect(headers.get('Authorization')).toBe('adm-invalid9999')
+      return Response.json({ success: false, message: 'unauthorized' }, { status: 401 })
+    })
+    try {
+      await expect(bindKey.call(fakeAccount, { key: 'adm-invalid9999' }, new AbortController().signal)).rejects.toThrow('unauthorized')
+      // Probing must use an isolated XPeachApi instance and never mutate shared override setters.
+      expect(setAdminKey).not.toHaveBeenCalled()
+      expect(setSessionKey).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+    }
     expect(readFileSync(keyFile, 'utf8')).toBe('sk-existing1234\n')
     expect(readFileSync(adminKeyFile, 'utf8')).toBe('adm-existing1234\n')
     expect(existsSync(slotsFile)).toBe(true)
@@ -451,6 +481,10 @@ describe('account state writes on a fresh install', () => {
         headers: { Authorization: 'Bearer ghp_test' },
       }, sig)
       expect(afterMcpSave.servers).toHaveLength(2)
+      if (process.platform !== 'win32') {
+        expect(statSync(patchPath).mode & 0o777).toBe(0o600)
+      }
+      expect(readdirSync(profileDir).filter(name => name.includes('.tmp.'))).toEqual([])
 
       const afterMcpToggle = fakeAccount.mcpToggleOp({ id: 'mcp-github', enabled: false }, sig)
       expect(afterMcpToggle.servers.find(s => s.id === 'mcp-github')?.disabled).toBe(true)
@@ -461,6 +495,9 @@ describe('account state writes on a fresh install', () => {
       expect(readMcpPatchEntries(patchPath)).toHaveLength(1)
       writeMcpPatchEntries(patchPath, [])
       expect(readFileSync(patchPath, 'utf8')).toContain("name: '@xpeach/xph-account'")
+      if (process.platform !== 'win32') {
+        expect(statSync(patchPath).mode & 0o777).toBe(0o600)
+      }
     } finally {
       if (prevXphHome === undefined) delete process.env.XPH_HOME
       else process.env.XPH_HOME = prevXphHome
@@ -1060,7 +1097,61 @@ describe('account state writes on a fresh install', () => {
     expect(nextSpy).not.toHaveBeenCalled()
     expect(chunks).toHaveLength(1)
     expect(chunks[0]?.['type']).toBe('finish')
-    expect((chunks[0]?.['error'] as { code?: string } | undefined)?.code).toBe('ACCOUNT_SIGN_IN_REQUIRED')
+    const finishReason = chunks[0]?.['reason'] as { kind?: string; failure?: { code?: string; message?: string } } | undefined
+    expect(finishReason?.kind).toBe('error')
+    expect(finishReason?.failure?.code).toBe('ACCOUNT_SIGN_IN_REQUIRED')
+    expect(finishReason?.failure?.message).toBeTruthy()
+  })
+
+  it('distinguishes 401 AUTH errors from 403 quota or channel errors in guardLlmStream', async () => {
+    const guardLlmStream = Reflect.get(XPeachAccount.prototype, 'guardLlmStream') as (
+      options: { readonly provider?: string },
+      next: () => AsyncGenerator<Record<string, unknown>, void, unknown>,
+    ) => AsyncGenerator<Record<string, unknown>, void, unknown>
+
+    const handleAuthRejectedMock = vi.fn().mockResolvedValue(undefined)
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    const guardKeyFile = join(freshProfile(), 'xpeach.key')
+    writeState(guardKeyFile, 'sk-guard-test\n')
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      keyFile: guardKeyFile,
+      ctx: { get: () => undefined },
+      verifyAndSyncSsoSession: vi.fn().mockResolvedValue({ valid: true, status: 'ok' }),
+      isBound: vi.fn().mockReturnValue(true),
+      handleAuthRejected: handleAuthRejectedMock,
+    })
+
+    // 403 QUOTA_EXCEEDED or INVALID_REQUEST must NOT trigger handleAuthRejected
+    for await (const _chunk of guardLlmStream.call(fakeAccount, { provider: 'xpeach' }, async function* () {
+      yield {
+        type: 'finish',
+        reason: {
+          kind: 'error',
+          failure: {
+            code: 'QUOTA_EXCEEDED',
+            message: '403: 预扣费额度失败, 用户剩余额度 $0.000100 低于预扣费额度 $0.500000',
+          },
+        },
+      }
+    })) { /* drain */ }
+    expect(handleAuthRejectedMock).not.toHaveBeenCalled()
+
+    // 401 AUTH error MUST trigger handleAuthRejected(401)
+    for await (const _chunk of guardLlmStream.call(fakeAccount, { provider: 'xpeach' }, async function* () {
+      yield {
+        type: 'finish',
+        reason: {
+          kind: 'error',
+          failure: {
+            code: 'AUTH',
+            message: '401 Unauthorized: invalid api key',
+          },
+        },
+      }
+    })) { /* drain */ }
+    expect(handleAuthRejectedMock).toHaveBeenCalledTimes(1)
+    expect(handleAuthRejectedMock).toHaveBeenCalledWith(401)
   })
 
   it('persists credentials and onboarding state across restarts and sibling profiles until explicit sign-out', async () => {
@@ -1178,8 +1269,8 @@ describe('account state writes on a fresh install', () => {
         },
       })
 
-      const bootstrapKey = Reflect.get(XPeachAccount.prototype, 'bootstrapKey') as () => void
-      bootstrapKey.call(desktopAccount)
+      const initializeRelay = Reflect.get(XPeachAccount.prototype, 'initializeRelay') as () => Promise<void>
+      await initializeRelay.call(desktopAccount)
 
       expect(desktopAccount.isBound()).toBe(true)
       expect(existsSync(join(desktopProfile, 'xpeach.key'))).toBe(true)
@@ -1196,7 +1287,7 @@ describe('account state writes on a fresh install', () => {
       expect(existsSync(join(rootHome, '.xpeach-signed-out'))).toBe(true)
 
       // Subsequent cold start must stay signed out and not resurrect credentials
-      bootstrapKey.call(desktopAccount)
+      await initializeRelay.call(desktopAccount)
       expect(desktopAccount.isBound()).toBe(false)
     } finally {
       if (prevHome === undefined) {
@@ -1210,7 +1301,7 @@ describe('account state writes on a fresh install', () => {
     }
   })
 
-  it('does not wipe existing credentials when probing a rejected candidate key in keySlotAddOp', async () => {
+  it('候选密钥拒绝时不触发活动账号失效处理或改写原凭据', async () => {
     const profile = freshProfile()
     const keyFile = join(profile, 'xpeach.key')
     const adminKeyFile = join(profile, 'xpeach.admin')
@@ -1222,7 +1313,6 @@ describe('account state writes on a fresh install', () => {
     writeState(adminKeyFile, 'admin-existingValidToken1234\n')
 
     const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
-    const handleAuthRejected = Reflect.get(XPeachAccount.prototype, 'handleAuthRejected') as (status: 401 | 403) => Promise<void>
     Object.assign(fakeAccount, {
       liveConfig: {},
       keyFile,
@@ -1235,12 +1325,8 @@ describe('account state writes on a fresh install', () => {
       routeFile,
       apiKeyEnv: 'XPEACH_API_KEY',
       timeoutMs: 15_000,
-      probingSlotKey: false,
       api: {
-        tokenUsage: vi.fn(async () => {
-          await handleAuthRejected.call(fakeAccount, 401)
-          throw new Error('401 Unauthorized')
-        }),
+        siteBaseURL: 'https://candidate-test.invalid',
         setAdminKey: vi.fn(),
         setSessionKey: vi.fn(),
       },
@@ -1249,19 +1335,29 @@ describe('account state writes on a fresh install', () => {
         get: () => undefined,
       },
     })
-
-    const res = await fakeAccount.keySlotAddOp(
-      { name: 'bad-slot', key: 'sk-invalidCandidateKey000000' },
-      new AbortController().signal,
-    )
-    expect(res.ok).toBe(false)
-    expect(existsSync(keyFile)).toBe(true)
-    expect(existsSync(adminKeyFile)).toBe(true)
-    expect(fakeAccount.isBound()).toBe(true)
+    const originalFetch = globalThis.fetch
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      expect(new URL(input instanceof Request ? input.url : input).origin).toBe('https://candidate-test.invalid')
+      return Response.json({ success: false, message: '合成候选密钥被拒绝' }, { status: 401 })
+    })
+    try {
+      const res = await fakeAccount.keySlotAddOp(
+        { name: 'bad-slot', key: 'sk-invalidCandidateKey000000' },
+        new AbortController().signal,
+      )
+      expect(res.ok).toBe(false)
+      expect(existsSync(keyFile)).toBe(true)
+      expect(existsSync(adminKeyFile)).toBe(true)
+      expect(fakeAccount.isBound()).toBe(true)
+      expect(readFileSync(keyFile, 'utf8')).toBe('sk-existingValidKey1234567890\n')
+    } finally {
+      fetch.mockRestore()
+      expect(globalThis.fetch).toBe(originalFetch)
+    }
     Reflect.deleteProperty(process.env, 'XPEACH_TEST_SLOT_RELAY_KEY')
   })
 
-  it('enriches unlimited-quota tokenUsage with the signed-in user account balance and prunes forbidden token groups in siteCatalogOp', async () => {
+  it('enriches unlimited-quota tokenUsage with the signed-in user account balance and keeps siteCatalogOp reads side-effect free', async () => {
     const profile = freshProfile()
     const keyFile = join(profile, 'xpeach.key')
     const adminKeyFile = join(profile, 'xpeach.admin')
@@ -1275,6 +1371,7 @@ describe('account state writes on a fresh install', () => {
       id: 5372,
       name: 'xph-sso-default',
       groups: ['SWE', 'DeepSeek Pro'],
+      key: 'sk-validRelayKey1234567890',
     }))
 
     const adminTokenUpdate = vi.fn(async () => ({ success: true }))
@@ -1351,57 +1448,571 @@ describe('account state writes on a fresh install', () => {
 
     const cat = await fakeAccount.siteCatalogOp({}, signal)
     expect(cat.groups.map(g => g.name)).toEqual(['SWE', 'DeepSeek Flash'])
-    expect(cat.tokenGroups).toEqual(['SWE'])
-    expect(adminTokenUpdate).toHaveBeenCalledTimes(1)
+    // Reading the catalog is pure: it reports the stored groups verbatim and
+    // never repairs remote token state — group writes belong to setGroups.
+    expect(cat.tokenGroups).toEqual(['SWE', 'DeepSeek Pro'])
+    expect(adminTokenUpdate).not.toHaveBeenCalled()
   })
-})
 
-describe('ssoBaseURL fallback gating', () => {
-  const makeApi = () => new XPeachApi({
-    baseURL: 'https://fast.xpeach.codes',
-    timeoutMs: 1500,
-    resolveKey: async () => 'key',
-    resolveAdmin: () => undefined,
-    resolveCookie: () => undefined,
+  it('reconciles a stale agent-default-model after syncing the model catalog and keeps SSO unbound if no relay key can be minted', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+
+    const settingsUpdates: Array<{ ns: string; patch: unknown }> = []
+    const savedSelections: Array<{ provider: string; model: string; reasoningEffort?: string }> = []
+    const settingsService = {
+      describe: () => ({ namespaces: [{ ns: 'llm-pi-ai', value: { providers: {} } }] }),
+      update: vi.fn(async (ns: string, patch: unknown) => {
+        settingsUpdates.push({ ns, patch })
+      }),
+    }
+    const agentDefaultModelService = {
+      currentSelection: () => ({ provider: 'xpeach', model: 'non-existent-model' }),
+      saveSelection: vi.fn(async (sel: { provider: string; model: string; reasoningEffort?: string }) => {
+        savedSelections.push(sel)
+      }),
+    }
+
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      keyFile,
+      keyVar: 'XPEACH_TEST_RECONCILE_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_RECONCILE_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_RECONCILE_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_RELAY_KEY',
+      baseUrl: 'https://fast.xpeach.codes',
+      timeoutMs: 15_000,
+      probingSlotKey: false,
+      enabledFamilies: [],
+      protocolPreference: 'openai-completions',
+      ssoApprovedCache: new Map(),
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        setBaseUrl: vi.fn(),
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+        models: vi.fn(async () => [{ id: 'swe-2-max' }, { id: 'kimi-k2.6' }]),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE'] },
+            { model_name: 'kimi-k2.6', enable_groups: ['SWE'] },
+          ],
+          groupRatio: { SWE: 0.22 },
+          usableGroup: { SWE: 'SWE Group' },
+        })),
+        userSelf: vi.fn(async () => ({
+          id: 42,
+          username: 'tester',
+          display_name: 'Tester',
+          quota: 10_000_000,
+          used_quota: 0,
+          group: 'SWE',
+        })),
+        adminTokenList: vi.fn(async () => []),
+        adminTokenCreate: vi.fn(async () => ({ id: 0, key: '', name: '' })),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: (name: string) => {
+          if (name === 'settings') return settingsService
+          if (name === 'agentDefaultModel') return agentDefaultModelService
+          return undefined
+        },
+      },
+    })
+
+    writeState(keyFile, 'sk-validRelayKeyForSync123456\n')
+    writeState(join(profile, 'xpeach.token'), JSON.stringify({ id: 42, key: 'sk-validRelayKeyForSync123456', groups: ['SWE'] }))
+    const runSyncModelCatalog = Reflect.get(XPeachAccount.prototype, 'runSyncModelCatalog') as (sig?: AbortSignal) => Promise<void>
+    await runSyncModelCatalog.call(fakeAccount, new AbortController().signal)
+
+    expect(savedSelections).toContainEqual({ provider: 'xpeach', model: 'swe-2-max' })
+
+    // Remove relay key and simulate an SSO bridge payload whose relay token is empty and cannot be minted
+    const capture = Reflect.get(XPeachAccount.prototype, 'captureCredentialSnapshot') as () => object
+    const commit = Reflect.get(XPeachAccount.prototype, 'commitRelay') as (snapshot: object, next: object) => Promise<void>
+    await commit.call(fakeAccount, capture.call(fakeAccount), {})
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_RECONCILE_RELAY_KEY')
+    const applySsoBridgePayload = Reflect.get(XPeachAccount.prototype, 'applySsoBridgePayload') as (
+      payload: unknown,
+      sig: AbortSignal,
+    ) => Promise<{ status: string; bound: boolean; message?: string }>
+    const ssoRes = await applySsoBridgePayload.call(
+      fakeAccount,
+      {
+        sessionToken: 'sess-only-token-123456',
+        user: { id: 42, username: 'tester', displayName: 'Tester', group: 'SWE' },
+        peach: { baseUrl: 'https://fast.xpeach.codes', relayApiKey: '' },
+      },
+      new AbortController().signal,
+    )
+    expect(ssoRes.status).toBe('error')
+    expect(ssoRes.bound).toBe(false)
   })
-  const authorize = (api: XPeachApi) =>
-    api.ssoDeviceAuthorize('https://sso.xpeach.codes', 'xpeach-harness', 'dev', new AbortController().signal)
-  const stubFetch404 = () => {
-    const calls: string[] = []
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      calls.push(String(input))
-      return new Response(JSON.stringify({ error: 'not_found' }), { status: 404 })
+
+  it('syncs token metadata in verifyAndSyncSsoSession without clobbering client-updated groups and matches active key in ensureTokenInfo', async () => {
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+    const tokenFile = join(profile, 'xpeach.token')
+
+    writeState(keyFile, 'sk-activeRelayKey9999\n')
+    writeState(adminKeyFile, 'adm-accessToken9999\n')
+    writeState(ssoStateFile, JSON.stringify({
+      accessToken: 'sso-tok-9999',
+      expiresIn: 86400,
+      user: { id: '99', username: 'peachuser' },
+      boundAt: Date.now(),
     }))
-    return calls
-  }
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    delete process.env.XPEACH_SSO_DEV_LOCAL
-    delete process.env.XPEACH_SSO_URL
+    const adminTokenUpdate = vi.fn(async () => ({ success: true }))
+    const fakeAccount = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(fakeAccount, {
+      liveConfig: {
+        ssoBaseURL: 'https://sso.xpeach.codes',
+        ssoClientId: 'xpeach-harness',
+      },
+      keyFile,
+      keyVar: 'XPEACH_TEST_SSO_TOKEN_SYNC_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_SSO_TOKEN_SYNC_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_SSO_TOKEN_SYNC_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      activeBaseURL: 'https://fast.xpeach.codes',
+      timeoutMs: 15_000,
+      lastSsoVerifyAt: 0,
+      lastEnsureTokenInfoAt: 0,
+      catalogSynced: true,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        setAdminKey: vi.fn(),
+        setSessionKey: vi.fn(),
+        ssoPeachcodeCredentials: vi.fn(async () => ({
+          status: 'ok',
+          payload: {
+            sso: { accessToken: 'sso-tok-9999', expiresIn: 86400, user: { id: '99', username: 'peachuser' } },
+            peachcode: {
+              userId: 99,
+              username: 'peachuser',
+              accessToken: 'adm-accessToken9999',
+              apiKey: 'sk-activeRelayKey9999',
+              tokenId: 7788,
+              tokenName: 'peachcode-default',
+              tokenGroups: ['SWE'],
+            },
+          },
+        })),
+        adminTokens: vi.fn(async () => ({
+          items: [
+            { id: 1001, name: 'other-custom', key: 'otherKey0000', status: 1, created_time: 200 },
+            { id: 7788, name: 'custom-named-key', key: 'activeRelayKey9999', status: 1, created_time: 100, group: 'DeepSeek Flash,SWE' },
+          ],
+          total: 2,
+        })),
+        adminTokenGet: vi.fn(async () => ({
+          id: 7788,
+          name: 'custom-named-key',
+          group: 'DeepSeek Flash,SWE',
+        })),
+        adminTokenUpdate,
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE', 'DeepSeek Flash'] },
+          ],
+          groupRatio: { SWE: 0.22, 'DeepSeek Flash': 1.0 },
+          usableGroup: { SWE: 'SWE Group', 'DeepSeek Flash': 'Flash Group' },
+        })),
+        models: vi.fn(async () => [{ id: 'swe-2-max' }]),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: () => undefined,
+      },
+    })
+
+    // 1. When xpeach.token does not exist yet, ensureTokenInfo matches by raw key value and parses comma-separated detail.group
+    const signal = new AbortController().signal
+    const cat = await fakeAccount.siteCatalogOp({}, signal)
+    expect(cat.tokenId).toBe(7788)
+    expect(cat.tokenGroups).toEqual(['DeepSeek Flash', 'SWE'])
+    expect(adminTokenUpdate).not.toHaveBeenCalled()
+
+    // 2. When verifyAndSyncSsoSession runs with the same tokenId (7788) and apiKey,
+    // it keeps client-selected groups ['DeepSeek Flash', 'SWE']
+    const verify = await fakeAccount.verifyAndSyncSsoSession(true, signal)
+    expect(verify.valid).toBe(true)
+    const savedInfo = JSON.parse(readFileSync(tokenFile, 'utf8')) as { id?: number; name?: string; groups?: string[] }
+    expect(savedInfo.id).toBe(7788)
+    expect(savedInfo.name).toBe('peachcode-default')
+    expect(savedInfo.groups).toEqual(['DeepSeek Flash', 'SWE'])
+
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_SSO_TOKEN_SYNC_RELAY_KEY')
   })
 
-  it('probes localhost:3000 only when XPEACH_SSO_DEV_LOCAL=1 and XPEACH_SSO_URL is unset', async () => {
-    process.env.XPEACH_SSO_DEV_LOCAL = '1'
-    const calls = stubFetch404()
-    await expect(authorize(makeApi())).rejects.toThrow()
-    expect(calls).toEqual([
-      'https://sso.xpeach.codes/api/v1/device/authorize',
-      'http://localhost:3000/api/v1/device/authorize',
-    ])
+  it('merges /api/user/self/groups with /api/pricing and fetches 24h performance telemetry', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (url.endsWith('/api/user/self/groups')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            SWE: { desc: 'SWE 专属渠道', ratio: 0.22, models: ['swe-2-max'] },
+            'ELY | Spark': { desc: 'ELY 合作分组', ratio: 0.5, models: [] },
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.endsWith('/api/pricing')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: [
+            { model_name: 'swe-2-max', model_ratio: 1, completion_ratio: 2, enable_groups: ['SWE'] },
+            { model_name: 'swe-2-pro', model_ratio: 0.5, completion_ratio: 2, enable_groups: ['SWE', 'ELY | Spark'] },
+            { model_name: 'claude-sonnet-4-6', model_ratio: 1.5, completion_ratio: 5, enable_groups: ['Claude 渠道'] },
+          ],
+          group_ratio: { SWE: 0.22, 'ELY | Spark': 0.5, 'Claude 渠道': 0.8 },
+          usable_group: { SWE: 'SWE 专属渠道', 'ELY | Spark': 'ELY 合作分组', 'Claude 渠道': 'Claude 官方直连' },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/perf-metrics/summary')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            hours: 24,
+            models: [
+              {
+                model_name: 'swe-2-max',
+                avg_latency_ms: 820,
+                success_rate: 99.6,
+                avg_tps: 78.4,
+                recent_success_series: [{ ts: 1730000000, success_rate: 100 }],
+              },
+            ],
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/perf-metrics?model=swe-2-max')) {
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            model_name: 'swe-2-max',
+            hours: 24,
+            series_schema: 'compact_v1',
+            groups: [
+              {
+                group: 'SWE',
+                avg_ttft_ms: 310,
+                avg_latency_ms: 820,
+                success_rate: 99.6,
+                avg_tps: 78.4,
+                series: [{ ts: 1730000000, avg_ttft_ms: 310, avg_latency_ms: 820, success_rate: 100, avg_tps: 78.4 }],
+              },
+            ],
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response('not found', { status: 404 })
+    })
+
+    try {
+      const api = new XPeachApi({
+        baseURL: 'https://fast.xpeach.codes',
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-test1234',
+        resolveAdmin: () => 'adm-token-xyz',
+        resolveCookie: () => undefined,
+      })
+      const signal = new AbortController().signal
+      const groups = await api.groups(signal)
+      expect(groups['SWE']?.models).toEqual(['swe-2-max', 'swe-2-pro'])
+      expect(groups['ELY | Spark']?.models).toEqual(['swe-2-pro'])
+      expect(groups['Claude 渠道']?.models).toEqual(['claude-sonnet-4-6'])
+      expect(groups['Claude 渠道']?.ratio).toBe(0.8)
+      expect(groups['Claude 渠道']?.desc).toBe('Claude 官方直连')
+
+      const perfSummary = await api.perfMetricsSummary(24, signal)
+      expect(perfSummary).toHaveLength(1)
+      expect(perfSummary[0]?.model_name).toBe('swe-2-max')
+      expect(perfSummary[0]?.avg_tps).toBe(78.4)
+      expect(perfSummary[0]?.success_rate).toBe(99.6)
+
+      const perfDetail = await api.perfMetricsDetail('swe-2-max', 24, signal)
+      expect(perfDetail.model_name).toBe('swe-2-max')
+      expect(perfDetail.groups).toHaveLength(1)
+      expect(perfDetail.groups[0]?.group).toBe('SWE')
+      expect(perfDetail.groups[0]?.avg_ttft_ms).toBe(310)
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 
-  it('never probes localhost:3000 by default', async () => {
-    const calls = stubFetch404()
-    await expect(authorize(makeApi())).rejects.toThrow()
-    expect(calls).toEqual(['https://sso.xpeach.codes/api/v1/device/authorize'])
+  it('routes Claude models to /v1/messages and switches active session models when changing token groups', async () => {
+    const calledUrls: string[] = []
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      calledUrls.push(url)
+      if (url.endsWith('/v1/messages')) {
+        return new Response(JSON.stringify({
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'pong from anthropic messages' }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.endsWith('/v1/chat/completions')) {
+        return new Response(JSON.stringify({
+          id: 'chatcmpl_1',
+          choices: [{ message: { role: 'assistant', content: 'pong from openai completions' } }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response('not found', { status: 404 })
+    })
+
+    try {
+      const api = new XPeachApi({
+        baseURL: 'https://fast.xpeach.codes',
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-test1234',
+        resolveAdmin: () => undefined,
+        resolveCookie: () => undefined,
+      })
+      const signal = new AbortController().signal
+      const claudeReply = await api.chat({ model: 'claude-sonnet-4-6', prompt: 'hi' }, signal)
+      expect(claudeReply.content).toBe('pong from anthropic messages')
+      expect(calledUrls.some(u => u.endsWith('/v1/messages'))).toBe(true)
+
+      const sweReply = await api.chat({ model: 'swe-2-max', prompt: 'hi' }, signal)
+      expect(sweReply.content).toBe('pong from openai completions')
+      expect(calledUrls.some(u => u.endsWith('/v1/chat/completions'))).toBe(true)
+
+      const profile = freshProfile()
+      const keyFile = join(profile, 'xpeach.key')
+      const adminKeyFile = join(profile, 'xpeach.admin')
+      const sessionKeyFile = join(profile, 'xpeach.session')
+      const ssoStateFile = join(profile, 'xpeach.sso.json')
+      const routeFile = join(profile, 'xpeach.route.json')
+      const tokenFile = join(profile, 'xpeach.token')
+      writeState(keyFile, 'sk-rtqkClaudeSwitch001\n')
+      writeState(adminKeyFile, 'adm-claudeSwitch001\n')
+      writeState(tokenFile, JSON.stringify({ id: 9, name: 'xph-auto', groups: ['SWE'], key: 'sk-rtqkClaudeSwitch001' }))
+
+      let savedProviders: Record<string, { api?: string; baseURL?: string; models?: { id: string }[] }> = {}
+      let defaultSel = { provider: 'xpeach', model: 'swe-2-max' }
+      const selectModelCalls: { sessionId: string; provider: string; model: string }[] = []
+
+      const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
+      fakeAccount['keyFile'] = keyFile
+      fakeAccount['adminKeyFile'] = adminKeyFile
+      fakeAccount['adminKeyVar'] = 'XPEACH_TEST_CLAUDE_SWITCH_ADMIN_KEY'
+      fakeAccount['sessionKeyFile'] = sessionKeyFile
+      fakeAccount['sessionKeyVar'] = 'XPEACH_TEST_CLAUDE_SWITCH_SESSION_KEY'
+      fakeAccount['ssoStateFile'] = ssoStateFile
+      fakeAccount['routeFile'] = routeFile
+      fakeAccount['keyVar'] = 'XPEACH_RELAY_KEY'
+      fakeAccount['protocolPreference'] = 'auto'
+      fakeAccount['enabledFamilies'] = []
+      fakeAccount['liveConfig'] = { autoSyncModels: true, protocolPreference: 'auto', enabledFamilies: [] }
+      fakeAccount['readModelMetadataCache'] = () => undefined
+      fakeAccount['refreshModelMetadata'] = async () => undefined
+      fakeAccount['api'] = {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        adminTokenGet: vi.fn(async () => ({ id: 9, name: 'xph-auto', status: 1, groups: ['SWE'] })),
+        adminTokenUpdate: vi.fn(async () => {}),
+        userTokenKey: vi.fn(async () => ({ key: 'sk-rtqkClaudeSwitch001' })),
+        adminTokenKey: vi.fn(async () => ({ key: 'nyylNmqckjXubxux852' })),
+        models: vi.fn(async () => [
+          { id: 'swe-2-max', groups: ['SWE'], supported_endpoint_types: ['openai'] },
+          { id: 'claude-sonnet-4-6', groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
+        ]),
+        groups: vi.fn(async () => ({
+          SWE: { models: ['swe-2-max'], ratio: 0.22 },
+          'Claude 渠道': { models: ['claude-sonnet-4-6'], ratio: 0.8 },
+        })),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'swe-2-max', enable_groups: ['SWE'], supported_endpoint_types: ['openai'] },
+            { model_name: 'claude-sonnet-4-6', enable_groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
+          ],
+          groupRatio: { SWE: 0.22, 'Claude 渠道': 0.8 },
+          usableGroup: { SWE: 'SWE', 'Claude 渠道': 'Claude' },
+        })),
+      }
+      fakeAccount['ctx'] = {
+        get: (name: string) => {
+          if (name === 'settings') {
+            return {
+              describe: async () => ({ namespaces: [{ ns: 'llm-pi-ai', value: { providers: savedProviders } }] }),
+              update: async (_ns: string, patch: { providers?: typeof savedProviders }) => {
+                if (patch.providers !== undefined) savedProviders = patch.providers
+              },
+              mutate: async (_ns: string, ops: { op: string; path: string[]; value?: unknown }[]) => {
+                for (const op of ops) {
+                  if (op.path[0] !== 'providers' || op.path.length !== 2) continue
+                  if (op.op === 'unset') Reflect.deleteProperty(savedProviders, op.path[1] as string)
+                  else savedProviders[op.path[1] as string] = op.value as (typeof savedProviders)[string]
+                }
+              },
+            }
+          }
+          if (name === 'agentDefaultModel') {
+            return {
+              currentSelection: () => defaultSel,
+              saveSelection: async (next: { provider: string; model: string }) => {
+                defaultSel = next
+                return next
+              },
+            }
+          }
+          if (name === 'sessionPersistence') {
+            return {
+              list: async () => [{ id: 'sess-1', createdAt: '2026-11-06T00:00:00Z', updatedAt: '2026-11-06T00:00:00Z' }],
+            }
+          }
+          if (name === 'sessionProjectionCache') {
+            return {
+              cachedSnapshot: () => undefined,
+              coldSnapshot: () => ({}),
+              get: () => ({ lastUsed: { provider: 'xpeach', model: 'swe-2-max' } }),
+            }
+          }
+          if (name === 'sessionController') {
+            return {
+              selectModel: async (req: { sessionId: string; provider: string; model: string }) => {
+                selectModelCalls.push(req)
+              },
+            }
+          }
+          return undefined
+        },
+      }
+
+      const setGroupsOp = Reflect.get(XPeachAccount.prototype, 'setGroupsOp')
+      const syncResult = await setGroupsOp.call(fakeAccount, { groups: ['Claude 渠道'] }, signal)
+      expect(syncResult.ok).toBe(true)
+      expect(syncResult.groups).toEqual(['Claude 渠道'])
+      expect(savedProviders['xpeach-anthropic']?.api).toBe('anthropic-messages')
+      expect(savedProviders['xpeach-anthropic']?.baseURL).toBe('https://fast.xpeach.codes')
+      expect(savedProviders['xpeach-anthropic']?.models?.map(m => m.id)).toEqual(['claude-sonnet-4-6'])
+      expect(defaultSel).toEqual({ provider: 'xpeach-anthropic', model: 'claude-sonnet-4-6' })
+      expect(selectModelCalls).toEqual([
+        { sessionId: 'sess-1', provider: 'xpeach-anthropic', model: 'claude-sonnet-4-6' },
+      ])
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 
-  it('never probes localhost:3000 when XPEACH_SSO_URL is set', async () => {
-    process.env.XPEACH_SSO_DEV_LOCAL = '1'
-    process.env.XPEACH_SSO_URL = 'https://sso.xpeach.codes'
-    const calls = stubFetch404()
-    await expect(authorize(makeApi())).rejects.toThrow()
-    expect(calls).toEqual(['https://sso.xpeach.codes/api/v1/device/authorize'])
+  it('never resolves onto a newer foreign token and writes groups only to the key-bound token', async () => {
+    // Issue #65: a Gemini token minted on the web is newer than ours. Nothing
+    // may read groups from it, and group writes must land on the bound token.
+    const profile = freshProfile()
+    const keyFile = join(profile, 'xpeach.key')
+    const adminKeyFile = join(profile, 'xpeach.admin')
+    const sessionKeyFile = join(profile, 'xpeach.session')
+    const ssoStateFile = join(profile, 'xpeach.sso.json')
+    const routeFile = join(profile, 'xpeach.route.json')
+    const tokenFile = join(profile, 'xpeach.token')
+
+    writeState(keyFile, 'sk-mineRelayKey001\n')
+    writeState(adminKeyFile, 'adm-mineRelayKey001\n')
+    writeState(tokenFile, JSON.stringify({ id: 10, name: 'xph-deepseek', groups: ['DeepSeek Pro'], key: 'sk-mineRelayKey001' }))
+
+    const updatedIds: number[] = []
+    const fakeAccount = Object.create(XPeachAccount.prototype) as Record<string, unknown>
+    Object.assign(fakeAccount, {
+      liveConfig: {},
+      enabledFamilies: [],
+      keyFile,
+      keyVar: 'XPEACH_TEST_GEM_RELAY_KEY',
+      adminKeyFile,
+      adminKeyVar: 'XPEACH_TEST_GEM_ADMIN_KEY',
+      sessionKeyFile,
+      sessionKeyVar: 'XPEACH_TEST_GEM_SESSION_KEY',
+      ssoStateFile,
+      routeFile,
+      apiKeyEnv: 'XPEACH_API_KEY',
+      timeoutMs: 15_000,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        adminTokens: vi.fn(async () => ({
+          items: [
+            { id: 20, name: 'gemini-pro', key: 'geminiKey9999', status: 1, created_time: 300 },
+            { id: 10, name: 'xph-deepseek', key: 'mineRelayKey001', status: 1, created_time: 100 },
+          ],
+          total: 2,
+        })),
+        adminTokenGet: vi.fn(async (id: number) => ({
+          id,
+          name: id === 10 ? 'xph-deepseek' : 'gemini-pro',
+          groups: id === 10 ? ['DeepSeek Pro'] : ['Gemini'],
+        })),
+        adminTokenUpdate: vi.fn(async (payload: { id?: number }) => {
+          updatedIds.push(payload.id ?? -1)
+          return { success: true }
+        }),
+        userTokenKey: vi.fn(async (id: number) => ({ key: id === 10 ? 'sk-mineRelayKey001' : 'sk-geminiKey9999' })),
+        adminTokenKey: vi.fn(async (id: number) => ({ key: id === 10 ? 'sk-mineRelayKey001' : 'sk-geminiKey9999' })),
+        adminPricing: vi.fn(async () => ({
+          entries: [
+            { model_name: 'deepseek-v4.1', enable_groups: ['DeepSeek Pro'] },
+            { model_name: 'gemini-3-pro', enable_groups: ['Gemini'] },
+          ],
+          groupRatio: { 'DeepSeek Pro': 1, Gemini: 1 },
+          usableGroup: { 'DeepSeek Pro': 'DS', Gemini: 'G' },
+        })),
+        models: vi.fn(async () => [{ id: 'deepseek-v4.1' }, { id: 'gemini-3-pro' }]),
+      },
+      ctx: {
+        emit: vi.fn(),
+        get: (name: string) => name === 'settings'
+          ? {
+            describe: () => ({ namespaces: [{ ns: 'llm-pi-ai', value: { providers: {} } }] }),
+            update: vi.fn(async () => {}),
+            mutate: vi.fn(async () => {}),
+          }
+          : undefined,
+      },
+    })
+
+    const siteCatalogOp = Reflect.get(XPeachAccount.prototype, 'siteCatalogOp') as (
+      request: unknown,
+      sig: AbortSignal,
+    ) => Promise<XPeachSiteCatalog>
+    const setGroupsOp = Reflect.get(XPeachAccount.prototype, 'setGroupsOp')
+    const signal = new AbortController().signal
+    const cat = await siteCatalogOp.call(fakeAccount, {}, signal)
+    expect(cat.tokenId).toBe(10)
+    expect(cat.tokenName).toBe('xph-deepseek')
+    expect(cat.tokenGroups).toEqual(['DeepSeek Pro'])
+    expect(updatedIds).toEqual([])
+
+    // A stale record bound to a different key is rebuilt by revealing each
+    // candidate's key — never by name or creation time.
+    writeState(tokenFile, JSON.stringify({ id: 20, name: 'gemini-pro', groups: ['Gemini'], key: 'sk-staleOtherKey001' }))
+    const cat2 = await siteCatalogOp.call(fakeAccount, {}, signal)
+    expect(cat2.tokenId).toBe(10)
+    expect(cat2.tokenGroups).toEqual(['DeepSeek Pro'])
+    expect(updatedIds).toEqual([])
+
+    const res = await setGroupsOp.call(fakeAccount, { groups: ['DeepSeek Pro', 'SWE'] }, signal)
+    expect(res.ok).toBe(true)
+    expect(res.tokenId).toBe(10)
+    expect(res.tokenName).toBe('xph-deepseek')
+    expect(updatedIds).toEqual([10])
+    Reflect.deleteProperty(process.env, 'XPEACH_TEST_GEM_RELAY_KEY')
   })
 })

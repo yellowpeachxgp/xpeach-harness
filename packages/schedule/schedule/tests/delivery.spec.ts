@@ -1,3 +1,4 @@
+import { SessionActivationOwner } from '@xpeach/xph-agent'
 import { Context } from '@xpeach/xph-cordis'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@xpeach/xph-agent-loop-testkit'
 import { SessionId } from '@xpeach/xph-session'
@@ -19,8 +20,8 @@ it('acknowledges the real synchronous inbox splice after flush without claiming 
     const releaseMaintenance = Promise.withResolvers<undefined>()
     const maintenance = agent.runMaintenance(() => releaseMaintenance.promise)
     try {
-      const resolve = vi.fn(async () => ({ agent }))
-      ctx.provide('sessionController', { resolveAgent: resolve } as never)
+      const resolve = vi.fn(async () => agent)
+      ctx.provide('sessionActivation', new SessionActivationOwner(resolve))
       const record = createAfterScheduleRecord(ScheduleId('receipt'), 'Inbox only', 1, Date.now() - 2000, 'Inbox only')
       const tasks: ScheduleTask[] = [{ sessionId: agent.session.id, record, status: 'active' }]
       const flushStarted = Promise.withResolvers<undefined>()

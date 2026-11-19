@@ -6,6 +6,16 @@
  * one module means upstream New API changes touch this file and only this file.
  */
 import { RemoteError } from '@xpeach/xph-typert-protocol'
+import {
+  CaptchaClient,
+  OAuthProtocolError,
+  OidcClient,
+  XpeachClient,
+  isDefinitiveTokenRejection,
+  type OidcTokenSet,
+  type VerifiedAccessIdentity,
+} from '@xpeach/ts-xpeach'
+import { startPkceLoopbackListener } from '@xpeach/ts-xpeach/oidc-node'
 import { ROUTES } from './network.ts'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import type { JsonValue } from '@xpeach/xph-util-values'
@@ -13,10 +23,12 @@ import { dirname } from 'node:path'
 import type {
   XPeachAdminLogEntry, XPeachAdminOverview, XPeachAdminPage, XPeachAdminToken,
   XPeachAdminUser, XPeachBillingRate, XPeachChannel, XPeachChatReply, XPeachChatRequest, XPeachHealthRow, XPeachModel,
-  XPeachModelPricingChange, XPeachModelPricingSnapshot,
-  XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption, XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
+  XPeachModelPerfDetail, XPeachModelPerfSummary, XPeachModelPricingChange, XPeachModelPricingSnapshot,
+  XPeachPerfGroupRow, XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption,
+  XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
   XPeachUserSelf, XPeachSelfLogPage, XPeachSelfLogStat,
-  XPeachSsoBridgePayload, XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
+  XPeachSsoBridgePayload, XPeachSsoCaptchaChallenge, XPeachSsoCaptchaPolicy, XPeachSsoCaptchaScene,
+  XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
 } from './types.ts'
 
 /**
@@ -52,24 +64,13 @@ export function validateSsoBaseUrl(rawUrl: string): string {
 
 /**
  * Resolve the validated candidate SSO origin list for a configured SSO base URL.
- * Loopback (`http://localhost:3000`) is a dev convenience and is appended only
- * when XPEACH_SSO_DEV_LOCAL=1 and no explicit XPEACH_SSO_URL is configured.
+ * Never falls back to plaintext loopback (`http://localhost:3000`).
  *
  * @param ssoBaseURL - configured SSO base URL.
- * @returns candidate SSO origins, with loopback appended only in dev mode.
+ * @returns single-element array containing the normalized SSO origin.
  */
 export function candidateSsoBaseURLs(ssoBaseURL: string): string[] {
-  const primary = validateSsoBaseUrl(ssoBaseURL)
-  const candidates = [primary]
-  const fallbackLocal = 'http://localhost:3000'
-  // Loopback probing is a dev convenience — anything bound to :3000 can
-  // intercept device codes. Requires XPEACH_SSO_DEV_LOCAL=1 AND no explicit
-  // XPEACH_SSO_URL (an explicit URL is a declaration, never a probe hint).
-  const devLocal = process.env.XPEACH_SSO_DEV_LOCAL === '1' && !process.env.XPEACH_SSO_URL?.trim()
-  if (devLocal && primary !== fallbackLocal) {
-    candidates.push(fallbackLocal)
-  }
-  return candidates
+  return [validateSsoBaseUrl(ssoBaseURL)]
 }
 
 /**
@@ -144,6 +145,36 @@ interface PriceCacheEntry {
   entries: XPeachPricingCatalog['entries']
   groupRatio: XPeachPricingCatalog['groupRatio']
   groups: GroupCatalog
+}
+
+/** 校验模型列表实际被同步逻辑消费的字段，未知扩展字段保持兼容。 */
+function isModelEntry(value: unknown): value is XPeachModel {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const fields = value as Record<string, unknown>
+  return typeof fields.id === 'string' && fields.id.trim().length > 0
+    && ['name', 'object', 'owned_by', 'provider', 'defaultReasoningEffort']
+      .every(key => fields[key] === undefined || typeof fields[key] === 'string')
+    && ['created', 'contextWindow', 'maxTokens']
+      .every(key => fields[key] === undefined || (typeof fields[key] === 'number' && Number.isFinite(fields[key])))
+    && ['groups', 'supported_endpoint_types'].every(key => fields[key] === undefined
+      || (Array.isArray(fields[key]) && fields[key].every(item => typeof item === 'string')))
+    && (fields.inputModalities === undefined || (Array.isArray(fields.inputModalities)
+      && fields.inputModalities.every(item => item === 'text' || item === 'image')))
+}
+
+/** 校验公开用量字段；负余额与无限期有效，未知扩展字段保持兼容。 */
+function isTokenUsage(value: unknown): value is XPeachTokenUsage {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const fields = value as Record<string, unknown>
+  return typeof fields.name === 'string'
+    && ['total_granted', 'total_used', 'total_available', 'expires_at']
+      .every(key => typeof fields[key] === 'number' && Number.isFinite(fields[key]))
+    && typeof fields.unlimited_quota === 'boolean'
+    && typeof fields.model_limits_enabled === 'boolean'
+}
+
+function isRedirectResponse(response: Response): boolean {
+  return response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
 }
 
 /** HTTP adapter for XPeach relay, session, and site-administration endpoints. */
@@ -335,23 +366,37 @@ export class XPeachApi {
    * @returns the first successful response.
    */
   private async send(url: string, init: RequestInit, timeoutMs: number, signal: AbortSignal): Promise<Response> {
-    const origin = new URL(url).origin
+    const parsed = new URL(url)
+    const origin = parsed.origin
     const attempts = [url]
-    for (const route of ROUTES) {
-      if (route.url === origin) continue
-      attempts.push(route.url + new URL(url).pathname + new URL(url).search)
+    // 仅当当前站点属于内置官方多线路路由池时才允许跨线路容灾，
+    // 严格防止本地回环或私有/测试环境的 Bearer Token 与 API Key 泄漏至生产默认端点。
+    if (ROUTES.some(route => route.url === origin)) {
+      for (const route of ROUTES) {
+        if (route.url === origin) continue
+        attempts.push(route.url + parsed.pathname + parsed.search)
+      }
     }
     let last: unknown
     for (const [index, target] of attempts.entries()) {
       try {
         const response = await fetch(target, {
           ...init,
+          redirect: 'manual',
           signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
         })
+        if (isRedirectResponse(response)) {
+          await response.body?.cancel().catch(() => {})
+          throw new RemoteError(
+            'xpeach/request-failed',
+            `xpeach: unexpected redirect (${String(response.status)}) from ${target}`,
+            { status: response.status, message: 'redirect-blocked' },
+          )
+        }
         if (index > 0) this.setBaseURL(new URL(target).origin)
         return response
       } catch (cause) {
-        if (signal.aborted) throw cause
+        if (signal.aborted || cause instanceof RemoteError) throw cause
         last = cause
       }
     }
@@ -363,7 +408,7 @@ export class XPeachApi {
     try {
       response = await this.send(url, init, timeoutMs, signal)
     } catch (cause) {
-      if (signal.aborted) throw cause
+      if (signal.aborted || cause instanceof RemoteError) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body: unknown = await response.json().catch(() => undefined)
@@ -374,7 +419,7 @@ export class XPeachApi {
         (response.status === 401 || response.status === 403)
         && this.onAuthRejected !== undefined
         && this.adminKeyOverride === undefined
-        && this.sessionKeyOverride === undefined
+        && (this.sessionKeyOverride === undefined || this.sessionKeyOverride === this.resolveCookie())
       ) {
         let pathname = url
         try {
@@ -406,10 +451,15 @@ export class XPeachApi {
    * Fetch usage totals for the calling relay API token.
    *
    * @param signal - request cancellation signal.
-   * @returns token usage summary.
+   * @returns 字段已校验的令牌用量；无效 JSON、缺失或错误字段拒绝读取。
    */
-  tokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
-    return this.keyGet('/api/usage/token/', signal)
+  async tokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
+    const usage = await this.keyGet<unknown>('/api/usage/token/', signal)
+    signal.throwIfAborted()
+    if (!isTokenUsage(usage)) {
+      throw new RemoteError('xpeach/request-failed', '令牌用量响应无效，未能验证密钥；请检查中转服务后重试。', { status: 0, message: 'invalid-token-usage' })
+    }
+    return usage
   }
 
   /**
@@ -422,26 +472,120 @@ export class XPeachApi {
     return this.keyGet('/api/log/token', signal)
   }
 
+  private async fetchRawGroupCatalog(signal: AbortSignal): Promise<GroupCatalog> {
+    if (this.currentAdmin() !== undefined || this.currentCookie() !== undefined) {
+      try {
+        const selfGroups: unknown = await this.authedGet<GroupCatalog>('/api/user/self/groups', signal)
+        if (selfGroups !== undefined && typeof selfGroups === 'object' && !Array.isArray(selfGroups)) {
+          return selfGroups as GroupCatalog
+        }
+      } catch (_err) {
+        if (signal.aborted) throw signal.reason
+      }
+    }
+    return await this.keyGet<GroupCatalog>('/api/user/groups', signal)
+  }
+
+  private mergeGroupCatalogWithPricing(
+    rawGroups: GroupCatalog | undefined,
+    pricing: XPeachPricingCatalog | undefined,
+  ): GroupCatalog {
+    const merged: Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }> = {}
+    const modelSets = new Map<string, Set<string>>()
+
+    for (const [groupName, meta] of Object.entries(rawGroups ?? {})) {
+      const set = new Set<string>(
+        Array.isArray(meta.models)
+          ? meta.models.filter((m): m is string => typeof m === 'string' && m.length > 0)
+          : [],
+      )
+      modelSets.set(groupName, set)
+      merged[groupName] = {
+        ...(meta.desc !== undefined ? { desc: meta.desc } : {}),
+        ...(meta.ratio !== undefined ? { ratio: meta.ratio } : {}),
+        models: [...set],
+      }
+    }
+
+    if (pricing !== undefined) {
+      const usableKeys = pricing.usableGroup !== undefined ? Object.keys(pricing.usableGroup) : []
+      const usableSet = usableKeys.length > 0 ? new Set(usableKeys) : undefined
+      for (const entry of pricing.entries) {
+        if (typeof entry.model_name !== 'string' || entry.model_name.length === 0) continue
+        for (const groupName of entry.enable_groups ?? []) {
+          if (typeof groupName !== 'string' || groupName.length === 0) continue
+          if (usableSet !== undefined && !usableSet.has(groupName) && !(groupName in merged)) continue
+          let set = modelSets.get(groupName)
+          if (set === undefined) {
+            set = new Set<string>()
+            modelSets.set(groupName, set)
+          }
+          set.add(entry.model_name)
+        }
+      }
+      if (pricing.usableGroup !== undefined) {
+        for (const groupName of Object.keys(pricing.usableGroup)) {
+          if (groupName.length === 0) continue
+          if (!modelSets.has(groupName)) {
+            modelSets.set(groupName, new Set<string>())
+          }
+        }
+      }
+      for (const [groupName, set] of modelSets) {
+        const existing = merged[groupName]
+        const usableDesc = pricing.usableGroup?.[groupName]
+        const desc = existing?.desc ?? (usableDesc !== undefined && usableDesc !== '' ? usableDesc : undefined)
+        const ratio = existing?.ratio ?? pricing.groupRatio[groupName]
+        merged[groupName] = {
+          ...(desc !== undefined ? { desc } : {}),
+          ...(ratio !== undefined ? { ratio } : {}),
+          models: [...set],
+        }
+      }
+    }
+
+    return merged
+  }
+
   /**
-   * Site group catalog the token can see — `{ name → { desc, models, ratio } }`.
+   * Site group catalog the user/token can see — `{ name → { desc, models, ratio } }`.
+   * Queries `/api/user/self/groups` with the user's Access Token (falling back to
+   * `/api/user/groups`) and merges group-model memberships from `/api/pricing`
+   * so user-specific and partner groups always carry their complete `models` list.
    *
    * @param signal - request cancellation signal.
    * @returns group descriptors keyed by group name.
    */
-  groups(signal: AbortSignal): Promise<GroupCatalog> {
-    return this.keyGet('/api/user/groups', signal)
+  async groups(signal: AbortSignal): Promise<GroupCatalog> {
+    const [rawGroups, pricing] = await Promise.all([
+      this.fetchRawGroupCatalog(signal).catch((err: unknown) => {
+        if (signal.aborted) throw err
+        return undefined
+      }),
+      this.adminPricing(signal).catch((err: unknown) => {
+        if (signal.aborted) throw err
+        return undefined
+      }),
+    ])
+    if (rawGroups === undefined && pricing === undefined) {
+      return await this.fetchRawGroupCatalog(signal)
+    }
+    return this.mergeGroupCatalogWithPricing(rawGroups, pricing)
   }
 
   /**
    * Fetch the `/v1/models` catalog visible to the calling relay API token.
    *
    * @param signal - request cancellation signal.
-   * @returns model catalog entries.
+   * @returns 经过字段校验的模型目录；空数组有效，解析或字段错误拒绝读取。
    */
   async models(signal: AbortSignal): Promise<readonly XPeachModel[]> {
     const list = await this.keyGet<unknown>('/v1/models', signal)
     const items = (list as { data?: unknown } | null | undefined)?.data ?? list
-    return Array.isArray(items) ? items as readonly XPeachModel[] : []
+    if (!Array.isArray(items) || !items.every(isModelEntry)) {
+      throw new RemoteError('xpeach/request-failed', '模型目录响应无效，已停止同步并保留原目录；请稍后重试或检查中转服务。', { status: 0, message: 'invalid-model-catalog' })
+    }
+    return items
   }
 
   /**
@@ -474,6 +618,11 @@ export class XPeachApi {
     return this.adminGet('/api/token/?p=1&size=50', signal)
   }
 
+  private isAnthropicModel(model: string): boolean {
+    const trimmed = model.trim()
+    return /(?:^|\/|[-_])claude[-_0-9]/iu.test(trimmed) || /^claude$/iu.test(trimmed)
+  }
+
   /**
    * Execute a non-streamed chat completion against the relay.
    *
@@ -483,6 +632,65 @@ export class XPeachApi {
    */
   async chat(request: XPeachChatRequest, signal: AbortSignal): Promise<XPeachChatReply> {
     const started = Date.now()
+    if (this.isAnthropicModel(request.model)) {
+      const key = await this.resolveKey()
+      const url = this.baseURL + '/v1/messages'
+      let response: Response
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          redirect: 'manual',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + key,
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'X-Conversation-ID': 'xpeach-console-playground',
+          },
+          body: JSON.stringify({
+            model: request.model,
+            messages: [{ role: 'user', content: request.prompt }],
+            stream: false,
+            max_tokens: request.maxTokens ?? 4096,
+          }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs * 3)]),
+        })
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
+      }
+      if (isRedirectResponse(response)) {
+        await response.body?.cancel().catch(() => {})
+        throw new RemoteError(
+          'xpeach/request-failed',
+          `xpeach: /v1/messages unexpected redirect (${String(response.status)})`,
+          { status: response.status, message: 'redirect-blocked' },
+        )
+      }
+      if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        const snippet = text.slice(0, 200)
+        throw new RemoteError(
+          'xpeach/request-failed',
+          `xpeach: /v1/messages rejected: ${String(response.status)} ${snippet}`,
+          { status: response.status, message: snippet },
+        )
+      }
+      const body = await response.json() as {
+        content?: { type?: string; text?: string }[]
+        choices?: { message?: { content?: string } }[]
+        usage?: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
+      }
+      const textContent = Array.isArray(body.content)
+        ? body.content.filter(b => b.type === 'text' && typeof b.text === 'string').map(b => b.text).join('')
+        : (body.choices?.[0]?.message?.content ?? '')
+      return {
+        content: textContent,
+        promptTokens: body.usage?.input_tokens ?? body.usage?.prompt_tokens ?? 0,
+        completionTokens: body.usage?.output_tokens ?? body.usage?.completion_tokens ?? 0,
+        latencyMs: Date.now() - started,
+      }
+    }
     const body = await this.keyPost<{
       choices?: { message?: { content?: string } }[]
       usage?: { prompt_tokens?: number; completion_tokens?: number }
@@ -511,34 +719,57 @@ export class XPeachApi {
   async chatStream(request: XPeachChatRequest, onDelta: (delta: string) => void, signal: AbortSignal): Promise<XPeachChatReply> {
     const started = Date.now()
     const key = await this.resolveKey()
-    const url = this.baseURL + '/v1/chat/completions'
+    const useAnthropic = this.isAnthropicModel(request.model)
+    const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
+    const url = this.baseURL + endpointPath
     let response: Response
     try {
       response = await fetch(url, {
         method: 'POST',
+        redirect: 'manual',
         headers: {
-          Authorization: 'Bearer ' + key, Accept: 'text/event-stream', 'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + key,
+          ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
+          Accept: 'text/event-stream',
+          'Content-Type': 'application/json',
           'X-Conversation-ID': 'xpeach-console-playground',
         },
-        body: JSON.stringify({
-          model: request.model,
-          messages: [{ role: 'user', content: request.prompt }],
-          stream: true,
-          stream_options: { include_usage: true },
-          max_tokens: request.maxTokens ?? 4096,
-        }),
+        body: JSON.stringify(
+          useAnthropic
+            ? {
+              model: request.model,
+              messages: [{ role: 'user', content: request.prompt }],
+              stream: true,
+              max_tokens: request.maxTokens ?? 4096,
+            }
+            : {
+              model: request.model,
+              messages: [{ role: 'user', content: request.prompt }],
+              stream: true,
+              stream_options: { include_usage: true },
+              max_tokens: request.maxTokens ?? 4096,
+            },
+        ),
         signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs * 3)]),
       })
     } catch (cause) {
       if (signal.aborted) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
     }
+    if (isRedirectResponse(response)) {
+      await response.body?.cancel().catch(() => {})
+      throw new RemoteError(
+        'xpeach/request-failed',
+        `xpeach: ${endpointPath} unexpected redirect (${String(response.status)})`,
+        { status: response.status, message: 'redirect-blocked' },
+      )
+    }
     if (!response.ok || response.body === null) {
       const text = await response.text().catch(() => '')
       const snippet = text.slice(0, 200)
       throw new RemoteError(
         'xpeach/request-failed',
-        `xpeach: /v1/chat/completions rejected: ${String(response.status)} ${snippet}`,
+        `xpeach: ${endpointPath} rejected: ${String(response.status)} ${snippet}`,
         { status: response.status, message: snippet },
       )
     }
@@ -548,10 +779,14 @@ export class XPeachApi {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let completed = false
     try {
       for (;;) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          completed = true
+          break
+        }
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split(String.fromCharCode(10))
         buffer = lines.pop() ?? ''
@@ -560,25 +795,36 @@ export class XPeachApi {
           if (!trimmed.startsWith('data:')) continue
           const data = trimmed.slice(5).trim()
           if (data === '[DONE]') continue
-          let parsed: { choices?: { delta?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } }
+          let parsed: {
+            type?: string
+            delta?: { type?: string; text?: string }
+            message?: { usage?: { input_tokens?: number; output_tokens?: number } }
+            choices?: { delta?: { content?: string } }[]
+            usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number }
+          }
           try {
-            parsed = JSON.parse(data) as {
-              choices?: { delta?: { content?: string } }[]
-              usage?: { prompt_tokens?: number; completion_tokens?: number }
-            }
+            parsed = JSON.parse(data) as typeof parsed
           } catch (_err) { continue }
           const delta = parsed.choices?.[0]?.delta?.content
+            ?? (parsed.type === 'content_block_delta' ? parsed.delta?.text : undefined)
           if (typeof delta === 'string' && delta.length > 0) {
             content += delta
             onDelta(delta)
           }
+          if (parsed.message?.usage) {
+            promptTokens = parsed.message.usage.input_tokens ?? promptTokens
+            completionTokens = parsed.message.usage.output_tokens ?? completionTokens
+          }
           if (parsed.usage) {
-            promptTokens = parsed.usage.prompt_tokens ?? promptTokens
-            completionTokens = parsed.usage.completion_tokens ?? completionTokens
+            promptTokens = parsed.usage.prompt_tokens ?? parsed.usage.input_tokens ?? promptTokens
+            completionTokens = parsed.usage.completion_tokens ?? parsed.usage.output_tokens ?? completionTokens
           }
         }
       }
     } finally {
+      if (!completed) {
+        await reader.cancel().catch(() => {})
+      }
       reader.releaseLock()
     }
     return { content, promptTokens, completionTokens, latencyMs: Date.now() - started }
@@ -596,11 +842,15 @@ export class XPeachApi {
     const started = Date.now()
     try {
       const key = await this.resolveKey()
-      const response = await fetch(this.baseURL + '/v1/chat/completions', {
+      const useAnthropic = this.isAnthropicModel(model)
+      const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
+      const response = await fetch(this.baseURL + endpointPath, {
         method: 'POST',
+        redirect: 'manual',
         headers: {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + key,
+          ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
           // A real tracking header keeps the probe out of the site's
           // probe-classifier path — bare requests 400 on missing tracking.
           'X-Conversation-ID': 'xpeach-health-probe',
@@ -609,6 +859,10 @@ export class XPeachApi {
         signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
       })
       const latencyMs = Date.now() - started
+      if (isRedirectResponse(response)) {
+        await response.body?.cancel().catch(() => {})
+        return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: redirect blocked` }
+      }
       const text = await response.text()
       if (!response.ok) return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: ${text.slice(0, 120)}` }
       // A 200 can still be a mock channel answering "[Mock]本分组禁探针" —
@@ -706,19 +960,20 @@ export class XPeachApi {
     if (this.priceCache !== undefined && Date.now() - this.priceCache.at < XPeachApi.PRICE_TTL_MS && !force) {
       return { ...this.priceCache, stale: false }
     }
-    const [pricing, groups] = await Promise.all([
+    const [pricing, rawGroups] = await Promise.all([
       this.adminPricing(signal).catch(() => undefined),
-      this.groups(signal).catch(() => undefined),
+      this.fetchRawGroupCatalog(signal).catch(() => undefined),
     ])
-    if (pricing === undefined && groups === undefined) {
+    if (pricing === undefined && rawGroups === undefined) {
       if (this.priceCache !== undefined) return { ...this.priceCache, stale: true }
       throw new RemoteError('xpeach/request-failed', 'xpeach: price sync failed and no cache exists', { status: 0, message: 'sync failed' })
     }
+    const mergedGroups = this.mergeGroupCatalogWithPricing(rawGroups, pricing)
     this.priceCache = {
       at: Date.now(),
-      entries: pricing?.entries ?? this.priceCache?.entries ?? [],
+      entries: (pricing?.entries !== undefined && pricing.entries.length > 0) ? pricing.entries : (this.priceCache?.entries ?? []),
       groupRatio: pricing?.groupRatio ?? this.priceCache?.groupRatio ?? {},
-      groups: groups ?? this.priceCache?.groups ?? {},
+      groups: Object.keys(mergedGroups).length > 0 ? mergedGroups : (this.priceCache?.groups ?? {}),
     }
     this.savePriceCache()
     return { ...this.priceCache, stale: false }
@@ -744,32 +999,148 @@ export class XPeachApi {
    */
   async adminPricing(signal: AbortSignal): Promise<XPeachPricingCatalog> {
     const key = this.currentAdmin()
-    if (key === undefined) {
-      throw new RemoteError('xpeach/missing-credential', 'xpeach: no site-management token; drop it at the profile xpeach.admin file', { ref: 'admin' })
-    }
+    const cookie = this.currentCookie()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (key !== undefined) headers['Authorization'] = key
+    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
     let response: Response
     try {
-      response = await fetch(this.baseURL + '/api/pricing', {
-        headers: { Authorization: key, Accept: 'application/json' },
-        signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
-      })
+      response = await this.send(this.baseURL + '/api/pricing', {
+        headers,
+      }, this.timeoutMs, signal)
     } catch (cause) {
       if (signal.aborted) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: pricing fetch failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body = await response.json().catch(() => undefined) as
       | {
+        message?: string
+        error?: string
         data?: readonly XPeachPricingEntry[]
         group_ratio?: Record<string, number>
         usable_group?: Record<string, string>
         auto_groups?: readonly string[]
       }
       | undefined
+    if (!response.ok) {
+      const msg = typeof body?.message === 'string'
+        ? body.message
+        : typeof body?.error === 'string'
+          ? body.error
+          : response.statusText
+      throw new RemoteError('xpeach/request-failed', 'xpeach: pricing fetch rejected: ' + msg, { status: response.status, message: msg })
+    }
     return {
       entries: body?.data ?? [],
       groupRatio: body?.group_ratio ?? {},
       ...(body?.usable_group !== undefined ? { usableGroup: body.usable_group } : {}),
       ...(Array.isArray(body?.auto_groups) ? { autoGroups: body.auto_groups } : {}),
+    }
+  }
+
+  /**
+   * Fetch 24-hour performance summaries across all models from PeachAPI's
+   * `/api/perf-metrics/summary`.
+   *
+   * @param hours - lookback window in hours (`1 <= hours <= 168`, default `24`).
+   * @param signal - request cancellation signal.
+   * @returns list of model performance summaries.
+   */
+  async perfMetricsSummary(hours: number, signal: AbortSignal): Promise<readonly XPeachModelPerfSummary[]> {
+    const safeHours = Math.max(1, Math.min(168, Math.floor(Number.isFinite(hours) ? hours : 24)))
+    const key = this.currentAdmin()
+    const cookie = this.currentCookie()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (key !== undefined) headers['Authorization'] = key
+    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
+    let response: Response
+    try {
+      response = await this.send(
+        `${this.baseURL}/api/perf-metrics/summary?hours=${String(safeHours)}`,
+        { headers },
+        this.timeoutMs,
+        signal,
+      )
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf summary fetch failed: ' + String(cause), { status: 0, message: String(cause) })
+    }
+    const body = await response.json().catch(() => undefined) as
+      | {
+        success?: boolean
+        message?: string
+        data?: { models?: readonly XPeachModelPerfSummary[] } | readonly XPeachModelPerfSummary[]
+        models?: readonly XPeachModelPerfSummary[]
+      }
+      | undefined
+    if (!response.ok || body?.success === false) {
+      const msg = typeof body?.message === 'string' ? body.message : response.statusText
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf summary rejected: ' + msg, { status: response.status, message: msg })
+    }
+    const data = body?.data
+    if (Array.isArray(data)) return data as readonly XPeachModelPerfSummary[]
+    if (data !== undefined && typeof data === 'object' && Array.isArray((data as { models?: unknown }).models)) {
+      return (data as { models: readonly XPeachModelPerfSummary[] }).models
+    }
+    const models = body?.models
+    if (Array.isArray(models)) return models as readonly XPeachModelPerfSummary[]
+    return []
+  }
+
+  /**
+   * Fetch per-group 24-hour performance telemetry and hourly time series for one
+   * model from PeachAPI's `/api/perf-metrics`.
+   *
+   * @param model - target model identifier.
+   * @param hours - lookback window in hours (`1 <= hours <= 168`, default `24`).
+   * @param signal - request cancellation signal.
+   * @returns model performance detail grouped by channel group.
+   */
+  async perfMetricsDetail(model: string, hours: number, signal: AbortSignal): Promise<XPeachModelPerfDetail> {
+    const safeHours = Math.max(1, Math.min(168, Math.floor(Number.isFinite(hours) ? hours : 24)))
+    const key = this.currentAdmin()
+    const cookie = this.currentCookie()
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (key !== undefined) headers['Authorization'] = key
+    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
+    let response: Response
+    try {
+      response = await this.send(
+        `${this.baseURL}/api/perf-metrics?model=${encodeURIComponent(model)}&hours=${String(safeHours)}`,
+        { headers },
+        this.timeoutMs,
+        signal,
+      )
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf detail fetch failed: ' + String(cause), { status: 0, message: String(cause) })
+    }
+    const body = await response.json().catch(() => undefined) as
+      | {
+        success?: boolean
+        message?: string
+        data?: {
+          model_name?: string
+          hours?: number
+          series_schema?: string
+          groups?: readonly XPeachPerfGroupRow[]
+        }
+        model_name?: string
+        hours?: number
+        series_schema?: string
+        groups?: readonly XPeachPerfGroupRow[]
+      }
+      | undefined
+    if (!response.ok || body?.success === false) {
+      const msg = typeof body?.message === 'string' ? body.message : response.statusText
+      throw new RemoteError('xpeach/request-failed', 'xpeach: perf detail rejected: ' + msg, { status: response.status, message: msg })
+    }
+    const payload = body?.data ?? body
+    return {
+      model_name: typeof payload?.model_name === 'string' && payload.model_name.length > 0 ? payload.model_name : model,
+      ...(typeof payload?.hours === 'number' ? { hours: payload.hours } : { hours: safeHours }),
+      ...(typeof payload?.series_schema === 'string' ? { series_schema: payload.series_schema } : {}),
+      groups: Array.isArray(payload?.groups) ? payload.groups : [],
     }
   }
 
@@ -1019,76 +1390,6 @@ export class XPeachApi {
   }
 
   /**
-   * Interactive login: launch a persistent (headed) Chromium on the site's login
-   * page; the user solves Turnstile in the window, and the session cookie is
-   * harvested the moment it lands. The temp profile is deleted on exit.
-   *
-   * @param signal - request cancellation signal.
-   * @returns harvested `session` cookie value.
-   */
-  async sessionLoginInteractive(signal: AbortSignal): Promise<string> {
-    // Playwright ships with the workspace's web test tooling, not this package —
-    // resolve through the apps/web package (monorepo sibling) via createRequire.
-    const { createRequire } = await import('node:module')
-    const { fileURLToPath, pathToFileURL } = await import('node:url')
-    const anchors = [
-      fileURLToPath(new URL('../../../../apps/web/package.json', import.meta.url)),
-      fileURLToPath(new URL('../../../apps/web/package.json', import.meta.url)),
-      fileURLToPath(new URL('../../apps/web/package.json', import.meta.url)),
-    ]
-    let mod: unknown = null
-    const tried: string[] = []
-    for (const rel of anchors) {
-      try {
-        const req = createRequire(rel)
-        mod = await import(pathToFileURL(req.resolve('playwright')).href)
-        break
-      } catch (e) { tried.push(rel + ':' + String(e).slice(0, 60)) }
-    }
-    if (mod === null) {
-      const bareSpec = 'playwright'
-      try { mod = await import(bareSpec) } catch (e) { tried.push('bare:' + String(e).slice(0, 60)) }
-    }
-    if (mod === null) throw new Error('playwright unavailable [' + tried.join(' | ') + ']')
-    const pw = ((mod as { default?: unknown }).default ?? mod) as {
-      chromium?: { launchPersistentContext(dir: string, opts: Record<string, unknown>): Promise<{
-        pages(): { isClosed(): boolean; goto(url: string, o: Record<string, unknown>): Promise<unknown> }[]
-        newPage(): Promise<{ isClosed(): boolean; goto(url: string, o: Record<string, unknown>): Promise<unknown> }>
-        cookies(url: string): Promise<{ name: string; value: string }[]>
-        close(): Promise<void>
-      }> }
-    }
-    if (pw.chromium === undefined) throw new Error('playwright module shape unexpected: ' + Object.keys(mod as object).join(','))
-    const os = await import('node:os')
-    const path = await import('node:path')
-    const profileDir = path.join(os.tmpdir(), `xpeach-login-${String(Date.now())}`)
-    console.error('[xpeach-login] resolved playwright, launching headed chromium…')
-    const context = await pw.chromium.launchPersistentContext(profileDir, { headless: false, args: ['--window-size=480,720'], timeout: 20000 })
-    console.error('[xpeach-login] chromium up, goto login page')
-    try {
-      const page = context.pages()[0] ?? await context.newPage()
-      await page.goto(this.baseURL + '/login', { waitUntil: 'domcontentloaded', timeout: 30000 })
-      console.error('[xpeach-login] login page loaded, polling cookies')
-      const deadline = Date.now() + 120_000
-      while (Date.now() < deadline) {
-        if (signal.aborted) throw new Error('login cancelled')
-        const cookies: { name: string; value: string }[] = await context.cookies(this.baseURL)
-        const hit = cookies.find(c => c.name === 'session' && c.value !== '')
-        if (hit !== undefined) return hit.value
-        await new Promise(res => setTimeout(res, 1500))
-        // Window closed by the user → abort quietly.
-        if (!page.isClosed()) continue
-        throw new Error('login window closed before sign-in')
-      }
-      throw new Error('login timed out (120s)')
-    } finally {
-      await context.close().catch(() => {})
-      const { rmSync } = await import('node:fs')
-      try { rmSync(profileDir, { recursive: true, force: true }) } catch (_err) { /* best effort */ }
-    }
-  }
-
-  /**
    * Reveal a token's full key (session scope, CriticalRateLimit).
    *
    * @param id - token row identifier.
@@ -1204,14 +1505,24 @@ export class XPeachApi {
   }
 
   /**
-   * Read one token row (access-token channel).
+   * Read one token row (access-token channel), falling back to the token list
+   * when single-item lookup is unsupported by the site version.
    *
    * @param id - token row identifier.
    * @param signal - request cancellation signal.
    * @returns token row fields.
    */
-  adminTokenGet(id: number, signal: AbortSignal): Promise<Record<string, JsonValue>> {
-    return this.adminGet<Record<string, JsonValue>>(`/api/token/${String(id)}`, signal)
+  async adminTokenGet(id: number, signal: AbortSignal): Promise<Record<string, JsonValue>> {
+    try {
+      return await this.adminGet<Record<string, JsonValue>>(`/api/token/${String(id)}`, signal)
+    } catch (err) {
+      const page = await this.adminTokens(0, 100, signal).catch(() => undefined)
+      const matched = page?.items.find(item => item.id === id)
+      if (matched !== undefined) {
+        return { ...matched }
+      }
+      throw err
+    }
   }
 
   /**
@@ -1360,103 +1671,149 @@ export class XPeachApi {
     return this.adminWrite('PATCH', '/api/option/model_pricing', { changes }, signal)
   }
 
-  /* ---------- XPeach SSO Device Authorization & Bridge surfaces ---------- */
+  /* ---------- XPeach SSO Official SDK (@xpeach/ts-xpeach) surfaces ---------- */
 
   /**
    * Resolve the validated candidate SSO origin list for a configured SSO base URL.
    *
    * @param ssoBaseURL - configured SSO base URL.
-   * @returns candidate SSO origins, with loopback appended only in dev mode.
+   * @returns single-element array containing the normalized SSO origin.
    */
   candidateSsoBaseURLs(ssoBaseURL: string): string[] {
     return candidateSsoBaseURLs(ssoBaseURL)
   }
 
+  private createSsoOidcClient(ssoBaseURL: string, clientId = 'xpeach-harness'): { activeBase: string; oidc: OidcClient } {
+    const activeBase = this.candidateSsoBaseURLs(ssoBaseURL)[0] ?? validateSsoBaseUrl(ssoBaseURL)
+    const effectiveClientId = clientId.trim() || 'xpeach-harness'
+    const oidc = new OidcClient({
+      baseUrl: activeBase,
+      clientId: effectiveClientId,
+      timeoutMs: Math.min(this.timeoutMs, 8000),
+      retry: { maxAttempts: 1 },
+    })
+    return { activeBase, oidc }
+  }
+
+  private buildBridgePayloadFromVerifiedIdentity(
+    tokenSet: Pick<OidcTokenSet, 'accessToken' | 'expiresIn'> & {
+      readonly refreshToken?: string | undefined
+      readonly idToken?: string | undefined
+    },
+    identity: VerifiedAccessIdentity,
+  ): XPeachSsoBridgePayload {
+    const cleanRelayBase = this.baseURL.trim().replace(/\/+$/u, '')
+    const fallbackName = identity.username ?? identity.name ?? identity.sub
+    return {
+      sso: {
+        accessToken: tokenSet.accessToken,
+        ...(tokenSet.refreshToken ? { refreshToken: tokenSet.refreshToken } : {}),
+        ...(tokenSet.idToken ? { idToken: tokenSet.idToken } : {}),
+        expiresIn: tokenSet.expiresIn,
+        user: {
+          id: identity.sub,
+          username: identity.username,
+          email: identity.email,
+          name: identity.name,
+        },
+      },
+      peachcode: {
+        ...(cleanRelayBase.length > 0 ? { baseUrl: cleanRelayBase } : {}),
+        username: fallbackName,
+        group: identity.group,
+        accessToken: tokenSet.accessToken,
+      },
+    }
+  }
+
   /**
-   * Initiate an XPeach SSO Device Authorization session (`POST /api/v1/device/authorize`).
+   * Start a 1-click OIDC Authorization Code + PKCE S256 loopback login listener
+   * via `@xpeach/ts-xpeach/oidc-node` so local Desktop/Web/CLI sessions complete
+   * immediately upon browser approval without device-code polling.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param clientId - registered OAuth public client identifier.
+   * @param signal - request cancellation signal.
+   * @param preferredPorts - candidate loopback ports (defaults to `[18920, 18921, 18922, 0]`).
+   * @returns authorization URL, redirect URI, expiry, and completion handle.
+   */
+  async ssoPkceLoopbackStart(
+    ssoBaseURL: string,
+    clientId: string,
+    signal: AbortSignal,
+    preferredPorts: readonly number[] = [18920, 18921, 18922, 0],
+  ): Promise<{
+    readonly authorizationUrl: string
+    readonly redirectUri: string
+    readonly expiresIn: number
+    readonly waitForApproval: () => Promise<XPeachSsoBridgePayload>
+    readonly close: () => Promise<void>
+  }> {
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const listener = await startPkceLoopbackListener({
+      oidc,
+      preferredPorts,
+      scope: 'openid profile email offline_access api',
+      timeoutMs: 300_000,
+      signal,
+    })
+    const safeAuthorizationUrl = validateVerificationUrl(listener.authorizationUrl, activeBase)
+    return {
+      authorizationUrl: safeAuthorizationUrl,
+      redirectUri: listener.redirectUri,
+      expiresIn: 300,
+      waitForApproval: async (): Promise<XPeachSsoBridgePayload> => {
+        const tokenSet = await listener.waitForTokens()
+        const identity = await oidc.verifyAccessToken(tokenSet.accessToken, { signal })
+        return this.buildBridgePayloadFromVerifiedIdentity(tokenSet, identity)
+      },
+      close: () => listener.close(),
+    }
+  }
+
+  /**
+   * Initiate an XPeach SSO RFC 8628 Device Authorization session (`POST /device/auth`)
+   * exclusively through the official `@xpeach/ts-xpeach` SDK.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
    * @param clientId - registered client identifier.
-   * @param clientName - human-readable device/client label.
+   * @param _clientName - human-readable device/client label.
    * @param signal - request cancellation signal.
    * @returns device code, user code, verification URLs, and polling parameters.
    */
   async ssoDeviceAuthorize(
     ssoBaseURL: string,
     clientId: string,
-    clientName: string,
+    _clientName: string,
     signal: AbortSignal,
   ): Promise<Omit<XPeachSsoDeviceStartResult, 'browserOpened'>> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    let response: Response | undefined
-    let activeBase = candidates[0] ?? validateSsoBaseUrl(ssoBaseURL)
-    let lastCause: unknown
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(`${candidate}/api/v1/device/authorize`, {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientId,
-            clientName,
-            scope: 'openid profile email offline_access peachcode:credentials',
-          }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        response = res
-        activeBase = candidate
-        break
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        lastCause = cause
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    try {
+      const started = await oidc.startDeviceAuthorization(
+        { scope: 'openid profile email offline_access api' },
+        { signal },
+      )
+      const verificationUri = validateVerificationUrl(started.verificationUri, activeBase)
+      const rawComplete = started.verificationUriComplete ?? `${verificationUri}?user_code=${encodeURIComponent(started.userCode)}`
+      const verificationUriComplete = validateVerificationUrl(rawComplete, activeBase)
+      return {
+        deviceCode: started.deviceCode,
+        userCode: started.userCode,
+        verificationUri,
+        verificationUriComplete,
+        expiresIn: started.expiresIn,
+        interval: started.intervalSeconds,
       }
-    }
-    if (response === undefined) {
-      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${String(lastCause)}`, { status: 0, message: String(lastCause) })
-    }
-    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
-    if (!response.ok || body === undefined) {
-      const msg = typeof body?.['message'] === 'string'
-        ? body['message']
-        : typeof body?.['error'] === 'string'
-          ? body['error']
-          : response.statusText
-      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize rejected: ${msg}`, { status: response.status, message: msg })
-    }
-    const readStr = (val: unknown, fallback = ''): string => typeof val === 'string' ? val : fallback
-    const deviceCode = readStr(body['deviceCode'] ?? body['device_code'])
-    const userCode = readStr(body['userCode'] ?? body['user_code'])
-    const rawVerificationUri = readStr(body['verificationUri'] ?? body['verification_uri'], `${activeBase}/device`)
-    const verificationUri = validateVerificationUrl(rawVerificationUri, activeBase)
-    const rawVerificationUriComplete = readStr(
-      body['verificationUriComplete'] ?? body['verification_uri_complete'],
-      `${verificationUri}?code=${encodeURIComponent(userCode)}`,
-    )
-    const verificationUriComplete = validateVerificationUrl(rawVerificationUriComplete, activeBase)
-    const expiresIn = typeof body['expiresIn'] === 'number'
-      ? body['expiresIn']
-      : typeof body['expires_in'] === 'number'
-        ? body['expires_in']
-        : 600
-    const interval = typeof body['interval'] === 'number' && body['interval'] > 0 ? body['interval'] : 2
-    if (deviceCode.length === 0 || userCode.length === 0) {
-      throw new RemoteError('xpeach/request-failed', 'xpeach: SSO device authorize returned incomplete codes', { status: response.status, message: 'incomplete device payload' })
-    }
-    return {
-      deviceCode,
-      userCode,
-      verificationUri,
-      verificationUriComplete,
-      expiresIn,
-      interval,
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      const msg = cause instanceof Error ? cause.message : String(cause)
+      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${msg}`, { status: 0, message: msg })
     }
   }
 
   /**
-   * Poll the XPeach SSO Device Token endpoint (`POST /api/v1/device/token`).
+   * Poll the XPeach SSO OIDC Token endpoint (`POST /token` with RFC 8628 `device_code` grant)
+   * via `@xpeach/ts-xpeach` and resolve authoritative identity via `verifyAccessToken`.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
    * @param clientId - registered client identifier.
@@ -1470,145 +1827,144 @@ export class XPeachApi {
     deviceCode: string,
     signal: AbortSignal,
   ): Promise<{
-    readonly status: 'pending' | 'approved' | 'expired' | 'denied' | 'error'
+    readonly status: 'pending' | 'slow_down' | 'approved' | 'expired' | 'denied' | 'error'
     readonly message?: string | undefined
     readonly payload?: XPeachSsoBridgePayload | undefined
   }> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    let response: Response | undefined
-    let lastCause: unknown
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(`${candidate}/api/v1/device/token`, {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientId, deviceCode }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        response = res
-        break
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        lastCause = cause
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const rawSdk = new XpeachClient({
+      baseUrl: activeBase,
+      timeoutMs: Math.min(this.timeoutMs, 8000),
+      retry: { maxAttempts: 1 },
+    })
+    try {
+      const rawToken = await rawSdk.oidcToken(
+        {
+          body: {
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            client_id: oidc.clientId,
+            device_code: deviceCode,
+          },
+        },
+        { signal },
+      )
+      const accessToken = rawToken.access_token?.trim() ?? ''
+      if (accessToken.length === 0) {
+        return { status: 'error', message: 'OIDC token response missing access_token' }
       }
-    }
-    if (response === undefined) {
-      return { status: 'error', message: String(lastCause) }
-    }
-    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
-    if (body === undefined) {
-      return { status: 'error', message: `HTTP ${String(response.status)}` }
-    }
-    const rawStatus = typeof body['status'] === 'string'
-      ? body['status']
-      : typeof body['error'] === 'string'
-        ? body['error']
-        : ''
-    if (rawStatus === 'authorization_pending' || rawStatus === 'pending' || rawStatus === 'slow_down') {
-      return { status: 'pending' }
-    }
-    if (rawStatus === 'expired_token' || rawStatus === 'expired' || rawStatus === 'invalid_grant') {
-      return { status: 'expired', message: typeof body['message'] === 'string' ? body['message'] : '验证码已过期' }
-    }
-    if (rawStatus === 'access_denied' || rawStatus === 'denied') {
-      return { status: 'denied', message: typeof body['message'] === 'string' ? body['message'] : '已拒绝授权' }
-    }
-    if (body['ok'] === true || rawStatus === 'approved') {
+      const idToken = typeof rawToken.id_token === 'string' && rawToken.id_token.trim().length > 0
+        ? rawToken.id_token.trim()
+        : undefined
+      const idTokenClaims = idToken !== undefined
+        ? await oidc.verifyIdToken(idToken, undefined, { signal })
+        : undefined
+      const identity = await oidc.verifyAccessToken(accessToken, { signal })
+      if (idTokenClaims !== undefined && idTokenClaims.sub !== identity.sub) {
+        return { status: 'error', message: 'OIDC id_token subject mismatch' }
+      }
       return {
         status: 'approved',
-        payload: {
-          sso: body['sso'] as XPeachSsoBridgePayload['sso'],
-          peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
-        },
+        payload: this.buildBridgePayloadFromVerifiedIdentity(
+          {
+            accessToken,
+            expiresIn: typeof rawToken.expires_in === 'number' && rawToken.expires_in > 0 ? rawToken.expires_in : 3600,
+            ...(rawToken.refresh_token ? { refreshToken: rawToken.refresh_token } : {}),
+            ...(idToken !== undefined ? { idToken } : {}),
+          },
+          identity,
+        ),
       }
-    }
-    return {
-      status: 'error',
-      message: typeof body['message'] === 'string' ? body['message'] : (rawStatus || `HTTP ${String(response.status)}`),
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      if (cause instanceof OAuthProtocolError) {
+        if (cause.error === 'authorization_pending') {
+          return { status: 'pending' }
+        }
+        if (cause.error === 'slow_down') {
+          return { status: 'slow_down' }
+        }
+        if (cause.error === 'expired_token' || cause.error === 'invalid_grant') {
+          return { status: 'expired', message: cause.errorDescription ?? '验证码已过期' }
+        }
+        if (cause.error === 'access_denied') {
+          return { status: 'denied', message: cause.errorDescription ?? '已拒绝授权' }
+        }
+        return { status: 'error', message: cause.errorDescription ?? (cause.error || `HTTP ${String(cause.httpStatus)}`) }
+      }
+      return { status: 'error', message: cause instanceof Error ? cause.message : String(cause) }
     }
   }
 
   /**
-   * Fetch or refresh PeachCode (NewAPI) credentials from XPeach SSO using a
-   * previously issued SSO Bearer `AccessToken` (`POST /api/v1/peachcode/credentials`).
-   * Distinguishes definitive revocation/ban (`401`/`403` -> `status: 'revoked'`, `revoked: true`)
-   * from transient network or 5xx failures (`status: 'transient_error'`, `transient: true`).
+   * Verify and proactively rotate the active SSO session via `@xpeach/ts-xpeach`
+   * (`GET /api/internal/verify` + automatic `POST /token` `refresh_token` rotation).
+   * Distinguishes definitive revocation/ban (`status: 'revoked'`) from transient
+   * network or 5xx failures (`status: 'transient_error'`).
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
-   * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
+   * @param ssoAccessToken - active SSO Bearer access token (`at+jwt` or `xph_at_...`).
    * @param signal - request cancellation signal.
+   * @param refreshToken - optional OIDC refresh token used for automatic silent rotation.
+   * @param clientId - optional OIDC client identifier.
    * @returns credential sync status and payload when valid.
    */
   async ssoPeachcodeCredentials(
     ssoBaseURL: string,
     ssoAccessToken: string,
     signal: AbortSignal,
+    refreshToken?: string,
+    clientId = 'xpeach-harness',
   ): Promise<XPeachSsoCredentialSyncResult> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    let response: Response | undefined
-    let lastCause: unknown
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(`${candidate}/api/v1/peachcode/credentials`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${ssoAccessToken}`,
-          },
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        response = res
-        break
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        lastCause = cause
-      }
-    }
-    if (response === undefined) {
+    const { oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    try {
+      const identity = await oidc.verifyAccessToken(ssoAccessToken, { signal })
+      const nowSec = Math.floor(Date.now() / 1000)
+      const remainingSec = Math.max(60, identity.exp - nowSec)
       return {
-        status: 'transient_error',
-        transient: true,
-        message: String(lastCause),
+        status: 'ok',
+        payload: this.buildBridgePayloadFromVerifiedIdentity(
+          {
+            accessToken: ssoAccessToken,
+            expiresIn: remainingSec,
+            ...(refreshToken ? { refreshToken } : {}),
+          },
+          identity,
+        ),
       }
-    }
-    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
-    if (response.status === 401 || response.status === 403) {
-      const msg = typeof body?.['message'] === 'string'
-        ? body['message']
-        : typeof body?.['error'] === 'string'
-          ? body['error']
-          : response.statusText
+    } catch (verifyErr) {
+      if (signal.aborted) throw verifyErr
+      if (!isDefinitiveTokenRejection(verifyErr)) {
+        return {
+          status: 'transient_error',
+          transient: true,
+          message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        }
+      }
+      if (refreshToken !== undefined && refreshToken.trim().length > 0) {
+        try {
+          const rotated = await oidc.refreshToken({ refreshToken: refreshToken.trim() }, { signal })
+          const identity = await oidc.verifyAccessToken(rotated.accessToken, { signal })
+          return {
+            status: 'ok',
+            payload: this.buildBridgePayloadFromVerifiedIdentity(rotated, identity),
+          }
+        } catch (refreshErr) {
+          signal.throwIfAborted()
+          if (!isDefinitiveTokenRejection(refreshErr)) {
+            return {
+              status: 'transient_error',
+              transient: true,
+              message: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
+            }
+          }
+        }
+      }
       return {
         status: 'revoked',
         revoked: true,
-        code: response.status,
-        message: msg || (response.status === 403 ? 'Account has been disabled' : 'SSO session expired or revoked'),
+        code: 401,
+        message: 'SSO session expired or revoked',
       }
-    }
-    if (!response.ok || body?.['ok'] !== true) {
-      const msg = typeof body?.['message'] === 'string'
-        ? body['message']
-        : typeof body?.['error'] === 'string'
-          ? body['error']
-          : response.statusText
-      return {
-        status: 'transient_error',
-        transient: true,
-        message: msg || `HTTP ${String(response.status)}`,
-      }
-    }
-    return {
-      status: 'ok',
-      payload: {
-        sso: body['sso'] as XPeachSsoBridgePayload['sso'],
-        peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
-      },
     }
   }
 
@@ -1616,7 +1972,7 @@ export class XPeachApi {
    * Alias of `ssoPeachcodeCredentials` for callers expecting `fetchPeachcodeCredentialsFromSso`.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
-   * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
+   * @param ssoAccessToken - active SSO access token.
    * @param signal - request cancellation signal.
    * @returns credential sync status and payload when valid.
    */
@@ -1629,13 +1985,18 @@ export class XPeachApi {
   }
 
   /**
-   * Self-revoke the active SSO session and optionally all device tokens and
-   * PeachCode credentials (`POST /api/v1/peachcode/revoke` Mode B).
+   * Revoke the active SSO refresh/access tokens via RFC 7009 (`POST /token/revocation`)
+   * through the official `@xpeach/ts-xpeach` SDK. When `options.allDevices` or
+   * `options.revokePeachcode` is enabled, also calls `POST /api/v1/peachcode/revoke`
+   * before revoking the calling access token so multi-device / downstream PeachCode
+   * revocation is enforced server-side.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
-   * @param ssoAccessToken - active SSO Bearer access token (`xph_at_...`).
-   * @param options - revocation scope flags (`allDevices`, `revokePeachcode`).
+   * @param ssoAccessToken - active SSO Bearer access token.
+   * @param options - revocation scope flags.
    * @param signal - request cancellation signal.
+   * @param refreshToken - optional OIDC refresh token to revoke first.
+   * @param clientId - optional OIDC client identifier.
    * @returns `true` when the SSO server acknowledged revocation.
    */
   async ssoRevokeToken(
@@ -1643,31 +2004,123 @@ export class XPeachApi {
     ssoAccessToken: string,
     options: XPeachSsoRevokeRequest,
     signal: AbortSignal,
+    refreshToken?: string,
+    clientId = 'xpeach-harness',
   ): Promise<boolean> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    for (const candidate of candidates) {
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    let acknowledged = false
+    const trimmedAccess = ssoAccessToken.trim()
+    if ((options.allDevices === true || options.revokePeachcode === true) && trimmedAccess.length > 0) {
+      const revokeBody = {
+        allDevices: options.allDevices === true,
+        revokePeachcode: options.revokePeachcode === true,
+      }
+      const sdk = new XpeachClient({
+        baseUrl: activeBase,
+        accessToken: trimmedAccess,
+        timeoutMs: Math.min(this.timeoutMs, 8000),
+        retry: { maxAttempts: 1 },
+      })
       try {
-        const res = await fetch(`${candidate}/api/v1/peachcode/revoke`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ssoAccessToken}`,
-          },
-          body: JSON.stringify({
-            allDevices: options.allDevices ?? false,
-            revokePeachcode: options.revokePeachcode ?? false,
-          }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
+        if (typeof sdk.v1PeachcodeRevoke === 'function') {
+          await sdk.v1PeachcodeRevoke({ body: revokeBody }, { signal })
+          acknowledged = true
+        } else {
+          const response = await fetch(`${activeBase}/api/v1/peachcode/revoke`, {
+            method: 'POST',
+            redirect: 'manual',
+            headers: {
+              Authorization: `Bearer ${trimmedAccess}`,
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify(revokeBody),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 8000))]),
+          })
+          await response.body?.cancel().catch(() => {})
+          if (!isRedirectResponse(response) && response.ok) {
+            acknowledged = true
+          }
         }
-        return res.ok
       } catch (cause) {
         if (signal.aborted) throw cause
       }
     }
-    return false
+    if (refreshToken !== undefined && refreshToken.trim().length > 0) {
+      try {
+        await oidc.revokeToken({ token: refreshToken.trim(), tokenTypeHint: 'refresh_token' }, { signal })
+        acknowledged = true
+      } catch (cause) {
+        if (signal.aborted) throw cause
+      }
+    }
+    if (trimmedAccess.length > 0) {
+      try {
+        await oidc.revokeToken({ token: trimmedAccess, tokenTypeHint: 'access_token' }, { signal })
+        acknowledged = true
+      } catch (cause) {
+        if (signal.aborted) throw cause
+      }
+    }
+    return acknowledged
+  }
+
+  /**
+   * Fetch the unified human-verification policy from XPeach SSO via `@xpeach/ts-xpeach`.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param signal - request cancellation signal.
+   * @returns normalized SSO captcha policy (including self-hosted Cap origin and per-scene keys).
+   */
+  async ssoCaptchaPolicy(ssoBaseURL: string, signal: AbortSignal): Promise<XPeachSsoCaptchaPolicy> {
+    const base = validateSsoBaseUrl(ssoBaseURL)
+    const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
+    const raw = await captcha.getPolicy({ signal })
+    return {
+      provider: raw.provider,
+      enabled: raw.enabled,
+      siteKey: raw.site_key,
+      capOrigin: raw.cap_origin,
+      capSiteKeys: {
+        login: raw.cap_site_keys.login,
+        register: raw.cap_site_keys.register,
+        recovery: raw.cap_site_keys.recovery,
+        checkin: raw.cap_site_keys.checkin,
+        partnerConsent: raw.cap_site_keys.partner_consent,
+      },
+      scenes: {
+        login: raw.scenes.login,
+        register: raw.scenes.register,
+        recovery: raw.scenes.recovery,
+        checkin: raw.scenes.checkin,
+        partnerConsent: raw.scenes.partner_consent,
+      },
+    }
+  }
+
+  /**
+   * Fetch a scene-scoped human-verification challenge from XPeach SSO via `@xpeach/ts-xpeach`.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param scene - target scene governed by SSO.
+   * @param signal - request cancellation signal.
+   * @returns scene-scoped challenge configuration (Cap origin/siteKey, Turnstile key, or builtin puzzle).
+   */
+  async ssoCaptchaChallenge(
+    ssoBaseURL: string,
+    scene: XPeachSsoCaptchaScene,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoCaptchaChallenge> {
+    const base = validateSsoBaseUrl(ssoBaseURL)
+    const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
+    const raw = await captcha.getChallenge(scene, { signal })
+    return {
+      provider: raw.provider,
+      siteKey: raw.site_key,
+      capOrigin: raw.cap_origin,
+      enabled: raw.enabled,
+      question: raw.question,
+      captchaToken: raw.captcha_token,
+    }
   }
 }

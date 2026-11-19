@@ -1,0 +1,8 @@
+version: 1
+scenario: xpeach-token-model-sync
+profile: sdk
+composition: sdk-xpeach-token-model-sync
+recording: authored
+header:
+  class: sdk-xpeach-token-model-sync
+  pin: true

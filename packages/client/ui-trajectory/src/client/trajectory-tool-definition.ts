@@ -3,7 +3,7 @@ import type {
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, StartedToolCall,
   ToolResultNode,
 } from '@xpeach/xph-client-ui-conversation/client'
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/client'
 import { PartialArguments } from '@xpeach/xph-util-values'
 import { trajectoryNode } from './trajectory-definition-common.ts'
 

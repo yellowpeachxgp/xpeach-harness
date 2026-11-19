@@ -7,7 +7,7 @@ declare module '@xpeach/xph-llm' {
   }
 }
 import type { Context } from '@xpeach/xph-cordis'
-import type {} from '@xpeach/xph-api-session-controller'
+import type {} from '@xpeach/xph-agent'
 import { isRecurringScheduleRecord, renderReminderFraming, renderRecurringReminderBatchFraming, resolveRecurringOccurrence } from './domain.ts'
 import type { DeliveryRetentionBounds, RecurringScheduleRecord } from './types.ts'
 import type { ScheduleTask } from './storage.ts'
@@ -98,48 +98,47 @@ export class ScheduleRuntime {
       let admitted = group
       const committed = new Set<ScheduleTask['record']['id']>()
       try {
-        const resolved = await this.ctx.sessionController.resolveAgent(task.sessionId)
-        if ('error' in resolved) throw resolved.error
-        // oxlint-disable-next-line typescript/no-unnecessary-condition -- Disposal can run while Session restoration is awaited.
-        if (this.stopping) return
-        const now = Date.now()
-        // Session restoration can span a wall-clock rollback; future members keep their timer obligation.
-        admitted = group.filter(member => Date.parse(member.record.scheduledAt) <= now)
-        if (admitted.length === 0) continue
-        const recurring = admitted.filter((member): member is ScheduleTask & { record: RecurringScheduleRecord } =>
-          isRecurringScheduleRecord(member.record))
-        const occurrences = recurring.map(member => ({
-          task: member, occurrence: resolveRecurringOccurrence(member.record, now),
-        }))
-        const text = isRecurringScheduleRecord(task.record)
-          ? renderRecurringReminderBatchFraming(occurrences.map(({ task: member, occurrence }) => ({
-            record: member.record, occurrenceAt: occurrence.occurrenceAt,
-          })))
-          : renderReminderFraming(task.record)
-        const message = createUserMessage({
-          content: [{ type: 'text', text }], source: { kind: 'schedule' },
+        await this.ctx.sessionActivation.withAgent(task.sessionId, async (agent) => {
+          if (this.stopping) return
+          const now = Date.now()
+          // Session restoration can span a wall-clock rollback; future members keep their timer obligation.
+          admitted = group.filter(member => Date.parse(member.record.scheduledAt) <= now)
+          if (admitted.length === 0) return
+          const recurring = admitted.filter((member): member is ScheduleTask & { record: RecurringScheduleRecord } =>
+            isRecurringScheduleRecord(member.record))
+          const occurrences = recurring.map(member => ({
+            task: member, occurrence: resolveRecurringOccurrence(member.record, now),
+          }))
+          const text = isRecurringScheduleRecord(task.record)
+            ? renderRecurringReminderBatchFraming(occurrences.map(({ task: member, occurrence }) => ({
+              record: member.record, occurrenceAt: occurrence.occurrenceAt,
+            })))
+            : renderReminderFraming(task.record)
+          const message = createUserMessage({
+            content: [{ type: 'text', text }], source: { kind: 'schedule' },
+          })
+          // followup synchronously appends the inbox splice before flush observes the Session.
+          agent.followup(message)
+          const flushed = await this.ctx.sessions.flush(agent.session)
+          if (!flushed) throw new Error('Session persistence did not acknowledge the reminder')
+          const deliveredAt = new Date(Date.now()).toISOString()
+          if (!isRecurringScheduleRecord(task.record)) {
+            await this.commit({
+              ...task, status: 'inactive',
+              ...appendDelivery(task, { scheduledAt: task.record.scheduledAt, deliveredAt, messageId: message.id }, this.retention),
+            })
+            committed.add(task.record.id)
+          }
+          for (const { task: member, occurrence } of occurrences) {
+            await this.commit({
+              ...member,
+              record: { ...member.record, scheduledAt: occurrence.nextScheduledAt ?? occurrence.occurrenceAt },
+              status: occurrence.nextScheduledAt === undefined ? 'inactive' : 'active',
+              ...appendDelivery(member, { scheduledAt: occurrence.occurrenceAt, deliveredAt, messageId: message.id }, this.retention),
+            })
+            committed.add(member.record.id)
+          }
         })
-        // followup synchronously appends the inbox splice before flush observes the Session.
-        resolved.agent.followup(message)
-        const flushed = await this.ctx.sessions.flush(resolved.agent.session)
-        if (!flushed) throw new Error('Session persistence did not acknowledge the reminder')
-        const deliveredAt = new Date(Date.now()).toISOString()
-        if (!isRecurringScheduleRecord(task.record)) {
-          await this.commit({
-            ...task, status: 'inactive',
-            ...appendDelivery(task, { scheduledAt: task.record.scheduledAt, deliveredAt, messageId: message.id }, this.retention),
-          })
-          committed.add(task.record.id)
-        }
-        for (const { task: member, occurrence } of occurrences) {
-          await this.commit({
-            ...member,
-            record: { ...member.record, scheduledAt: occurrence.nextScheduledAt ?? occurrence.occurrenceAt },
-            status: occurrence.nextScheduledAt === undefined ? 'inactive' : 'active',
-            ...appendDelivery(member, { scheduledAt: occurrence.occurrenceAt, deliveredAt, messageId: message.id }, this.retention),
-          })
-          committed.add(member.record.id)
-        }
       } catch (error: unknown) {
         // Successful commits and targets made future by clock rollback keep their timer obligation.
         const pending = admitted.filter(member => !committed.has(member.record.id))

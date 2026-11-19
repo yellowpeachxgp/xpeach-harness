@@ -9,6 +9,7 @@
  * idle→running→idle, while teardown is a registry lifecycle.
  */
 
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime from '@xpeach/xph-llm'
@@ -43,6 +44,7 @@ async function harness() {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], new EchoAdapter())

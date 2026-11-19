@@ -107,12 +107,12 @@ describe('WelcomeNotice', () => {
   it('uses the exact owner copy in both GUI locales', () => {
     expect(WELCOME_NOTICE_COPY.en).toEqual({
       title: 'Preview Notice',
-      body: '🍑Code is the XPeach relay harness: one bound token, the whole site catalog. Everything you run bills to your token — watch it live in the console.',
+      body: 'XPeach Harness is the XPeach relay harness: one bound token, the whole site catalog. Everything you run bills to your token — watch it live in the console.',
       continueLabel: 'Continue',
     })
     expect(WELCOME_NOTICE_COPY.zh).toEqual({
       title: '预览版说明',
-      body: '🍑Code 是 XPeach 中转站工作台：绑定一次令牌，全站模型随选随调，额度用量实时可见，每次调用均按所绑定的令牌计费。',
+      body: 'XPeach Harness 是 XPeach 中转站工作台：绑定一次令牌，全站模型随选随调，额度用量实时可见，每次调用均按所绑定的令牌计费。',
       continueLabel: '继续',
     })
     expect(en.welcomeBody).toBe(WELCOME_NOTICE_COPY.en.body)

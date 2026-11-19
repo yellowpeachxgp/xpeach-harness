@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { provideWorkingDirectoryFixture } from '@xpeach/xph-agent-loop-testkit'
 import { join, resolve } from 'node:path'
@@ -36,6 +38,7 @@ async function mount(
   provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(Lsp)
   if (provider) (ctx.lsp as Lsp).registerProvider(provider)
   await ctx.plugin(ToolLsp, config)
@@ -50,7 +53,7 @@ const resolvedWorkspaceUri = pathToFileURL(resolvedWorkspaceRoot).href
 const workspaceAlias = resolve('/virtual/workspace-alias')
 /** `cwd: null` means "no agent" (tests LSP_WORKSPACE_REQUIRED); a string is the session cwd. */
 function call(ctx: Context, args: unknown, cwd: string | null = workspaceRoot) {
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     signal: testToolSignal,
     callId: `c-${++seq}` as never,
     name: 'lsp',

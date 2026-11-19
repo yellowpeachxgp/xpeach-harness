@@ -82,4 +82,20 @@ describe('AppearanceRow', () => {
     expect(pressed(/Light/)).toBe('true')
     expect(pressed(/Dark/)).toBe('false')
   })
+
+  it('highlights Light/Dark cube for named palettes and preserves the palette when toggling mode', () => {
+    const b = mount('peach')
+    expect(pressed(/Light/)).toBe('true')
+    expect(pressed(/Dark/)).toBe('false')
+
+    fireEvent.click(screen.getByRole('button', { name: /Dark/ }))
+    expect(b.setTheme).toHaveBeenCalledWith('peach-dark')
+
+    act(() => { b.store.actions.sync('peach-dark', 1) })
+    expect(pressed(/Dark/)).toBe('true')
+    expect(pressed(/Light/)).toBe('false')
+
+    fireEvent.click(screen.getByRole('button', { name: /Light/ }))
+    expect(b.setTheme).toHaveBeenCalledWith('peach')
+  })
 })

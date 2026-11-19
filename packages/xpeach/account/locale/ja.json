@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "XPeach アカウントリモート",
+    "description": "生成された xpeach Remote 名前空間を通じて、XPeach サイトのアカウントデータ（プロフィール、トークン、使用量、課金）を Harness クライアントに提供します。"
+  }
+}

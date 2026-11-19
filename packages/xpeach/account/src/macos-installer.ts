@@ -10,6 +10,7 @@ import {
   accessSync,
   chmodSync,
   constants,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -20,15 +21,47 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
+import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
+import * as yaml from 'js-yaml'
 import type {
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
 } from './types.ts'
 
+/**
+ * Variables macOS packaging/installer tools may legitimately need. Everything
+ * else in `process.env` — API keys, tokens, `DSH_*`/`XPH_*` internals — must
+ * not reach `pkgbuild`/`productbuild`/`installer`: an ambient credential would
+ * travel into child output (diagnostics, embedded script contexts) it never
+ * needed to see.
+ */
+const PACKAGING_ENV_KEYS = [
+  'PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'USER', 'LOGNAME', 'SHELL',
+  'LANG', 'LC_ALL', 'LC_CTYPE', '__CF_USER_TEXT_ENCODING',
+  'XPC_SERVICE_NAME', 'SSH_AUTH_SOCK', 'SUDO_USER', 'SUDO_UID', 'SUDO_GID',
+] as const
+
+/**
+ * The scrubbed environment for OS packaging tool subprocesses: an explicit
+ * allowlist plus caller-supplied overrides.
+ * @param extra - additional variables the caller needs to set.
+ * @returns the merged environment.
+ */
+function packagingEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const key of PACKAGING_ENV_KEYS) {
+    const value = process.env[key]
+    if (value !== undefined) env[key] = value
+  }
+  return { ...env, ...extra }
+}
+
 /** Options for inspecting, building, or running the macOS `.pkg` installer. */
 export interface MacosInstallerOptions {
+  /** 显式产品补丁路径；未指定时按启动入口解析 CLI 包，或读取源码/Electron 资源，均不可用则失败。 */
+  readonly productProfilePath?: string | undefined
   /** Override for the repository root containing `apps/desktop`. */
   readonly repositoryRoot?: string | undefined
   /** Override for the user home directory (default `os.homedir()`). */
@@ -50,7 +83,9 @@ export interface MacosInstallerOptions {
 }
 
 interface ResolvedInstallerPaths {
+  readonly productProfilePath: string | undefined
   readonly repositoryRoot: string | undefined
+  readonly allowBuiltBundleLookup: boolean
   readonly version: string
   readonly homeDir: string
   readonly ownHome: string
@@ -64,6 +99,39 @@ interface ResolvedInstallerPaths {
 
 const DEFAULT_VERSION = '0.0.13-alpha'
 const APP_BUNDLE_NAME = 'XPeach Harness.app'
+const APP_BUNDLE_CANDIDATE_NAMES = ['XPeach Harness.app', 'xpeach-harness.app'] as const
+const APP_EXECUTABLE_CANDIDATE_NAMES = ['XPeachHarness', 'xpeach-harness', 'XPeach Harness'] as const
+
+/** 安装准备失败时不修改用户补丁，也不开始应用、命令或安装载荷写入。 */
+class InstallerProfileError extends Error {
+  readonly code: 'XPH_PROFILE_RESOURCE_UNAVAILABLE' | 'XPH_PROFILE_RESOURCE_INVALID' | 'XPH_PROFILE_PATCH_INVALID'
+  readonly path: string | undefined
+
+  constructor(
+    code: InstallerProfileError['code'],
+    message: string,
+    path?: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options)
+    this.code = code
+    this.path = path
+  }
+}
+
+/** 通过启动入口的标准 Node 包解析定位 CLI，不搜索候选目录。 */
+function installedProductProfile(): string | undefined {
+  const entry = process.argv[1]
+  if (entry === undefined) return undefined
+  let manifest: string
+  try {
+    manifest = createRequire(resolve(entry)).resolve('@xpeach/xph-dsh/package.json')
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') return undefined
+    throw new InstallerProfileError('XPH_PROFILE_RESOURCE_UNAVAILABLE', '无法解析启动入口的 CLI 包，请重新安装完整应用。', entry, { cause })
+  }
+  return join(dirname(manifest), 'resources', 'xpeach.profile.yml')
+}
 
 function findRepositoryRoot(startDir: string): string | undefined {
   let current = resolve(startDir)
@@ -112,16 +180,27 @@ function isWritableDirectory(dirPath: string): boolean {
 }
 
 function isAppBundleInstalled(appBundlePath: string): boolean {
-  return (
-    existsSync(join(appBundlePath, 'Contents', 'Info.plist')) &&
-    isExecutableFile(join(appBundlePath, 'Contents', 'MacOS', 'XPeachHarness'))
+  if (!existsSync(join(appBundlePath, 'Contents', 'Info.plist'))) return false
+  return APP_EXECUTABLE_CANDIDATE_NAMES.some(exe =>
+    isExecutableFile(join(appBundlePath, 'Contents', 'MacOS', exe)),
   )
 }
 
 function resolveInstallerPaths(options: MacosInstallerOptions = {}): ResolvedInstallerPaths {
   const repositoryRoot = options.repositoryRoot !== undefined
     ? resolve(options.repositoryRoot)
-    : (findRepositoryRoot(process.cwd()) ?? findRepositoryRoot(import.meta.dirname))
+    : findRepositoryRoot(import.meta.dirname)
+  const resourcesPath = 'resourcesPath' in process && typeof process.resourcesPath === 'string'
+    ? process.resourcesPath
+    : undefined
+  const productProfilePath = options.productProfilePath !== undefined
+    ? resolve(options.productProfilePath)
+    : (options.repositoryRoot !== undefined
+      ? join(resolve(options.repositoryRoot), 'apps', 'cli', 'resources', 'xpeach.profile.yml')
+      : (installedProductProfile()
+        ?? (resourcesPath !== undefined ? join(resourcesPath, 'xpeach.profile.yml')
+          : (repositoryRoot !== undefined ? join(repositoryRoot, 'apps', 'cli', 'resources', 'xpeach.profile.yml') : undefined))))
+  const allowBuiltBundleLookup = options.repositoryRoot !== undefined || process.env.VITEST === undefined
   const version = options.version ?? readDesktopVersion(repositoryRoot)
   const homeDir = options.homeDir !== undefined ? resolve(options.homeDir) : homedir()
   const ownHome = options.ownHome !== undefined
@@ -153,7 +232,9 @@ function resolveInstallerPaths(options: MacosInstallerOptions = {}): ResolvedIns
       : join(ownHome, 'installer', pkgFilename))
   const receiptPath = join(ownHome, 'xpeach.install-receipt.json')
   return {
+    productProfilePath,
     repositoryRoot,
+    allowBuiltBundleLookup,
     version,
     homeDir,
     ownHome,
@@ -351,6 +432,11 @@ function buildCliWrapperScript(
     'export XPH_HOME="${XPH_HOME:-$HOME/.xph}"',
     'export DSH_HOME="${DSH_HOME:-$XPH_HOME}"',
     'export XPH_PROFILE="${XPH_PROFILE:-xpeach}"',
+    'for APP_CANDIDATE in "/Applications/XPeach Harness.app" "$HOME/Applications/XPeach Harness.app"; do',
+    '  if [ -x "$APP_CANDIDATE/Contents/Resources/cli/xph" ]; then',
+    '    exec "$APP_CANDIDATE/Contents/Resources/cli/xph" "$@"',
+    '  fi',
+    'done',
     'REPO_ROOT="${XPEACH_REPO_ROOT:-$DEFAULT_REPO_ROOT}"',
     `if [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/${entryJs}" ] && command -v node >/dev/null 2>&1; then`,
     `  exec node "$REPO_ROOT/${entryJs}" "$@"`,
@@ -364,11 +450,106 @@ function buildCliWrapperScript(
   ].join('\n')
 }
 
+/**
+ * Determine whether `appBundleDir` is a packaged native Electron `.app` bundle
+ * rather than a lightweight shell-script launcher stub.
+ *
+ * @param appBundleDir - Path to the candidate `.app` directory.
+ * @returns `true` when the bundle contains `Electron Framework.framework` and a valid macOS executable, or a Mach-O main executable.
+ */
+export function isNativeElectronAppBundle(appBundleDir: string): boolean {
+  const hasFramework = existsSync(
+    join(appBundleDir, 'Contents', 'Frameworks', 'Electron Framework.framework'),
+  )
+  const existingExecutables = APP_EXECUTABLE_CANDIDATE_NAMES
+    .map(name => join(appBundleDir, 'Contents', 'MacOS', name))
+    .filter(filePath => existsSync(filePath))
+  if (hasFramework && existingExecutables.length > 0) {
+    return true
+  }
+  for (const executablePath of existingExecutables) {
+    try {
+      const header = readFileSync(executablePath).subarray(0, 4)
+      if (header.length === 4) {
+        const magic = header.readUInt32BE(0)
+        if (
+          magic === 0xfeedface ||
+          magic === 0xcefaedfe ||
+          magic === 0xfeedfacf ||
+          magic === 0xcffaedfe ||
+          magic === 0xcafebabe
+        ) {
+          return true
+        }
+      }
+    } catch (_err) { /* ignore unreadable executable */ }
+  }
+  return false
+}
+
+/**
+ * Locate a built Electron `.app` bundle inside `apps/desktop/.desktop-build` under `repositoryRoot`.
+ *
+ * Searches signed and unsigned target output directories (`mac-arm64`, `mac-x64`, `mac`)
+ * for both `XPeach Harness.app` and `xpeach-harness.app`.
+ *
+ * @param repositoryRoot - Repository root path containing `apps/desktop`.
+ * @returns Absolute path to the first valid native Electron `.app` bundle, or `undefined` when none exists.
+ */
+export function findBuiltElectronAppBundle(repositoryRoot: string | undefined): string | undefined {
+  if (repositoryRoot === undefined) return undefined
+  const buildRoot = join(repositoryRoot, 'apps', 'desktop', '.desktop-build')
+  const preferredArch = process.arch === 'x64' ? 'mac-x64' : 'mac-arm64'
+  const secondaryArch = process.arch === 'x64' ? 'mac-arm64' : 'mac-x64'
+  const targetDirs = [preferredArch, secondaryArch, 'mac']
+  const artifactSubdirs = [
+    join('signed-artifacts', preferredArch),
+    join('signed-artifacts', secondaryArch),
+    join('signed-artifacts', 'mac'),
+    'signed-artifacts',
+    join('unsigned-artifacts', preferredArch),
+    join('unsigned-artifacts', secondaryArch),
+    join('unsigned-artifacts', 'mac'),
+    'unsigned-artifacts',
+    preferredArch,
+    secondaryArch,
+    'mac',
+  ]
+  const candidateDirs: string[] = []
+  for (const targetDir of targetDirs) {
+    for (const sub of artifactSubdirs) {
+      candidateDirs.push(join(buildRoot, 'targets', targetDir, sub))
+    }
+  }
+  for (const sub of artifactSubdirs) {
+    candidateDirs.push(join(buildRoot, sub))
+  }
+  for (const dir of candidateDirs) {
+    for (const bundleName of APP_BUNDLE_CANDIDATE_NAMES) {
+      const candidate = join(dir, bundleName)
+      if (isNativeElectronAppBundle(candidate)) {
+        return candidate
+      }
+    }
+  }
+  return undefined
+}
+
 function materializeAppBundle(
   appBundleDir: string,
   version: string,
   repositoryRoot: string | undefined,
+  allowBuiltBundleLookup = true,
 ): void {
+  if (isNativeElectronAppBundle(appBundleDir)) {
+    return
+  }
+  const builtBundle = allowBuiltBundleLookup ? findBuiltElectronAppBundle(repositoryRoot) : undefined
+  if (builtBundle !== undefined) {
+    mkdirSync(dirname(appBundleDir), { recursive: true })
+    cpSync(builtBundle, appBundleDir, { recursive: true, verbatimSymlinks: true })
+    return
+  }
   const contentsDir = join(appBundleDir, 'Contents')
   const macosDir = join(contentsDir, 'MacOS')
   const resourcesDir = join(contentsDir, 'Resources')
@@ -401,6 +582,7 @@ function signAndRegisterAppBundle(appBundleDir: string): void {
     try {
       execFileSync('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', appBundleDir], {
         stdio: 'pipe',
+        env: packagingEnv(),
       })
     } catch (_err) { /* ad-hoc codesign best-effort */ }
   }
@@ -408,7 +590,7 @@ function signAndRegisterAppBundle(appBundleDir: string): void {
     '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
   if (existsSync(lsregister)) {
     try {
-      execFileSync(lsregister, ['-f', appBundleDir], { stdio: 'pipe' })
+      execFileSync(lsregister, ['-f', appBundleDir], { stdio: 'pipe', env: packagingEnv() })
     } catch (_err) { /* LaunchServices registration best-effort */ }
   }
 }
@@ -583,18 +765,112 @@ function buildGuidedHtmlPage(
   ].join('\n')
 }
 
-function defaultProfileYaml(): string {
-  return [
-    '# XPeach product profile',
-    '- id: ui-settings-general',
-    '  name: "@xpeach/xph-client-ui-settings-general"',
-    '- insert:',
-    '    - id: xpeach-account',
-    "      name: '@xpeach/xph-account'",
-    '    - id: xpeach-client',
-    "      name: '@xpeach/xph-client-ui'",
+/** Node 和 pkg 的 JavaScript for Automation 使用同一判定，不求值 !!js 标量。 */
+function emptyProductPatch(content: string, parser: typeof yaml): boolean {
+  const schema = parser.JSON_SCHEMA.extend(new parser.Type('tag:yaml.org,2002:js', {
+    kind: 'scalar', resolve: (expression: unknown) => typeof expression === 'string',
+    construct: (expression: string) => expression,
+  }))
+  const parsed: unknown = parser.load(content, { schema })
+  if (parsed === undefined || parsed === null) return true
+  if (!Array.isArray(parsed) || parsed.some(entry => typeof entry !== 'object' || entry === null || Array.isArray(entry))) {
+    throw new Error('产品补丁必须是由映射条目组成的 YAML 数组。')
+  }
+  return parsed.length === 0
+}
+
+/** 在任何安装副作用前读取目标补丁，保留合法非空配置，拒绝读取或解析失败。 */
+function profileNeedsSeed(profileDir: string): boolean {
+  const patchPath = join(profileDir, 'cordis.patch.yml')
+  let content: string
+  try {
+    content = readFileSync(patchPath, 'utf8')
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return true
+    throw new InstallerProfileError('XPH_PROFILE_PATCH_INVALID', '无法读取已有产品补丁；请修复访问权限后重试，安装尚未开始。', patchPath, { cause })
+  }
+  try {
+    return emptyProductPatch(content, yaml)
+  } catch (cause) {
+    throw new InstallerProfileError('XPH_PROFILE_PATCH_INVALID', '已有产品补丁无效；请修复 YAML 数组后重试，原文件未修改，安装尚未开始。', patchPath, { cause })
+  }
+}
+
+/** 读取并校验唯一选中的非空产品资源，缺少定位或读取失败时不继续安装。 */
+function readProductProfile(paths: ResolvedInstallerPaths): string {
+  if (paths.productProfilePath === undefined) {
+    throw new InstallerProfileError('XPH_PROFILE_RESOURCE_UNAVAILABLE', '无法定位 XPeach 产品补丁；请提供 CLI 规范资源或桌面已复制资源的 productProfilePath。')
+  }
+  let content: string
+  try {
+    content = readFileSync(paths.productProfilePath, 'utf8')
+  } catch (cause) {
+    throw new InstallerProfileError('XPH_PROFILE_RESOURCE_UNAVAILABLE', '无法读取 XPeach 产品补丁；请恢复所选资源或重新安装完整应用。', paths.productProfilePath, { cause })
+  }
+  try {
+    if (emptyProductPatch(content, yaml)) throw new Error('随包产品补丁没有条目。')
+  } catch (cause) {
+    throw new InstallerProfileError('XPH_PROFILE_RESOURCE_INVALID', '随包产品补丁无效；请重新安装完整应用，安装尚未开始。', paths.productProfilePath, { cause })
+  }
+  return content
+}
+
+/** pkg 不依赖目标机器安装 Node；携带 js-yaml 的公开浏览器分发，由 macOS JXA 执行。 */
+function writePkgProfileGuard(scriptsDir: string): void {
+  const manifestPath = createRequire(import.meta.url).resolve('js-yaml/package.json')
+  const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const distribution: unknown = typeof manifest === 'object' && manifest !== null ? Reflect.get(manifest, 'unpkg') : undefined
+  if (typeof distribution !== 'string') throw new Error('js-yaml 未声明供安装脚本使用的浏览器分发。')
+  mkdirSync(scriptsDir, { recursive: true })
+  copyFileSync(join(dirname(manifestPath), distribution), join(scriptsDir, 'js-yaml.js'))
+  copyFileSync(join(dirname(manifestPath), 'LICENSE'), join(scriptsDir, 'js-yaml.LICENSE'))
+  writeFileSync(join(scriptsDir, 'profile-guard.js'), [
+    "ObjC.import('Foundation')",
+    `var emptyProductPatch = ${String(emptyProductPatch)};`,
+    'function readText(path) {',
+    '  var error = Ref();',
+    '  var value = ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(path, $.NSUTF8StringEncoding, error));',
+    '  if (typeof value !== "string") throw new Error("无法读取产品补丁，请修复访问权限后重试。");',
+    '  return value;',
+    '}',
+    'function writeText(path, value) {',
+    '  var error = Ref();',
+    '  if (!$(value).writeToFileAtomicallyEncodingError(path, true, $.NSUTF8StringEncoding, error))',
+    '    throw new Error("无法写入产品补丁，请修复访问权限后重试。");',
+    '}',
+    'function run(args) {',
+    '  var parser = eval(readText(args[0]) + "\\njsyaml;");',
+    '  var home = args[2];',
+    '  var profile = home + "/profiles/xpeach";',
+    '  var patch = profile + "/cordis.patch.yml";',
+    '  var manager = $.NSFileManager.defaultManager;',
+    '  var empty;',
+    '  try { empty = !manager.fileExistsAtPath(patch) || emptyProductPatch(readText(patch), parser); }',
+    '  catch (error) { throw new Error("XPH_PROFILE_PATCH_INVALID：已有产品补丁无效；请修复 YAML 数组后重试，原文件未修改。"); }',
+    '  if (args[1] === "check") return;',
+    '  var content;',
+    '  if (empty) {',
+    '    try { content = readText(args[3]); if (emptyProductPatch(content, parser)) throw new Error("空资源"); }',
+    '    catch (error) { throw new Error("XPH_PROFILE_RESOURCE_INVALID：产品补丁资源不可用；请重新安装完整应用。"); }',
+    '  }',
+    '  [profile, home + "/skills", home + "/sessions"].forEach(function(path) {',
+    '    var error = Ref();',
+    '    if (!manager.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(path, true, $(), error))',
+    '      throw new Error("无法创建产品目录，请修复访问权限后重试。");',
+    '  });',
+    '  if (empty) writeText(patch, content);',
+    '  if (!manager.fileExistsAtPath(profile + "/cordis.yml")) writeText(profile + "/cordis.yml", "[]\\n");',
+    '}',
     '',
-  ].join('\n')
+  ].join('\n'))
+}
+
+/** 每个 pkg 组件在自己的载荷或脚本写入之前校验现有用户补丁。 */
+function pkgProfileGuardCommand(mode: 'check' | 'seed'): string[] {
+  return [
+    'SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"',
+    `/usr/bin/osascript -l JavaScript "$SCRIPT_DIR/profile-guard.js" "$SCRIPT_DIR/js-yaml.js" ${mode} "$HOME/.xph" "\${3:-/}/usr/local/share/xpeach-harness/profile/xpeach.profile.yml"`,
+  ]
 }
 
 /**
@@ -604,6 +880,7 @@ function defaultProfileYaml(): string {
  *
  * @param options - Optional directory, output path, and version overrides.
  * @returns The generated `.pkg` path, verification output, and updated installer status.
+ * @throws 现有补丁无效或产品资源不可用时，在创建安装载荷前失败；原补丁保留。
  */
 export async function buildMacosPkgInstaller(
   options: MacosInstallerOptions = {},
@@ -613,6 +890,8 @@ export async function buildMacosPkgInstaller(
     throw new Error('macOS .pkg installer generation is only supported on darwin')
   }
   const paths = resolveInstallerPaths(options)
+  profileNeedsSeed(join(paths.ownHome, 'profiles', 'xpeach'))
+  const profileContent = readProductProfile(paths)
   const stageDir = mkdtempSync(join(tmpdir(), 'xpeach-macos-pkg-'))
   try {
     const pkgsDir = join(stageDir, 'pkgs')
@@ -624,8 +903,9 @@ export async function buildMacosPkgInstaller(
     // Component 1: XPeach Harness.app
     const rootApp = join(stageDir, 'root-app')
     const scriptsApp = join(stageDir, 'scripts-app')
+    writePkgProfileGuard(scriptsApp)
     const stagedAppBundle = join(rootApp, 'Applications', APP_BUNDLE_NAME)
-    materializeAppBundle(stagedAppBundle, paths.version, paths.repositoryRoot)
+    materializeAppBundle(stagedAppBundle, paths.version, paths.repositoryRoot, paths.allowBuiltBundleLookup)
     signAndRegisterAppBundle(stagedAppBundle)
 
     // Also stage shared CLI and profile copies under rootApp so flat `pkgutil --payload-files <product.pkg>`
@@ -634,17 +914,11 @@ export async function buildMacosPkgInstaller(
     writeExecutableScript(join(appShareBin, 'xph'), buildCliWrapperScript(paths.version, paths.repositoryRoot))
     const appShareProfile = join(rootApp, 'usr', 'local', 'share', 'xpeach-harness', 'profile')
     mkdirSync(appShareProfile, { recursive: true })
-    const repoProfileFile = paths.repositoryRoot !== undefined
-      ? join(paths.repositoryRoot, 'apps', 'desktop', 'resources', 'xpeach.profile.yml')
-      : undefined
-    const initialProfileBody = repoProfileFile !== undefined && existsSync(repoProfileFile)
-      ? readFileSync(repoProfileFile, 'utf8')
-      : defaultProfileYaml()
-    writeFileSync(join(appShareProfile, 'xpeach.profile.yml'), initialProfileBody, 'utf8')
+    writeFileSync(join(appShareProfile, 'xpeach.profile.yml'), profileContent, 'utf8')
 
     writeExecutableScript(
       join(scriptsApp, 'preinstall'),
-      ['#!/bin/sh', 'mkdir -p "$HOME/Applications"', 'exit 0', ''].join('\n'),
+      ['#!/bin/sh', 'set -e', ...pkgProfileGuardCommand('check'), 'mkdir -p "$HOME/Applications"', 'exit 0', ''].join('\n'),
     )
     writeExecutableScript(
       join(scriptsApp, 'postinstall'),
@@ -709,18 +983,19 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-app.pkg'),
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     // Component 2: CLI (xph)
     const rootCli = join(stageDir, 'root-cli')
     const scriptsCli = join(stageDir, 'scripts-cli')
+    writePkgProfileGuard(scriptsCli)
     const cliShareBin = join(rootCli, 'usr', 'local', 'share', 'xpeach-harness', 'bin')
     writeExecutableScript(join(cliShareBin, 'xph'), buildCliWrapperScript(paths.version, paths.repositoryRoot))
 
     writeExecutableScript(
       join(scriptsCli, 'preinstall'),
-      ['#!/bin/sh', 'mkdir -p "$HOME/.local/bin"', 'exit 0', ''].join('\n'),
+      ['#!/bin/sh', 'set -e', ...pkgProfileGuardCommand('check'), 'mkdir -p "$HOME/.local/bin"', 'exit 0', ''].join('\n'),
     )
     writeExecutableScript(
       join(scriptsCli, 'postinstall'),
@@ -772,39 +1047,29 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-cli.pkg'),
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     // Component 3: Profile (~/.xph)
     const rootProfile = join(stageDir, 'root-profile')
     const scriptsProfile = join(stageDir, 'scripts-profile')
+    writePkgProfileGuard(scriptsProfile)
     const profileShareDir = join(rootProfile, 'usr', 'local', 'share', 'xpeach-harness', 'profile')
     mkdirSync(profileShareDir, { recursive: true })
-    const repoProfileYaml = paths.repositoryRoot !== undefined
-      ? join(paths.repositoryRoot, 'apps', 'desktop', 'resources', 'xpeach.profile.yml')
-      : undefined
-    const profileContent = repoProfileYaml !== undefined && existsSync(repoProfileYaml)
-      ? readFileSync(repoProfileYaml, 'utf8')
-      : defaultProfileYaml()
+
     writeFileSync(join(profileShareDir, 'xpeach.profile.yml'), profileContent, 'utf8')
 
     writeExecutableScript(
       join(scriptsProfile, 'preinstall'),
-      ['#!/bin/sh', 'mkdir -p "$HOME/.xph/profiles/xpeach" "$HOME/.xph/skills" "$HOME/.xph/sessions"', 'exit 0', ''].join('\n'),
+      ['#!/bin/sh', 'set -e', ...pkgProfileGuardCommand('check'), 'exit 0', ''].join('\n'),
     )
     writeExecutableScript(
       join(scriptsProfile, 'postinstall'),
       [
         '#!/bin/sh',
-        'mkdir -p "$HOME/.xph/profiles/xpeach" "$HOME/.xph/skills" "$HOME/.xph/sessions"',
-        'PROFILE_SRC="/usr/local/share/xpeach-harness/profile/xpeach.profile.yml"',
-        'if [ ! -f "$PROFILE_SRC" ] && [ -f "$HOME/usr/local/share/xpeach-harness/profile/xpeach.profile.yml" ]; then',
-        '  PROFILE_SRC="$HOME/usr/local/share/xpeach-harness/profile/xpeach.profile.yml"',
-        'fi',
-        'if [ -f "$PROFILE_SRC" ] && [ ! -f "$HOME/.xph/profiles/xpeach/cordis.yml" ]; then',
-        '  cp "$PROFILE_SRC" "$HOME/.xph/profiles/xpeach/cordis.yml" 2>/dev/null || true',
-        'fi',
-        `printf '{"version":"${paths.version}","installedAt":"%s","appPath":"%s/Applications/XPeach Harness.app","xphCliPath":"%s/.local/bin/xph"}\\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$HOME" "$HOME" > "$HOME/.xph/xpeach.install-receipt.json" 2>/dev/null || true`,
+        'set -e',
+        ...pkgProfileGuardCommand('seed'),
+        `printf '{"version":"${paths.version}","installedAt":"%s","appPath":"%s/Applications/XPeach Harness.app","xphCliPath":"%s/.local/bin/xph"}\\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$HOME" "$HOME" > "$HOME/.xph/xpeach.install-receipt.json"`,
         'exit 0',
         '',
       ].join('\n'),
@@ -825,7 +1090,7 @@ export async function buildMacosPkgInstaller(
         '/',
         join(pkgsDir, 'xpeach-profile.pkg'),
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
     // Distribution & localized HTML resources
@@ -856,16 +1121,33 @@ export async function buildMacosPkgInstaller(
         pkgsDir,
         paths.pkgPath,
       ],
-      { stdio: 'pipe', env: { ...process.env, COPYFILE_DISABLE: '1' } },
+      { stdio: 'pipe', maxBuffer: 64 * 1024 * 1024, env: packagingEnv({ COPYFILE_DISABLE: '1' }) },
     )
 
-    const payloadFilesOut = execFileSync('/usr/sbin/pkgutil', ['--payload-files', paths.pkgPath], {
+    const payloadFilesRaw = execFileSync('/usr/sbin/pkgutil', ['--payload-files', paths.pkgPath], {
       encoding: 'utf8',
+      maxBuffer: 128 * 1024 * 1024,
+      env: packagingEnv(),
     }).trim()
+    const payloadLines = payloadFilesRaw.split('\n')
+    const payloadFilesOut = payloadLines.length <= 200
+      ? payloadFilesRaw
+      : [
+        ...payloadLines.slice(0, 80),
+        ...payloadLines.slice(80).filter(
+          line =>
+            line.includes('Contents/Info.plist') ||
+              line.includes('Contents/MacOS/') ||
+              line.includes('usr/local/share/xpeach-harness/'),
+        ),
+        `... (${String(payloadLines.length)} payload entries total)`,
+      ].join('\n')
     let volInfoOut = ''
     try {
       volInfoOut = execFileSync('/usr/sbin/installer', ['-pkg', paths.pkgPath, '-volinfo'], {
         encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        env: packagingEnv(),
       }).trim()
     } catch (_err) { /* volinfo optional on restricted environments */ }
 
@@ -911,6 +1193,7 @@ function appendShellPathIfMissing(rcFilePath: string): void {
  * @param action - Installer action to run (`'build'`, `'open'`, `'reveal'`, or `'install-direct'`).
  * @param options - Optional directory and version overrides.
  * @returns Structured action outcome, updated status, and verification log.
+ * @throws 安装前只读校验失败或需要播种的产品资源不可用时，停止依赖操作，原补丁保留。
  */
 export async function runMacosInstallerAction(
   action: XPeachMacosInstallerActionRequest['action'],
@@ -927,6 +1210,9 @@ export async function runMacosInstallerAction(
   }
 
   const paths = resolveInstallerPaths(options)
+  const profileDir = join(paths.ownHome, 'profiles', 'xpeach')
+  const needsSeed = profileNeedsSeed(profileDir)
+  const profileContent = action === 'install-direct' && needsSeed ? readProductProfile(paths) : undefined
 
   if (action === 'build') {
     const built = await buildMacosPkgInstaller(options)
@@ -948,6 +1234,7 @@ export async function runMacosInstallerAction(
   if (action === 'open') {
     execFileSync('/usr/bin/open', ['-a', '/System/Library/CoreServices/Installer.app', paths.pkgPath], {
       stdio: 'ignore',
+      env: packagingEnv(),
     })
     return {
       ok: true,
@@ -961,6 +1248,7 @@ export async function runMacosInstallerAction(
   if (action === 'reveal') {
     execFileSync('/usr/bin/open', ['-R', paths.pkgPath], {
       stdio: 'ignore',
+      env: packagingEnv(),
     })
     return {
       ok: true,
@@ -972,15 +1260,17 @@ export async function runMacosInstallerAction(
   }
 
   // 'install-direct'
+  const cordisYmlPath = join(profileDir, 'cordis.yml')
+  const cordisPatchYmlPath = join(profileDir, 'cordis.patch.yml')
   const userAppBundle = join(paths.userApplicationsDir, APP_BUNDLE_NAME)
-  materializeAppBundle(userAppBundle, paths.version, paths.repositoryRoot)
+  materializeAppBundle(userAppBundle, paths.version, paths.repositoryRoot, paths.allowBuiltBundleLookup)
   signAndRegisterAppBundle(userAppBundle)
 
   let installedAppPath = userAppBundle
   if (paths.systemApplicationsDir !== undefined && isWritableDirectory(paths.systemApplicationsDir)) {
     const sysAppBundle = join(paths.systemApplicationsDir, APP_BUNDLE_NAME)
     try {
-      materializeAppBundle(sysAppBundle, paths.version, paths.repositoryRoot)
+      materializeAppBundle(sysAppBundle, paths.version, paths.repositoryRoot, paths.allowBuiltBundleLookup)
       signAndRegisterAppBundle(sysAppBundle)
       installedAppPath = sysAppBundle
     } catch (_err) { /* keep user Applications bundle */ }
@@ -1012,21 +1302,12 @@ export async function runMacosInstallerAction(
   appendShellPathIfMissing(join(paths.homeDir, '.zprofile'))
   appendShellPathIfMissing(join(paths.homeDir, '.zshrc'))
 
-  const profileDir = join(paths.ownHome, 'profiles', 'xpeach')
   mkdirSync(profileDir, { recursive: true })
   mkdirSync(join(paths.ownHome, 'skills'), { recursive: true })
   mkdirSync(join(paths.ownHome, 'sessions'), { recursive: true })
 
-  const cordisYmlPath = join(profileDir, 'cordis.yml')
-  if (!existsSync(cordisYmlPath)) {
-    const repoProfileYaml = paths.repositoryRoot !== undefined
-      ? join(paths.repositoryRoot, 'apps', 'desktop', 'resources', 'xpeach.profile.yml')
-      : undefined
-    const profileContent = repoProfileYaml !== undefined && existsSync(repoProfileYaml)
-      ? readFileSync(repoProfileYaml, 'utf8')
-      : defaultProfileYaml()
-    writeFileSync(cordisYmlPath, profileContent, 'utf8')
-  }
+  if (!existsSync(cordisYmlPath)) writeFileSync(cordisYmlPath, '[]\n', 'utf8')
+  if (profileContent !== undefined) writeFileSync(cordisPatchYmlPath, profileContent, 'utf8')
 
   const installedAt = new Date().toISOString()
   writeFileSync(
@@ -1045,12 +1326,17 @@ export async function runMacosInstallerAction(
     'utf8',
   )
 
-  const appVersionOut = execFileSync(
-    join(installedAppPath, 'Contents', 'MacOS', 'XPeachHarness'),
-    ['--version'],
-    { encoding: 'utf8' },
-  ).trim()
-  const xphVersionOut = execFileSync(localXphPath, ['--version'], { encoding: 'utf8' }).trim()
+  const appVersionOut = isNativeElectronAppBundle(installedAppPath)
+    ? `XPeach Harness ${paths.version}`
+    : execFileSync(
+      join(installedAppPath, 'Contents', 'MacOS', 'XPeachHarness'),
+      ['--version'],
+      { encoding: 'utf8', env: packagingEnv() },
+    ).trim()
+  const xphVersionOut = execFileSync(localXphPath, ['--version'], {
+    encoding: 'utf8',
+    env: packagingEnv(),
+  }).trim()
 
   const combinedVerify = [
     verifyOutput ?? '',

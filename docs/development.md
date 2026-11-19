@@ -8,7 +8,7 @@ The setup tutorial takes a new contributor from prerequisites to a checked check
 
 ### Prerequisites
 
-- Node.js supports 22.19+ and 24+. CI covers 22.19, 24, and 26; see the [Node engine floor Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.md).
+- Node.js 24.9 or newer. CI covers 24.9, the latest 24, and 26; see the [Node engine floor Agent Note](../.agents/notes/implemented/process/2026-10-15-node-24-runtime-floor.md).
 - Node.js TypeScript type stripping enabled. The repository build scripts load `tsdown.config.ts` with tsdown's native config loader, so they fail when `--no-experimental-strip-types` is in `NODE_OPTIONS` or the Node.js build lacks TypeScript support; `pnpm run build` checks this first and names the cause.
 - Corepack-enabled pnpm. The repo pins `pnpm@11.28.5` in `package.json`; run `corepack enable` if `pnpm --version` does not resolve through Corepack.
 - Git 2.26 or newer; hook setup enables Git's worktree-specific configuration extension.
@@ -72,7 +72,7 @@ Host and Client stay two aggregate programs because both sides declaration-merge
 - A script that builds a repo-wide `ts.Program` seeds `tsconfig.host.json` or `tsconfig.client.json` explicitly — never the root solution, because flattening both aggregates into one program collides the `Context` merges.
 - A new package is registered in exactly one aggregate; only the split packages above carry both leaf configs, and the shared leaves are registered in both aggregates because each side must type-check the same source. Having both a Node loader entry and a browser entry is not a reason to split a package; an ordinary Client plugin produces both runtime artifacts during the Client build phase.
 
-Six packages split Host and Client tsconfigs: `api/remotes`, `api/gateway`, `api/session-controller`, `api/workspace-controller`, `client/connection`, and `session-query/session-log-export`. `api/remotes`' Host entry participates in the Host Typert graph while its Client entry imports generated `/remote` declarations; `session-log-export` keeps Node archive production out of its browser controller. Each split package-root `tsconfig.json` is therefore only a solution, and the two aggregates and direct consumers reference `tsconfig.host.json` or `tsconfig.client.json` respectively. The workspace `constraints` gate walks the reachable Project Reference graph and checks each referencing project's own compiler face: a single-config target remains valid from either face, while a split target must name the matching leaf rather than its solution root or opposite leaf; it discovers split packages from the presence of both leaf configs, so a new split joins the gate automatically. The [`api-remotes` README](../packages/api/remotes/README.md) and [`session-log-export` README](../packages/session-query/session-log-export/README.md) explain their splits.
+Packages with both Host and Client leaves use a solution-only root. Aggregates and consumers reference their matching face. Shared DTOs can have a declaration-only `tsconfig.shared.json` consumed by both faces; it owns only type declarations and emits outside `src`. The workspace `constraints` check rejects opposite-face and solution-root references, and validates every shared leaf before admitting it. The [shared-project decision](../.agents/notes/implemented/architecture/2026-11-17-declaration-only-shared-projects.md) defines its restrictions; the [`api-remotes` README](../packages/api/remotes/README.md) explains a consuming facade.
 
 `pnpm run build:artifacts` emits every artifact in the generated dependency order, checking and compiling only the package references of each compiler face:
 
@@ -80,7 +80,7 @@ Six packages split Host and Client tsconfigs: `api/remotes`, `api/gateway`, `api
 pnpm run build:native-system
 tsc -b <tsconfig.host.json references>
 tsdown --env.DSH_BUILD_FACE host
-pnpm --filter @deepseek-ai/dsh-desktop run bundle
+pnpm --filter @xpeach/xph-desktop run bundle
 tsc -b <tsconfig.client.json references>
 tsdown --env.DSH_BUILD_FACE client
 pnpm run build:web
@@ -144,11 +144,13 @@ The vendor manifest guard checks that changes under `vendor/*/src` are staged wi
 
 The pi-ai check regenerates expected metadata in memory. It rejects stale data without rewriting or staging files. After a pi-ai dependency or generator change, follow the package's [provider metadata update steps](../packages/llm/llm-pi-ai/README.md#generated-provider-metadata).
 
-Apart from the scoped pairing and provider metadata checks, the hooks intentionally do not run tests, snapshots, documentation checks, builds, or hygiene. Contributors run the [checks relevant to the changed behavior](../AGENTS.md#run-relevant-checks-locally) once; CI owns exhaustive coverage, built-artifact smokes, and the Node 22.19, 24, and 26 compatibility matrix.
+Apart from the scoped pairing and provider metadata checks, the hooks intentionally do not run tests, snapshots, documentation checks, builds, or hygiene. Contributors run the [checks relevant to the changed behavior](../AGENTS.md#run-relevant-checks-locally) once; CI owns exhaustive coverage, built-artifact smokes, and the Node 24.9, latest 24, and 26 compatibility matrix.
 
 Contributors can opt into the comprehensive local gate set with `pnpm run check:all`. The command is independent of the Git hooks and is not an agent instruction.
 
 Outside CI (`CI` other than `true`), default worker counts follow the [local worker budget](../scripts/parallelism.ts): 12 for gate schedulers, `build`, `typecheck`, Oxlint, and publint, and 48 for Vitest forks and local coverage. `doc-sync`, `test:docs`, `hygiene`, and `check:all` run at most 8 gates at once, in CI as well. `os.availableParallelism()` reports host CPUs rather than a container's CPU quota, so uncapped defaults oversubscribe shared hosts. CI keeps the runner's CPU count. `DSH_GATE_CONCURRENCY`, `DSH_OXLINT_THREADS`, `DSH_COVERAGE_MAX_WORKERS`, and Vitest `--maxWorkers` override the defaults.
+
+`run-gates` gives the CLI help generator one child at a time; direct `pnpm run verify-cli-help` uses the standalone worker budget. `DSH_CLI_HELP_CONCURRENCY` overrides that child limit with a positive integer validated before startup. Each invocation retains its private `DSH_HOME` and `DSH_AGENTS_HOME` and 30-second deadline.
 
 ### CI gates
 

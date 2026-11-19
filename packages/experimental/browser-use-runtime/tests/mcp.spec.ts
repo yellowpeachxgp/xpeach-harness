@@ -1,3 +1,6 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import * as PtcToolExecutor from '@xpeach/xph-tool-executor-ptc'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -69,7 +72,7 @@ async function load(exclusive = false, mode?: string, toolCallTimeoutMs?: number
   roots.push(root)
   const model = new FixtureModel()
   const modules = new Map<string, unknown>([
-    ['browserUse', BrowserUse], ['prompt', SystemPrompt], ['tools', Tools], ['llm', Llm],
+    ['browserUse', BrowserUse], ['prompt', SystemPrompt], ['tools', Tools], ['toolExecutor', NativeToolExecutor], ['llm', Llm],
     ['sessions', Sessions], ['agents', Agents], ['loop', AgentLoop], ['projections', Projections],
     ['fs', LocalFileSystem], ['workingDirectory', WorkingDirectory],
     ['model', { inject: ['llm'], apply(ctx: Context) { ctx.effect(() => ctx.llm.registerAdapter(['fixture'], model)) } }],
@@ -97,17 +100,20 @@ async function load(exclusive = false, mode?: string, toolCallTimeoutMs?: number
   return { ctx, root, model, browser }
 }
 
-async function warm(ctx: Context, agent: Agent, signal = new AbortController().signal) {
+async function warm(ctx: Context, agent: Agent, signal = new AbortController().signal, prepared = false) {
   await agent.whenIdle()
-  return ctx.systemPrompt.assemble({ agent, scope: agent, signal })
+  if (!prepared) return ctx.systemPrompt.assemble({ agent, scope: agent, signal })
+  const pending = await ctx.systemPrompt.prepare({ agent, scope: agent, signal })
+  const toolSet = await ctx.tools.resolve({ agent, modelSelection: { provider: 'fixture', model: 'fixture' }, signal })
+  try { return pending.bindTools({ toolSet }) } finally { toolSet.dispose() }
 }
 
 function execute(ctx: Context, agent: Agent, name = TOOL) {
-  return ctx.tools.execute({ agent, name, arguments: name === TOOL ? { label: 'direct' } : {}, callId: ToolCallId('direct'), signal: new AbortController().signal })
+  return executeToolFixture(ctx, { agent, name, arguments: name === TOOL ? { label: 'direct' } : {}, callId: ToolCallId('direct'), signal: new AbortController().signal })
 }
 
 function resource(ctx: Context, agent: Agent | undefined, name = 'read_mcp_resource', server = 'browser-fixture', callId = name) {
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     ...agent === undefined ? {} : { agent }, name,
     arguments: { server, ...name === 'read_mcp_resource' ? { uri: 'browser-fixture://state' } : {} },
     callId: ToolCallId(callId), signal: new AbortController().signal,
@@ -328,8 +334,9 @@ describe('Session MCP Loader composition', () => {
     expect((await execute(ctx, child.agent)).content).toEqual([{ type: 'text', text: 'Visit 1: direct' }])
   })
 
-  it('denies inherited browser resources and instructions while keeping unrelated MCP servers usable', async () => {
+  it.each([false, true])('继承的浏览器指令和资源仍被过滤，无关 MCP 保持可用，延迟绑定=%s', async (prepared) => {
     const { ctx, root } = await load(true)
+    const assemble = (agent: Agent) => warm(ctx, agent, undefined, prepared)
     await ctx.plugin(McpResources)
     ctx.mcpResources.register('docs', { request: async () => ({ contents: [{ uri: 'docs://memo', text: 'Independent document.' }] }) })
     const parent = await ctx.agents.create({ sessionId: SessionId('resource-parent') })
@@ -337,8 +344,8 @@ describe('Session MCP Loader composition', () => {
       sessionId: SessionId('resource-child'), parentAgent: parent.agent,
       setup: (_inner, agent) => { bindScopeParent(agent, parent.agent) },
     })
-    expect(renderPrompt(await warm(ctx, parent.agent))).toContain('BROWSER_FIXTURE_INSTRUCTION')
-    const blocked = await warm(ctx, child.agent)
+    expect(renderPrompt(await assemble(parent.agent))).toContain('BROWSER_FIXTURE_INSTRUCTION')
+    const blocked = await assemble(child.agent)
     expect(blocked.tools.some(tool => tool.name === TOOL)).toBe(false)
     expect(renderPrompt(blocked)).not.toContain('BROWSER_FIXTURE_INSTRUCTION')
     expect(renderPrompt(blocked)).toContain('browser-fixture')
@@ -350,14 +357,14 @@ describe('Session MCP Loader composition', () => {
     expect((await resource(ctx, child.agent, 'read_mcp_resource', 'docs')).value)
       .toEqual({ contents: [{ uri: 'docs://memo', text: 'Independent document.' }] })
     for (const args of [null, 'invalid arguments']) {
-      expect((await ctx.tools.execute({ agent: child.agent, name: 'read_mcp_resource', arguments: args, callId: ToolCallId('invalid-resource'), signal: new AbortController().signal })).isError).toBe(true)
+      expect((await executeToolFixture(ctx, { agent: child.agent, name: 'read_mcp_resource', arguments: args, callId: ToolCallId('invalid-resource'), signal: new AbortController().signal })).isError).toBe(true)
     }
     expect(browserState(await resource(ctx, parent.agent)).counter).toBe(0)
     await parent.dispose()
-    expect(renderPrompt(await warm(ctx, child.agent))).not.toContain('BROWSER_FIXTURE_INSTRUCTION')
+    expect(renderPrompt(await assemble(child.agent))).not.toContain('BROWSER_FIXTURE_INSTRUCTION')
     expect((await resource(ctx, child.agent)).isError).toBe(true)
     const successor = await ctx.agents.create({ sessionId: SessionId('resource-successor') })
-    expect(renderPrompt(await warm(ctx, successor.agent))).toContain('BROWSER_FIXTURE_INSTRUCTION')
+    expect(renderPrompt(await assemble(successor.agent))).toContain('BROWSER_FIXTURE_INSTRUCTION')
     expect(browserState(await resource(ctx, successor.agent)).counter).toBe(0)
   })
 
@@ -423,7 +430,7 @@ describe('Session MCP Loader composition', () => {
       sessionId: SessionId('ptc-first-request'), agentOptions: { provider: 'fixture', model: 'fixture' },
       setup: (inner, agent) => {
         initializing = agent
-        inner.tools.presentAs('ptc')
+        inner.plugin(PtcToolExecutor)
         inner.on('agent/created', () => {
           agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Describe the available browser tools.' }], source: { kind: 'user' } }))
         }, { prepend: true })
@@ -568,11 +575,20 @@ describe('Session MCP Loader composition', () => {
         }, { prepend: true })
       },
     })
-    const rejected = expect(canceledResume).rejects.toThrow('cancel browser resume')
-    await vi.waitFor(async () => { expect((await events(root)).filter(event => event.event === 'probe')).toHaveLength(2) })
-    expect(model.requests).toHaveLength(2)
-    controller.abort(new Error('cancel browser resume'))
-    await rejected
+    const canceled = canceledResume.then(
+      () => ({ status: 'fulfilled' } as const),
+      (reason: unknown) => ({ status: 'rejected', reason } as const),
+    )
+    try {
+      await expect.poll(async () => (await events(root)).filter(event => event.event === 'probe')).toHaveLength(2)
+      expect(model.requests).toHaveLength(2)
+    } finally {
+      // 观察失败时同样取消并排空恢复，避免清理产生未处理的拒绝。
+      controller.abort(new Error('cancel browser resume'))
+      const result = await canceled
+      expect(result.status).toBe('rejected')
+      if (result.status === 'rejected') expect(() => { throw result.reason }).toThrow('cancel browser resume')
+    }
     expect(ctx.agents.get(sessionId)).toBeUndefined()
     expect(ctx.sessions.get(sessionId)).toBeUndefined()
     for (const { pid } of (await events(root)).filter(event => event.event === 'start')) {
@@ -580,18 +596,25 @@ describe('Session MCP Loader composition', () => {
     }
 
     let resumed = false
-    const resuming = ctx.agents.resume({ resumeSessionId: sessionId }).then((handle) => {
-      resumed = true
-      return handle
-    })
-    await vi.waitFor(async () => { expect((await events(root)).filter(event => event.event === 'probe')).toHaveLength(3) })
-    expect(resumed).toBe(false)
-    expect(model.requests).toHaveLength(2)
-    await writeFile(join(root, 'release'), '')
-    const owner = await resuming
-    expect(ctx.tools.schemas(owner.agent).some(tool => tool.name === TOOL)).toBe(true)
-    expect((await execute(ctx, owner.agent)).content).toEqual([{ type: 'text', text: 'Visit 1: direct' }])
-    await owner.dispose()
+    const retry = new AbortController()
+    const resuming = ctx.agents.resume({ resumeSessionId: sessionId, signal: retry.signal }).then(
+      (handle) => { resumed = true; return { status: 'fulfilled', handle } as const },
+      (reason: unknown) => ({ status: 'rejected', reason } as const),
+    )
+    try {
+      await expect.poll(async () => (await events(root)).filter(event => event.event === 'probe')).toHaveLength(3)
+      expect(resumed).toBe(false)
+      expect(model.requests).toHaveLength(2)
+      await writeFile(join(root, 'release'), '')
+      const result = await resuming
+      if (result.status === 'rejected') throw result.reason
+      expect(ctx.tools.schemas(result.handle.agent).some(tool => tool.name === TOOL)).toBe(true)
+      expect((await execute(ctx, result.handle.agent)).content).toEqual([{ type: 'text', text: 'Visit 1: direct' }])
+    } finally {
+      retry.abort(new Error('结束浏览器恢复验收'))
+      const result = await resuming
+      if (result.status === 'fulfilled') await result.handle.dispose()
+    }
   })
 
   it('initializes only future activations after provider reload', async () => {

@@ -3,13 +3,13 @@ description: "Model tool that creates a new local Git worktree and changes the c
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-experimental-tool-worktree
+# @xpeach/xph-experimental-tool-worktree
 
 English | [中文](README.zh.md)
 
 ## Summary
 
-Add Git Worktrees from the GUI plugin manager to let a model create and enter a new Git worktree with one call. This optional bundle is installed with Harness and stays off until selected. Native tool calls and PTC programs receive the same typed result, and the existing file policy governs creation.
+Let a model create and enter a new Git worktree with one call. Web and Desktop expose this tool through Change requests & worktrees; other profiles can select this standalone bundle. Native tool calls and PTC programs receive the same typed result, and the existing file policy governs creation.
 
 ## Table of Contents
 
@@ -25,16 +25,16 @@ Add Git Worktrees from the GUI plugin manager to let a model create and enter a 
 <a id="use-this-package"></a>
 ## Use this package
 
-In the GUI, open **Plugins → Official → Git Worktrees** and turn on the switch. The bundle loads the [worktree runtime](../worktree/README.md) and this tool together; it is off in every shipped profile. Turning it off removes `create_worktree` without deleting existing checkouts or branches. The built-in `working_directory` tool remains available.
+In the GUI, enable [Change requests & worktrees](../forge-bundle/README.md). The standalone bundle has no Plugins page card. Profiles without the Web application may select it in `dsh.profile.bundles`; it loads the [worktree runtime](../worktree/README.md) and this tool together. Turning it off removes `create_worktree` without deleting existing checkouts or branches. The built-in `working_directory` tool remains available.
 
 For an explicit composition, mount this function plugin after the worktree runtime and tool registry.
 
 ```yaml
-- name: '@deepseek-ai/dsh-experimental-worktree'
-- name: '@deepseek-ai/dsh-experimental-tool-worktree'
+- name: '@xpeach/xph-experimental-worktree'
+- name: '@xpeach/xph-experimental-tool-worktree'
 ```
 
-Call `create_worktree({ name?: string, from?: string })`. Success returns the canonical checkout `path`, new `branch`, pinned `baseCommit`, and source `repositoryRoot`, and changes the calling Session's current working directory. To leave, call `working_directory({ cd: path })`; the checkout and branch remain. The [generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-experimental-tool-worktree) owns the exact schema and model-facing description.
+Call `create_worktree({ name?: string, from?: string })`. Success returns the canonical checkout `path`, new `branch`, pinned `baseCommit`, and source `repositoryRoot`, and changes the calling Session's current working directory. To leave, call `working_directory({ cd: path })`; the checkout and branch remain. The [generated tool catalog](../../../docs/tool-catalog.md#xpeachxph-experimental-tool-worktree) owns the exact schema and model-facing description.
 
 -----
 
@@ -68,7 +68,7 @@ No runtime invariant companion is published because the tool retains no state in
 
 #### What the model sees
 
-The [tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-experimental-tool-worktree) defines `create_worktree`. Each successful result contains the created checkout's canonical path, branch, base commit, and source checkout’s top-level directory. Failed calls report the operation error.
+The [tool catalog](../../../docs/tool-catalog.md#xpeachxph-experimental-tool-worktree) defines `create_worktree`. Each successful result contains the created checkout's canonical path, branch, base commit, and source checkout’s top-level directory. Failed calls report the operation error.
 
 #### Token effect
 

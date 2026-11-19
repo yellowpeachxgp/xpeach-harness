@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime, { createUserMessage, ToolCallId  } from '@xpeach/xph-llm'
@@ -9,7 +10,8 @@ import SessionStore, {
   type UserMessage,
 } from '@xpeach/xph-session'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture, type PostToolDecision, type PreToolDecision } from '@xpeach/xph-tools'
+import ToolRuntime, { type PostToolDecision, type PreToolDecision } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, {
   type Agent,
   type PreStepDecision,
@@ -47,6 +49,7 @@ async function harness(adapter: MockAdapter) {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   ctx.llm.registerAdapter(['mock'], adapter)

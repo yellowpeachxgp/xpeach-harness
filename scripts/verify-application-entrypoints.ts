@@ -32,6 +32,7 @@ const MANIFEST_BIN_ALLOWLIST = new Map<string, ManifestBin>([
 /** Every JavaScript executable in an application or packaging workspace has one explicit role. */
 const EXECUTABLE_SOURCE_ALLOWLIST = new Map<string, string>([
   ['apps/cli/src/bin.ts', 'supported dsh application launcher'],
+  ['apps/cli/src/xph.ts', 'supported xph application launcher'],
   ['apps/desktop/scripts/logged-notarytool.mjs', 'build-only notarization logging wrapper'],
   ['packages/context/time-context/tests/fixtures/driver.ts', 'test-only subprocess driver'],
   ['packages/experimental/webworker-packer/bin.js', 'build-only wrapper'],
@@ -130,7 +131,7 @@ function executableSourceViolations(root: string): string[] {
 }
 
 function referencesDshCli(source: string): boolean {
-  return source.includes('apps/cli/src/bin.ts')
+  return source.includes('apps/cli/src/bin.ts') || source.includes('apps/cli/src/xph.ts')
 }
 
 function referencesPackageEntry(source: string): boolean {

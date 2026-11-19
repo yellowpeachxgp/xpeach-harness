@@ -1,3 +1,4 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { createUserMessage, ToolCallId } from '@xpeach/xph-llm'
 import { provideWorkingDirectoryFixture, mountAgentLoopTestDependencies } from '@xpeach/xph-agent-loop-testkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -7,7 +8,7 @@ import { join } from 'node:path'
 import { Context } from '@xpeach/xph-cordis'
 import Loader from '@xpeach/xph-cordis-plugin-loader'
 import { SessionId, type SessionEvent } from '@xpeach/xph-session'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import type { Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import { LocalBashExecutor } from '@xpeach/xph-bash-local'
@@ -89,7 +90,7 @@ describe('unmatched hooks and directory recovery', () => {
         async execute(args) { return [{ type: 'text', text: args.cd }] },
       }))
       const agent = await ctx.agentLoop.create(SessionId('recovery'), { provider: 'mock', model: 'mock' })
-      const result = await ctx.tools.execute({
+      const result = await executeToolFixture(ctx, {
         name: 'working_directory', callId: ToolCallId('recover'), arguments: { cd: dir },
         agent, signal: new AbortController().signal,
       })

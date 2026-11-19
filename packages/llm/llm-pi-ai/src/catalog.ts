@@ -850,6 +850,7 @@ export interface RouteCatalog {
  * under the configured entries. A route with no configured `models` serves the
  * installed catalog unchanged, which is what keeps an existing
  * `providers: { deepseek: { apiKeyEnv: … } }` profile working untouched.
+ * 显式空列表停用目录，不继承内置模型；路由的其他配置仍须有效。
  * @param request - the route-level catalog facts.
  * @param validation - strict writes reject every error; deferred reads retain model diagnostics.
  * @returns the materialized models and the explicitly configured request caps.
@@ -861,9 +862,7 @@ export function resolveRouteModels(
   const { provider } = request
   const defaults = catalogModels(provider)
   const providerBaseUrl = catalogProvider(provider)?.baseUrl
-  // An absent `models` key and an empty one are the same request: the config
-  // schema materializes `[]` for the absent case, and an empty catalog could
-  // serve no request anyway, so both mean "serve the installed catalog".
+  // 显式空数组停用目录；只有省略 models 才继承已安装目录。
   const configured = request.models ?? []
   const overrides = request.modelOverrides ?? {}
   const modelErrors = new Map<string, string>()
@@ -875,7 +874,7 @@ export function resolveRouteModels(
       invalid(provider, `sets modelOverrides for "${id}", but the installed catalog does not describe this route;`
         + ' a declared route spells every model out in its models list')
     }
-    if (configured.length > 0) {
+    if (request.models !== undefined) {
       invalid(provider, `sets modelOverrides for "${id}" beside a models list; models already replaces the served`
         + ' catalog, so declare the fields on its entries')
     }
@@ -894,10 +893,10 @@ export function resolveRouteModels(
   // An override becomes the catalog entry's configuration, so everything a
   // models entry may declare — capacities, efforts, compat — resolves through
   // the same path with the same diagnostics and request-default semantics.
-  const entries: readonly PiAiModelProfile[] = configured.length > 0
+  const entries: readonly PiAiModelProfile[] = request.models !== undefined
     ? configured
     : [...defaults.values()].map(model => ({ id: model.id, ...overrides[model.id] }))
-  if (entries.length === 0) {
+  if (entries.length === 0 && request.models === undefined) {
     invalid(provider, 'resolves no models; the installed catalog does not describe this route, so its models'
       + ' must be listed in configuration')
   }
@@ -914,12 +913,19 @@ export function resolveRouteModels(
     if (seen.has(entry.id)) invalid(provider, `lists model "${entry.id}" more than once`)
     seen.add(entry.id)
     const base = defaults.get(entry.id)
-    const api = request.api ?? base?.api ?? routeApi
+    const isXpeachClaude = provider.startsWith('xpeach')
+      && (/(?:^|\/|[-_])claude[-_0-9]/iu.test(entry.id.trim()) || /^claude$/iu.test(entry.id.trim()))
+    const api = isXpeachClaude
+      ? 'anthropic-messages'
+      : (request.api ?? base?.api ?? routeApi)
     if (api === undefined) {
       invalid(provider, `model "${entry.id}" needs an api; the installed catalog does not describe it, so set the`
         + ' route\'s api to the wire protocol its endpoint speaks')
     }
-    const baseUrl = request.baseURL ?? base?.baseUrl ?? providerBaseUrl
+    const rawBaseUrl = request.baseURL ?? base?.baseUrl ?? providerBaseUrl
+    const baseUrl = rawBaseUrl !== undefined && isXpeachClaude
+      ? rawBaseUrl.replace(/\/v1\/?$/u, '')
+      : rawBaseUrl
     if (baseUrl === undefined) {
       invalid(provider, `model "${entry.id}" needs a baseURL; the installed catalog does not describe this route`)
     }
@@ -931,13 +937,16 @@ export function resolveRouteModels(
     if (!Number.isInteger(contextWindow) || contextWindow <= 0) {
       invalid(provider, `model "${entry.id}" contextWindow must be a positive integer`)
     }
-    const maxTokens = entry.maxTokens ?? base?.maxTokens ?? request.defaultMaxTokens
-    if (!Number.isInteger(maxTokens) || maxTokens <= 0) {
+    const rawMaxTokens = entry.maxTokens ?? base?.maxTokens ?? request.defaultMaxTokens
+    if (!Number.isInteger(rawMaxTokens) || rawMaxTokens <= 0) {
       invalid(provider, `model "${entry.id}" maxTokens must be a positive integer`)
     }
+    const maxTokens = provider.startsWith('xpeach')
+      ? Math.min(rawMaxTokens, request.defaultMaxTokens)
+      : rawMaxTokens
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.
-    if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
+    if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, maxTokens)
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this

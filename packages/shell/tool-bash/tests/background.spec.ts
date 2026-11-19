@@ -1,3 +1,6 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -37,6 +40,8 @@ async function setup() {
   provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalJobRegistry, { pumpPollMs: 25 })
   await ctx.plugin(ToolTasks)
@@ -50,7 +55,7 @@ async function setup() {
 
 let callCounter = 0
 function call(ctx: Context, args: Record<string, unknown>) {
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     signal: testToolSignal,
     callId: ToolCallId(`background-call-${++callCounter}`),
     name: 'bash',
@@ -126,7 +131,7 @@ describe('background bash output', () => {
     const jobs = ctx.jobs
     const job = jobs.list()[0]
     await until(() => jobs.get(job!.id).status === 'killed' ? true : undefined)
-    const read = text(await ctx.tools.execute({
+    const read = text(await executeToolFixture(ctx, {
       signal: testToolSignal,
       callId: ToolCallId('background-spawn-failure-read'),
       name: 'job_output',
@@ -289,7 +294,7 @@ describe('foreground commands as jobs', () => {
       else if (event.type !== 'output') seen.push(event.type)
     })
     const controller = new AbortController()
-    const pending = ctx.tools.execute({
+    const pending = executeToolFixture(ctx, {
       signal: controller.signal,
       callId: ToolCallId('background-call-aborted'),
       name: 'bash',
@@ -321,7 +326,7 @@ describe('foreground commands as jobs', () => {
     }
     vi.spyOn(ctx.shell, 'execute').mockResolvedValue(stubborn)
     const controller = new AbortController()
-    const pending = ctx.tools.execute({
+    const pending = executeToolFixture(ctx, {
       signal: controller.signal,
       callId: ToolCallId('background-call-aborted-slow-kill'),
       name: 'bash',
@@ -371,7 +376,7 @@ describe('foreground commands as jobs', () => {
       whenIdle: () => Promise.resolve(),
     }
     ctx.agents.register(owner)
-    const result = await ctx.tools.execute({
+    const result = await executeToolFixture(ctx, {
       signal: testToolSignal,
       callId: ToolCallId('background-promote-owned'),
       name: 'bash',
@@ -424,6 +429,8 @@ describe('foreground commands as jobs', () => {
     provideWorkingDirectoryFixture(ctx)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
+    await ctx.plugin(SessionProjectionRegistry)
+    await ctx.plugin(NativeToolExecutor)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry, { pumpPollMs: 25 })
     await ctx.plugin(ToolTasks)
@@ -487,7 +494,7 @@ describe('owned background output', () => {
       whenIdle: () => Promise.resolve(),
     }
     ctx.agents.register(owner)
-    await ctx.tools.execute({
+    await executeToolFixture(ctx, {
       signal: testToolSignal,
       callId: ToolCallId('background-owned-1'),
       name: 'bash',

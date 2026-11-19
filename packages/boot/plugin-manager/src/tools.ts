@@ -23,6 +23,7 @@ const ERROR_STEPS: Record<ManagementError['code'], string> = {
   'bundle-in-use': 'Call list_plugins, disable the entries from other layers that still use this bundle, then retry.',
   'stale-approval': 'Call install_bundle again without approvedBuilds to read the current pendingBuilds.',
   'incompatible-version': 'Install a version compatible with the running DSH. A version exemption needs the user\'s explicit acceptance of crash and data-loss risk.',
+  'unsupported-platform': 'This plugin does not support the current operating system or CPU architecture.',
   'operation-error': 'Report the diagnostic to the user; retry only after its cause is addressed.',
 }
 
@@ -128,7 +129,10 @@ export function apply(ctx: Context): void {
           const rows = args.action === 'list_plugins' ? await manager.listPlugins() : await manager.listBundles()
           const entries = rows.slice(offset, offset + limit).map(({ meta: _meta, ...row }) =>
             'rows' in row
-              ? { ...row, rows: row.rows.map(({ meta: _rowMeta, ...declared }) => declared) }
+              // The tool offers no update action, so update eligibility stays out of the model's view.
+              ? (({ updatable: _updatable, ...bundle }) => ({
+                ...bundle, rows: bundle.rows.map(({ meta: _rowMeta, ...declared }) => declared),
+              }))(row)
               : row)
           return JSON.stringify({ entries, total: rows.length,
             nextOffset: offset + entries.length < rows.length ? offset + entries.length : null })

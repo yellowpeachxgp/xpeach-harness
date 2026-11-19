@@ -3,7 +3,7 @@ description: "OpenSSH connection configuration and remote helper lifecycle for d
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-ssh
+# @xpeach/xph-ssh
 
 English | [中文](README.zh.md)
 
@@ -51,6 +51,8 @@ Pass the verified `ctx.ssh.ptcLaunch` as the `launch` configuration of [`NodePtc
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
+
+The helper dispatches `fs.patch`, `fs.delete`, and `fs.move` through its sandboxed filesystem provider; strict schemas validate hunks, source/destination guards, and complete or partial move outcomes. Hunk payloads share the connection frame limit.
 
 <details>
 <summary>Implementation internals — click to expand</summary>

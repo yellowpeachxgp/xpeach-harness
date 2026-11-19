@@ -3,7 +3,7 @@ description: "面向组合 POSIX 文件、进程与沙箱提供方的部署者�
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-ssh
+# @xpeach/xph-ssh
 
 [English](README.md) | 中文
 
@@ -51,6 +51,8 @@ kind: "package-reference"
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
+
+辅助进程通过其沙箱文件系统提供方分派 `fs.patch`、`fs.delete` 和 `fs.move`；严格 schema 校验 hunk、源/目标防护，以及完整或部分的移动结果。hunk 负载使用连接帧上限。
 
 <details>
 <summary>实现细节 — 点击展开</summary>

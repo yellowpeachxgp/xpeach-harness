@@ -16,6 +16,54 @@ describe('snapshot manifest', () => {
     })
   })
 
+  it.each(['live', 'authored'])('接受 %s headless 所有者的独立 writer 输出', (recording) => {
+    expect(parseSnapshotManifest([
+      'version: 1',
+      'profile: headless',
+      `recording: ${recording}`,
+      'sessionOutput: separate',
+      '',
+    ].join('\n'))).toEqual({
+      version: 1,
+      profile: 'headless',
+      recording,
+      sessionOutput: 'separate',
+    })
+  })
+
+  it.each(['sdk', 'sdk-minimal', 'acp', 'web'])('拒绝 %s 场景声明独立 writer 输出', (profile) => {
+    expect(() => parseSnapshotManifest(`version: 1\nprofile: ${profile}\nsessionOutput: separate\n`))
+      .toThrow('manifest.sessionOutput 仅适用于拥有自身 Session 的 headless 场景')
+  })
+
+  it.each(['current', 'false', 'null', '[]', '{}'])('拒绝 sessionOutput: %s', (value) => {
+    expect(() => parseSnapshotManifest(`version: 1\nprofile: headless\nsessionOutput: ${value}\n`))
+      .toThrow('manifest.sessionOutput 仅接受 separate')
+  })
+
+  it('拒绝借用其他场景输入时声明独立 writer 输出', () => {
+    expect(() => parseSnapshotManifest([
+      'version: 1',
+      'profile: headless',
+      'session:',
+      '  source: ../owner/session.v4.jsonl',
+      'sessionOutput: separate',
+      '',
+    ].join('\n'))).toThrow('manifest.sessionOutput 仅适用于拥有自身 Session 的 headless 场景')
+  })
+
+  it.each(['adjacent-migration', 'retired-tools'])('拒绝将独立输出与 %s 代际声明混用', (coverage) => {
+    expect(() => parseSnapshotManifest([
+      'version: 1',
+      'profile: headless',
+      'sessionFormat:',
+      '  version: 3',
+      `  coverage: [${coverage}]`,
+      'sessionOutput: separate',
+      '',
+    ].join('\n'))).toThrow('manifest.sessionOutput 不能与 sessionFormat 同时声明')
+  })
+
   it('parses an explicitly retained Session generation and its migration coverage', () => {
     expect(parseSnapshotManifest([
       'version: 1',
@@ -33,6 +81,7 @@ describe('snapshot manifest', () => {
 
   it('keeps explicitly retained generations read-only while current fixtures track writer output', () => {
     const current = parseSnapshotManifest('version: 1\nprofile: headless\n')
+    const separate = parseSnapshotManifest('version: 1\nprofile: headless\nsessionOutput: separate\n')
     const borrower = parseSnapshotManifest([
       'version: 1',
       'profile: web',
@@ -52,6 +101,9 @@ describe('snapshot manifest', () => {
     expect(writesCurrentSessionFixtures(current, 'replay')).toBe(false)
     expect(writesCurrentSessionFixtures(current, 'record')).toBe(true)
     expect(writesCurrentSessionFixtures(current, 'refresh')).toBe(true)
+    expect(writesCurrentSessionFixtures(separate, 'replay')).toBe(false)
+    expect(writesCurrentSessionFixtures(separate, 'record')).toBe(false)
+    expect(writesCurrentSessionFixtures(separate, 'refresh')).toBe(false)
     expect(writesCurrentSessionFixtures(borrower, 'record')).toBe(false)
     expect(writesCurrentSessionFixtures(borrower, 'refresh')).toBe(false)
     expect(writesCurrentSessionFixtures(retained, 'record')).toBe(false)

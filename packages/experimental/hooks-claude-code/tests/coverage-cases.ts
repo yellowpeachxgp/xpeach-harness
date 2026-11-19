@@ -1,3 +1,4 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { createUserMessage } from '@xpeach/xph-llm'
 import type { ContextFormed } from '@xpeach/xph-llm'
 import { provideWorkingDirectoryFixture, mountAgentLoopTestDependencies } from '@xpeach/xph-agent-loop-testkit'
@@ -8,7 +9,7 @@ import { join } from 'node:path'
 import { Context } from '@xpeach/xph-cordis'
 import { SessionId, type SessionEvent } from '@xpeach/xph-session'
 import * as JsonlSessionPersistence from '@xpeach/xph-session-persistence-jsonl'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import type { Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import { LocalBashExecutor } from '@xpeach/xph-bash-local'
@@ -160,7 +161,7 @@ export function defineCoverageCases(group: CoverageGroup): void {
       let ran = false
       ctx.tools.register(defineContentToolFixture({ name: 'echo', description: 'e', parameters: {}, async execute() { ran = true; return [{ type: 'text', text: 'x' }] } }))
       const { ToolCallId } = await import('@xpeach/xph-llm')
-      const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('c1'), name: 'echo', arguments: {} })
+      const result = await executeToolFixture(ctx, { signal: testToolSignal, callId: ToolCallId('c1'), name: 'echo', arguments: {} })
       expect(ran).toBe(false)
       expect(result.isError).toBe(true)
     })

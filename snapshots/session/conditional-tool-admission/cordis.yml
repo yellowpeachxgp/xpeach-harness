@@ -1,0 +1,13 @@
+- id: llm-deepseek
+  config:
+    models:
+      - id: deepseek-v4-flash
+        toolUpdate: in-history
+
+- insert:
+    - id: conditional-tool-admission
+      name: '../../../packages/test-support/session-snapshot/tests/fixtures/conditional-tool-admission.ts'
+
+# Keep this recorded composition stable; the sdk profile's plugin management tool is covered separately.
+- id: tool-plugin-manager
+  disabled: true

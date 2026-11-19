@@ -415,11 +415,11 @@ if (isMain) {
     // running vite from anywhere but apps/web silently switches which react copy
     // the bundle gets.
     spawnStage(supervisor, 'vite build --watch', 'pnpm', ['--filter', SHELL_PACKAGE, 'run', 'watch'], false)
-    // The same launch vector as the root `dsh` script, so the served Host runs
-    // from source exactly as `pnpm dsh web` would.
+    // The same launch vector as the root `xph` / `dsh` script (`apps/cli/src/xph.ts`
+    // over `apps/cli/src/bin.ts`), so the served Host runs from source with the XPeach profile.
     if (options.serve) {
       spawnStage(supervisor, 'dsh web', process.execPath, [
-        '--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web', ...options.appArgs,
+        '--import', 'tsx/esm', 'apps/cli/src/xph.ts', 'web', ...options.appArgs,
       ], false)
     }
     console.log(

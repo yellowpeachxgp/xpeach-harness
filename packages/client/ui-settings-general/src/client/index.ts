@@ -24,6 +24,7 @@ import type {} from '@xpeach/xph-client-ui-settings/client'
 import type {} from '@xpeach/xph-client-locale/client'
 import type {} from '@xpeach/xph-client-ui-renderer/client'
 import type {} from '@xpeach/xph-client-ui-session/client'
+import type {} from '@xpeach/xph-client-product-analytics/client'
 import type {
   SettingsOnboardingStep, SettingsRootInjected, SettingsSectionRow,
 } from './shell-contract.ts'
@@ -41,7 +42,7 @@ import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
 import { HostReleasePrompt, type HostReleasePromptInjected } from './HostReleasePrompt.tsx'
-import { en, zh, type SettingsKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, zh, type SettingsKey } from './locales.ts'
 
 export type {
   CloseLabelProps, HeaderContentProps, TriggerContentProps,
@@ -81,10 +82,18 @@ export function apply(ctx: ClientContext): void {
     name: 'settings.general.item', id: 'developer-tools', order: 15, locale: NS,
     inject: (): DeveloperToolsRowInjected => ({
       hooks: { developerTools: ctx.configForms.developerTools.enabled },
-      setEnabled: enabled => ctx.configForms.developerTools.setEnabled(enabled),
+      setEnabled: async (enabled) => {
+        const settings = ctx.configForms.get<{ enabled: boolean }>('ui-settings')
+        const previous = settings.getSnapshot().value?.enabled
+        const timestamp = Date.now()
+        await ctx.configForms.developerTools.setEnabled(enabled)
+        if (previous !== undefined && previous !== enabled && settings.getSnapshot().value?.enabled === enabled) {
+          ctx.get('productAnalytics')?.track('code_work_view_toggle', { is_enabled: enabled }, timestamp)
+        }
+      },
     }),
   }, DeveloperToolsRow))
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-general: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
   const carrier = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion: number; updates?: DesktopUpdateBridge } }).dshDesktop
   const hasDesktopUpdate = carrier?.protocolVersion === 1 && carrier.updates !== undefined
@@ -220,6 +229,7 @@ export function apply(ctx: ClientContext): void {
         'settings.action': { kind: 'list', scope: 'root' },
         'settings.close': { kind: 'single', scope: 'root' },
         'settings.section': { kind: 'list', scope: 'root' },
+        'settings.section.icon': { kind: 'list', scope: 'root', inline: true },
         'settings.onboarding': { kind: 'list', scope: 'root' },
       },
       inject: shellInjected,

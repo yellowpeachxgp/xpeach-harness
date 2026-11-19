@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-desktop",
   "description": "Electron desktop shell for a bundled dsh runtime and external plugins",
-  "version": "0.0.25-beta",
+  "version": "0.0.36-alpha",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -69,7 +69,7 @@
     "extract-zip": "^2.0.1",
     "js-yaml": "^4.3.2",
     "koffi": "3.1.1",
-    "pnpm": "12.6.0",
+    "pnpm": "11.28.5",
     "sharp": "0.35.5",
     "typescript": "^6.0.3",
     "@xpeach/xph-deepseek-account": "workspace:*",

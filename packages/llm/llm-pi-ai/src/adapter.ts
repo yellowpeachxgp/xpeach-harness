@@ -286,17 +286,15 @@ export class PiAiAdapter extends LlmAdapter {
     return profile
   }
 
-  /** The configured descriptor for one exact route/model pair within one snapshot. */
+  /** 仅解析指定提供方目录内的模型；缺失时抛出 UNKNOWN_MODEL。 */
   private modelOf(snapshot: PiAiSnapshot, provider: string, model: string): Model<Api> {
     const profile = this.profileOf(snapshot, provider)
     const failure = profile.modelErrors.get(model)
       ?? (profile.piProvider === undefined ? profile.catalogError : undefined)
     if (failure !== undefined) throw new LlmError(failure, 'INVALID_CONFIG')
     const resolved = snapshot.models.getModel(provider, model)
-    if (resolved === undefined) {
-      throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
-    }
-    return resolved
+    if (resolved !== undefined) return resolved
+    throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
@@ -418,16 +416,18 @@ export class PiAiAdapter extends LlmAdapter {
         this.config.onReplayDegrade?.({ provider: options.provider, model: options.model, reason })
       }
       const context = attachments === undefined
-        ? toPiContext(request, undefined, onReplayDegrade)
+        ? toPiContext(request, undefined, onReplayDegrade, updates.systemPromptUpdate === 'in-history')
         : await toPiContext({ ...request, signal: watchdog.signal }, {
           attachments,
           resolveImageAccess: ref => this.config.resolveImageAccess?.(attachments, ref),
           maxRequestImageBytes: profile.maxRequestImageBytes,
+          maxRequestImages: profile.maxRequestImages,
+          imageOffloadCountQuantum: profile.imageOffloadCountQuantum,
           requestImagePolicy: {
             maxPixels: profile.requestImagePixelBudget,
             maxBytes: profile.requestImageMaxBytes,
           },
-        }, onReplayDegrade)
+        }, onReplayDegrade, updates.systemPromptUpdate === 'in-history')
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },

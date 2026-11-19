@@ -42,6 +42,7 @@
     "@xpeach/xph-storage-domain": "workspace:*",
     "@xpeach/xph-storage-json": "workspace:*",
     "@xpeach/xph-subagent": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*",
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-token-meter": "workspace:*",
     "@xpeach/xph-typert-protocol": "workspace:*",

@@ -12,7 +12,7 @@ import { Service, type Context } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { DSH_ENV_PREFIX } from '@xpeach/xph-shell'
 import type { DshEnvironment, DshEnvironmentKey } from '@xpeach/xph-shell'
-import { DSH_HOME_ENV, resolveDshHome } from '@xpeach/xph-home-paths'
+import { DSH_HOME_ENV, XPH_HOME_ENV, resolveDshHome } from '@xpeach/xph-home-paths'
 import type { ToolExecution } from '@xpeach/xph-tools'
 // Declares `Context.profileContext`, the launcher-provided profile the built-ins read.
 import type {} from '@xpeach/xph-app-boot'
@@ -157,6 +157,10 @@ export class ShellEnvRegistry extends Service {
     const values: Record<DshEnvironmentKey, string> = {
       [DSH_HOME_ENV]: this.dshHome,
       [DSH_SHELL_KEY]: '1',
+    }
+    /* v8 ignore next 3 */
+    if (process.env[XPH_HOME_ENV] !== undefined || process.env.XPH_PRODUCT === '1') {
+      values[XPH_HOME_ENV as DshEnvironmentKey] = this.dshHome
     }
     if (execution.agent !== undefined) {
       values[DSH_SESSION_ID_KEY] = execution.agent.session.header.id

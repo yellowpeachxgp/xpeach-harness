@@ -9,8 +9,7 @@ import type { IconProps } from '@xpeach/xph-client-ui-primitives'
 import type { TranslateNS } from '@xpeach/xph-client-locale/client'
 import type { CommandDescriptor } from '@xpeach/xph-commands/types'
 import type { CommandKey } from './locales.ts'
-import { builtinCommandName } from './resolution.ts'
-import type { BuiltinCommandName } from './resolution.ts'
+import { builtinCommandName, type BuiltinCommandName } from '@xpeach/xph-commands/builtin'
 
 /** The menu's two sections. */
 export type MenuSection = 'add' | 'commands'

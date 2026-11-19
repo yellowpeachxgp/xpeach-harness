@@ -1,0 +1,16 @@
+# 旧 SDK 录制保留桌面上下文加入前的工具与时间贡献；新场景覆盖当前默认组合。
+- insert:
+    - id: legacy-sdk-identity
+      name: './legacy-context.mjs'
+- id: time-context
+  disabled: true
+- id: tool-ask-user
+  disabled: true
+- id: present
+  disabled: true
+- id: file-reference-local
+  disabled: true
+- id: schedule
+  disabled: true
+- id: tool-schedule
+  disabled: true

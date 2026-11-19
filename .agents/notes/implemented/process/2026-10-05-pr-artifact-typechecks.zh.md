@@ -10,7 +10,7 @@ PR job 需要相同的编译包来运行 benchmark、兼容性、打包和运行
 
 ## Decision
 
-必需的 Linux consumer 与原生 Windows build job 保留普通构建，包括两个完整 aggregate program。公开的 `build` 和 `typecheck` 保留相同检查。[Node 版本职责](2026-07-06-node-engine-floor.zh.md)与[原生 Windows 职责](2026-08-08-native-windows-pull-request-ci.zh.md)仍然有效。
+必需的 Linux consumer 与原生 Windows build job 保留普通构建，包括两个完整 aggregate program。公开的 `build` 和 `typecheck` 保留相同检查。[Node 版本职责](2026-10-15-node-24-runtime-floor.zh.md)与[原生 Windows 职责](2026-08-08-native-windows-pull-request-ci.zh.md)仍然有效。
 
 带检查的 PR 产物构建通过一个串行 `tsc -b` 进程编译各 compiler face 的全部现有 project reference，然后运行普通 Typert、bundling、Desktop 和 Web 阶段。helper 读取现有 Host 与 Client aggregate，而不维护另一份包清单。它只省略各 root 附加的测试和脚本 program；包诊断、emit 输出及 Host 先于 Client 的顺序仍然必需。非 PR 的 release 和真实 API 工作流构建保留普通检查。该产物构建即 `pnpm run build:artifacts`，其步骤与调度见[构建拆分](2026-10-11-build-artifacts-check-split.zh.md)。
 

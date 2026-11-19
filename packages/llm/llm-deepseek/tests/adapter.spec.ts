@@ -1,4 +1,5 @@
 /** HTTP lifecycle, routing and optional Cordis services under real composition. */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { installAccountTaskCancellation, type DeepSeekAccount } from '@xpeach/xph-deepseek-account'
 import type { AnonymousUserId } from '@xpeach/xph-anonymous-user-id'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -315,6 +316,7 @@ describe('Cordis provider composition', () => {
       ['@xpeach/xph-agent', AgentRegistry], ['@xpeach/xph-agent-loop', AgentLoop],
       ['@xpeach/xph-session', SessionStore], ['@xpeach/xph-session-projection', SessionProjectionRegistry],
       ['@xpeach/xph-system-prompt', SystemPrompt], ['@xpeach/xph-tools', ToolRuntime],
+      ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
     ])
     // The importer supplies source modules while Loader still owns configuration and effects.
     for (const name of modules.keys()) {

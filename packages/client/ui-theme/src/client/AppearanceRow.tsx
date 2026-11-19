@@ -28,11 +28,26 @@ export type AppearanceRowComponentProps =
   & PropsLocale<'settings.theme'> & AppearanceRowInjected
 
 /** Cube order and icons (figma 501:30015-30017: Light, Dark, System). */
-const CUBES: readonly { id: ThemePreference; labelKey: ThemeKey; Icon: typeof IconLightOutlineMedium }[] = [
+const CUBES: readonly { id: 'light' | 'dark' | 'system'; labelKey: ThemeKey; Icon: typeof IconLightOutlineMedium }[] = [
   { id: 'light', labelKey: 'appearance.light', Icon: IconLightOutlineMedium },
   { id: 'dark', labelKey: 'appearance.dark', Icon: IconDarkOutlineMedium },
   { id: 'system', labelKey: 'appearance.system', Icon: IconFollowsystemOutlineMedium },
 ]
+
+function resolveSelectedCube(preference: ThemePreference): 'light' | 'dark' | 'system' {
+  if (preference === 'system') return 'system'
+  if (preference === 'dark' || preference.endsWith('-dark')) return 'dark'
+  return 'light'
+}
+
+function resolveTargetPreference(current: ThemePreference, clicked: 'light' | 'dark' | 'system'): ThemePreference {
+  if (clicked === 'system') return 'system'
+  const base = current.endsWith('-dark') ? current.slice(0, -5) : current
+  if (base !== 'light' && base !== 'dark' && base !== 'system') {
+    return (clicked === 'dark' ? `${base}-dark` : base) as ThemePreference
+  }
+  return clicked
+}
 
 /**
  * Render the Appearance row.
@@ -41,22 +56,26 @@ const CUBES: readonly { id: ThemePreference; labelKey: ThemeKey; Icon: typeof Ic
  */
 export function AppearanceRow({ t, setTheme, useStore }: AppearanceRowComponentProps) {
   const preference = useStore(s => s.preference)
+  const selectedCube = resolveSelectedCube(preference)
   return (
     <div className={css.group}>
       <div className={css.title}>{t('appearance.title')}</div>
       <div className={css.cubeRow}>
-        {CUBES.map(({ id, labelKey, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={clsx(css.themeCube, preference === id && css.selected)}
-            aria-pressed={preference === id}
-            onClick={() => { setTheme(id) }}
-          >
-            <Icon />
-            {t(labelKey)}
-          </button>
-        ))}
+        {CUBES.map(({ id, labelKey, Icon }) => {
+          const isSelected = selectedCube === id
+          return (
+            <button
+              key={id}
+              type="button"
+              className={clsx(css.themeCube, isSelected && css.selected)}
+              aria-pressed={isSelected}
+              onClick={() => { setTheme(resolveTargetPreference(preference, id)) }}
+            >
+              <Icon />
+              {t(labelKey)}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

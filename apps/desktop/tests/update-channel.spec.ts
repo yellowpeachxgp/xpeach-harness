@@ -3,17 +3,23 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
+import { SemVer } from 'semver'
+import { GitHubProvider } from 'electron-updater/out/providers/GitHubProvider.js'
 import type { AppUpdater } from 'electron-updater'
+import { DesktopUpdateHttpExecutor } from '../src/update-http-executor.ts'
 import {
   buildAtomFeedFromGitHubReleases,
   compareXpeachVersions,
   desktopUpdateChannel,
   filterAtomFeedForChannel,
   isVersionEligibleForChannel,
+  normalizeUpdateYamlAssetPrefixes,
   normalizeXpeachChannel,
   parseGitHubReleasesApiJson,
   parseXpeachVersion,
+  readXpeachAutoCheckUpdate,
   readXpeachUpdateChannel,
+  resolveTopAtomEntryUpdaterChannel,
   synthesizeUpdateYamlFromRelease,
 } from '../src/update-channel.ts'
 
@@ -66,9 +72,9 @@ it('parses XPeach versions, evaluates channel eligibility, and filters releases.
   const atomXml = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <entry>
-    <id>tag:github.com,2008:Repository/1/v0.0.26-alpha</id>
-    <link rel="alternate" type="text/html" href="https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.26-alpha"/>
-    <title>v0.0.26-alpha</title>
+    <id>tag:github.com,2008:Repository/1/v0.0.27-alpha</id>
+    <link rel="alternate" type="text/html" href="https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.27-alpha"/>
+    <title>v0.0.27-alpha</title>
   </entry>
   <entry>
     <id>tag:github.com,2008:Repository/1/v0.0.24-least</id>
@@ -85,18 +91,18 @@ it('parses XPeach versions, evaluates channel eligibility, and filters releases.
   const filteredLeast = filterAtomFeedForChannel(atomXml, 'least')
   expect(filteredLeast).toContain('v0.0.24-least')
   expect(filteredLeast).not.toContain('v0.0.25-beta')
-  expect(filteredLeast).not.toContain('v0.0.26-alpha')
+  expect(filteredLeast).not.toContain('v0.0.27-alpha')
 
   const filteredBeta = filterAtomFeedForChannel(atomXml, 'beta')
   expect(filteredBeta).toContain('v0.0.25-beta')
   expect(filteredBeta).toContain('v0.0.24-least')
-  expect(filteredBeta).not.toContain('v0.0.26-alpha')
+  expect(filteredBeta).not.toContain('v0.0.27-alpha')
   expect(filteredBeta.indexOf('v0.0.25-beta')).toBeLessThan(filteredBeta.indexOf('v0.0.24-least'))
 })
 
 function makeMockUpdater(getCandidateVersion: () => string): AppUpdater {
   const events = new EventEmitter()
-  const base: AppUpdater = Object.create(events)
+  const base = Object.create(events) as AppUpdater
   return Object.assign(base, {
     on: events.on.bind(events),
     off: events.off.bind(events),
@@ -165,7 +171,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
   {
     const events = new EventEmitter()
     let candidateVersion = '0.0.25-alpha'
-    const updater = Object.assign(events, {
+    const updater = Object.assign(events as AppUpdater, {
       checkForUpdates: vi.fn(async () => ({
         isUpdateAvailable: true,
         updateInfo: { version: candidateVersion },
@@ -175,7 +181,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
       channel: 'nightly',
       allowPrerelease: true,
       allowDowngrade: false,
-    }) as unknown as AppUpdater
+    })
     const coordinator = new DesktopUpdateCoordinator(
       state => state,
       async () => true,
@@ -204,7 +210,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
   {
     const events = new EventEmitter()
     let candidateVersion = '0.0.25-alpha'
-    const updater = Object.assign(events, {
+    const updater = Object.assign(events as AppUpdater, {
       checkForUpdates: vi.fn(async () => ({
         isUpdateAvailable: true,
         updateInfo: { version: candidateVersion },
@@ -214,7 +220,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
       channel: 'nightly',
       allowPrerelease: true,
       allowDowngrade: false,
-    }) as unknown as AppUpdater
+    })
     const coordinator = new DesktopUpdateCoordinator(
       state => state,
       async () => true,
@@ -250,7 +256,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
   {
     const events = new EventEmitter()
     let candidateVersion = '0.0.24-alpha'
-    const updater = Object.assign(events, {
+    const updater = Object.assign(events as AppUpdater, {
       checkForUpdates: vi.fn(async () => ({
         isUpdateAvailable: true,
         updateInfo: { version: candidateVersion },
@@ -260,7 +266,7 @@ it('verifies downward compatibility matrix (all 9 combinations + version jumps) 
       channel: 'nightly',
       allowPrerelease: true,
       allowDowngrade: false,
-    }) as unknown as AppUpdater
+    })
     const coordinator = new DesktopUpdateCoordinator(
       state => state,
       async () => true,
@@ -366,6 +372,12 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
       published_at: '2026-10-30T18:42:38Z',
       assets: [
         {
+          name: 'macos-xpeach-harness-0.0.25-beta-arm64-unsigned.pkg',
+          size: 350000000,
+          digest: 'sha256:9999999999999999999999999999999999999999999999999999999999999999',
+          browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.25-beta/macos-xpeach-harness-0.0.25-beta-arm64-unsigned.pkg',
+        },
+        {
           name: 'macos-xpeach-harness-0.0.25-beta-arm64-unsigned.dmg',
           size: 267599180,
           digest: 'sha256:81db8eac0f3e3354d6d5cf1ff2fd23a66b5e83e45cde45fc005e5ab5f1d23878',
@@ -398,7 +410,7 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
   const release = parsed[0]!
   expect(release.version).toBe('0.0.25-beta')
   expect(release.channel).toBe('beta')
-  expect(release.assets).toHaveLength(4)
+  expect(release.assets).toHaveLength(5)
 
   const atomForBeta = buildAtomFeedFromGitHubReleases(parsed, 'beta')
   expect(atomForBeta).toContain('releases/tag/v0.0.25-beta')
@@ -408,7 +420,23 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
 
   const macYaml = synthesizeUpdateYamlFromRelease(release, 'beta-mac.yml')
   expect(macYaml).toContain('path: "macos-xpeach-harness-0.0.25-beta-arm64-unsigned.zip"')
+  expect(macYaml).not.toContain('.pkg')
   expect(macYaml).toContain('sha2: d42ae7055ad8d4ce95aba311f7ea2bf27a5c8ac0e0f4714fd2dc9d92e15feb81')
+
+  const rawMacYml = [
+    'version: 0.0.28-alpha',
+    'files:',
+    '  - url: xpeach-harness-0.0.28-alpha-arm64-unsigned.zip',
+    '    sha512: abc123==',
+    '    size: 355613923',
+    'path: xpeach-harness-0.0.28-alpha-arm64-unsigned.zip',
+    'sha512: abc123==',
+    '',
+  ].join('\n')
+  const normalizedMacYml = normalizeUpdateYamlAssetPrefixes(rawMacYml, 'alpha-mac.yml')
+  expect(normalizedMacYml).toContain('url: macos-xpeach-harness-0.0.28-alpha-arm64-unsigned.zip')
+  expect(normalizedMacYml).toContain('path: macos-xpeach-harness-0.0.28-alpha-arm64-unsigned.zip')
+  expect(normalizedMacYml).toContain('sha512: abc123==')
 
   const winYaml = synthesizeUpdateYamlFromRelease(release, 'beta.yml')
   expect(winYaml).toContain('path: "windows-xpeach-harness-0.0.25-beta-x64-unsigned.exe"')
@@ -417,4 +445,171 @@ it('parses GitHub Releases REST API payloads and synthesizes platform update des
   const linuxYaml = synthesizeUpdateYamlFromRelease(release, 'beta-linux.yml')
   expect(linuxYaml).toContain('path: "linux-xpeach-harness-0.0.25-beta-x86_64-unsigned.AppImage"')
   expect(linuxYaml).toContain('sha2: 766a886a4d0536dd7c6889d623308625b50779cd97622066907092471bc1daf6')
+})
+
+it('reads autoCheckUpdate preference and supports all cross-channel transitions (alpha -> least, beta -> alpha, least -> beta, least -> alpha)', async () => {
+  process.env.XPEACH_SILENT_UPDATE = '0'
+  const tempHome = mkdtempSync(join(tmpdir(), 'xph-desktop-cross-channel-'))
+  tempDirs.push(tempHome)
+  const prefFile = join(tempHome, 'xpeach.update-channel.json')
+
+  expect(readXpeachAutoCheckUpdate({ XPH_HOME: tempHome })).toBe(true)
+  writeFileSync(prefFile, JSON.stringify({ channel: 'beta', autoCheckUpdate: false }))
+  expect(readXpeachAutoCheckUpdate({ XPH_HOME: tempHome })).toBe(false)
+  writeFileSync(prefFile, JSON.stringify({ channel: 'alpha', autoCheckUpdate: true }))
+  expect(readXpeachAutoCheckUpdate({ XPH_HOME: tempHome })).toBe(true)
+
+  // Verify resolveTopAtomEntryUpdaterChannel aligns updater.channel with the top feed entry's prerelease tag
+  const releases = parseGitHubReleasesApiJson([
+    { tag_name: 'v0.0.28-least', draft: false, published_at: '2026-11-03T10:00:00Z', assets: [] },
+    { tag_name: 'v0.0.27-beta', draft: false, published_at: '2026-11-02T10:00:00Z', assets: [] },
+    { tag_name: 'v0.0.26-alpha', draft: false, published_at: '2026-11-01T10:00:00Z', assets: [] },
+  ])
+  expect(resolveTopAtomEntryUpdaterChannel(buildAtomFeedFromGitHubReleases(releases, 'least'))).toBe('least')
+  expect(resolveTopAtomEntryUpdaterChannel(buildAtomFeedFromGitHubReleases(releases, 'beta'))).toBe('least')
+  expect(resolveTopAtomEntryUpdaterChannel(buildAtomFeedFromGitHubReleases(releases, 'alpha'))).toBe('least')
+
+  const alphaTopReleases = parseGitHubReleasesApiJson([
+    { tag_name: 'v0.0.29-alpha', draft: false, published_at: '2026-11-03T12:00:00Z', assets: [] },
+    { tag_name: 'v0.0.28-beta', draft: false, published_at: '2026-11-03T11:00:00Z', assets: [] },
+    { tag_name: 'v0.0.27-least', draft: false, published_at: '2026-11-03T10:00:00Z', assets: [] },
+  ])
+  expect(resolveTopAtomEntryUpdaterChannel(buildAtomFeedFromGitHubReleases(alphaTopReleases, 'alpha'))).toBe('alpha')
+  expect(resolveTopAtomEntryUpdaterChannel(buildAtomFeedFromGitHubReleases(alphaTopReleases, 'beta'))).toBe('beta')
+  expect(resolveTopAtomEntryUpdaterChannel(buildAtomFeedFromGitHubReleases(alphaTopReleases, 'least'))).toBe('least')
+
+  // Cross-channel transitions in DesktopUpdateCoordinator (alpha -> least, beta -> alpha,
+  // least -> beta, least -> alpha, and plain X.Y.Z -> prerelease on 'latest' channel)
+  const transitions: Array<{
+    readonly running: string
+    readonly fromChannel: 'alpha' | 'beta' | 'least'
+    readonly fromCandidate: string
+    readonly toChannel: 'alpha' | 'beta' | 'least'
+    readonly toCandidate: string
+  }> = [
+    { running: '0.0.24-alpha', fromChannel: 'alpha', fromCandidate: '0.0.25-alpha', toChannel: 'least', toCandidate: '0.0.25-least' },
+    { running: '0.0.24-beta', fromChannel: 'beta', fromCandidate: '0.0.25-beta', toChannel: 'alpha', toCandidate: '0.0.26-alpha' },
+    { running: '0.0.24-least', fromChannel: 'least', fromCandidate: '0.0.25-least', toChannel: 'beta', toCandidate: '0.0.26-beta' },
+    { running: '0.0.24-least', fromChannel: 'least', fromCandidate: '0.0.25-least', toChannel: 'alpha', toCandidate: '0.0.26-alpha' },
+    { running: '0.0.24', fromChannel: 'least', fromCandidate: '0.0.25-least', toChannel: 'beta', toCandidate: '0.0.26-beta' },
+  ]
+
+  for (const t of transitions) {
+    let candidate = t.fromCandidate
+    const updater = makeMockUpdater(() => candidate)
+    const coordinator = new DesktopUpdateCoordinator(
+      state => state,
+      async () => true,
+      updater,
+      () => true,
+      () => t.running,
+      undefined,
+      'latest',
+    )
+    try {
+      coordinator.setXpeachChannel(t.fromChannel)
+      expect(coordinator.hasSubscribedChannelChanged()).toBe(false)
+      expect(await coordinator.check()).toEqual({ phase: 'available', version: t.fromCandidate })
+      expect(coordinator.hasSubscribedChannelChanged()).toBe(false)
+
+      // Switch channel -> hasSubscribedChannelChanged() becomes true and re-checking picks up the new channel's candidate
+      coordinator.setXpeachChannel(t.toChannel)
+      expect(coordinator.hasSubscribedChannelChanged()).toBe(true)
+      candidate = t.toCandidate
+      expect(await coordinator.check(true)).toEqual({ phase: 'available', version: t.toCandidate })
+      expect(coordinator.hasSubscribedChannelChanged()).toBe(false)
+    } finally {
+      coordinator.dispose()
+    }
+  }
+
+  // Verify real electron-updater GitHubProvider.getLatestVersion() paired with
+  // DesktopUpdateHttpExecutor across all cross-channel transitions
+  const releaseCatalog = [
+    {
+      tag_name: 'v0.0.28-least',
+      name: 'XPeach Harness v0.0.28-least',
+      draft: false,
+      body: 'Stable release',
+      published_at: '2026-11-03T12:00:00Z',
+      assets: [
+        {
+          name: 'macos-xpeach-harness-0.0.28-least-arm64-unsigned.zip',
+          size: 350000000,
+          digest: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+          browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.28-least/macos-xpeach-harness-0.0.28-least-arm64-unsigned.zip',
+        },
+      ],
+    },
+    {
+      tag_name: 'v0.0.29-beta',
+      name: 'XPeach Harness v0.0.29-beta',
+      draft: false,
+      body: 'Beta release',
+      published_at: '2026-11-03T13:00:00Z',
+      assets: [
+        {
+          name: 'macos-xpeach-harness-0.0.29-beta-arm64-unsigned.zip',
+          size: 350000000,
+          digest: 'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+          browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.29-beta/macos-xpeach-harness-0.0.29-beta-arm64-unsigned.zip',
+        },
+      ],
+    },
+    {
+      tag_name: 'v0.0.30-alpha',
+      name: 'XPeach Harness v0.0.30-alpha',
+      draft: false,
+      body: 'Alpha release',
+      published_at: '2026-11-03T14:00:00Z',
+      assets: [
+        {
+          name: 'macos-xpeach-harness-0.0.30-alpha-arm64-unsigned.zip',
+          size: 350000000,
+          digest: 'sha256:3333333333333333333333333333333333333333333333333333333333333333',
+          browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.30-alpha/macos-xpeach-harness-0.0.30-alpha-arm64-unsigned.zip',
+        },
+      ],
+    },
+  ]
+
+  let activeSubscribedChannel: 'least' | 'beta' | 'alpha' = 'least'
+  let syncedUpdaterChannel: string | null = null
+  const executor = new DesktopUpdateHttpExecutor(
+    60_000,
+    undefined,
+    () => activeSubscribedChannel,
+    (ch) => { syncedUpdaterChannel = ch },
+  )
+  vi.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(executor)), 'request').mockResolvedValue(JSON.stringify(releaseCatalog))
+
+  for (const scenario of [
+    { currentVersion: '0.0.24-alpha', subscribed: 'least' as const, expectedVersion: '0.0.28-least' },
+    { currentVersion: '0.0.24-beta', subscribed: 'least' as const, expectedVersion: '0.0.28-least' },
+    { currentVersion: '0.0.24-beta', subscribed: 'alpha' as const, expectedVersion: '0.0.30-alpha' },
+    { currentVersion: '0.0.24-least', subscribed: 'beta' as const, expectedVersion: '0.0.29-beta' },
+    { currentVersion: '0.0.24-least', subscribed: 'alpha' as const, expectedVersion: '0.0.30-alpha' },
+  ]) {
+    activeSubscribedChannel = scenario.subscribed
+    syncedUpdaterChannel = null
+    const providerUpdaterBase = Object.create(EventEmitter.prototype) as AppUpdater
+    const providerUpdater = Object.assign(providerUpdaterBase, {
+      currentVersion: new SemVer(scenario.currentVersion),
+      allowPrerelease: true,
+      fullChangelog: false,
+    })
+    Object.defineProperty(providerUpdater, 'channel', {
+      configurable: true,
+      enumerable: true,
+      get: () => syncedUpdaterChannel,
+      set: (v: string | null) => { syncedUpdaterChannel = v },
+    })
+    const provider = new GitHubProvider(
+      { provider: 'github', owner: 'yellowpeachxgp', repo: 'xpeach-harness' },
+      providerUpdater,
+      { isUseMultipleRangeRequest: false, platform: 'darwin', executor },
+    )
+    const latest = await provider.getLatestVersion()
+    expect(latest.version).toBe(scenario.expectedVersion)
+  }
 })

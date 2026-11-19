@@ -33,7 +33,7 @@ import { formatFileMention } from '@xpeach/xph-file-reference/grammar'
 import type { FileReferenceCandidate } from '@xpeach/xph-file-reference/types'
 import type { SessionReferenceMentionCandidate } from '@xpeach/xph-session-reference/types'
 import { abbreviateHomePath, fileAddressFor } from '@xpeach/xph-util-workspace-path'
-import { en, NS, zh, type ReferenceKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, NS, zh, type ReferenceKey } from './locales.ts'
 
 declare module '@xpeach/xph-api-session-controller/client' {
   interface SessionReferenceSourceMap {
@@ -53,7 +53,7 @@ export const inject = [
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-reference: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-reference: dictionaries')
   const t = ctx.locale.bind(NS)
   const sessions = ctx.get('sessions') as ISessions
   ctx.uiConversation.userText.register(fileReferenceRule)

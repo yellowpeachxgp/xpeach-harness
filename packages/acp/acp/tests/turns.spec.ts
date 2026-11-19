@@ -6,7 +6,7 @@ import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { SessionId } from '@xpeach/xph-session'
 import { setImmediate } from 'node:timers/promises'
 import SubagentRuntime, { NO_START_CAPABILITIES } from '@xpeach/xph-subagent'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import {
   errorResponse,

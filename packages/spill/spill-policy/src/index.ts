@@ -5,6 +5,7 @@
  * content and reports the reason through the logger.
  * @module @xpeach/xph-spill-policy
  */
+import type {} from '@xpeach/xph-tool-executor-ptc'
 import type { Context } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { createUserMessage, resolveImageAttachmentAccess } from '@xpeach/xph-llm'

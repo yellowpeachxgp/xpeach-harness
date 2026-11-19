@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.shared.tsbuildinfo",
+    "emitDeclarationOnly": true
+  },
+  "files": ["src/types.ts"],
+  "references": [
+    { "path": "../../core/session" },
+    { "path": "../../util/values" }
+  ]
+}

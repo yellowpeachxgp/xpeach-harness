@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { provideWorkingDirectoryFixture, unsupportedInbox } from '@xpeach/xph-agent-loop-testkit'
 import { tmpdir } from 'node:os'
@@ -77,6 +79,7 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
       "- name: '@xpeach/xph-agent'",
       "- name: '@xpeach/xph-system-prompt'",
       "- name: '@xpeach/xph-tools'",
+      "- name: '@xpeach/xph-tool-executor-native'",
       "- name: '@xpeach/xph-terminal'",
       "- name: '@xpeach/xph-test-sandbox'",
       "- name: '@xpeach/xph-session-projection'",
@@ -113,6 +116,7 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
       ['@xpeach/xph-agent', AgentRegistry],
       ['@xpeach/xph-system-prompt', SystemPrompt],
       ['@xpeach/xph-tools', ToolRuntime],
+      ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
       ['@xpeach/xph-terminal', TerminalSessionService],
       ['@xpeach/xph-test-sandbox', PassthroughSandbox],
       ['@xpeach/xph-session-projection', SessionProjectionRegistry],
@@ -133,7 +137,7 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
 
     const owner = await agent(context, root)
     const signal = new AbortController().signal
-    const execute = (id: string, command: string) => context!.tools.execute({
+    const execute = (id: string, command: string) => executeToolFixture(context!, {
       signal,
       callId: ToolCallId(id),
       name: 'bash',
@@ -159,6 +163,14 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
       "cat <<'EOF'\nalpha\nbeta\nEOF",
     ))
     expect(heredoc).toBe('alpha\nbeta\n[Command finished with exit code 0]')
+
+    // Interactive bash applies history expansion to typed input before parsing;
+    // it must neither rewrite `!` sequences nor drop the whole wrapper line.
+    const history = text(await execute(
+      'history-expansion',
+      "echo '<!doctype html>' > page.html; cat page.html; echo 'it'; echo hi!!",
+    ))
+    expect(history).toBe('<!doctype html>\nit\nhi!!\n[Command finished with exit code 0]')
 
     const pipeline = text(await execute(
       'pipeline',

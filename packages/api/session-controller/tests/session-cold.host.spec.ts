@@ -9,7 +9,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import SessionStore from '@xpeach/xph-session'
 import AgentRegistry from '@xpeach/xph-agent'
-import { SessionHistoryController } from '@xpeach/xph-api-session-controller/src/history.ts'
 import { subagentIdentityProjectionDefinition } from '@xpeach/xph-subagent/src/projection.ts'
 import TypertRegistry from '@xpeach/xph-typert-registry'
 import { createUserMessage, MessageId } from '@xpeach/xph-llm'
@@ -272,7 +271,8 @@ describe('attached updatedAt tracks human prompts', () => {
     const listed = await remote.list(request({}))
     if (!listed.ok) throw new Error('list failed')
     const summary = listed.value.items.find(item => item.sessionId === 'resumed-untouched')
-    expect(summary?.updatedAt).toBe(500)
+    // The resumed log's last human prompt, not its creation time or the later pickup.
+    expect(summary?.updatedAt).toBe(worked)
 
     // A lifecycle boundary is not a human update.
     resumed.append('turn/start', { turn: 2 })
@@ -565,10 +565,7 @@ describe('subagent ownership fence', () => {
     const remote = createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
     ctx.sessionProjections.register(subagentIdentityProjectionDefinition)
 
-    const history = await new SessionHistoryController(
-      ctx,
-      (observation) => { observation[Symbol.dispose]() },
-    ).page({
+    const history = await ctx.sessionController.events({
       address: {
         kind: 'subagent',
         parentSessionId: meta.parentSession as SessionId,

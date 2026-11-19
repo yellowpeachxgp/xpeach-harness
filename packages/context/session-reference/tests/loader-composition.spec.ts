@@ -1,5 +1,7 @@
 /** Real Loader composition preserves retrievable source text outside the bounded preview. */
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -51,6 +53,7 @@ describe('session-reference real Loader composition', () => {
       ['@xpeach/xph-working-directory', workingDirectoryPlugin],
       ['@xpeach/xph-system-prompt', systemPromptPlugin],
       ['@xpeach/xph-tools', toolsPlugin],
+      ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
       ['@xpeach/xph-fs-local', fsPlugin],
       ['@xpeach/xph-tool-fs', toolFsPlugin],
       ['@xpeach/xph-session-query-sqlite', queryPlugin],
@@ -110,7 +113,7 @@ describe('session-reference real Loader composition', () => {
     const readLines: string[] = []
     let totalLines = Infinity
     for (let offset = 1; offset <= totalLines; offset += 7) {
-      const read = await ctx.tools.execute({
+      const read = await executeToolFixture(ctx, {
         name: 'read', callId: ToolCallId(`read-${offset}`),
         arguments: { file_path: notice.fullSnapshot.locator, offset, limit: 7 },
         signal: new AbortController().signal,

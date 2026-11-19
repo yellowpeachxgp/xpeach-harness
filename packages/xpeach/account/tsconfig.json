@@ -8,19 +8,29 @@
   "files": [
     "src/api.ts",
     "src/chatgpt-db.ts",
+    "src/credential-paths.ts",
     "src/index.ts",
     "src/macos-installer.ts",
     "src/network.ts",
     "src/onboarding.ts",
+    "src/relay-state.ts",
+    "src/system-notification.ts",
     "src/types.ts",
+    "src/token-lookup.ts",
     "src/update-channel.ts"
   ],
   "references": [
+    {
+      "path": "../../util/atomic-write"
+    },
     {
       "path": "../../../vendor/cordis"
     },
     {
       "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../api/remotes/tsconfig.host.json"
     },
     {
       "path": "../../credentials/credentials"

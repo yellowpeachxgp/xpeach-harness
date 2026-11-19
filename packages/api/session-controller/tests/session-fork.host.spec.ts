@@ -324,7 +324,7 @@ describe('sessions.fork', () => {
     },
   )
 
-  it('cuts exactly at a completed turn and records lineage and cwd', async () => {
+  it('cuts exactly at a completed turn and retains cwd without source lineage', async () => {
     const ctx = await composed()
     const source = await liveAgent(ctx, 'session-source', 2)
     const response = await remote(ctx).fork(request({ sessionId: source.id, atSeq: 2 }))
@@ -334,7 +334,7 @@ describe('sessions.fork', () => {
     expect(child?.snapshotEvents().map(event => event.type)).toEqual([
       'turn/start', 'user/message', 'turn/end', 'session/end-seed',
     ])
-    expect(child?.header.parentSession).toBe(source.id)
+    expect(child?.header.parentSession).toBeUndefined()
     expect(child?.header.cwd).toBe('/proj')
     await ctx.fiber.dispose()
   })
@@ -375,10 +375,10 @@ describe('sessions.fork', () => {
     if (!response.ok) return
     expect(attachSession).toHaveBeenCalledWith(response.value.sessionId)
     expect(ctx.sessions.get(response.value.sessionId)?.header).toMatchObject({
-      parentSession: grandchild.id,
       cwd: '/proj',
     })
     expect(ctx.sessions.get(response.value.sessionId)?.header.origin).toBeUndefined()
+    expect(ctx.sessions.get(response.value.sessionId)?.header.parentSession).toBeUndefined()
     await ctx.fiber.dispose()
   })
 
@@ -431,10 +431,10 @@ describe('sessions.fork', () => {
     expect(resume).not.toHaveBeenCalled()
     expect(ctx.agents.get(sourceId)).toBeUndefined()
     expect(ctx.sessions.get(response.value.sessionId)?.header).toMatchObject({
-      parentSession: sourceId,
       cwd: '/proj',
     })
     expect(ctx.sessions.get(response.value.sessionId)?.header.origin).toBeUndefined()
+    expect(ctx.sessions.get(response.value.sessionId)?.header.parentSession).toBeUndefined()
     await ctx.fiber.dispose()
   })
 
@@ -662,7 +662,9 @@ describe('sessions.fork', () => {
     const child = ctx.agents.get(response.value.sessionId)
     if (child === undefined) throw new Error('fork did not publish the child agent')
     expect(child.session.snapshotEvents().slice(0, child.session.inheritedEventCount)).toEqual(inherited)
-    const assembly = await child.ctx.systemPrompt.assemble()
+    const systemPrompt = child.ctx.get('systemPrompt')
+    if (systemPrompt === undefined) throw new Error('派生会话缺少系统提示词服务')
+    const assembly = await systemPrompt.assemble()
     expect(assembly.variables).toMatchObject({
       provider: 'inherited-provider',
       model: 'inherited-model',

@@ -1,0 +1,60 @@
+{
+  "name": "@xpeach/ts-xpeach",
+  "version": "2.7.0",
+  "private": true,
+  "type": "module",
+  "description": "XPeach统一SDK本地编译分发包",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js",
+      "default": "./dist/browser.js"
+    },
+    "./captcha": {
+      "types": "./dist/captcha.d.ts",
+      "import": "./dist/captcha.js",
+      "default": "./dist/captcha.js"
+    },
+    "./oidc": {
+      "types": "./dist/oidc.d.ts",
+      "import": "./dist/oidc.js",
+      "default": "./dist/oidc.js"
+    },
+    "./oidc-node": {
+      "types": "./dist/oidc-node.d.ts",
+      "import": "./dist/oidc-node.js",
+      "default": "./dist/oidc-node.js"
+    },
+    "./domains": {
+      "types": "./dist/domains.d.ts",
+      "import": "./dist/domains.js",
+      "default": "./dist/domains.js"
+    },
+    "./generated/*.js": {
+      "types": "./dist/generated/*.d.ts",
+      "import": "./dist/generated/*.js",
+      "default": "./dist/generated/*.js"
+    },
+    "./generated/*": {
+      "types": "./dist/generated/*.d.ts",
+      "import": "./dist/generated/*.js",
+      "default": "./dist/generated/*.js"
+    }
+  },
+  "files": [
+    "dist",
+    "sdk-manifest.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {}
+}

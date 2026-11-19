@@ -55,6 +55,16 @@ function createProductApi(): DshDesktopProductApi {
         return () => { ipcRenderer.off(DESKTOP_IPC.updatesPresentation, handle) }
       },
     },
+    notifications: {
+      notify: payload => ipcRenderer.invoke(DESKTOP_IPC.taskNotify, payload) as Promise<boolean>,
+      subscribeClick(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, sessionId: unknown): void => {
+          if (typeof sessionId === 'string' && sessionId !== '') listener(sessionId)
+        }
+        ipcRenderer.on(DESKTOP_IPC.taskNotificationClicked, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.taskNotificationClicked, handle) }
+      },
+    },
   }
 }
 

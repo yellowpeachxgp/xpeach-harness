@@ -1,12 +1,61 @@
 /** Recorded npm evidence stays intact while authored files and exact edits remain checked. */
 
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { exactEditState, isRescopeExcluded } from './rescope-vendor.ts'
+import { exactEditState, isRescopeExcluded, listRescopeFiles } from './rescope-vendor.ts'
 
 const ANCHOR = '\n## Sync procedure'
 const INSERTED = `\n15. **rescope**: one log entry.\n${ANCHOR}`
 
+it('lists the complete eligible corpus when tracked paths exceed one MiB', () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-rescope-paths-'))
+  // A Git hook or `git rebase -x` exports these; inherited, they would point the fixture at the caller's repository.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+    !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].includes(key.toUpperCase())))
+  try {
+    execFileSync('git', ['init', '--quiet'], { cwd: root, env })
+    const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: root, env, input: '', encoding: 'utf8' }).trim()
+    const paths = Array.from({ length: 12_000 }, (_, i) => `packages/example/src/${String(i).padStart(5, '0')}-${'x'.repeat(80)}.ts`)
+    expect(Buffer.byteLength(paths.join('\0'))).toBeGreaterThan(1024 * 1024)
+    // Index-only entries exercise Git's complete output without creating thousands of source files.
+    const entries = [...paths, 'scripts/dependency-catalog/package-lock.json']
+    execFileSync('git', ['update-index', '--index-info'], {
+      cwd: root, env, input: entries.map(path => `100644 ${blob}\t${path}\n`).join(''),
+    })
+    expect(listRescopeFiles(root, env)).toEqual(paths)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 describe('rescope file selection', () => {
+  it('保护根交接资料，其他同名目录继续受命名检查', () => {
+    expect(isRescopeExcluded('handoff/README.md')).toBe(true)
+    expect(isRescopeExcluded('handoff/coordination/README.md')).toBe(true)
+    for (const file of ['handoff-product/README.md', 'docs/handoff/README.md', 'packages/example/handoff/README.md']) {
+      expect(isRescopeExcluded(file)).toBe(false)
+    }
+  })
+
+  it('扫描尚未加入索引的新配置，保留 Git 的忽略规则', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-rescope-new-'))
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+      !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].includes(key.toUpperCase())))
+    try {
+      execFileSync('git', ['init', '--quiet'], { cwd: root, env })
+      mkdirSync(join(root, 'apps/cli/resources'), { recursive: true })
+      writeFileSync(join(root, '.gitignore'), 'ignored.yml\n')
+      writeFileSync(join(root, 'ignored.yml'), 'name: cordis\n')
+      writeFileSync(join(root, 'apps/cli/resources/xpeach.profile.yml'), 'name: cordis\n')
+      expect(listRescopeFiles(root, env)).toEqual(['apps/cli/resources/xpeach.profile.yml'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('preserves the recorded npm resolution', () => {
     expect(isRescopeExcluded('scripts/dependency-catalog/package-lock.json')).toBe(true)
   })

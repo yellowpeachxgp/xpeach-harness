@@ -541,6 +541,44 @@ describe('SessionProjectionRegistry drive', () => {
     expect(ctx.sessionProjections.stateOf(session, 'test/marks')).toBeUndefined()
   })
 
+  it('组合接管注册后，显式提前释放仍立即移除状态，卸载不会重新注册', async () => {
+    const { ctx, session } = await harness()
+    onTestFinished(async () => { await ctx.fiber.dispose() })
+    let release: (() => void) | undefined
+    let observed: MarksState | undefined
+    let cleanupRan = false
+    const fiber = await ctx.plugin(Object.assign((inner: Context) => {
+      inner.effect(function* () {
+        const registration = inner.sessionProjections.register(marksUnit())
+        release = registration
+        yield registration
+        yield () => {
+          cleanupRan = true
+          observed = inner.sessionProjections.stateOf(session, 'test/marks')
+        }
+      })
+    }, { inject: ['sessionProjections'] }))
+    mark(session, ['live'])
+    expect(ctx.sessionProjections.stateOf(session, 'test/marks')).toEqual({ marks: ['live'] })
+    expect(release).toBeTypeOf('function')
+    release?.()
+    expect(ctx.sessionProjections.stateOf(session, 'test/marks')).toBeUndefined()
+    await fiber.dispose()
+    expect(cleanupRan).toBe(true)
+    expect(observed).toBeUndefined()
+    expect(ctx.sessionProjections.stateOf(session, 'test/marks')).toBeUndefined()
+  })
+
+  it('await 注册只等待句柄就绪，状态保持可读直到显式释放', async () => {
+    const { ctx, session } = await harness()
+    onTestFinished(async () => { await ctx.fiber.dispose() })
+    const registration = await ctx.sessionProjections.register(marksUnit())
+    mark(session, ['live'])
+    expect(registration.stateOf(session)).toEqual({ marks: ['live'] })
+    registration.dispose()
+    expect(ctx.sessionProjections.stateOf(session, 'test/marks')).toBeUndefined()
+  })
+
   it('snapshot serves client views and excludes host-only state', async () => {
     const { ctx, session } = await harness()
     ctx.sessionProjections.register(marksUnit())
@@ -551,6 +589,38 @@ describe('SessionProjectionRegistry drive', () => {
     expect('test/count' in values).toBe(false)
     expect(ctx.sessionProjections.stateOf(session, 'test/count')).toBe(1)
     expect('test/unregistered' in values).toBe(false)
+  })
+
+  it('snapshot with keys computes only the selected units', async () => {
+    const { ctx, session } = await harness()
+    mark(session, ['a'])
+    ctx.sessionProjections.register(marksUnit())
+    const unselectedApply = vi.fn((state: StableViewState) => state)
+    ctx.sessionProjections.register({ ...stableViewUnit(state => state.value), apply: unselectedApply })
+    expect(ctx.sessionProjections.snapshot(session, ['test/marks']).values).toEqual({ 'test/marks': { marks: ['a'] } })
+    expect(unselectedApply).not.toHaveBeenCalled()
+  })
+
+  it('snapshot without keys does not compute host-only units', async () => {
+    const { ctx, session } = await harness()
+    mark(session, ['a'])
+    ctx.sessionProjections.register(marksUnit())
+    const hostApply = vi.fn((state: number) => state + 1)
+    ctx.sessionProjections.register({ ...countUnit(), apply: hostApply })
+    expect(ctx.sessionProjections.snapshot(session).values).toEqual({ 'test/marks': { marks: ['a'] } })
+    expect(hostApply).not.toHaveBeenCalled()
+  })
+
+  it('snapshot with keys succeeds while an unselected unit fails to apply', async () => {
+    const { ctx, session } = await harness()
+    mark(session, ['a'])
+    ctx.sessionProjections.register(marksUnit())
+    ctx.sessionProjections.register({
+      ...stableViewUnit(state => state.value),
+      apply: (): StableViewState => { throw new Error('unselected unit failed') },
+    })
+    expect(ctx.sessionProjections.snapshot(session, ['test/marks']).values).toEqual({ 'test/marks': { marks: ['a'] } })
+    expect(() => ctx.sessionProjections.snapshot(session)).toThrow('unselected unit failed')
   })
 
   it('checkpoints every persisted unit with its stateVersion and per-cell watermark', async () => {

@@ -25,7 +25,7 @@
       disabled: !!js process.env.DSH_SNAPSHOT !== 'record'
 
     - id: subagent-dsh-sdk
-      name: '@xpeach/xph-subagent-dsh-sdk'
+      name: '../../../packages/subagent/subagent-dsh-sdk/lib/index.js'
       config:
         profile: sdk
         patches: !!js JSON.parse(process.env.DSH_TEST_CHILD_PATCHES ?? '[]')
@@ -66,3 +66,7 @@
 - insert:
     - id: await-external-subagents
       name: '../../../packages/test-support/session-snapshot/tests/fixtures/subagent-settlement-barrier.ts'
+
+# Keep this recorded composition stable; the sdk profile's plugin management tool is covered separately.
+- id: tool-plugin-manager
+  disabled: true

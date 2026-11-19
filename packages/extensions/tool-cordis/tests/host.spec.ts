@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { Context } from '@xpeach/xph-cordis'
 import { CordisInspectRegistryService } from '@xpeach/xph-cordis-host-runner'
 import SystemPrompt from '@xpeach/xph-system-prompt'
@@ -17,6 +18,7 @@ async function host(): Promise<Context> {
   // The tool registry injects `systemPrompt`; nothing under test registers a prompt section.
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRegistry)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(CordisInspectRegistryService, 10_000)
   return ctx
 }

@@ -1,0 +1,14 @@
+# 账号目录更新必须写入 profile 自有配置，而非只读命令行覆盖层。
+- id: llm-pi-ai
+  config:
+    providers:
+      xpeach:
+        api: openai-completions
+        baseURL: https://issue65.invalid/v1
+        apiKeyEnv: ISSUE65_RELAY
+        reasoning: high
+        models:
+          - id: retained-model
+            reasoningEfforts: { high: high }
+          - id: removed-model
+            reasoningEfforts: { high: high }

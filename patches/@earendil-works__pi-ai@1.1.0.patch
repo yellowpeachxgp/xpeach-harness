@@ -35,10 +35,24 @@ index 2fc3ad343af090a919f5b71454b29f23b009fc21..64aa8a4ab2461484f22066913455518f
                  type: "toolcall_delta",
                  contentIndex: toolBlocksByKey.get(key),
 diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
-index a60f39352b776d71497e55b33b3334bacfbeb2f5..6c9b98e35606c52e4f0fb29d8fd0b5ba02d92e09 100644
+index a60f393..e98208f 100644
 --- a/dist/api/openai-completions.js
 +++ b/dist/api/openai-completions.js
-@@ -438,7 +438,6 @@ export const stream = (model, context, options) => {
+@@ -433,8 +433,13 @@ export const stream = (model, context, options) => {
+                             const name = toolCall.function?.name ?? toolCall.custom?.name;
+                             if (!block.name && name) {
+                                 block.name = name;
+                             }
++                            // Gemini OpenAI-compatible endpoints require this signature on replay.
++                            const geminiThoughtSignature = toolCall.extra_content?.google?.thought_signature;
++                            if (typeof geminiThoughtSignature === "string" && geminiThoughtSignature.length > 0) {
++                                block.thoughtSignature = geminiThoughtSignature;
++                            }
+                             let delta = "";
+                             if (toolCall.function?.arguments) {
+                                 delta = toolCall.function.arguments;
+                                 block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
+@@ -438,7 +443,6 @@ export const stream = (model, context, options) => {
                              if (toolCall.function?.arguments) {
                                  delta = toolCall.function.arguments;
                                  block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
@@ -46,6 +60,25 @@ index a60f39352b776d71497e55b33b3334bacfbeb2f5..6c9b98e35606c52e4f0fb29d8fd0b5ba
                              }
                              else if (toolCall.custom?.input) {
                                  const nextInput = getCustomToolCallInput(block) + toolCall.custom.input;
+@@ -1031,6 +1036,9 @@ export function convertMessages(model, context, compat, options) {
+                             },
+                         };
+                     }
++                    const geminiThoughtSignature = tc.thoughtSignature && !parseLegacyEncryptedReasoningDetail(tc.thoughtSignature)
++                        ? tc.thoughtSignature
++                        : undefined;
+                     return {
+                         id: tc.id,
+                         type: "function",
+@@ -1037,7 +1045,8 @@ export function convertMessages(model, context, compat, options) {
+                         function: {
+                             name: tc.name,
+                             arguments: JSON.stringify(tc.arguments),
+                         },
++                        ...(geminiThoughtSignature && { extra_content: { google: { thought_signature: geminiThoughtSignature } } }),
+                     };
+                 });
+             }
 diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-shared.js
 index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..108f599ae1d985d2f465e8cdf99ce0624acea6aa 100644
 --- a/dist/api/openai-responses-shared.js

@@ -1,0 +1,9 @@
+version: 1
+scenario: current-dynamic-tool-admission
+profile: sdk
+composition: sdk-current-dynamic
+recording: authored
+header:
+  class: sdk-current-dynamic
+  pin: true
+  changes: 2

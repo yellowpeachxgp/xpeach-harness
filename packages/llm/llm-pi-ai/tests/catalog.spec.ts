@@ -253,11 +253,7 @@ describe('hand-declared providers', () => {
   })
 
   it('reads an entry’s empty modality list as no answer, and the route’s as unserviceable', () => {
-    // Absent and empty are the same request on an entry, exactly as they are
-    // for the route's `models` list — which matters because the config schema
-    // materializes `[]` for an absent array, so an entry naming a catalog
-    // model without declaring modalities must keep the catalog's rather than
-    // describe a model that accepts nothing.
+    // 条目 input 的隐式 [] 仍沿用内置模态；目录 models 的显式 [] 则停用整个目录。
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
     const resolved = resolveProfiles({
@@ -804,6 +800,18 @@ describe('modelOverrides', () => {
     // A sibling the overrides do not name is byte-identical to the catalog.
     const sibling = models.find(model => model.id !== target.id)
     expect(sibling?.maxTokens).toBe(getBuiltinModels('deepseek').find(model => model.id === sibling?.id)?.maxTokens)
+
+    // xpeach routes clamp declared model maxTokens to defaultMaxTokens (32768)
+    // so New API pre-deduction quota checks never reserve 64K-128K output tokens.
+    const xpeachResolved = resolveProfiles({
+      xpeach: {
+        api: 'openai-completions',
+        baseURL: 'https://fast.xpeach.codes/v1',
+        models: [{ id: 'claude-opus-4-6', contextWindow: 200_000, maxTokens: 128_000 }],
+      },
+    }).get('xpeach')
+    expect(xpeachResolved?.configuredMaxTokens.get('claude-opus-4-6')).toBe(32_768)
+    expect(xpeachResolved?.piProvider?.getModels()[0]?.maxTokens).toBe(32_768)
   })
 
   it('refuses every override that lands nowhere instead of skipping it', () => {

@@ -8,6 +8,7 @@
  * @module @xpeach/xph-experimental-auto-review
  */
 
+import type {} from '@xpeach/xph-tool-executor-ptc/types'
 import type {} from '@xpeach/xph-working-directory'
 import type { Context } from '@xpeach/xph-cordis'
 import type { Agent } from '@xpeach/xph-agent'
@@ -31,6 +32,7 @@ import {
   type PreToolDecision,
   type ToolExecution,
 } from '@xpeach/xph-tools'
+import { deniedDisplayReason } from './locales.ts'
 
 /** Structured error name persisted for every final reviewer denial. */
 const AUTO_REVIEW_DENIED_ERROR_NAME = 'AutoReviewDeniedError'
@@ -657,9 +659,7 @@ function askUser(exec: ToolExecution, reason?: string): PreToolDecision {
   return {
     kind: 'ask',
     reason: reason === undefined ? denial : `${denial}: ${reason}`,
-    displayReason: reason === undefined
-      ? { en: 'Auto review denied this call.', zh: 'Auto review 拒绝了此调用。' }
-      : { en: `Auto review denied this call: ${reason}`, zh: `Auto review 拒绝了此调用：${reason}` },
+    displayReason: deniedDisplayReason(reason),
   }
 }
 

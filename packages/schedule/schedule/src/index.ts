@@ -97,7 +97,7 @@ const DEFAULT_DELIVERY_HISTORY_RECORDS = 200
  * service is the plugin that registers that listener.
  */
 export class ScheduleService extends TypertRemoteService {
-  static inject = ['agents', 'sessions', 'storageDomain', 'sessionController', 'sessionPersistence']
+  static inject = ['agents', 'sessions', 'storageDomain', 'sessionActivation', 'sessionPersistence']
 
   static Config: z<Config> = z.object({
     deliveryHistoryDays: z.number().step(1).min(1).max(3650).default(DEFAULT_DELIVERY_HISTORY_DAYS),
@@ -398,7 +398,7 @@ export class ScheduleService extends TypertRemoteService {
   /**
    * Refuse a Session no delivery can reach because a delegated child owns it.
    *
-   * Delivery resolves the bound Session through `ctx.sessionController.resolveAgent`,
+   * Delivery resolves the bound Session through `ctx.sessionActivation.withAgent`,
    * which rejects the live Agent of a delegated child; a stored task for such a Session
    * would stay permanently overdue and retry on every drive. Both operations that can
    * arm a delivery read that same fact here instead of restating it: a delegated child

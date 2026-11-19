@@ -15,6 +15,7 @@ import { overlayTopMargin } from './overlay-top-margin.ts'
 
 /** Inputs for {@link useAnchoredPosition}. */
 export interface AnchoredPositionOptions {
+  layoutKey?: unknown
   /** Whether the floating element is mounted and should track its anchor. */
   open: boolean
   /** The element the panel is placed from. */

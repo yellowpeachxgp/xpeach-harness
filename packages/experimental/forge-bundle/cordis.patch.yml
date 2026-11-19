@@ -1,0 +1,21 @@
+- insert:
+    - id: worktree
+      name: '@xpeach/xph-experimental-worktree'
+    - id: tool-worktree
+      name: '@xpeach/xph-experimental-tool-worktree'
+    - id: forge
+      name: '@xpeach/xph-experimental-forge'
+    - id: forge-github
+      name: '@xpeach/xph-experimental-forge-github'
+    - id: forge-session
+      name: '@xpeach/xph-experimental-forge-session'
+    - id: optional-forge-panel
+      name: cordis:group
+      group: true
+      isolate:
+        worktrees: true
+      config:
+        - id: forge-worktree
+          name: '@xpeach/xph-experimental-worktree'
+        - id: forge-panel
+          name: '@xpeach/xph-experimental-client-ui-forge'

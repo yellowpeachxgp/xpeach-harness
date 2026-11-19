@@ -1,6 +1,8 @@
 /** Host Schedule tests use real domain storage and an explicit Session resolver. */
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import { Context, Service } from '@xpeach/xph-cordis'
-import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
+import AgentRegistry, { SessionActivationOwner, type Agent } from '@xpeach/xph-agent'
 import { unsupportedInbox } from '@xpeach/xph-agent-loop-testkit'
 import type { UserMessage } from '@xpeach/xph-llm'
 import SessionStore, { SessionId } from '@xpeach/xph-session'
@@ -72,9 +74,11 @@ export async function harness(options: {
   const ctx = new Context()
   options.onContext?.(ctx)
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(Storage)
   const pool = options.pool ?? new MemoryMediaPool()
   const backend = options.backend ?? new MemoryStorageBackend(pool)
@@ -86,8 +90,12 @@ export async function harness(options: {
     ctx.provide('storageDomain', facility)
     return async () => { await facility.closeAll(); unmount() }
   })
-  const resolve = vi.fn<Context['sessionController']['resolveAgent']>(async () => { throw new Error('missing Session') })
-  ctx.provide('sessionController', { resolveAgent: resolve } as never)
+  const resolve = vi.fn<(sessionId: SessionId) => Promise<Agent>>(async () => { throw new Error('missing Session') })
+  const activation = new SessionActivationOwner(resolve)
+  const withdrawActivation = ctx.effect(function* () {
+    yield ctx.provide('sessionActivation', activation)
+    yield () => activation.close()
+  })
   const flush = vi.fn(async () => {})
   ctx.on('session/flush', flush)
   // This fixture supplies flush behavior above; Schedule does not invoke persistence methods directly.
@@ -101,7 +109,7 @@ export async function harness(options: {
   } else {
     fiber = await ctx.plugin(ScheduleService, options.config)
   }
-  return { ctx, service: ctx.schedule, pool, resolve, flush, fiber }
+  return { ctx, service: ctx.schedule, pool, resolve, flush, fiber, withdrawActivation }
 }
 
 /**

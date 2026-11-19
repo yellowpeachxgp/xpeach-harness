@@ -1,10 +1,12 @@
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
 import LlmRuntime, { createUserMessage, type GenerateOptions, type Message, type StreamChunk } from '@xpeach/xph-llm'
 import SessionStore, { SessionId, type SessionEvent } from '@xpeach/xph-session'
 import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { defineContentToolFixture } from '@xpeach/xph-tools'
+import ToolRuntime from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import AgentRegistry, { type Agent } from '@xpeach/xph-agent'
 import AgentLoop from '@xpeach/xph-agent-loop'
 import PlanModeController from '@xpeach/xph-plan-mode'
@@ -28,6 +30,7 @@ async function harness(adapter: MockAdapter): Promise<Context> {
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(PlanModeController, PLAN_CONFIG)

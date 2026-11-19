@@ -42,6 +42,8 @@ Browser tools and resource requests targeting this server use the same queue and
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
+The MCP prompt filter composes `finalizeTools` callbacks so its section removal remains effective with eager assembly and AgentLoop delayed tool binding. It does not replace tool admission or dispatch checks.
+
 <details>
 <summary>Implementation internals — click to expand</summary>
 

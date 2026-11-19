@@ -65,7 +65,10 @@ export function XPeachStatusPill(
   useEffect(() => subscribeCredentialChange(refresh), [subscribeCredentialChange, loadUsage])
   // The readout stays truthful on a 60s tick — usage moves while sessions run.
   useEffect(() => {
-    const id = setInterval(refresh, 60_000)
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      refresh()
+    }, 60_000)
     return () => { clearInterval(id) }
   }, [loadUsage])
   // The log tail is a heavy read — fetch it only when the card opens, once.

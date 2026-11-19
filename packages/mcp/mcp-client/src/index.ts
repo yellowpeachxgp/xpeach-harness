@@ -120,31 +120,36 @@ const Reconnect: z<ReconnectConfig> = z.object({
   maxAttempts: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(RECONNECT_DEFAULTS.maxAttempts),
 })
 
-const commonConfigFields = {
-  serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
-  toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
-  failOnStartupError: z.boolean().default(false),
-  backgroundStartup: z.boolean().default(false),
-  maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
-  reconnect: Reconnect,
-}
-
+/* jscpd:ignore-start */
+// The catalog generator statically walks this literal and rejects spreads and
+// computed keys, so the branches restate their shared rows by construction.
 export const Config = z.union([
   z.object({
     transport: z.const('stdio'),
+    serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
     command: z.string().required(),
     args: z.array(String).default([]),
     env: z.dict(String).default({}),
     cwd: z.string().default(''),
-    ...commonConfigFields,
+    toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
+    failOnStartupError: z.boolean().default(false),
+    backgroundStartup: z.boolean().default(false),
+    maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
+    reconnect: Reconnect,
   }),
   z.object({
     transport: z.const('streamable-http'),
+    serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
     url: z.string().required(),
     headers: z.dict(String).default({}),
-    ...commonConfigFields,
+    toolCallTimeoutMs: z.number().default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
+    failOnStartupError: z.boolean().default(false),
+    backgroundStartup: z.boolean().default(false),
+    maxInstructionBytes: z.number().step(1).min(1).default(DEFAULT_MAX_INSTRUCTION_BYTES),
+    reconnect: Reconnect,
   }),
 ]) as z<ConfigInput, Config>
+/* jscpd:ignore-end */
 
 // ---- Plugin apply ----
 

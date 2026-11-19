@@ -31,6 +31,32 @@ export function mapUsage(usage: PiUsage): TokenUsage {
   }
 }
 
+function normalizePiAiErrorMessage(raw: string): string {
+  const match = /^(.*?)\s*(\{[\s\S]*\})\s*$/u.exec(raw)
+  if (match === null) return raw
+  const prefix = (match[1] ?? '').trim()
+  const jsonCandidate = match[2] ?? ''
+  try {
+    const parsed: unknown = JSON.parse(jsonCandidate)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return raw
+    const obj = parsed as { error?: { message?: unknown } | string | null; message?: unknown }
+    const nestedError = obj.error
+    const extracted = typeof nestedError === 'object' && nestedError !== null && typeof nestedError.message === 'string'
+      ? nestedError.message.trim()
+      : typeof nestedError === 'string'
+        ? nestedError.trim()
+        : typeof obj.message === 'string'
+          ? obj.message.trim()
+          : ''
+    if (extracted.length === 0) return raw
+    if (prefix.length === 0) return extracted
+    return `${prefix.replace(/:\s*$/u, '')}: ${extracted}`
+  } catch (_err) {
+    // Raw message is not valid JSON; preserve original text.
+    return raw
+  }
+}
+
 // XXX(pi-ai upstream): pi-ai flattens the caught error to `error.message`
 // (api/anthropic-messages.js: `errorMessage = error instanceof Error ?
 // error.message : JSON.stringify(error)`), discarding the original Error and its
@@ -40,8 +66,14 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
 function classifyPiAiError(message: string): string {
-  if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
+  if (
+    /(?:无可用渠道|当前分组.*无可用|model_not_found)/iu.test(message)
+    || (/\b403\b/u.test(message) && /(?:当前分组|\bchannel\b)/iu.test(message))
+  ) {
+    return 'INVALID_REQUEST'
+  }
+  if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
@@ -121,7 +153,7 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
       failure: { message: message.errorMessage ?? 'pi-ai stream aborted', code: 'ABORTED' },
     }
     case 'error': {
-      const text = message.errorMessage ?? 'pi-ai stream error'
+      const text = normalizePiAiErrorMessage(message.errorMessage ?? 'pi-ai stream error')
       return { kind: 'error', failure: { message: text, code: classifyPiAiError(text) } }
     }
   }

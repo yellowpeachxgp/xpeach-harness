@@ -15,6 +15,9 @@
 - id: tools
   name: '@xpeach/xph-tools'
 
+- id: tool-executor-native
+  name: '@xpeach/xph-tool-executor-native'
+
 - id: subprocess
   name: '@xpeach/xph-subprocess-local'
 

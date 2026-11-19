@@ -21,7 +21,10 @@ function isBuildFaceClient(value: unknown): boolean {
  */
 export default defineConfig(({ env }) => {
   const client = isBuildFaceClient(env?.DSH_BUILD_FACE)
-  const packages = workspacePackageGlobs(globSync(['vendor/*/package.json', 'packages/*/*/package.json'], { cwd: import.meta.dirname }))
+  const packages = workspacePackageGlobs(
+    globSync(['vendor/*/package.json', 'packages/*/*/package.json'], { cwd: import.meta.dirname })
+      .filter(p => p !== 'vendor/ts-xpeach/package.json'),
+  )
   return {
     workspace: [...packages, 'apps/cli', ...client ? [] : ['apps/desktop-host']],
     entry: client ? '' : ['lib/types/{index,startup}.js'],

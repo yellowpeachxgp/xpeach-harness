@@ -1,0 +1,67 @@
+[
+  {
+    "id": "config-editor",
+    "name": "cordis:editor"
+  },
+  {
+    "id": "settings",
+    "name": "cordis:settings"
+  },
+  {
+    "id": "credentials",
+    "name": "cordis:credentials"
+  },
+  {
+    "id": "llm",
+    "name": "cordis:llm"
+  },
+  {
+    "id": "typert",
+    "name": "cordis:typert"
+  },
+  {
+    "id": "llm-pi-ai",
+    "name": "cordis:pi",
+    "config": {
+      "providers": {
+        "xpeach": {
+          "api": "openai-completions",
+          "baseURL": "https://issue65.invalid/v1",
+          "apiKeyEnv": "XPH_ISSUE65_RELAY",
+          "models": [
+            {
+              "id": "removed-model"
+            }
+          ]
+        },
+        "custom": {
+          "api": "openai-completions",
+          "baseURL": "https://custom.invalid/v1",
+          "apiKeyEnv": "XPH_ISSUE65_API",
+          "models": [
+            {
+              "id": "custom-model"
+            }
+          ]
+        }
+      }
+    },
+    "inject": [
+      "xpeachAccount"
+    ]
+  },
+  {
+    "id": "xpeach-account",
+    "name": "cordis:account",
+    "config": {
+      "baseURL": "https://issue65.invalid",
+      "autoSyncModels": false,
+      "autoCheckUpdate": false,
+      "modelMetadataUrl": "https://issue65.invalid/metadata",
+      "keyVar": "XPH_ISSUE65_RELAY",
+      "apiKeyEnv": "XPH_ISSUE65_API",
+      "adminKeyVar": "XPH_ISSUE65_ADMIN",
+      "sessionKeyVar": "XPH_ISSUE65_SESSION"
+    }
+  }
+]

@@ -1,0 +1,10 @@
+version: 1
+scenario: current-session-resume
+profile: sdk
+composition: sdk-current-resume
+recording: authored
+header:
+  class: sdk-current-resume
+  pin: true
+  changes: 1
+  promptChanges: 1

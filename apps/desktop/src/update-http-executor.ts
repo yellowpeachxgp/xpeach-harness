@@ -6,7 +6,9 @@ import {
   compareXpeachVersions,
   filterAtomFeedForChannel,
   isVersionEligibleForChannel,
+  normalizeUpdateYamlAssetPrefixes,
   parseGitHubReleasesApiJson,
+  resolveTopAtomEntryUpdaterChannel,
   synthesizeUpdateYamlFromRelease,
   type XPeachGitHubRelease,
   type XPeachReleaseChannel,
@@ -28,11 +30,13 @@ export class DesktopUpdateHttpExecutor extends ElectronHttpExecutor {
    * @param idleTimeoutMs - Maximum silence before headers or between response chunks, not a total download deadline.
    * @param proxyLogin - Existing updater login event forwarding.
    * @param resolveXpeachChannel - Optional XPeach update channel resolver for GitHub Releases API filtering.
+   * @param syncUpdaterChannel - Optional callback synchronizing `updater.channel` with the selected release tag's prerelease identifier.
    */
   constructor(
     private readonly idleTimeoutMs: number,
     proxyLogin?: ConstructorParameters<typeof ElectronHttpExecutor>[0],
     private readonly resolveXpeachChannel?: () => XPeachReleaseChannel | undefined,
+    private readonly syncUpdaterChannel?: (updaterChannel: string) => void,
   ) {
     super(proxyLogin)
     if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs < 1000 || idleTimeoutMs > 2_147_483_647) {
@@ -93,6 +97,22 @@ export class DesktopUpdateHttpExecutor extends ElectronHttpExecutor {
         const synthesized = synthesizeUpdateYamlFromRelease(matchedRelease, channelFile)
         if (synthesized !== null) return synthesized
       }
+      try {
+        const upstreamYaml = await super.request(options, cancellationToken, data)
+        if (typeof upstreamYaml === 'string' && upstreamYaml.length > 0) {
+          return normalizeUpdateYamlAssetPrefixes(upstreamYaml, channelFile)
+        }
+      } catch (err) {
+        const fallbackFile = channelFile.replace(/^(?:alpha|beta|least)(?=(-mac|-linux)?\.yml$)/iu, 'latest')
+        if (fallbackFile !== channelFile) {
+          const fallbackPath = pathStr.replace(/[^/?#]+\.yml(?=\?|$)/u, encodeURIComponent(fallbackFile))
+          const fallbackYaml = await super.request({ ...options, path: fallbackPath }, cancellationToken, data)
+          if (typeof fallbackYaml === 'string' && fallbackYaml.length > 0) {
+            return normalizeUpdateYamlAssetPrefixes(fallbackYaml, fallbackFile)
+          }
+        }
+        throw err
+      }
     }
 
     const latestMatch = LATEST_RELEASE_PATH_PATTERN.exec(pathStr)
@@ -116,7 +136,10 @@ export class DesktopUpdateHttpExecutor extends ElectronHttpExecutor {
       if (channel !== undefined) {
         const releases = await this.fetchGitHubReleases(slug, cancellationToken)
         if (releases.length > 0) {
-          return buildAtomFeedFromGitHubReleases(releases, channel, slug)
+          const feedXml = buildAtomFeedFromGitHubReleases(releases, channel, slug)
+          const updaterChannel = resolveTopAtomEntryUpdaterChannel(feedXml)
+          if (updaterChannel !== undefined) this.syncUpdaterChannel?.(updaterChannel)
+          return feedXml
         }
       }
     }
@@ -129,7 +152,10 @@ export class DesktopUpdateHttpExecutor extends ElectronHttpExecutor {
     ) {
       const channel = this.resolveXpeachChannel()
       if (channel !== undefined) {
-        return filterAtomFeedForChannel(body, channel)
+        const filteredXml = filterAtomFeedForChannel(body, channel)
+        const updaterChannel = resolveTopAtomEntryUpdaterChannel(filteredXml)
+        if (updaterChannel !== undefined) this.syncUpdaterChannel?.(updaterChannel)
+        return filteredXml
       }
     }
     return body

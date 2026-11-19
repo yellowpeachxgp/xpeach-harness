@@ -1,3 +1,4 @@
+import { es, fr, de, ru, pt } from '../src/client/locales.ts'
 // @vitest-environment jsdom
 /** Section, setup-card, and hand-written editor behavior over a scripted wire face. */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -286,7 +287,7 @@ function renderPiAiEditor(
 function authHelpText(): string | null {
   const button = screen.queryByRole('button', { name: en.authHelp })
   if (button === null) return null
-  fireEvent.mouseEnter(button)
+  fireEvent.pointerEnter(button)
   return screen.getByRole('tooltip').textContent
 }
 
@@ -911,7 +912,7 @@ describe('ModelsSection', () => {
     const baseURL = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
     // The deepseek placeholder is pinned to the public endpoint, not the
     // effective value (which may reflect a launch-environment override).
-    expect(baseURL.placeholder).toBe('https://api.deepseek.com/anthropic (Default to use DEEPSEEK_BASE_URL)')
+    expect(baseURL.placeholder).toBe('https://fast.xpeach.codes/anthropic (Default to use XPEACH_BASE_URL)')
     fireEvent.change(baseURL, { target: { value: 'https://next2' } })
     fireEvent.click(screen.getByText(en.apply))
     await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(1) })
@@ -983,7 +984,7 @@ describe('ModelsSection', () => {
     />)
     fireEvent.click(screen.getByText(en.customized))
     expect(screen.getByLabelText<HTMLInputElement>(en.baseUrl).placeholder)
-      .toBe('https://api.deepseek.com/anthropic (Default to use DEEPSEEK_BASE_URL)')
+      .toBe('https://fast.xpeach.codes/anthropic (Default to use XPEACH_BASE_URL)')
     expect(screen.queryByLabelText(en.customApi)).toBeNull()
     expect(screen.getByText(en.deepSeekEndpointHint)).toBeTruthy()
     fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: 'sk-messages-test' } })
@@ -1395,7 +1396,7 @@ describe('ModelsSection', () => {
     />)
     fireEvent.click(screen.getByText(en.customized))
     const baseURL = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
-    expect(baseURL.placeholder).toBe('https://api.deepseek.com/anthropic (Default to use DEEPSEEK_BASE_URL)')
+    expect(baseURL.placeholder).toBe('https://fast.xpeach.codes/anthropic (Default to use XPEACH_BASE_URL)')
     fireEvent.change(baseURL, { target: { value: 'https://x' } })
     expect(baseURL.value).toBe('https://x')
     fireEvent.change(baseURL, { target: { value: '' } })
@@ -2422,4 +2423,17 @@ it('renders the localized account row as signed in without an edit action', asyn
   const item = screen.getByText(en.deepSeekAccount).closest('li')!
   expect(within(item).getByText(en.accountSignedIn)).toBeTruthy()
   expect(within(item).queryByText(en.edit)).toBeNull()
+})
+
+it.each([es, fr, de, ru, pt])('keeps capacity examples in translated validation messages parseable', (dictionary) => {
+  for (const [key, examples] of [
+    ['modelContextInvalid', ['131072', '256K', '1M']],
+    ['modelMaxTokensInvalid', ['8192', '64K', '1M']],
+  ] as const) {
+    for (const example of examples) {
+      const token = dictionary[key].match(new RegExp(`(?<![0-9])${example}(?![0-9A-Za-z])`, 'u'))?.[0]
+      expect(token, dictionary[key]).toBe(example)
+      expect(parseCapacity(token!)).toBeGreaterThan(0)
+    }
+  }
 })

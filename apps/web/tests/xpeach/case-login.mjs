@@ -3,7 +3,10 @@
 // final bind restores the bound state for later cases.
 import { openConsole } from './harness.mjs'
 export const name = 'login: unbind → login card → rebind'
-const KEY = process.env.XPEACH_TEST_KEY ?? 'sk-3UtaXiB60jzn8qQYWDUmYnanAA2zqlATpGjfMpTvTpePQZJa'
+const KEY = process.env.XPEACH_TEST_KEY
+if (KEY === undefined || KEY.length === 0) {
+  throw new Error('XPEACH_TEST_KEY is required: set it to a test-account key; never commit a real key as a fallback')
+}
 export async function run(page) {
   // 1) open settings → XPeach section → unbind
   await page.getByRole('button', { name: /settings|设置/i }).first().click()

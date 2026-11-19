@@ -10,7 +10,7 @@ import { createUserMessage, LlmAdapter } from '@xpeach/xph-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@xpeach/xph-llm'
 import { SESSION_FORMAT_VERSION } from '@xpeach/xph-session'
 import * as JsonlSessionPersistence from '@xpeach/xph-session-persistence-jsonl'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { assertBuiltBenchmarkRuntime } from '../support/built-worker.ts'
 import { PARENT_ID, response, resultText, syntheticHistory, TIME_ZERO, WORKLOAD } from './workload.ts'
 

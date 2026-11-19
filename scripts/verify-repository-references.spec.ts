@@ -72,6 +72,18 @@ describe('unique object-name prefix search', () => {
 })
 
 describe('maintained repository reference policy', () => {
+  it('保留根交接资料的历史证据，仍拒绝维护文档与相邻目录的提交号', (test) => {
+    const fixture = repository(test)
+    fixture.write('handoff/input.md', fixture.commit)
+    fixture.write('handoff/coordination/audit.json', JSON.stringify({ commit: fixture.commit }))
+    for (const file of ['handoff-product/README.md', 'docs/handoff/guide.md', 'packages/example/handoff/README.md']) {
+      fixture.write(file, fixture.commit)
+    }
+    expect(scanRepositoryReferences(fixture.root).map(reference => reference.file).sort()).toEqual([
+      'docs/handoff/guide.md', 'handoff-product/README.md', 'packages/example/handoff/README.md',
+    ])
+  })
+
   it('permits only the independent kit repository and its source URLs', () => {
     for (const suffix of ['', '.git', '/tree/main/packages/entry']) {
       expect(findRepositoryReferences('package.json', `${organizationUrl}/libreoffice-kit${suffix}`, new Set())).toEqual([])

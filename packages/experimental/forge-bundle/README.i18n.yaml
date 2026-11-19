@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/experimental/forge-bundle/README.md
+/:
+  en: 75db4d505f21f46f
+  zh: a0e463c38ed59efa
+/xpeach-xph-experimental-forge-bundle:
+  en: a20a8e6f72bffb91
+  zh: bf8336f8e92e127a
+/xpeach-xph-experimental-forge-bundle/summary:
+  en: 8d8189bb9a91f049
+  zh: 27f02215d6919b3d
+/xpeach-xph-experimental-forge-bundle/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 2f8a621b991260a1
+/xpeach-xph-experimental-forge-bundle/use-this-package:
+  en: 33679bed06be4e74
+  zh: 77dcfac9570d1fbc
+/xpeach-xph-experimental-forge-bundle/understand-the-implementation:
+  en: 5cb4136ef2058890
+  zh: 5142828996eef6c7
+/xpeach-xph-experimental-forge-bundle/further-exploration:
+  en: ab1f524b8ad79c55
+  zh: 137cfcb6d192c269
+/xpeach-xph-experimental-forge-bundle/model-experience:
+  en: 48e871ea5f1238c8
+  zh: 6d40dddf8de9d610
+/xpeach-xph-experimental-forge-bundle/model-experience/kv-cache-effect:
+  en: 0192ab064b8000a7
+  zh: 1a1de04f87631b9a
+/xpeach-xph-experimental-forge-bundle/known-limitations-and-deferred-work:
+  en: ab489084b24ecb16
+  zh: 6be1686e9741dffa
+/xpeach-xph-experimental-forge-bundle/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

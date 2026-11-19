@@ -38,6 +38,8 @@ Use `dsh plugin --profile sdk-minimal` to manage persistent external dependencie
 
 The profile mounts exactly one persistent shell stack: Bash on Linux and macOS, or PowerShell on Windows. Both stacks use a 300-second timeout and one owner-scoped terminal; the other platform's rows remain disabled.
 
+[Session checkpoints](../../session/session-checkpoint-policy/README.md) flush history before each model request, top-level tool execution, and agent step. Dispatch waits for the flush and stops if persistence fails, so the first model request also waits for native file-lock initialization. The final response still depends on background writes or successful shutdown; checkpoints do not make forced termination safe for unflushed events.
+
 Like every shipped profile, it mounts [MCP resources](../../mcp/mcp-resources/README.md) once. Configure only [MCP client entries](../../mcp/mcp-client/README.md) to add servers. Clients mounted by another provider also count as configured. With no server configured in the caller's scope, MCP contributes no prompt text or tools and the default remains the shell, `read_image`, and `working_directory` tools.
 
 -----
@@ -49,6 +51,8 @@ Like every shipped profile, it mounts [MCP resources](../../mcp/mcp-resources/RE
 <summary>Implementation internals — click to expand</summary>
 
 The bundle's single insert is the complete application tree: SDK stdio startup and JSON-RPC serving, one environment-configured DeepSeek adapter, the explicit agent core, conditional MCP resource tools, local filesystem, image attachments, automatic context compaction, and subprocess services, Session working-directory state and its tool, a platform-selected persistent shell PTY, and uncompressed JSONL persistence under `$DSH_HOME/sessions`. It does not inherit another bundle, so every extra row is an explicit profile change.
+
+Persistence overrides target the `sessions` row, whose complete config is `root: !!js dshHomePath('sessions')` and `compression: none`. The single `session-checkpoint-policy` row has no configuration fields.
 
 ### Source map
 

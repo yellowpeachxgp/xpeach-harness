@@ -1,3 +1,4 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,7 +17,7 @@ import * as SubagentFork from '@xpeach/xph-subagent-fork-in-process'
 import * as SubagentSpawn from '@xpeach/xph-subagent-spawn-in-process'
 import { renderPrompt, renderContextSnapshot } from '@xpeach/xph-system-prompt'
 import * as ToolSubagentControl from '@xpeach/xph-tool-subagent-control'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import { resolveAdapterOptions } from '@xpeach/xph-llm-deepseek'
 import { serialize } from '@xpeach/xph-llm-deepseek/src/serialize.ts'
 import type { GenerateOptions } from '@xpeach/xph-llm'
@@ -98,7 +99,7 @@ function execute(
   args: unknown,
   signal: AbortSignal = SIGNAL,
 ) {
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     callId: ToolCallId(`team-call-${++callNumber}`),
     name,
     arguments: args,

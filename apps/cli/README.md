@@ -55,6 +55,8 @@ The [CLI behavior reference](reference/README.md) owns exact layer precedence, f
 
 ## Development
 
+The `xph` command seeds missing or empty product patches from the CLI package's `resources/xpeach.profile.yml`. Source and installed CLI layouts read that fixed resource; an unreadable resource stops seeding with `XPH_PROFILE_RESOURCE_UNAVAILABLE` and an instruction to reinstall the complete package. Empty YAML documents and empty arrays may be seeded. Nonempty block or flow arrays keep their user configuration; invalid YAML or patch entries fail before rewriting. This check does not evaluate `!!js` expressions. The product patch requires `xpeachAccount` for its `llm-pi-ai` row through `inject: [xpeachAccount]`. Desktop copies the same resource into its application resources.
+
 Production runs require built package and frontend artifacts. From the repository root, run `pnpm run build` separately, then use `pnpm dsh <args...>` to run the TypeScript entry and forward every argument; the [source-execution reference](reference/README.md#source-execution) owns the module-resolution contract.
 
 The `@deepseek-ai/dsh/profile-boot` export provides the shared profile lifecycle to the Desktop host. A resolved application profile supplies its own installation anchor for runtime package resolution while retaining the Harness home patch, proxy environment, telemetry switch, patch reload, and bounded shutdown.

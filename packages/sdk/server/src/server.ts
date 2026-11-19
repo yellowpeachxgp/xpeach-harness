@@ -5,23 +5,33 @@
  * @module @xpeach/xph-sdk-jsonrpc-server/server
  */
 
-import type { Context } from '@xpeach/xph-cordis'
+import type { Context, Fiber } from '@xpeach/xph-cordis'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { resolve } from 'node:path'
+import { QueryActivity } from './query-activity.ts'
+import { SdkUserQuestionBridge } from './user-questions.ts'
+import { queryCommand } from './query-input.ts'
+import { queryCommandImages, queryContent } from './query-content.ts'
 import { brandString } from '@xpeach/xph-brand'
-import type { Agent, AgentHandle } from '@xpeach/xph-agent'
+import { SessionActivationOwner, type Agent, type AgentHandle } from '@xpeach/xph-agent'
 import { admitEncodedImages, type EncodedImageAttachment, type ImageAttachmentRef } from '@xpeach/xph-attachment'
 import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntime } from '@xpeach/xph-llm'
 import { carrierKeyOf, type Scoped } from '@xpeach/xph-scope'
 import type { SessionId, SessionLogOffset } from '@xpeach/xph-session'
 import type {} from '@xpeach/xph-working-directory'
+import type {} from '@xpeach/xph-user-approval'
 import type SubagentRuntime from '@xpeach/xph-subagent'
 import type { SubagentRunEndInfo } from '@xpeach/xph-subagent'
 import * as LlmDeepSeek from '@xpeach/xph-llm-deepseek-api-key'
 import type {
+  CommandExecution,
+  ApprovalRequestParams,
   InitializeParams,
   InitializeResult,
   JsonRpcTransportPeer,
   SessionEventNotification,
+  SessionQueryParams,
+  SessionQueryResult,
   SessionPromptParams,
   SessionPromptResult,
   SessionResumeParams,
@@ -52,6 +62,7 @@ async function durablePromptContent(ctx: Context, blocks: SessionPromptParams['c
   const refs = await admitEncodedImages(attachments, images.map((image): EncodedImageAttachment => ({
     data: image.data,
     mediaType: image.mimeType,
+    ...image.name === undefined ? {} : { name: image.name },
   })))
   let next = 0
   return blocks.map(block => encodedImage(block)
@@ -87,19 +98,69 @@ export class HarnessSdkJsonRpcServer {
   private reasoningEffort: ReturnType<typeof ReasoningEffortId> | undefined
   private maxTokens: number | undefined
   private llmFiber: { dispose(): Promise<void> } | undefined
+  private activationFiber: { dispose(): Promise<void>; await(): PromiseLike<unknown> } | undefined
+  private readonly sessionOwner: Fiber
+  private readonly activationWork: SessionActivationOwner
   private readonly sessions = new Map<string, SessionRecord>()
   private readonly sessionCreations = new Map<string, Promise<SessionRecord>>()
+  private readonly commandTasks = new Set<Promise<CommandExecution | undefined>>()
+  private readonly queryInvocation = new AsyncLocalStorage<QueryActivity>()
+  private readonly queryActivities = new Set<QueryActivity>()
+  private readonly goalLifetime: { dispose(): Promise<void> }
+  private readonly userQuestions: SdkUserQuestionBridge
   private readonly disposers: (() => void)[] = []
   private shutdownTask: Promise<Record<string, never>> | undefined
   private shuttingDown = false
   private initialized = false
+  private initializing = false
+  private approvalRequests = false
+  private readonly lifetime = new AbortController()
 
   constructor(
     private readonly ctx: Context,
     private readonly transport: JsonRpcTransportPeer,
     private readonly options: HarnessSdkJsonRpcServerOptions = {},
   ) {
+    const sessionOwner = this.sessionOwner = ctx.plugin({ name: 'sdk-session-owner', inject: ['agents'], apply() {} })
+    this.activationWork = new SessionActivationOwner(async (sessionId) => {
+      if (this.shuttingDown) throw new Error('SDK server is shutting down')
+      const record = this.sessions.get(sessionId)
+        ?? await (this.sessionCreations.get(sessionId) ?? this.openSession(sessionId, true))
+      this.lifetime.signal.throwIfAborted()
+      this.assertLiveAgent(record, sessionId)
+      return record.handle.agent
+    })
+    const shutdown = async (): Promise<void> => { await this.shutdown() }
+    ctx.effect(function* () {
+      yield sessionOwner.dispose
+      yield shutdown
+    }, 'sdk: 排空借用后释放会话资源')
+    this.goalLifetime = ctx.inject(['goals'], (goalCtx) => {
+      goalCtx.effect(() => () => {
+        for (const activity of this.queryActivities) activity.goalUnavailable()
+      })
+    })
+    this.disposers.push(ctx.on('approval/request', async (request, next) => {
+      if (!this.approvalRequests || !this.ownsAgent(request.agent)) return next()
+      const params: ApprovalRequestParams = {
+        sessionId: request.agent.session.id,
+        toolName: request.toolName,
+        ...(request.callId === undefined ? {} : { callId: request.callId }),
+        ...(request.reason === undefined ? {} : { reason: request.reason }),
+      }
+      const signal = request.signal === undefined
+        ? this.lifetime.signal
+        : AbortSignal.any([request.signal, this.lifetime.signal])
+      const result = await this.transport.request('approval/request', params, signal)
+      if (result === null || typeof result !== 'object' || !('outcome' in result)
+        || (result.outcome !== 'allowed-once' && result.outcome !== 'rejected' && result.outcome !== 'cancelled')) {
+        throw new TypeError('approval/request response requires an allowed-once, rejected, or cancelled outcome')
+      }
+      return result.outcome
+    }))
     const serverOptions = this.options
+    this.userQuestions = new SdkUserQuestionBridge(ctx, transport, agent =>
+      this.sessions.get(agent.session.id)?.handle.agent === agent)
     this.disposers.push(ctx.on('session/event', (session, event) => {
       const record = this.sessions.get(session.id)
       if (event.type === 'turn/end' && record?.handle.agent.session === session
@@ -119,7 +180,7 @@ export class HarnessSdkJsonRpcServer {
     }))
     this.disposers.push(ctx.on('session/created', (session) => {
       const parentSession = session.header.parentSession
-      if (parentSession === undefined) return
+      if (session.header.origin !== 'subagent' || parentSession === undefined) return
       const payload: SubagentStartedNotification = {
         parentSessionId: String(parentSession),
         childSessionId: String(session.id),
@@ -153,6 +214,10 @@ export class HarnessSdkJsonRpcServer {
    * @returns server identity for the handshake.
    */
   async initialize(params: InitializeParams): Promise<InitializeResult> {
+    if (this.shuttingDown) throw new Error('SDK server is shutting down')
+    if (params.approvalRequests !== undefined && typeof params.approvalRequests !== 'boolean') {
+      throw new TypeError('initialize approvalRequests must be a boolean')
+    }
     if (params.reasoningEffort !== undefined
       && (typeof params.reasoningEffort !== 'string' || params.reasoningEffort.length === 0)) {
       throw new TypeError('initialize reasoningEffort must be a non-empty string')
@@ -161,6 +226,17 @@ export class HarnessSdkJsonRpcServer {
       && (!Number.isSafeInteger(params.maxTokens) || params.maxTokens <= 0)) {
       throw new TypeError('initialize maxTokens must be a positive safe integer')
     }
+    if (this.initialized) throw new Error('SDK server is already initialized')
+    if (this.initializing) throw new Error('SDK server initialization is in progress')
+    this.initializing = true
+    try {
+      return await this.initializeRoute(params)
+    } finally {
+      this.initializing = false
+    }
+  }
+
+  private async initializeRoute(params: InitializeParams): Promise<InitializeResult> {
     const cwd = resolve(params.cwd)
     const provider = params.provider
     const model = params.model
@@ -179,11 +255,28 @@ export class HarnessSdkJsonRpcServer {
       ...reasoningEffort === undefined ? {} : { reasoningEffort },
       ...params.maxTokens === undefined ? {} : { maxTokens: params.maxTokens },
     })
+    this.lifetime.signal.throwIfAborted()
     this.cwd = cwd
     this.provider = provider
     this.model = model
     this.reasoningEffort = reasoningEffort
     this.maxTokens = params.maxTokens
+    this.userQuestions.enabled = params.capabilities?.userQuestions === true
+    this.approvalRequests = params.approvalRequests === true
+    await this.sessionOwner.await()
+    const activationWork = this.activationWork
+    const activationFiber = this.sessionOwner.ctx.plugin(function sdkSessionActivation(ctx: Context) {
+      ctx.provide('sessionActivation', activationWork)
+    })
+    this.activationFiber = activationFiber
+    try {
+      await activationFiber
+      await this.ctx.get('loader')?.await()
+      this.lifetime.signal.throwIfAborted()
+    } catch (error: unknown) {
+      await this.shutdown()
+      throw error
+    }
     this.initialized = true
     return { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } }
   }
@@ -196,11 +289,13 @@ export class HarnessSdkJsonRpcServer {
   async prompt(params: SessionPromptParams): Promise<SessionPromptResult> {
     if (!this.initialized) throw new Error('SDK server is not initialized')
     const rec = await this.getOrCreateSession(params.sessionId)
+    this.lifetime.signal.throwIfAborted()
     // An agent-loop-only reload disposes the loop's agents while this record
     // survives; a retained agent accepts followup() silently, so validate the
     // record against the live registry before delivery.
     this.assertLiveAgent(rec, params.sessionId)
     const content = await durablePromptContent(this.ctx, params.contentBlocks)
+    this.lifetime.signal.throwIfAborted()
     // Attachment admission crosses an async boundary where shutdown or an
     // agent-loop reload may detach the retained handle.
     this.assertLiveAgent(rec, params.sessionId)
@@ -210,6 +305,57 @@ export class HarnessSdkJsonRpcServer {
     })
     rec.handle.agent.followup(message)
     return { messageId: message.id }
+  }
+
+  /**
+   * Dispatch text as a Desktop-style input; native commands own Session state changes.
+   * @param params - ordered content blocks and receiving Session.
+   * @returns a prompt receipt or native command acknowledgment; command activity completes by notification.
+   * @throws on runtime failure; a recognized command failure never falls back to a prompt.
+   */
+  async query(params: SessionQueryParams): Promise<SessionQueryResult> {
+    if (!this.initialized) throw new Error('SDK server is not initialized')
+    if (this.shuttingDown) throw new Error('SDK server is shutting down')
+    const text = params.contentBlocks.find(block => block.type === 'text')
+    if (text?.text.trim().startsWith('/')) {
+      const commands = this.ctx.get('commands')
+      if (commands !== undefined) {
+        const rec = await this.getOrCreateSession(params.sessionId)
+        this.lifetime.signal.throwIfAborted()
+        this.assertLiveAgent(rec, params.sessionId)
+        const line = queryCommand(text.text, commands.list(rec.handle.agent))
+        if (line !== undefined) {
+          const images = queryCommandImages(params.contentBlocks, text)
+          const activity: QueryActivity = new QueryActivity(this.ctx, rec.handle.agent, this.transport,
+            () => this.queryInvocation.getStore() === activity, this.lifetime.signal,
+            (current) => { this.queryActivities.delete(current) })
+          this.queryActivities.add(activity)
+          try {
+            const task = this.queryInvocation.run(activity, () => commands.execute(rec.handle.agent, line, images.map(image => ({
+              type: 'image', data: image.data, mediaType: image.mimeType,
+              ...image.name === undefined ? {} : { name: image.name },
+            })), this.lifetime.signal))
+            this.commandTasks.add(task)
+            try {
+              const execution = await task
+              if (execution === undefined) throw new Error('The selected command is unavailable in this SDK profile')
+              activity.accept(execution)
+              return { kind: 'command', execution }
+            } finally {
+              this.commandTasks.delete(task)
+            }
+          } catch (error) {
+            activity.close()
+            throw error
+          }
+        }
+      }
+    }
+    const receipt = await this.prompt({
+      sessionId: params.sessionId,
+      contentBlocks: params.contentBlocks,
+    })
+    return { kind: 'prompt', ...receipt }
   }
 
   /**
@@ -254,6 +400,20 @@ export class HarnessSdkJsonRpcServer {
         return {}
       }
     }
+  }
+
+  private ownsAgent(agent: Agent): boolean {
+    const agents = this.ctx.agents
+    if (agents.get(agent.id) !== agent) return false
+    const liveAgents = agents.list()
+    const ancestors = new Set([agent])
+    for (const current of ancestors) {
+      if (this.sessions.get(current.session.id)?.handle.agent === current) return true
+      for (const parent of liveAgents) {
+        if (agents.isOwnedBy(current.id, parent)) ancestors.add(parent)
+      }
+    }
+    return false
   }
 
   private assertLiveAgent(rec: SessionRecord, sessionId: string): void {
@@ -302,12 +462,25 @@ export class HarnessSdkJsonRpcServer {
 
   private async performShutdown(): Promise<Record<string, never>> {
     this.shuttingDown = true
+    this.lifetime.abort(new Error('SDK server is shutting down'))
+    this.userQuestions.close()
+    const failures: unknown[] = []
+    await this.activationWork.close()
+    try {
+      await this.activationFiber?.dispose()
+      // 并发的父级卸载可能已开始撤回服务，仍需等待依赖方排空。
+      await this.activationFiber?.await()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
+    this.activationFiber = undefined
     const pendingCreations = [...this.sessionCreations.values()]
     await Promise.allSettled(pendingCreations)
+    await Promise.allSettled([...this.commandTasks])
+    this.queryInvocation.disable()
     this.sessionCreations.clear()
     const records = [...this.sessions.values()]
     this.sessions.clear()
-    const failures: unknown[] = []
     while (this.disposers.length > 0) {
       try {
         this.disposers.pop()?.()
@@ -321,6 +494,7 @@ export class HarnessSdkJsonRpcServer {
       failures.push(error)
     }
     const teardownResults = await Promise.allSettled([
+      this.goalLifetime.dispose(),
       ...records.map(rec => Promise.resolve().then(() => rec.handle.dispose())),
       ...(this.llmFiber === undefined ? [] : [Promise.resolve().then(() => this.llmFiber?.dispose())]),
     ])
@@ -328,6 +502,12 @@ export class HarnessSdkJsonRpcServer {
     failures.push(...teardownResults
       .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
       .map(result => result.reason as unknown))
+    try {
+      await this.sessionOwner.dispose()
+      await this.sessionOwner.await()
+    } catch (error: unknown) {
+      failures.push(error)
+    }
     if (failures.length === 1) throw failures[0]
     if (failures.length > 1) throw new AggregateError(failures, 'SDK server teardown failed')
     return {}
@@ -346,6 +526,15 @@ export class HarnessSdkJsonRpcServer {
         return this.initialize(params as unknown as InitializeParams)
       case 'session/prompt':
         return this.prompt(params as unknown as SessionPromptParams)
+      case 'session/query': {
+        if (typeof params?.sessionId !== 'string' || params.sessionId.length === 0
+          || Object.keys(params).some(key => key !== 'sessionId' && key !== 'contentBlocks')) {
+          throw new TypeError('session/query requires only a non-empty sessionId and contentBlocks')
+        }
+        return this.query({
+          sessionId: brandString<SessionId>(params.sessionId), contentBlocks: queryContent(params.contentBlocks),
+        })
+      }
       case 'session/resume': {
         const sessionId = params?.sessionId
         if (typeof sessionId !== 'string' || sessionId.length === 0) {
@@ -396,6 +585,8 @@ export class HarnessSdkJsonRpcServer {
   }
 
   private async createSession(sessionId: string, resume: boolean): Promise<SessionRecord> {
+    await this.sessionOwner.await()
+    this.lifetime.signal.throwIfAborted()
     // No preset composition: this server's compositions keep the model-facing
     // rows in the host plane, so this agent reads them from the global layer. A
     // deployment that configures a roster has to join one here first
@@ -406,14 +597,20 @@ export class HarnessSdkJsonRpcServer {
       ...this.reasoningEffort === undefined ? {} : { reasoningEffort: this.reasoningEffort },
       ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
     }
-    const handle = await (resume ? this.ctx.agents.resume({
+    const handle = await (resume ? this.sessionOwner.ctx.agents.resume({
       resumeSessionId: brandString<SessionId>(sessionId),
       agentOptions,
-    }) : this.ctx.agents.create({
+      signal: this.lifetime.signal,
+    }) : this.sessionOwner.ctx.agents.create({
       sessionId: brandString<SessionId>(sessionId),
       meta: { cwd: this.cwd },
       agentOptions,
+      signal: this.lifetime.signal,
     }))
+    if (this.shuttingDown) {
+      await handle.dispose()
+      this.lifetime.signal.throwIfAborted()
+    }
     const rec: SessionRecord = { handle, failure: undefined }
     this.sessions.set(sessionId, rec)
     return rec

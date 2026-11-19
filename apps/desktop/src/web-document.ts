@@ -5,6 +5,7 @@ import { extname, resolve, sep } from 'node:path'
 const MIME: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8',
   '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon',
 }
 const BOOT = '<script>globalThis.__DSH_BOOT_READY__ = Promise.withResolvers()</script>'

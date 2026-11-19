@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.0.35-alpha/xpeach-model-token-sync/guide.md
+/:
+  en: 2d2b51f7671adf2d
+  zh: f3c4162250ef58e8
+/xpeach-model-routes-and-token-verification:
+  en: c3f2636680fdd748
+  zh: bf5997c81367bfbb
+/xpeach-model-routes-and-token-verification/change:
+  en: d33ddb3de92362a8
+  zh: 16eb43bbdff60cb3
+/xpeach-model-routes-and-token-verification/migration:
+  en: 72602b4c630a4340
+  zh: 2fc81e180b92931f

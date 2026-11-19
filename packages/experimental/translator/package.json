@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-translator",
   "description": "Machine translation with reusable Session results",
-  "version": "0.0.25-beta",
+  "version": "0.0.36-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -23,9 +23,11 @@
       "types": "./lib/types/types.d.ts",
       "default": "./lib/types/types.js"
     },
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
+    "locale/*.json",
     "lib/index.js",
     "lib/types/**/*.js",
     "lib/types/**/*.d.ts"

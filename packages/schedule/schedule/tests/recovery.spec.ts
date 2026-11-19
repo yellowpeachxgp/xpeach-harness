@@ -77,7 +77,7 @@ it.each([
       const agent = agentFor(ctx)
       ctx.effect(() => ctx.agents.enter(agent, undefined))
       ctx.on('schedule/changed', changed)
-      const resolve = vi.spyOn(ctx.sessionController, 'resolveAgent')
+      const resolve = vi.spyOn(ctx.sessionActivation, 'withAgent')
       observed = { ctx, facility, agent, resolveCalls: () => resolve.mock.calls.length }
     },
   }).then(() => 'Schedule activated')).rejects.toMatchObject({ code })

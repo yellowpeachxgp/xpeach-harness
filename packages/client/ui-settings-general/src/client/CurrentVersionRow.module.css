@@ -66,6 +66,7 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-alias-bg-layer-2, rgba(128, 128, 128, 0.1));
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
@@ -88,8 +89,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.24));
-  border-radius: 8px;
+  border: 0.5px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.24));
+  border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-bg-layer-2, rgba(128, 128, 128, 0.08));
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
@@ -97,11 +98,6 @@
   line-height: 18px;
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
-}
-
-.updateButton:hover:not(:disabled) {
-  border-color: var(--dsw-alias-brand-primary);
-  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
 }
 
 .updateButton:disabled {
@@ -115,9 +111,16 @@
   color: var(--dsw-alias-brand-primary-invert, #ffffff);
 }
 
-.updateButtonPrimary:hover:not(:disabled) {
-  background: var(--dsw-alias-brand-primary);
-  opacity: 0.92;
+@media (hover: hover) {
+  .updateButton:hover:not(:disabled) {
+    border-color: var(--dsw-alias-brand-primary);
+    background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, transparent);
+  }
+
+  .updateButtonPrimary:hover:not(:disabled) {
+    background: var(--dsw-alias-brand-primary);
+    opacity: 0.92;
+  }
 }
 
 .spinner {

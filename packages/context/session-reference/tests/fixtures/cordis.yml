@@ -1,6 +1,7 @@
 - name: '@xpeach/xph-session'
 - name: '@xpeach/xph-system-prompt'
 - name: '@xpeach/xph-tools'
+- name: '@xpeach/xph-tool-executor-native'
 - name: '@xpeach/xph-fs-local'
 - name: '@xpeach/xph-session-projection'
 - name: '@xpeach/xph-working-directory'

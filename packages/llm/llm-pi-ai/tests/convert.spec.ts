@@ -908,6 +908,26 @@ describe('mapStopReason / mapUsage', () => {
       stopReason: 'error',
       errorMessage: 'OpenAI API error (429): You exceeded your current quota, please check your plan and billing details.',
     }))).toMatchObject({ kind: 'error', failure: { code: 'QUOTA' } })
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: '403: {"error":{"message":"预扣费额度失败, 用户剩余额度 $0.000100 低于预扣费额度 $0.500000 (request id: 20261104)","type":"new_api_error","code":"insufficient_user_quota"}}',
+    }))).toEqual({
+      kind: 'error',
+      failure: {
+        code: 'QUOTA',
+        message: '403: 预扣费额度失败, 用户剩余额度 $0.000100 低于预扣费额度 $0.500000 (request id: 20261104)',
+      },
+    })
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: '403: {"error":{"message":"当前分组 default 下对于模型 claude-sonnet-4-6 无可用渠道","type":"new_api_error"}}',
+    }))).toEqual({
+      kind: 'error',
+      failure: {
+        code: 'INVALID_REQUEST',
+        message: '403: 当前分组 default 下对于模型 claude-sonnet-4-6 无可用渠道',
+      },
+    })
     expect(mapStopReason(assistant({ stopReason: 'error', errorMessage: 'HTTP 500: backend down' })))
       .toMatchObject({ kind: 'error', failure: { code: 'SERVER' } })
     expect(mapStopReason(assistant({ stopReason: 'error', errorMessage: 'provider timed out' })))

@@ -2,9 +2,9 @@
 
 import { hostname } from 'node:os'
 import { resolve } from 'node:path'
-import type { Agent } from '@xpeach/xph-agent'
+import { SessionActivationOwner, type Agent } from '@xpeach/xph-agent'
 import type {} from '@xpeach/xph-fs'
-import { Context } from '@xpeach/xph-cordis'
+import { Context, Service } from '@xpeach/xph-cordis'
 import z from '@xpeach/xph-schemastery'
 import { errorChain, ReasoningEffortId, type MessageSource } from '@xpeach/xph-llm'
 import type {} from '@xpeach/xph-client-file-upload'
@@ -12,7 +12,7 @@ import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativ
 import type { SessionId } from '@xpeach/xph-session'
 import type { SessionInspection } from '@xpeach/xph-session-persistence'
 import type {} from '@xpeach/xph-session-projection-cache'
-import { SessionQueryError, type SessionObservation } from '@xpeach/xph-session-query'
+import type { SessionObservation } from '@xpeach/xph-session-query'
 import { Remote, RemoteError, TypertRemoteService, principalOf } from '@xpeach/xph-typert-protocol'
 import { canonicalClientTimeZone } from '@xpeach/xph-util-time'
 import { assertNever } from '@xpeach/xph-util-values'
@@ -24,7 +24,9 @@ import {
 } from './agent.ts'
 import { SessionCommandController, hasPromptContent } from './commands.ts'
 import { SessionControlController } from './control.ts'
-import { SessionHistoryController } from './history.ts'
+import { HistoryController } from './history/controller.ts'
+import { StateController } from './state/controller.ts'
+import { WebController } from './web/controller.ts'
 import { SessionFileReferences } from './file-references.ts'
 import { ApiSessionList } from './list.ts'
 import { buildModelCatalog, hasProviderApiKey } from './catalog.ts'
@@ -51,8 +53,8 @@ import type {
   SessionListValue,
   SessionOpenWorkspacePathRequest,
   SessionOpenWorkspacePathValue,
-  SessionPage,
-  SessionPageRequest,
+  SessionEventsPage, SessionPageRequest, SessionEventFrame, SessionObserveEventRequest,
+  SessionProjectionFrame, SessionStateRequest, SessionState, SessionWaitRequest, SessionWaitValue,
   SessionPromptRequest,
   SessionPromptValue,
   SessionRenameRequest,
@@ -63,7 +65,6 @@ import type {
   SessionSelectModelValue,
   SessionProjectionsRequest,
   SessionProjectionsValue,
-  SessionProjectionValues,
   SessionUpdateQueueRequest,
   SessionUpdateQueueValue,
 } from './types.ts'
@@ -129,6 +130,7 @@ export class SessionController extends TypertRemoteService {
     'sessionProjections',
     'sessionQuery',
     'typert',
+    'typertGateway',
     'workspaceRegistry',
   ]
 
@@ -140,13 +142,16 @@ export class SessionController extends TypertRemoteService {
   private readonly agents: ApiSessionAgentController
   private readonly commands: SessionCommandController
   private readonly controlState: SessionControlController
-  private readonly history: SessionHistoryController
+  private readonly historyController: HistoryController
+  private readonly stateController: StateController
+  private readonly webController: WebController
   private readonly listState: ApiSessionList
   private readonly openPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly fileApplications: typeof nativeFileApplications
   private readonly openFileApplication: typeof openNativeFileApplication
   private readonly revealPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly canOpenPath: () => boolean
+  private readonly activationReady: PromiseLike<unknown>
   private readonly promotions = new Set<Promise<void>>()
 
   /**
@@ -156,6 +161,10 @@ export class SessionController extends TypertRemoteService {
    */
   constructor(ctx: Context, config: Config, internals: SessionControllerInternals = {}) {
     super(ctx, 'sessionController', { namespace: 'session' })
+    const providerCtx = ctx
+    // 子 fiber 持有原始注册；组合 effect 接管其真实 disposer 后才发布激活服务。
+    const resources = ctx.plugin({ name: 'session-controller-resources', inject: SessionController.inject, apply() {} })
+    ctx = resources.ctx
     ctx.typert.resources.register('session', { field: 'sessionId' })
     const resolved = SessionController.Config(config)
     installModelSelectionProjection(ctx)
@@ -172,7 +181,9 @@ export class SessionController extends TypertRemoteService {
     ctx.effect(() => async () => {
       await Promise.allSettled([...this.promotions])
     }, 'session-controller.promotions')
-    this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
+    this.historyController = new HistoryController(ctx)
+    this.stateController = new StateController(ctx, this.historyController)
+    this.webController = new WebController(ctx, this.historyController, (observation) => { this.promote(observation) })
     this.listState = new ApiSessionList(ctx, resolved.listWorkSliceMs)
     this.fileApplications = internals.fileApplications ?? nativeFileApplications
     this.openFileApplication = internals.openFileApplication ?? openNativeFileApplication
@@ -220,8 +231,37 @@ export class SessionController extends TypertRemoteService {
       if (event.type !== 'user/message' || event.data.source.kind !== 'user') return
       ctx.emit('api-session/activity', session.id, event.time)
     })
+    const owner = new SessionActivationOwner(async (sessionId) => {
+      const result = await this.agents.resolveAgent(sessionId)
+      if ('error' in result) throw result.error
+      return result.agent
+    })
+    const activation = providerCtx.plugin({
+      name: 'session-controller-activation',
+      inject: SessionController.inject,
+      apply: async (activationCtx: Context) => {
+        await resources
+        activationCtx.provide('sessionActivation', owner)
+      },
+    })
+    providerCtx.effect(function* () {
+      yield resources.dispose
+      yield activation.dispose
+      // 逆序清理先排空借用，包含已从依赖 registry 移除的消费者。
+      yield () => owner.close()
+    }, 'session-controller: 会话激活提供方')
+    this.activationReady = activation
   }
 
+  /** 等待应用资源和会话激活服务均已发布。 */
+  async [Service.init](): Promise<void> {
+    await this.activationReady
+  }
+
+  /**
+   * Request background activation through the existing Session Agent controller.
+   * @param observation - owned lease disposed by the background task; callers retain their own lease separately.
+   */
   private promote(observation: SessionObservation): void {
     const sessionId = observation.header.id
     const task = (async () => {
@@ -259,7 +299,7 @@ export class SessionController extends TypertRemoteService {
       return Promise.resolve({
         meta: attached.header,
         inheritedEventCount: attached.inheritedEventCount,
-        // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
+        // oxlint-disable-next-line typescript/no-deprecated -- 既有 inspect 返回完整历史，等待存储分页接口迁移。
         events: attached.snapshotEvents(),
       })
     }
@@ -318,10 +358,13 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote
   async initializeDefaultModel(): Promise<void> {
-    const provider = 'deepseek-account'
     if (await hasProviderApiKey(this.ctx)) return
     const catalog = await buildModelCatalog(this.ctx)
-    const model = catalog.groups.find(group => group.id === provider)?.models[0]
+    const group = catalog.groups.find(item => item.id === 'deepseek-account')
+      ?? catalog.groups.find(item => item.id === 'xpeach')
+      ?? catalog.groups.find(item => item.id.startsWith('xpeach-'))
+    const provider = group?.id ?? 'deepseek-account'
+    const model = group?.models.find(item => item.id === 'swe-2-max') ?? group?.models[0]
     if (model === undefined) throw new RemoteError('session/provider-models-unavailable',
       `provider "${provider}" has no available models`, { provider })
     const selection = { provider, model: model.id,
@@ -517,13 +560,80 @@ export class SessionController extends TypertRemoteService {
 
   /**
    * Read one cold-safe, message-aligned Session history page.
-   * @param request - durable address, backward cursor, and page budget.
+   * @deprecated Use `events`; this entry point remains for existing Web callers.
+   * @param request - durable address, optional fixed cut, backward cursor, and page budget.
    * @param signal - cancellation for persistence reads.
-   * @returns one chronological page.
+   * @returns one chronological page with its inclusive cursor; an omitted `throughSeq` selects the observed log end.
    */
   @Remote({ name: 'page', resources: { session: addressedSession } })
-  page(request: SessionPageRequest, signal: AbortSignal): Promise<SessionPage> {
-    return this.history.page(request, signal)
+  page(request: SessionPageRequest, signal: AbortSignal): Promise<SessionEventsPage> {
+    return this.historyController.events(request, signal)
+  }
+
+  /**
+   * Read one cold-safe, message-aligned Session history page.
+   * @param request - durable address, optional fixed cut, backward cursor, and page budget.
+   * @param signal - cancellation for persistence reads.
+   * @returns one chronological page with its inclusive cursor.
+   */
+  @Remote({ name: 'events', resources: { session: addressedSession } })
+  events(request: SessionPageRequest, signal: AbortSignal): Promise<SessionEventsPage> {
+    return this.historyController.events(request, signal)
+  }
+
+  /**
+   * Subscribe to Session events without reading a snapshot.
+   * @param request - Session address.
+   * @param signal - subscription cancellation.
+   * @returns readiness and subsequent events, without a snapshot.
+   */
+  @Remote({ mode: 'stream', resources: { session: addressedSession } })
+  observeEvent(request: SessionObserveEventRequest, signal: AbortSignal): AsyncIterable<SessionEventFrame> {
+    return this.historyController.observeEvent(request, signal)
+  }
+
+  /**
+   * Subscribe to sparse Session projection changes.
+   * @param request - target Session.
+   * @param signal - subscription cancellation.
+   * @returns readiness and sparse projection changes.
+   */
+  @Remote({ mode: 'stream' })
+  observeProjections(request: SessionProjectionsRequest, signal: AbortSignal): AsyncIterable<SessionProjectionFrame> {
+    return this.historyController.observeProjections(request, signal)
+  }
+
+  /**
+   * Read passive Session state.
+   * @param request - target Session.
+   * @param signal - read cancellation.
+   * @returns current passive state.
+   */
+  @Remote
+  state(request: SessionStateRequest, signal: AbortSignal): Promise<SessionState> {
+    return this.stateController.state(request, signal)
+  }
+
+  /**
+   * Subscribe to complete Session state replacements.
+   * @param request - target Session.
+   * @param signal - subscription cancellation.
+   * @returns complete passive state replacements.
+   */
+  @Remote({ mode: 'stream' })
+  observeState(request: SessionStateRequest, signal: AbortSignal): AsyncIterable<SessionState> {
+    return this.stateController.observeState(request, signal)
+  }
+
+  /**
+   * Wait for Session quiescence or pending input with bounded assistant output.
+   * @param request - Session, wait bounds and output window.
+   * @param signal - caller cancellation.
+   * @returns stopping state and bounded assistant output.
+   */
+  @Remote
+  wait(request: SessionWaitRequest, signal: AbortSignal): Promise<SessionWaitValue> {
+    return this.stateController.wait(request, signal)
   }
 
   /**
@@ -535,7 +645,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream', resources: { session: addressedSession } })
   follow(request: SessionFollowRequest, signal: AbortSignal): AsyncIterable<SessionFollowFrame> {
-    return this.history.follow(request, signal)
+    return this.webController.follow(request, signal)
   }
 
   /**
@@ -545,49 +655,8 @@ export class SessionController extends TypertRemoteService {
    * @returns a sequenced baseline, cached hints when migration is deferred, or null when absent.
    */
   @Remote('projections')
-  async projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue> {
-    const { sessionId } = request
-    if (sessionId.length === 0) {
-      throw new RemoteError('gateway/bad-request', 'sessionId must not be empty', {})
-    }
-    try {
-      signal.throwIfAborted()
-      const live = this.liveProjections(sessionId)
-      if (live !== undefined) return live
-      const stored = await this.ctx.get('sessionPersistence')?.stat(sessionId, { signal })
-      signal.throwIfAborted()
-      const attached = this.liveProjections(sessionId)
-      if (attached !== undefined) return attached
-      if (stored === undefined) return null
-      if (stored.formatStatus === 'migration-required') {
-        const cached = this.ctx.get('sessionProjectionCache')?.cachedSnapshot(stored.header)
-        return { kind: 'migration-required', values: { ...cached?.values } as SessionProjectionValues }
-      }
-      using observation = await this.ctx.sessionQuery.observeSession(sessionId, { signal })
-      const projections = observation.projections
-      if (projections === undefined) {
-        throw new RemoteError('session/projections-unavailable', 'Session projections are unavailable', {})
-      }
-      return { kind: 'sequenced', asOfSeq: projections.asOfSeq, values: projections.values as SessionProjectionValues }
-    } catch (error: unknown) {
-      if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
-        return this.liveProjections(sessionId) ?? null
-      }
-      if (signal.aborted || (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_ABORTED')) {
-        throw new RemoteError('gateway/cancelled', 'Session projection read was cancelled', {}, { cause: error })
-      }
-      if (error instanceof RemoteError) throw error
-      throw new RemoteError('gateway/internal', 'Session projection read failed', {}, { cause: error })
-    }
-  }
-
-  private liveProjections(
-    sessionId: SessionId,
-  ): Extract<SessionProjectionsValue, { readonly kind: 'sequenced' }> | undefined {
-    const session = this.ctx.sessions.get(sessionId)
-    if (session === undefined) return undefined
-    const snapshot = this.ctx.sessionProjections.snapshot(session)
-    return { kind: 'sequenced', asOfSeq: snapshot.asOfSeq, values: snapshot.values as SessionProjectionValues }
+  projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue> {
+    return this.historyController.projections(request, signal)
   }
 
   /**

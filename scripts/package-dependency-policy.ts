@@ -55,6 +55,8 @@ const SAFE_HOST_DEPENDENCY_EXPORTS = {
   '@xpeach/xph-deque': ['Deque'],
   '@xpeach/xph-llm': ['callConfigEquals'],
   '@xpeach/xph-session-format': ['sessionFormatLogFilename'],
+  // 仅校验并原样返回调用方的领域声明，不依赖服务实例或模块身份。
+  '@xpeach/xph-storage-domain': ['defineDomain'],
   '@xpeach/xph-timeout': ['MAX_TIMER_DELAY_MS'],
   '@xpeach/xph-schemastery': ['default'],
 } as const satisfies HostDependencyExports
@@ -63,9 +65,17 @@ const SAFE_HOST_DEPENDENCY_EXPORTS = {
 const PEER_REQUIRED_HOST_EXPORTS = {
   // `instanceof` checks need the translator's own class instance.
   '@xpeach/xph-experimental-translator': ['TranslationError'],
+  // Stateless; a safe classification would turn the forge panel's forge and worktree peers into dependencies.
+  '@xpeach/xph-experimental-forge': ['changeRequestKey'],
+  '@xpeach/xph-experimental-worktree': ['generatedWorktreeName'],
+  // The forge panel matches ctx.fs failures with `instanceof FsError`.
+  '@xpeach/xph-fs': ['FsError'],
   '@xpeach/xph-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],
-  '@xpeach/xph-session': ['SESSION_FORMAT_VERSION'],
+  // appendPluginRecord writes through the Session class's private log; pluginRecordOf is stateless.
+  '@xpeach/xph-session': ['SESSION_FORMAT_VERSION', 'appendPluginRecord', 'pluginRecordOf'],
   '@xpeach/xph-session-persistence': ['SessionPersistenceNotFoundError'],
+  // Readers recognize a deadline's TimeoutReason only by `instanceof` against their own copy.
+  '@xpeach/xph-timeout': ['deadline'],
 } as const satisfies HostDependencyExports
 
 /** Exact import specifier to reviewed runtime exports. */

@@ -1,3 +1,5 @@
+import { executeModelToolFixture } from '@xpeach/xph-tool-testkit'
+import * as PtcToolExecutor from '@xpeach/xph-tool-executor-ptc'
 import { createUserMessage, ToolCallId } from '@xpeach/xph-llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
@@ -118,8 +120,8 @@ describe('bash tool through the agent loop', () => {
         }
       }
       await ctx.plugin(BashBindingRuntime)
-      agent.ctx.tools.presentAs('ptc')
-      const result = await ctx.tools.execute({
+      await agent.ctx.plugin(PtcToolExecutor)
+      const result = await executeModelToolFixture(ctx, {
         callId: ToolCallId('nested-shell-root'), agent, signal: new AbortController().signal, name: 'run_code',
         arguments: { code: 'return await tools.bash({ command: "pwd", description: "Print launch directory" })', description: 'Inspect current directory' },
       })

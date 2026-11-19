@@ -1,3 +1,4 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolCallId } from '@xpeach/xph-llm'
 import { SessionId } from '@xpeach/xph-session'
@@ -21,7 +22,7 @@ async function setup(options: Parameters<typeof harness>[0] = {}) {
   return { ...test, agent, scope }
 }
 async function execute(test: Awaited<ReturnType<typeof setup>>, name: string, args: unknown, agent: Agent = test.agent) {
-  return await test.ctx.tools.execute({
+  return await executeToolFixture(test.ctx, {
     callId: ToolCallId('schedule-call'), signal: new AbortController().signal, name, arguments: args, agent,
   })
 }
@@ -55,7 +56,7 @@ describe('Schedule model tools', () => {
       ['schedule_update', { id: 'task-1', title: 'Check' }],
     ] as const
     for (const [name, args] of cases) {
-      const result = await test.ctx.tools.execute({
+      const result = await executeToolFixture(test.ctx, {
         callId: ToolCallId('agentless-call'), signal: new AbortController().signal, name, arguments: args,
       })
       expect(result.isError).toBe(false)
@@ -75,7 +76,7 @@ describe('Schedule model tools', () => {
       ['schedule_update', { id: 'task-1', title: 'Check' }],
     ] as const
     for (const [name, args] of cases) {
-      const result = await test.ctx.tools.execute({
+      const result = await executeToolFixture(test.ctx, {
         callId: ToolCallId('child-call'), signal: new AbortController().signal, name, arguments: args, agent: child,
       })
       expect(result.isError).toBe(false)
@@ -419,7 +420,7 @@ describe('Schedule model tools', () => {
     const target = await test.service.create(sessionId, { prompt: 'Keep target', after_seconds: 300, title: 'Keep target' })
     await test.service.create(sessionId, { prompt: 'Queue blocker', after_seconds: 1, title: 'Queue blocker' })
     const entered = Promise.withResolvers<undefined>()
-    const restored = Promise.withResolvers<{ agent: Agent }>()
+    const restored = Promise.withResolvers<Agent>()
     test.resolve.mockImplementationOnce(() => { entered.resolve(undefined); return restored.promise })
     const controller = new AbortController()
     try {
@@ -430,12 +431,12 @@ describe('Schedule model tools', () => {
         : { id: target.id }
       const pending = executeBody(test, name, args, controller.signal)
       controller.abort()
-      restored.resolve({ agent: test.agent })
+      restored.resolve(test.agent)
       const result = await pending
       expect(await test.service.list({ sessionId })).toEqual([target])
       expect(result).toMatchObject({ code: 'internal_error' })
     } finally {
-      restored.resolve({ agent: test.agent })
+      restored.resolve(test.agent)
     }
   })
 

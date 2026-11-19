@@ -48,7 +48,7 @@ kind: "package-reference"
 | `model` | — | 每个会话 agent 的模型 |
 | `sessionListPageSize` | `100` | 单页 `session/list` 返回的最大摘要数量 |
 
-生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-acp)是每个受支持字段及其 JSDoc 的穷尽式真源。
+生成的[配置目录](../../../docs/config-catalog.zh.md#xpeachxph-acp)是每个受支持字段及其 JSDoc 的穷尽式真源。
 
 ### 启动服务器
 
@@ -72,6 +72,8 @@ kind: "package-reference"
 | `session/cancel` / `$/cancel_request` | 提示词所拥有的取消路径；没有进行中的 ACP 提示词时取消自主工作，未知会话 id 则为空操作。 |
 | `session/update` | 已提交 assistant 消息与 thought、通用工具生命周期、配置变化与上下文用量，按会话串行交付。 |
 | `session/request_permission` | 带一次性允许／拒绝选项的权限提示；你的客户端可以自动回答。 |
+
+会话列表和恢复允许普通 fork，包括含有 `parentSession` 的历史日志；`origin: subagent` 仍被排除。
 
 受管理后代运行期间、它们的结果触发根 Agent 后续轮次期间，以及已提交输出仍在交付期间，提示词保持进行中。输出交付期间接受的根 Agent 工作会加入同一活动区间，并在该区间完成后结算。最终结果包含最新根轮次的停止原因与所有助手输出交付错误；只有原始提示词轮次固定使用接受时捕获的模型选择。取消会停止调用时已有的根 Agent 活动，并等待该活动及其已排队输出完成。之后到达的子 Agent 消息可以启动自主工作，但不会延迟取消响应；会话仍可接受后续提示词。收件箱消息处于停放状态的空闲后代继续驻留，但不延迟提示词完成。关闭会话还会释放其后代。
 

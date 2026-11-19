@@ -11,6 +11,7 @@ import { scheduler } from 'node:timers/promises'
 import RemoteAccessService from '@xpeach/xph-api-remote-access'
 import SessionController from '../src/index.ts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { installSessionControllerTestDependencies } from './test-remote.ts'
 import { ApiSessionList } from '../src/list.ts'
 
 type Phase = 'live' | 'cold'
@@ -191,6 +192,7 @@ describe('Session-list work slices', () => {
     h.ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'test', model: 'test' }) } as never)
     h.ctx.provide('workspaceRegistry', { list: () => [], archivedSessionIds: [] } as never)
     new RemoteAccessService(h.ctx)
+    installSessionControllerTestDependencies(h.ctx, { defaultModelSelection: () => ({ provider: 'test', model: 'test' }), cwd: '/tmp' })
     const controller = new SessionController(h.ctx, { nativeOpen: false, listWorkSliceMs: 4 }, { canOpenPath: () => false })
     const yieldWork = vi.spyOn(scheduler, 'yield')
     const result = await controller.list({}, new AbortController().signal)

@@ -66,7 +66,7 @@ function styleInjectionModule(
  * Everything else under @xpeach/xph-* is either a module-table entry
  * (external) or a leak the purity gate rejects.
  */
-export const INLINE_SAFE = /^(?:@xpeach\/xph-(?:file-reference|session|llm|tools|brand|deque|output-retention|typert-protocol|util-crypto|util-values|util-workspace-path)(?:\/|$)|@xpeach\/xph-token-meter\/client$|@xpeach\/xph-native-command\/types$|@xpeach\/xph-host-open-in-app\/shared$|@xpeach\/xph-plugin-manager\/registry$|@xpeach\/xph-agent-preset-registry\/display$|@xpeach\/xph-api-workspace-controller\/default-workspace$|@xpeach\/xph-spill-policy\/notice$)/
+export const INLINE_SAFE = /^(?:@xpeach\/xph-(?:file-reference|session|llm|tools|brand|deque|output-retention|typert-protocol|util-crypto|util-values|util-workspace-path)(?:\/|$)|@xpeach\/xph-token-meter\/client$|@xpeach\/xph-commands\/builtin$|@xpeach\/xph-native-command\/types$|@xpeach\/xph-host-open-in-app\/shared$|@xpeach\/xph-plugin-manager\/registry$|@xpeach\/xph-agent-preset-registry\/display$|@xpeach\/xph-api-workspace-controller\/default-workspace$|@xpeach\/xph-spill-policy\/notice$)/
 
 /**
  * Vendored framework libraries: rescoped into @xpeach, so the gate below
@@ -287,6 +287,8 @@ function staticLinkedConfig(id: string, entry: string, outputName = basename(ent
     format: ['esm'],
     platform: 'browser',
     target: 'es2024',
+    // Resolve the mode before this intermediate bundle removes conditional branches.
+    define: { 'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production') },
     fixedExtension: false,
     dts: false,
     clean: false,

@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-24.04
     name: cloudflare pages preview
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -76,7 +76,7 @@ jobs:
       - name: Build the preview page and pack the VFS image
         env:
           DSH_CLIENT_TITLE: DSH preview pr-${{ github.event.pull_request.number }}
-        run: pnpm --filter @deepseek-ai/dsh-web-frontend run build:preview
+        run: pnpm --filter @xpeach/xph-web-frontend run build:preview
 
       # Sourcemaps carry complete sources and stay off the deployment platform.
       # index.html is the served page, which cannot boot without a host

@@ -55,6 +55,11 @@ const publicationSourceAllowlist: Readonly<Record<string, readonly string[]>> = 
 }
 /** Public source home recorded in maintained package manifests. */
 const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harness.git'
+/** 发布成员可以保留上游来源或使用本 fork，包目录始终必须精确匹配。 */
+const releaseRepositoryUrls: readonly string[] = [
+  publishedRepositoryUrl,
+  'git+https://github.com/yellowpeachxgp/xpeach-harness.git',
+]
 /** Packages that participate in the experimental policy. */
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** Private reference tool run from the repository; it publishes no files. */
@@ -71,7 +76,7 @@ const standardReleaseMemberDirectory = new RegExp(
 const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
-  '@xpeach/xph-dsh': ['lib/*.js', 'lib/types/*.d.ts'],
+  '@xpeach/xph-dsh': ['lib/*.js', 'lib/types/*.d.ts', 'resources/xpeach.profile.yml'],
   '@xpeach/xph-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],
@@ -178,6 +183,10 @@ export function readWorkspaceManifests(repositoryRoot: string): WorkspaceManifes
 }
 
 const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
+  // Tools entry points share error classes and invocation stages through runtime chunks.
+  '@xpeach/xph-tools': ['lib/pipeline.js', 'lib/shared-*.js'],
+  // The embedded OAR implementation retains its upstream license.
+  '@xpeach/xph-experimental-subagent-oar': ['LICENSE-OAR'],
   // CUA publishes its client API and attributed native source for local macOS builds.
   '@xpeach/xph-cua': ['lib/api.js', 'lib/bridge.js', 'lib/native-client.js', 'lib/protocol.js'],
   '@xpeach/xph-experimental-cua-macos': ['native/bin', 'native/Package.swift', 'native/Sources', 'native/tests/swift', 'native/tests/test_swift.py', 'native/LICENSE.cua-driver', 'native/upstream.json', 'native/README.md', 'native/README.zh.md', 'native/protocol.schema.json'],
@@ -201,7 +210,10 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@xpeach/xph-experimental-ptc-runtime-python': ['py/**/*.py'],
   '@xpeach/xph-experimental-speech-to-text-sensevoice': ['runtime/assets.json'],
   // Node execution modes each launch a separately bundled bootstrap.
-  '@xpeach/xph-ptc-runtime-node': ['lib/process.js', 'lib/persistent-process.js'],
+  '@xpeach/xph-ptc-runtime-node': ['lib/configuration.js', 'lib/process.js', 'lib/persistent-process.js'],
+  // 技能加载器和 Creator 子代理通过相对路径读取这些发布资源。
+  '@xpeach/xph-creation-recommendations': ['references/*.md', 'skills/*.md'],
+  '@xpeach/xph-plugin-recommendations': ['skills/*.md'],
   // The Inspector owns a Worker and a mirrored frontend outside package export paths.
   '@xpeach/xph-experimental-inspector': ['lib/client.*.js', 'lib/worker.js', 'lib/devtools/**'],
   // Creator's composition guidance travels with the declaration package.
@@ -252,11 +264,59 @@ function sameStringList(actual: readonly string[] | undefined, expected: readonl
 }
 
 /**
+ * A locale `meta.detail` value: a `/`-separated Markdown path relative to the package root that cannot leave it.
+ * @param value - the declared `meta.detail` value, or `undefined` when the locale file omits it.
+ * @param label - the locale file path used in a failure message.
+ * @returns the validated path, or `undefined` when the value is absent.
+ * @throws Error for another value.
+ */
+function detailPath(value: unknown, label: string): string | undefined {
+  if (value === undefined) return undefined
+  const invalid = (rule: string): Error => new Error(`${label} ${rule}`)
+  if (typeof value !== 'string' || value.trim() === '') throw invalid('must be a non-empty string')
+  if (value.includes('\\') || /^[A-Za-z][A-Za-z\d+.-]*:/u.test(value) || value.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
+    throw invalid('must be a relative path inside the package')
+  }
+  if (!/\.(?:md|markdown)$/iu.test(value)) throw invalid('must name a Markdown file')
+  return value
+}
+
+/**
+ * List the publication entries that locale `meta.detail` documents need: the top-level directory holding
+ * each document and its images.
+ * @param packageDir - absolute package directory.
+ * @returns sorted, deduplicated entries.
+ * @throws Error when a declared document is not a package-relative Markdown file in a subdirectory or does not exist,
+ * so a typo cannot publish a directory that holds no document.
+ */
+export function detailDocumentFiles(packageDir: string): readonly string[] {
+  const entries = new Set<string>()
+  for (const file of globSync('locale/*.json', { cwd: packageDir })) {
+    let meta: unknown
+    try {
+      meta = (JSON.parse(readFileSync(join(packageDir, file), 'utf8')) as { meta?: unknown } | null)?.meta
+    } catch (error: unknown) {
+      // SyntaxError: verify-package-meta reports malformed locale files; this check only adds publication entries.
+      void error
+      continue
+    }
+    const label = `${join(packageDir, file)}: meta.detail`
+    const detail = detailPath(typeof meta === 'object' && meta !== null ? (meta as { detail?: unknown }).detail : undefined, label)
+    if (detail === undefined) continue
+    const slash = detail.indexOf('/')
+    if (slash < 0) throw new Error(`${label} ${JSON.stringify(detail)} must name a file in a subdirectory such as docs/`)
+    if (!existsSync(join(packageDir, detail))) throw new Error(`${label} ${JSON.stringify(detail)} does not exist`)
+    entries.add(detail.slice(0, slash))
+  }
+  return [...entries].sort()
+}
+
+/**
  * Compute canonical publication patterns, including declared and exported icon paths and exported locale JSON resources.
  * @param manifest - workspace package manifest.
  * @returns the icon and deduplicated locale targets followed by runtime and declaration payloads.
  */
-export function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
+export function expectedDshPackageFiles(manifest: PackageManifest, detailFiles: readonly string[] = []): readonly string[] {
   const localeFiles = new Set<string>()
   for (const resource of Object.keys(manifest.exports ?? {})) {
     if (!/^\.\/(?:.+\/)?locale\/[^/]+\.json$/u.test(resource)) continue
@@ -280,6 +340,7 @@ export function expectedDshPackageFiles(manifest: PackageManifest): readonly str
   return [
     ...new Set(icons),
     ...[...localeFiles].sort(),
+    ...detailFiles,
     'lib/index.js',
     ...manifest.bin ? ['lib/bin.js'] : [],
     // Worker-thread packages ship a CJS worker entry; the browser worker
@@ -479,9 +540,9 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
       errors.push(`${label}: release member must set publishConfig.access to "public"`)
     }
     if (manifest.repository?.type !== 'git'
-      || manifest.repository.url !== publishedRepositoryUrl
+      || !releaseRepositoryUrls.includes(manifest.repository.url ?? '')
       || manifest.repository.directory !== dir) {
-      errors.push(`${label}: release member repository must use ${publishedRepositoryUrl} with directory ${dir}`)
+      errors.push(`${label}: release member repository must use ${releaseRepositoryUrls.join(' or ')} with directory ${dir}`)
     }
   } else if (!experimentalPackageDirectory.test(dir) && manifest.private !== true) {
     errors.push(`${label}: package.json must set "private": true`)
@@ -543,7 +604,11 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     if (rootEntry?.default !== './lib/index.js') {
       errors.push(`${label}: package.json exports["."].default must be "./lib/index.js"`)
     }
-    const expectedFiles = expectedDshPackageFiles(manifest)
+    if (manifest.name === '@xpeach/xph-tools'
+      && !hasExportPair(manifest, './pipeline', './lib/types/pipeline.d.ts', './lib/pipeline.js')) {
+      errors.push(`${label}: exports["./pipeline"] must expose lib/types/pipeline.d.ts and lib/pipeline.js`)
+    }
+    const expectedFiles = expectedDshPackageFiles(manifest, detailDocumentFiles(join(root, dir)))
     if (!sameStringList(manifest.files, expectedFiles)) {
       errors.push(`${label}: package.json files must be ${JSON.stringify(expectedFiles)}`)
     }

@@ -44,6 +44,8 @@ export const name = 'web-search-deepseek'
 export const inject = ['web']
 
 const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY'
+const XPEACH_RELAY_KEY_ENV = 'XPEACH_RELAY_KEY'
+const XPEACH_DEFAULT_SEARCH_BASE_URL = 'https://fast.xpeach.codes/anthropic/v1'
 
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
 export interface Config {
@@ -100,29 +102,52 @@ function resolveOptions(
   ctx: Context, config: { [K in keyof Config]: ReturnType<Config[K]['get']> },
 ): DeepSeekSearchProviderOptions {
   const apiKeyEnv = credentialRef(config.apiKeyEnv)
+  const xpeachRelayRef = credentialRef(XPEACH_RELAY_KEY_ENV)
+  const env = launchEnvironmentOf(ctx)
   const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0
     ? config.apiKey
     : undefined
+  const usesXpeachFallback = config.apiKeyEnv === XPEACH_RELAY_KEY_ENV
+    || (env.get(apiKeyEnv) === undefined && env.get(xpeachRelayRef) !== undefined)
+  const xpeachBaseRaw = env.get('XPEACH_BASE_URL')?.value
+  const xpeachSearchBase = xpeachBaseRaw !== undefined && xpeachBaseRaw.length > 0
+    ? `${xpeachBaseRaw.replace(/\/+$/, '').replace(/\/v1$/, '')}/anthropic/v1`
+    : XPEACH_DEFAULT_SEARCH_BASE_URL
   return {
     ...literalApiKey === undefined ? {} : { apiKey: literalApiKey },
     resolveAccountToken: async (endpoint) => {
       // The latest request context names the route that served the model
       // request which called this search, as account sign-out reads it.
       const provider = ctx.get('agents')?.currentInitiator()?.session.requestContext()?.provider
-      if (provider !== ACCOUNT_PROVIDER) return undefined
+      if (provider !== ACCOUNT_PROVIDER && provider !== 'xpeach' && !(typeof provider === 'string' && provider.startsWith('xpeach-'))) {
+        return undefined
+      }
       return await ctx.get('deepseekAccount')?.resolveToken(endpoint)
     },
     resolveApiKey: async () => {
       const credentials = ctx.get('credentials')
-      if (credentials !== undefined) return (await credentials.resolve(apiKeyEnv))?.value
+      if (credentials !== undefined) {
+        const primary = (await credentials.resolve(apiKeyEnv))?.value
+        if (primary !== undefined && primary.length > 0) return primary
+        if (config.apiKeyEnv === DEFAULT_API_KEY_ENV) {
+          const fallback = (await credentials.resolve(xpeachRelayRef))?.value
+          if (fallback !== undefined && fallback.length > 0) return fallback
+        }
+        return undefined
+      }
       // Without the seam the environment is the whole credential plane.
-      const ambient = launchEnvironmentOf(ctx).get(apiKeyEnv)
-      return ambient !== undefined && ambient.value.length > 0 ? ambient.value : undefined
+      const ambient = env.get(apiKeyEnv)
+      if (ambient !== undefined && ambient.value.length > 0) return ambient.value
+      if (config.apiKeyEnv === DEFAULT_API_KEY_ENV) {
+        const fallbackAmbient = env.get(xpeachRelayRef)
+        if (fallbackAmbient !== undefined && fallbackAmbient.value.length > 0) return fallbackAmbient.value
+      }
+      return undefined
     },
     apiKeyEnv,
     baseURL: config.baseURL
-      ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value
-      ?? DEEPSEEK_DEFAULT_BASE_URL,
+      ?? env.get(SEARCH_BASE_URL_ENV)?.value
+      ?? (usesXpeachFallback ? xpeachSearchBase : DEEPSEEK_DEFAULT_BASE_URL),
     model: config.model,
     apiVersion: config.apiVersion,
     maxTokens: config.maxTokens,

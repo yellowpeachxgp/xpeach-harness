@@ -118,7 +118,7 @@ it.each(['every', 'daily'] as const)('retains real %s receipts and immutable pro
   const first = await setup()
   const agent = agentFor(first.ctx, sessionId)
   const followup = vi.spyOn(agent, 'followup')
-  first.resolve.mockResolvedValue({ agent })
+  first.resolve.mockResolvedValue(agent)
   const record = await first.service.create(sessionId, {
     prompt: 'Original prompt', title: 'Original prompt',
     ...(kind === 'every' ? { every_seconds: 300 } : { daily: { time: '00:05:00', time_zone: 'UTC' } }),
@@ -137,8 +137,9 @@ it.each(['every', 'daily'] as const)('retains real %s receipts and immutable pro
   vi.setSystemTime(new Date('2026-09-19T00:06:00.000Z'))
   let restartedAgent: ReturnType<typeof agentFor> | undefined
   const second = await setup({ pool: first.pool, beforeService: async (ctx) => {
-    restartedAgent = agentFor(ctx, sessionId)
-    vi.spyOn(ctx.sessionController, 'resolveAgent').mockResolvedValue({ agent: restartedAgent })
+    const agent = agentFor(ctx, sessionId)
+    restartedAgent = agent
+    vi.spyOn(ctx.sessionActivation, 'withAgent').mockImplementation(async (_id, operation) => operation(agent))
   } })
   await vi.advanceTimersByTimeAsync(0)
   if (restartedAgent === undefined) throw new Error('Expected restored Agent')
@@ -167,7 +168,7 @@ it.each(['flush-false', 'flush-reject', 'put'] as const)('publishes no additiona
   const test = await setup()
   const agent = agentFor(test.ctx, sessionId)
   const followup = vi.spyOn(agent, 'followup')
-  test.resolve.mockResolvedValue({ agent })
+  test.resolve.mockResolvedValue(agent)
   const record = await test.service.create(sessionId, { prompt: 'Keep first receipt', every_seconds: 300, title: 'Keep first receipt' })
   await vi.advanceTimersByTimeAsync(300_000)
   const before = await test.service.history({ sessionId, id: record.id, limit: 100 })
@@ -189,7 +190,7 @@ it.each(['flush-false', 'flush-reject', 'put'] as const)('publishes no additiona
 it('deletes an ended task together with its complete history', async () => {
   const test = await setup()
   const agent = agentFor(test.ctx, sessionId)
-  test.resolve.mockResolvedValue({ agent })
+  test.resolve.mockResolvedValue(agent)
   const record = await test.service.create(sessionId, { prompt: 'Only once', after_seconds: 1, title: 'Only once' })
   await vi.advanceTimersByTimeAsync(1000)
   const history = await test.service.history({ sessionId, id: record.id, limit: 100 })
@@ -215,7 +216,7 @@ it('removes the row across restart while the task stops running and leaves both 
   const first = await setup()
   const agent = agentFor(first.ctx, sessionId)
   const followup = vi.spyOn(agent, 'followup')
-  first.resolve.mockResolvedValue({ agent })
+  first.resolve.mockResolvedValue(agent)
   const record = await first.service.create(sessionId, { prompt: 'Keep records', every_seconds: 300, title: 'Keep records' })
   await vi.advanceTimersByTimeAsync(300_000)
   expect(followup).toHaveBeenCalledTimes(1)
@@ -260,7 +261,7 @@ it('does not infer pruning from legacy unavailability when appending a receipt',
 it('publishes confirmed pruning and the configured policy across restart', async () => {
   const first = await setup({ config: { deliveryHistoryDays: 7, deliveryHistoryRecords: 2 } })
   const agent = agentFor(first.ctx, sessionId)
-  first.resolve.mockResolvedValue({ agent })
+  first.resolve.mockResolvedValue(agent)
   const record = await first.service.create(sessionId, { prompt: 'Retained history', title: 'Retained history', every_seconds: 300 })
   await vi.advanceTimersByTimeAsync(600_000)
   expect(await first.service.history({ sessionId, id: record.id, limit: 20 })).toMatchObject({

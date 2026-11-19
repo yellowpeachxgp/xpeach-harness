@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Equipos de agentes",
+    "description": "Permite que el agente con el que conversas reparta el trabajo entre compañeros con nombre, siga el progreso en un tablero de tareas compartido y te informe de sus resultados.",
+    "detail": "docs/DETAIL.es.md"
+  }
+}

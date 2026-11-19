@@ -1,3 +1,6 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
+import SessionProjectionRegistry from '@xpeach/xph-session-projection'
 import { describe, expect, it } from 'vitest'
 import { provideWorkingDirectoryFixture, unsupportedInbox } from '@xpeach/xph-agent-loop-testkit'
 import { Context } from '@xpeach/xph-cordis'
@@ -6,8 +9,9 @@ import { Session, SessionId } from '@xpeach/xph-session'
 import AgentRegistry from '@xpeach/xph-agent'
 import type { Agent } from '@xpeach/xph-agent'
 import SystemPrompt from '@xpeach/xph-system-prompt'
-import ToolRuntime, { renderToolsSdk } from '@xpeach/xph-tools'
-import type { ToolSdkSchema } from '@xpeach/xph-tools/src/ts-types.ts'
+import ToolRuntime from '@xpeach/xph-tools'
+import { renderToolsSdk } from '@xpeach/xph-tool-executor-ptc'
+import type { ToolSdkSchema } from '@xpeach/xph-tool-executor-ptc/src/ts-types.ts'
 import TerminalSessionService, { TerminalSessionId } from '@xpeach/xph-terminal'
 import type { TerminalBackend, TerminalBackendSession, TerminalSendOperation, TerminalSendRead, TerminalSendRequest, TerminalSessionStatus, TerminalSignal } from '@xpeach/xph-terminal'
 import LocalJobRegistry from '@xpeach/xph-jobs-local'
@@ -114,6 +118,8 @@ async function setupBase(jobs: boolean) {
   provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(TerminalSessionService)
   const stub = stubBackend()
@@ -129,11 +135,11 @@ let callNumber = 0
 const TOOL_NAMES = ['terminal_open', 'terminal_send', 'terminal_read', 'terminal_signal', 'terminal_close', 'terminal_list'] as const
 const testToolSignal = new AbortController().signal
 function call(ctx: Context, name: string, args: unknown, agent?: Agent) {
-  return ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, ...agent ? { agent } : {} })
+  return executeToolFixture(ctx, { signal: testToolSignal, callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, ...agent ? { agent } : {} })
 }
 
 function callWithSignal(ctx: Context, name: string, args: unknown, agent: Agent, signal: AbortSignal) {
-  return ctx.tools.execute({ callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, agent, signal })
+  return executeToolFixture(ctx, { callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, agent, signal })
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
@@ -493,7 +499,7 @@ describe('tool-terminal task integration', () => {
     stub.sessions[0]!.autoSettle = false
     const controller = new AbortController()
     const pending = callWithSignal(ctx, 'terminal_send', { sessionId: 'pty-1', text: 'sleep' }, agent, controller.signal)
-    await Promise.resolve()
+    await expect.poll(() => stub.sessions[0]!.operation).toBeDefined()
     controller.abort()
     stub.sessions[0]!.operation?.cancel()
     expect((await pending).isError).toBe(true)

@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-terminal",
   "description": "Six model-facing persistent PTY tools with owner isolation and generic background-job integration",
-  "version": "0.0.25-beta",
+  "version": "0.0.36-alpha",
   "publishConfig": {
     "access": "public"
   },
@@ -19,9 +19,11 @@
       "default": "./lib/index.js"
     },
     "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
+    "locale/*.json",
     "lib/index.js",
     "lib/types/**/*.d.ts"
   ],
@@ -60,6 +62,9 @@
     "@xpeach/xph-tools": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
     "@xpeach/xph-session-projection": "workspace:*",
-    "@xpeach/xph-working-directory": "workspace:*"
+    "@xpeach/xph-working-directory": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*",
+    "@xpeach/xph-tool-executor-ptc": "workspace:*",
+    "@xpeach/xph-tool-testkit": "workspace:*"
   }
 }

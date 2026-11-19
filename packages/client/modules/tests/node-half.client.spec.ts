@@ -165,6 +165,7 @@ function constructWithRoute(
     contextBaseUrl?: string
     entryBaseUrl?: string
     internal?: NonNullable<Context['loader']['internal']>
+    onEntries?: () => void
   } = {},
 ): { context: Context; service: ClientModuleRegistry; route: Promise<WebRoute> } {
   const ctx = new Context()
@@ -174,6 +175,7 @@ function constructWithRoute(
   ctx.provide('loader', {
     internal: options.internal,
     *entries() {
+      options.onEntries?.()
       for (const packageName of packageNames) {
         yield {
           options: { name: packageName },
@@ -343,6 +345,148 @@ describe('HTML bootstrap facade', () => {
 })
 
 describe('client bundle activation', () => {
+  it('enumerates Loader entries once per dirty-name batch and skips empty batches', async () => {
+    const names = ['@fixture/scan-first', '@fixture/scan-second', '@fixture/scan-retained']
+    for (const name of names) writeBuiltPackage(name, {})
+    const scans = vi.fn()
+    const { context, service } = constructWithRoute(names, { onEntries: scans })
+
+    expect(scans).toHaveBeenCalledTimes(2)
+    expect(service.graph().entries).toHaveLength(3)
+    scans.mockClear()
+
+    const removed = names.splice(0, 2)
+    for (const name of [...removed, removed[0]!]) emitLoaderEntryChange(context, name)
+    await Promise.resolve()
+
+    expect(scans).toHaveBeenCalledTimes(1)
+    expect(service.graph().entries.map(entry => entry.id)).toEqual(names)
+    for (const name of removed) expect(service.clientPath(name)).toBeUndefined()
+
+    scans.mockClear()
+    context.emit('internal/plugin', context.fiber)
+    await Promise.resolve()
+    expect(scans).not.toHaveBeenCalled()
+
+    const emptyScans = vi.fn()
+    const empty = constructWithRoute([], { onEntries: emptyScans })
+    expect(empty.service.graph().entries).toEqual([])
+    expect(emptyScans).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a shared source until its last same-name Loader entry unloads', async () => {
+    const name = '@fixture/shared-source-owners'
+    writeBuiltPackage(name, {})
+    const names = [name, name]
+    const { context, service } = constructWithRoute(names)
+    const initial = service.graph()
+
+    names.pop()
+    emitLoaderEntryChange(context, name)
+    await Promise.resolve()
+    expect(service.graph()).toBe(initial)
+    expect(service.clientPath(name)).toBeDefined()
+
+    names.pop()
+    emitLoaderEntryChange(context, name)
+    await Promise.resolve()
+    expect(service.graph().entries).toEqual([])
+    expect(service.clientPath(name)).toBeUndefined()
+  })
+
+  it('reports an activation flush enumeration failure as a composition error', () => {
+    const name = '@fixture/failed-activation-scan'
+    writeBuiltPackage(name, {})
+    const scans = vi.fn()
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => { throw new Error('Loader enumeration failed') })
+    expect(() => constructWithRoute([name], { onEntries: scans })).toThrow(AggregateError)
+  })
+
+  it.each([new Error('Loader enumeration failed'), 'Loader enumeration failed'])(
+    'retains the graph and consumes the failed batch when Loader enumeration throws %s',
+    async (failure) => {
+      const names = ['@fixture/failed-scan-first', '@fixture/failed-scan-second', '@fixture/failed-scan-retained']
+      for (const name of names) writeBuiltPackage(name, {})
+      const scans = vi.fn()
+      const { context, service, route } = constructWithRoute(names, { onEntries: scans })
+      await route
+      const initial = service.graph()
+      const warning = vi.spyOn(context.logger, 'warn').mockImplementation(() => undefined)
+      const removed = names.splice(0, 2)
+      scans.mockImplementationOnce(() => { throw failure })
+      const callbacks: VoidFunction[] = []
+      const enqueue = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation(callback => callbacks.push(callback))
+      try {
+        for (const name of removed) emitLoaderEntryChange(context, name)
+        expect(callbacks).toHaveLength(1)
+        expect(callbacks[0]!).not.toThrow()
+      } finally {
+        enqueue.mockRestore()
+      }
+      expect(warning).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: 'Loader enumeration failed' }))
+      expect(service.graph()).toBe(initial)
+      for (const name of removed) expect(service.clientPath(name)).toBeDefined()
+
+      emitLoaderEntryChange(context, names[0]!)
+      await Promise.resolve()
+      expect(service.graph()).toBe(initial)
+
+      for (const name of removed) emitLoaderEntryChange(context, name)
+      await Promise.resolve()
+      expect(service.graph().entries.map(entry => entry.id)).toEqual(names)
+      for (const name of removed) expect(service.clientPath(name)).toBeUndefined()
+    },
+  )
+
+  it.each(['processing', 'processed'] as const)('consumes pending names once when a %s name is marked again', async (timing) => {
+    const firstName = '@fixture/reentrant-first'
+    const secondName = '@fixture/reentrant-second'
+    const thirdName = '@fixture/reentrant-third'
+    const names = [firstName, secondName, thirdName]
+    const hostUrls = new Map<string, string>()
+    for (const name of names) {
+      writeBuiltPackage(name, {})
+      const hostPath = join(root!, 'node_modules', ...name.split('/'), 'lib', 'index.js')
+      writeFileSync(hostPath, 'export default {}\n')
+      hostUrls.set(name, pathToFileURL(hostPath).href)
+    }
+    const resolved: string[] = []
+    let duringResolve = (_name: string) => {}
+    const internal = {
+      version: 'v2' as const,
+      resolveSync: (_baseUrl: string, { specifier }: { specifier: string }) => {
+        resolved.push(specifier)
+        duringResolve(specifier)
+        return { format: 'module' as const, url: hostUrls.get(specifier)! }
+      },
+    }
+    const { context, service } = constructWithRoute(names, {
+      internal: internal as NonNullable<Context['loader']['internal']>,
+    })
+    const initial = service.graph()
+    resolved.length = 0
+    duringResolve = (name) => {
+      if (name === firstName) {
+        emitLoaderEntryChange(context, secondName)
+        emitLoaderEntryChange(context, thirdName)
+        if (timing === 'processing') emitLoaderEntryChange(context, firstName)
+      } else if (name === secondName) {
+        if (timing === 'processed') emitLoaderEntryChange(context, firstName)
+        duringResolve = () => {}
+      }
+    }
+
+    emitLoaderEntryChange(context, firstName)
+    emitLoaderEntryChange(context, secondName)
+    await Promise.resolve()
+    expect(resolved.splice(0)).toEqual([firstName, secondName])
+
+    await Promise.resolve()
+    expect(resolved).toEqual([thirdName, firstName])
+    expect(service.graph()).toBe(initial)
+  })
+
   it.each(['v1', 'v2'] as const)(
     'resolves %s package metadata from the owning entry tree',
     (version) => {
@@ -1243,5 +1387,68 @@ describe('module graph order', () => {
     writeBuiltPackage('@fixture/cycle-b', { external: ['@fixture/cycle-a'] })
     expect(() => construct(['@fixture/cycle-a', '@fixture/cycle-b']))
       .toThrow('module graph cycle @fixture/cycle-a -> @fixture/cycle-b -> @fixture/cycle-a')
+  })
+})
+describe('package manifest refresh', () => {
+  /** Rewrite a fixture package's manifest; its client bundle is left as it is. */
+  const writeManifest = (packageName: string, manifest: Record<string, unknown>): void => {
+    writeFileSync(join(root!, 'node_modules', ...packageName.split('/'), 'package.json'), JSON.stringify({ name: packageName, ...manifest }))
+  }
+  const clientManifest = (client: Record<string, unknown>, clientExport = './lib/client.js'): Record<string, unknown> => ({
+    exports: { './client': clientExport, './package.json': './package.json' },
+    dsh: { client: { platform: 'web', ...client } },
+  })
+
+  it('publishes a reinstalled declaration when its Loader entry restarts, and nothing for an unchanged restart', async () => {
+    const packageName = '@fixture/refresh-declaration'
+    writeBuiltPackage(packageName, { external: ['react'] })
+    const { context, service } = constructWithRoute([packageName])
+    const before = service.graph().entries[0]!
+    const changed = vi.fn()
+    service.onGraphChanged(changed)
+
+    emitLoaderEntryChange(context, packageName)
+    await Promise.resolve()
+    expect(changed).not.toHaveBeenCalled()
+
+    writeManifest(packageName, clientManifest({ external: ['scheduler'], inject: ['@fixture/slots'] }))
+    emitLoaderEntryChange(context, packageName)
+    await Promise.resolve()
+    expect(changed).toHaveBeenCalledTimes(1)
+    expect(service.graph().entries[0]).toMatchObject({ rev: before.rev, external: ['scheduler'], inject: ['@fixture/slots'] })
+  })
+
+  it('reads a moved client export as a new bundle generation when its Loader entry restarts', async () => {
+    const packageName = '@fixture/refresh-moved'
+    writeBuiltPackage(packageName, {})
+    const { context, service } = constructWithRoute([packageName])
+    const before = service.graph().entries[0]!
+    const moved = join(root!, 'node_modules', '@fixture', 'refresh-moved', 'dist', 'client.js')
+    mkdirSync(dirname(moved), { recursive: true })
+    writeFileSync(moved, 'module.exports = { moved: true }\n')
+    writeManifest(packageName, clientManifest({}, './dist/client.js'))
+
+    emitLoaderEntryChange(context, packageName)
+    await Promise.resolve()
+    expect(service.clientPath(packageName)).toBe(moved)
+    expect(service.graph().entries[0]!.rev).not.toBe(before.rev)
+  })
+
+  it('adds or removes the row when a restarted package gains or loses its client declaration', async () => {
+    const packageName = '@fixture/refresh-membership'
+    writeBuiltPackage(packageName, {})
+    writeManifest(packageName, { exports: { './package.json': './package.json' } })
+    const { context, service } = constructWithRoute([packageName])
+    expect(service.graph().entries).toEqual([])
+
+    writeManifest(packageName, clientManifest({}))
+    emitLoaderEntryChange(context, packageName)
+    await Promise.resolve()
+    expect(service.graph().entries.map(entry => entry.id)).toEqual([packageName])
+
+    writeManifest(packageName, { exports: { './package.json': './package.json' } })
+    emitLoaderEntryChange(context, packageName)
+    await Promise.resolve()
+    expect(service.graph().entries).toEqual([])
   })
 })

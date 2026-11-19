@@ -181,12 +181,20 @@ export function buildProvider(spec: ProviderSpec): Provider {
       + ` supported protocols are ${supportedProtocols().join(', ')}`,
     )
   }
+  const defaultApi = factory()
+  const streamFor = (model: Model<Api>): ProviderStreams => {
+    const byModel = PROTOCOLS[model.api]
+    return byModel !== undefined ? byModel() : defaultApi
+  }
   return createProvider({
     id: spec.provider,
     name: spec.displayName,
     ...spec.baseURL === undefined ? {} : { baseUrl: spec.baseURL },
     auth: routeAuth(spec, catalog),
     models: spec.models,
-    api: factory(),
+    api: {
+      stream: (model, context, options) => streamFor(model).stream(model, context, options),
+      streamSimple: (model, context, options) => streamFor(model).streamSimple(model, context, options),
+    },
   })
 }

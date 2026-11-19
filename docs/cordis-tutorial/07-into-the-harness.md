@@ -9,10 +9,10 @@ This chapter registers a model-callable tool with the harness's `tools` service,
 Create `greet-tool.ts` in `tmp/cordis-tutorial`:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { ToolCallId } from '@deepseek-ai/dsh-llm'
+import type { Context } from '@xpeach/xph-cordis'
+import { brandString } from '@xpeach/xph-brand'
+import { defineTool } from '@xpeach/xph-tools'
+import type { ToolCallId } from '@xpeach/xph-llm'
 
 export const name = 'greet-tool'
 export const inject = ['tools']
@@ -37,12 +37,13 @@ export function apply(ctx: Context) {
   // the model. ToolCallId brands the correlation id a provider would issue.
   void (async () => {
     const result = await ctx.tools.execute({
-      callId: brandString<ToolCallId>('demo-1'),
-      name: 'greet',
-      arguments: { name: 'Cordis' },
+      calls: [{
+        type: 'tool-call', id: brandString<ToolCallId>('demo-1'),
+        name: 'greet', arguments: JSON.stringify({ name: 'Cordis' }),
+      }],
       signal: new AbortController().signal,
     })
-    console.log('tool replied:', JSON.stringify(result.content))
+    console.log('tool replied:', JSON.stringify(result.results[0]?.result.content))
   })()
 }
 ```
@@ -54,8 +55,8 @@ Every pattern here is from the earlier chapters: `inject: ['tools']` ([chapter 3
 Create `tool-logger.ts` — a separate plugin that watches every tool call in the app through the harness's `tools/result` event:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-tools'
+import type { Context } from '@xpeach/xph-cordis'
+import type {} from '@xpeach/xph-tools'
 
 export const name = 'tool-logger'
 export const inject = ['tools']
@@ -70,18 +71,18 @@ export function apply(ctx: Context) {
 }
 ```
 
-The `import type {} from '@deepseek-ai/dsh-tools'` line pulls in the package's declaration merges so `'tools/result'` and its payload are typed — the same move as chapter 4's `stats.ts` import, at package scale.
+The `import type {} from '@xpeach/xph-tools'` line pulls in the package's declaration merges so `'tools/result'` and its payload are typed — the same move as chapter 4's `stats.ts` import, at package scale.
 
 ## Compose and run
 
 ```yaml
-- name: '@deepseek-ai/dsh-system-prompt'
-- name: '@deepseek-ai/dsh-tools'
+- name: '@xpeach/xph-system-prompt'
+- name: '@xpeach/xph-tools'
 - name: './tool-logger.ts'
 - name: './greet-tool.ts'
 ```
 
-`@deepseek-ai/dsh-tools` injects the `systemPrompt` service because tools contribute schemas to the system prompt, so the composition lists its provider too. Without it, the tools plugin remains PENDING as described in [chapter 6](06-composition-and-hmr.md).
+`@xpeach/xph-tools` injects the `systemPrompt` service because tools contribute schemas to the system prompt, so the composition lists its provider too. Without it, the tools plugin remains PENDING as described in [chapter 6](06-composition-and-hmr.md).
 
 ```sh
 node --import tsx ../../vendor/cordis/bin.js
@@ -105,4 +106,4 @@ Where to go next:
 - The generated `cordis-surface` regions on the [subsystem pages](../subsystems/core.md) — everything you can inject and listen to, each on its owning page.
 - [Architecture](../architecture.md) — the system map these plugins live in.
 
-[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/yellowpeachxgp/xpeach-harness)

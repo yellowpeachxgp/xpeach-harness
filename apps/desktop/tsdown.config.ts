@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { repositoryClientBuildEnvironment, resolveClientBuildEnvironment } from '../../scripts/client-build-environment.ts'
-import { packagedImportsPlugin } from './scripts/desktop-bundle-imports.mjs'
+import { dtsRuntimeSiblingPlugin, packagedImportsPlugin } from './scripts/desktop-bundle-imports.mjs'
 
 // This config runs after the workspace tsdown pass, not inside it: the main bundle inlines
 // workspace devDependencies from their lib/ output, which the concurrent workspace pass does
@@ -35,7 +35,7 @@ const clientVersionDefine = { 'process.env.DSH_CLIENT_VERSION': JSON.stringify(c
 export default defineConfig([
   {
     entry: ['lib/types/command-manager-entry.js'],
-    plugins: [packagedImportsPlugin({ packages: new Set(), nodeBuiltins: true })],
+    plugins: [dtsRuntimeSiblingPlugin(), packagedImportsPlugin({ packages: new Set(), nodeBuiltins: true })],
     outDir: 'lib',
     format: ['esm'],
     platform: 'node',
@@ -48,7 +48,7 @@ export default defineConfig([
   },
   {
     entry: ['lib/types/main.js'],
-    plugins: [packagedImportsPlugin(mainProcessImports)],
+    plugins: [dtsRuntimeSiblingPlugin(), packagedImportsPlugin(mainProcessImports)],
     define: clientVersionDefine,
     onSuccess: async () => {
       await build({
@@ -56,7 +56,14 @@ export default defineConfig([
         plugins: [{
           name: 'desktop-brand-font',
           async generateBundle() {
-            for (const name of ['brand-font.css', 'montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
+            const rawCss = await readFile(new URL('../../packages/client/ui-theme/src/styles/brand-font.css', import.meta.url), 'utf8')
+            const montserratBlocks = rawCss.match(/@font-face\s*\{[^}]*font-family:\s*['"]Montserrat['"][^}]*\}/gu) ?? []
+            this.emitFile({
+              type: 'asset',
+              fileName: 'brand-font.css',
+              source: `${montserratBlocks.join('\n\n')}\n`,
+            })
+            for (const name of ['montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
               this.emitFile({
                 type: 'asset',
                 fileName: name,
@@ -93,7 +100,7 @@ export default defineConfig([
   ...(['preload-app', 'preload-welcome', 'preload-platform-account', 'preload-mandatory', 'preload-update-dialog'] as const).map(name => ({
     // Sandboxed Electron preloads run as CommonJS even though the application package is ESM.
     entry: { [name]: `lib/types/${name}.js` },
-    plugins: [packagedImportsPlugin(preloadImports)],
+    plugins: [dtsRuntimeSiblingPlugin(), packagedImportsPlugin(preloadImports)],
     outDir: 'lib',
     format: 'cjs' as const,
     codeSplitting: false,

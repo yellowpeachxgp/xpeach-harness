@@ -7,7 +7,7 @@
 | 项 | 值 |
 |---|---|
 | 上游仓库 | https://github.com/deepseek-ai/deepseek-harness |
-| 基线提交 | `687f282e8625c6b8d11ff58211a90524be2e4317` |
+| 基线提交 | `dsh-v0.2.1-rc.2`（上游发布标签） |
 | 基线上游版本 | `0.2.1-rc.2` |
 | 上游版权 | Copyright (c) 2026 DeepSeek |
 | 上游许可证 | MIT |

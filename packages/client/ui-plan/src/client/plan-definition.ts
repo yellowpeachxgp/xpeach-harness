@@ -1,5 +1,5 @@
 /** Per-invocation plans use resolved Conversation locations for final Turn artifacts. */
-import type {} from '@xpeach/xph-tools/types'
+import type {} from '@xpeach/xph-tool-executor-ptc/client'
 import type { ChatNode } from '@xpeach/xph-client-ui-chat/client'
 import type { ConversationNodeDefinition } from '@xpeach/xph-client-ui-conversation/client'
 import { submittedPlan, type SubmittedPlan } from './plan.ts'

@@ -4,10 +4,10 @@
  * Claude Code / Codex / zcode are decoded into native XPeach session logs
  * (v4 JSONL, concatenated zstd frames: one header frame + one event frame).
  */
-import { cpSync, type Dirent, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, cpSync, type Dirent, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { constants, zstdCompressSync, zstdDecompressSync } from 'node:zlib'
 import type { JsonValue } from '@xpeach/xph-util-values'
 import { chatgptDatabaseFiles, decodeChatgptDatabase } from './chatgpt-db.ts'
@@ -505,7 +505,7 @@ export function scanOnboarding(): XPeachOnboardingScan {
   const counts: Record<XPeachSourceId, number> = {
     deepseek: countFiles(p.deepseek, name => /^session\.v\d+\.jsonl(\.zstd)?$/.test(name)),
     claude: countFiles(p.claude, name => name.endsWith('.jsonl')),
-    codex: countFiles(p.codex, name => /^rollout-.*\.jsonl\.zst$/.test(name)),
+    codex: countFiles(p.codex, name => /^(?:rollout-.*|session-.*)\.jsonl(?:\.zst)?$/.test(name)),
     zcode: countFiles(p.zcode, name => name.endsWith('.json')),
     chatgpt: chatgptExports.reduce((sum, path) => sum + decodeChatgptExport(path).length, 0) + chatgptDbThreads,
     gemini: threadPaths('gemini').length,
@@ -587,10 +587,13 @@ function decodeClaude(path: string): ImportedThread | undefined {
   return { title: humanTitle(messages, 'Claude Code thread'), ...(cwd !== undefined ? { cwd } : {}), createdAt: sanitizeTimestamp(createdAt ?? Date.now()), messages }
 }
 
-/** Codex rollout: zstd JSONL with session_meta + response_item messages. */
+/** Codex rollout: plain or zstd JSONL with session_meta + response_item messages. */
 function decodeCodex(path: string): ImportedThread | undefined {
   let text: string
-  try { text = zstdDecompressSync(readFileSync(path)).toString('utf8') } catch (_err) { return undefined }
+  try {
+    const raw = readFileSync(path)
+    text = path.endsWith('.zst') ? zstdDecompressSync(raw).toString('utf8') : raw.toString('utf8')
+  } catch (_err) { return undefined }
   const messages: { role: 'user' | 'assistant'; text: string; time: number }[] = []
   let cwd: string | undefined
   let createdAt: number | undefined
@@ -945,10 +948,23 @@ function threadPaths(source: XPeachSourceId): string[] {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const transcript = join(p.antigravity, entry.name, '.system_generated', 'logs', 'transcript.jsonl')
-      if (!existsSync(transcript)) continue
-      const text = readText(transcript)
-      if (text !== undefined && text.includes('"USER_INPUT"')) {
-        out.push(transcript)
+      try {
+        const st = statSync(transcript)
+        if (!st.isFile() || st.size === 0) continue
+        const previewBytes = Math.min(st.size, 65_536)
+        const buf = Buffer.allocUnsafe(previewBytes)
+        const fd = openSync(transcript, 'r')
+        let bytesRead = 0
+        try {
+          bytesRead = readSync(fd, buf, 0, previewBytes, 0)
+        } finally {
+          closeSync(fd)
+        }
+        if (buf.subarray(0, bytesRead).toString('utf8').includes('"USER_INPUT"')) {
+          out.push(transcript)
+        }
+      } catch (_err) {
+        // Ignore unreadable or missing transcript files.
       }
     }
     return out
@@ -1000,7 +1016,7 @@ function threadPaths(source: XPeachSourceId): string[] {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) { walk(path, depth + 1); continue }
       if (source === 'claude' && entry.name.endsWith('.jsonl')) out.push(path)
-      if (source === 'codex' && /^rollout-.*\.jsonl\.zst$/.test(entry.name)) out.push(path)
+      if (source === 'codex' && /^(?:rollout-.*|session-.*)\.jsonl(?:\.zst)?$/.test(entry.name)) out.push(path)
       if (source === 'zcode' && entry.name.endsWith('.json')) out.push(path)
     }
   }
@@ -1042,9 +1058,6 @@ function writeSession(root: string, thread: ImportedThread): string {
     events.push({ type, seq: seq++, time: time(seq * 1000), data, ...extra })
     return current
   }
-  push('permission/preset', { preset: 'danger-full-access' })
-  push('sandbox/mode', { mode: 'danger-full-access' })
-  push('approval/policy', { policy: 'never' })
   push('session/end-seed', {})
   // Group messages into turns: one user message plus the assistants that follow.
   const turns: { user?: { text: string; time: number }; assistants: { text: string; time: number }[] }[] = []
@@ -1495,6 +1508,21 @@ function formatMcpPatchEntry(entry: XPeachMcpPatchEntry): string {
   return lines.join('\n')
 }
 
+function writePrivateFileAtomic(filePath: string, content: string): void {
+  mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 })
+  const tmpPath = `${filePath}.tmp.${String(process.pid)}.${randomBytes(6).toString('hex')}`
+  try {
+    writeFileSync(tmpPath, content, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    try {
+      chmodSync(tmpPath, 0o600)
+    } catch (_err) { /* chmod may be a no-op on Windows */ }
+    renameSync(tmpPath, filePath)
+  } catch (err) {
+    try { unlinkSync(tmpPath) } catch (_cleanupErr) { /* ignore */ }
+    throw err
+  }
+}
+
 /**
  * Write deduplicated MCP client entries into `cordis.patch.yml`, preserving all non-MCP patch entries.
  * @param patchPath - path to `cordis.patch.yml`.
@@ -1510,7 +1538,6 @@ export function writeMcpPatchEntries(patchPath: string, entries: readonly XPeach
     .replace(/(?:^|\n)\s*\[\]\s*$/, '')
     .trimEnd()
 
-  mkdirSync(dirname(patchPath), { recursive: true })
   if (deduped.length === 0) {
     const hasNonComment = baseText.split(/\r?\n/).some(l => l.trim().length > 0 && !l.trim().startsWith('#'))
     const out = hasNonComment
@@ -1518,13 +1545,13 @@ export function writeMcpPatchEntries(patchPath: string, entries: readonly XPeach
       : baseText.length > 0
         ? `${baseText}\n[]\n`
         : '[]\n'
-    writeFileSync(patchPath, out, 'utf8')
+    writePrivateFileAtomic(patchPath, out)
     return
   }
 
   const mcpBlock = `- insert:\n${deduped.map(formatMcpPatchEntry).join('\n')}\n`
   const prefix = baseText.length > 0 ? `${baseText}\n` : ''
-  writeFileSync(patchPath, `${prefix}${mcpBlock}`, 'utf8')
+  writePrivateFileAtomic(patchPath, `${prefix}${mcpBlock}`)
 }
 
 /**
@@ -1540,7 +1567,9 @@ export function importAssets(
   home_: string,
   profilePatch: string,
 ): XPeachAssetImportResult {
-  const scan = scanOnboarding()
+  const scannedSkills = selection.skills ? scanSkills() : []
+  const scannedPrompts = selection.prompts ? scanPrompts() : []
+  const scannedMcp = selection.mcp ? scanMcp() : []
   const errors: string[] = []
   let mcp = 0
   let skills = 0
@@ -1548,7 +1577,7 @@ export function importAssets(
   if (selection.skills) {
     const root = join(home_, 'skills')
     mkdirSync(root, { recursive: true })
-    for (const skill of scan.skills) {
+    for (const skill of scannedSkills) {
       const dest = join(root, skill.name)
       if (existsSync(dest)) continue
       try {
@@ -1564,7 +1593,7 @@ export function importAssets(
     const dest = join(home_, 'AGENTS.md')
     const existing = readText(dest)
     const parts: string[] = []
-    for (const prompt of scan.prompts) {
+    for (const prompt of scannedPrompts) {
       const marker = '<!-- imported from ' + prompt.path + ' -->'
       if (existing !== undefined && existing.includes(marker)) continue
       const text = readText(prompt.path)
@@ -1582,14 +1611,14 @@ export function importAssets(
       }
     }
   }
-  if (selection.mcp && scan.mcp.length > 0) {
+  if (selection.mcp && scannedMcp.length > 0) {
     try {
       const existingEntries = readMcpPatchEntries(profilePatch)
       const existingNames = new Set(existingEntries.map(e => e.serverName.toLowerCase()))
       const existingIds = new Set(existingEntries.map(e => e.id))
       const combined: XPeachMcpPatchEntry[] = [...existingEntries]
 
-      for (const server of scan.mcp) {
+      for (const server of scannedMcp) {
         const config = server.config
         const command = typeof config['command'] === 'string' && config['command'].trim().length > 0
           ? config['command'].trim()

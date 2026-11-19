@@ -9,6 +9,8 @@ import { ON_DEMAND_BUNDLES } from '../packages/boot/app-boot/src/official-bundle
 import type { OfficialBundleCatalogEntry } from '../packages/boot/app-boot/src/official-bundles.ts'
 import { readPluginMeta, resolvePluginResource } from '../packages/boot/app-boot/src/package-meta.ts'
 
+import { SHIPPED_LOCALE_IDS } from './shipped-locales.ts'
+
 const OUTPUT = 'packages/boot/app-boot/src/official-bundles.generated.ts'
 
 /**
@@ -49,7 +51,7 @@ export function generateOfficialBundleCatalog(root: string, names: readonly stri
       throw new Error(`${packageName}: Official catalog entries must be public DSH bundle packages`)
     }
     const parentURL = pathToFileURL(resolve(root, entry.path)).href
-    for (const language of ['en', 'zh']) {
+    for (const language of SHIPPED_LOCALE_IDS) {
       const file = resolvePluginResource(`${packageName}/locale/${language}.json`, parentURL)
       const dictionary = JSON.parse(readFileSync(file, 'utf8')) as { meta?: { title?: unknown; description?: unknown } }
       if (typeof dictionary.meta?.title !== 'string' || dictionary.meta.title.trim() === ''
@@ -63,7 +65,7 @@ export function generateOfficialBundleCatalog(root: string, names: readonly stri
       throw new Error(`${packageName}: Official catalog entries require an icon and localized title and description`)
     }
     for (const value of [meta.title, meta.description]) {
-      for (const language of ['en', 'zh']) {
+      for (const language of SHIPPED_LOCALE_IDS) {
         if (typeof value[language] !== 'string' || value[language].trim() === '') {
           throw new Error(`${packageName}: Official metadata requires ${language} text`)
         }

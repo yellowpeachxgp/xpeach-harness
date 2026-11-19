@@ -27,7 +27,7 @@ import { createAppearanceRowStore, createFontRowStore } from './settings-store.t
 import { ICON_SYMBOLS, type IconSymbolId } from '@xpeach/xph-client-ui-primitives'
 import { installIconSprite, type IconReplacements } from './icon-sprite.ts'
 import { installThemeStyles } from './styles.ts'
-import { en, zh, type ThemeKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, zh, type ThemeKey } from './locales.ts'
 import {
   DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
   fontFamilyVariable, isFontSize, isThemePreference, normalizeFontFamily, sectionFontSizes,
@@ -259,7 +259,9 @@ export class ThemeRuntime {
     if (id !== 'system' && !this.themes.some(t => t.id === id)) {
       throw new Error(`theme "${id}" is not registered`)
     }
-    const target = this.snapshot.active.colorScheme === 'dark' && this.themes.some(t => t.id === `${id}-dark`)
+    const target = this.preference !== `${id}-dark`
+      && this.snapshot.active.colorScheme === 'dark'
+      && this.themes.some(t => t.id === `${id}-dark`)
       ? `${id}-dark`
       : id
     if (this.preference === target) return
@@ -599,7 +601,7 @@ export const inject = ['slots', 'locale', 'remote', 'configForms']
  */
 export function apply(ctx: ClientContext): void {
   installThemeStyles(ctx)
-  ctx.effect(() => ctx.locale.register(SETTINGS_NS, { zh, en }), 'ui-theme: settings row dictionaries')
+  ctx.effect(() => ctx.locale.register(SETTINGS_NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-theme: settings row dictionaries')
   const host = ctx.configForms.get<ThemeSettings>(THEME_SETTINGS_NAMESPACE)
   const theme = new ThemeRuntime(ctx, host)
   ctx.provide('theme', theme)

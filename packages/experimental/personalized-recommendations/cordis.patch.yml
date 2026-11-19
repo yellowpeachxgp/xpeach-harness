@@ -1,0 +1,13 @@
+- insert:
+    - id: action-cards
+      name: '@xpeach/xph-action-cards'
+    - id: client-ui-action-cards
+      name: '@xpeach/xph-client-ui-action-cards'
+    - id: creation-recommendations
+      name: '@xpeach/xph-creation-recommendations'
+    - id: client-ui-creation-recommendations
+      name: '@xpeach/xph-client-ui-creation-recommendations'
+    - id: plugin-recommendations
+      name: '@xpeach/xph-plugin-recommendations'
+    - id: client-ui-plugin-recommendations
+      name: '@xpeach/xph-client-ui-plugin-recommendations'

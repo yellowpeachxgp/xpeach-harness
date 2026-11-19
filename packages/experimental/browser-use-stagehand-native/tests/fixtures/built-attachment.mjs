@@ -4,6 +4,7 @@ import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@xpea
 import BrowserUseRegistry from '@xpeach/xph-browser-use'
 import { ToolCallId } from '@xpeach/xph-llm'
 import { SessionId } from '@xpeach/xph-session'
+import { executeModelToolFixture } from '@xpeach/xph-tool-testkit'
 import * as Provider from '../../lib/index.js'
 
 const [endpoint, url] = process.argv.slice(2)
@@ -19,7 +20,7 @@ try {
   const harness = await mountAgentLoopTestHarness(ctx)
   const agent = await harness.create(SessionId('built-stagehand'))
   const call = async (method, args) => {
-    const result = await ctx.tools.execute({ agent, name: `stagehand_${method}`, arguments: args, callId: ToolCallId(`built-${method}`), signal: new AbortController().signal })
+    const result = await executeModelToolFixture(ctx, { agent, name: `stagehand_${method}`, arguments: args, callId: ToolCallId(`built-${method}`), signal: new AbortController().signal })
     if (result.isError) throw new Error(JSON.stringify(result.content))
     return result
   }

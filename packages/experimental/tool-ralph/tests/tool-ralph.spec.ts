@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { provideWorkingDirectoryFixture } from '@xpeach/xph-agent-loop-testkit'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@xpeach/xph-cordis'
@@ -80,6 +82,7 @@ async function setup(options?: SetupOptions) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(SessionProjectionRegistry)
   provideWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
@@ -101,7 +104,7 @@ function execute(
   args: unknown,
   extra?: { agent?: Agent; signal?: AbortSignal },
 ): Promise<ToolExecutionResult> {
-  return ctx.tools.execute({
+  return executeToolFixture(ctx, {
     signal: extra?.signal ?? testToolSignal,
     callId: ToolCallId('ralph-call'),
     name: 'ralph',
@@ -235,6 +238,7 @@ describe('dsh-tool-ralph', () => {
     expect((firstResult.content[0] as { text: string }).text).toContain('No previous handoff was available.')
 
     const later = execute(ctx, { objective: 'Ship it.', maxRounds: 2 }, { agent: parent })
+    await vi.waitFor(() => { expect(engine.requests).toHaveLength(2) })
     const laterResult = await settleCompleted(engine, later, {
       status: 'round-failed',
       roundsStarted: 2,

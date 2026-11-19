@@ -19,6 +19,7 @@
  */
 
 import { isBuiltin } from 'node:module'
+import { existsSync } from 'node:fs'
 import { isAbsolute, relative } from 'node:path'
 
 /**
@@ -72,6 +73,27 @@ export function unpackagedImports(imports, policy) {
  * @param {BundleImportPolicy} policy - What this bundle may leave external.
  * @returns {import('tsdown').Rolldown.Plugin} The plugin.
  */
+/**
+ * tsconfig.base.json maps `@xpeach` typert/remote subpath specifiers onto the
+ * generated declaration file (`lib/typert.*.d.ts`) so the TypeScript source
+ * plane sees types for an artifact that only exists after the package's own
+ * build. A bundler following the same paths lands on a file with no runtime
+ * exports; the declaration's `.js` sibling is the module it must bundle.
+ * `resolveId` swaps any `.d.ts` resolution for its `.js` twin when one exists.
+ * @returns {import('tsdown').Rolldown.Plugin} The plugin.
+ */
+export function dtsRuntimeSiblingPlugin() {
+  return {
+    name: 'desktop-dts-runtime-sibling',
+    async resolveId(source, importer, options) {
+      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true })
+      if (resolved === null || !resolved.id.endsWith('.d.ts')) return resolved
+      const runtime = `${resolved.id.slice(0, -'.d.ts'.length)}.js`
+      return existsSync(runtime) ? { ...resolved, id: runtime } : resolved
+    },
+  }
+}
+
 export function packagedImportsPlugin(policy) {
   const allowed = [...policy.packages].join(', ') + (policy.nodeBuiltins ? ', and Node builtins' : '')
   return {

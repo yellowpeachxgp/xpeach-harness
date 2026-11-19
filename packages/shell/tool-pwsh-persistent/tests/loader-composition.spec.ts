@@ -1,3 +1,5 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { spawnSync } from 'node:child_process'
 import { provideWorkingDirectoryFixture, unsupportedInbox } from '@xpeach/xph-agent-loop-testkit'
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
@@ -110,6 +112,7 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
       "- name: '@xpeach/xph-agent'",
       "- name: '@xpeach/xph-system-prompt'",
       "- name: '@xpeach/xph-tools'",
+      "- name: '@xpeach/xph-tool-executor-native'",
       "- name: '@xpeach/xph-terminal'",
       "- name: '@xpeach/xph-test-sandbox'",
       "- name: '@xpeach/xph-session-projection'",
@@ -157,6 +160,7 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
       ['@xpeach/xph-agent', AgentRegistry],
       ['@xpeach/xph-system-prompt', SystemPrompt],
       ['@xpeach/xph-tools', ToolRegistry],
+      ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
       ['@xpeach/xph-terminal', TerminalSessionService],
       ['@xpeach/xph-test-sandbox', PassthroughSandbox],
       ['@xpeach/xph-session-projection', SessionProjectionRegistry],
@@ -214,7 +218,7 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
     const signal = new AbortController().signal
     const execute = (id: string, command: string) => {
       timeline.label(id)
-      return context!.tools.execute({
+      return executeToolFixture(context!, {
         signal,
         callId: ToolCallId(id),
         name: 'pwsh',

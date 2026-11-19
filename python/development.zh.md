@@ -38,11 +38,13 @@ uv run --project python/sdk python scripts/smoke-python-runtime.py \
   --scenario sdk-minimal --exe dist-exe/deepseek-harness-sdk-runtime-macos-arm64
 ```
 
-SDK 场景会比对 `scripts/snapshots/python-sdk-single-exe/` 下已提交的期望输出。`minimal/model-visible.json` 固定 Linux／macOS `sdk-minimal` profile 所组装的系统提示词、对外公布的工具 schema 与模型可见消息；`minimal/win-x64/model-visible.json` 固定对应的 PowerShell 版本。`authoring/model-visible.json` 固定 Linux／macOS 的 Office 创作技能目录和依赖结果；`authoring/win-x64/model-visible.json` 固定 Windows 的技能目录，其中包含 ACL 诊断技能。因此，插件一旦贡献出计划外的系统分段或 user 消息，该任务即失败，且该 profile 发出的每条消息都会参与比对。`advanced/` 跨所有目标固定一个复杂进程的 SDK 结果及父／子会话日志。`restart/` 针对同一持久化根目录启动两个完整 SDK 运行时进程，并跨所有目标固定其彼此隔离的模型历史、高层结果与独立持久日志。`sdk-minimal-in-history` 复用持久 shell 与编辑器场景，并在首次 shell 调用成功后更改一个分段。`minimal-in-history/prompt-history.json` 固定两个提示词版本、后续请求中不变的首条提示词、追加的 SDK system-message 事件及 `request/context.systemPromptUpdate`；工具 schema 保持不变，并独立检查编辑器创建的文件。`sdk-dynamic-tools` 在 `dynamic-tools/tool-history.json` 中固定原生工具的新增与移除，包括历史 header 引用，以及 Python SDK 结果、通知与持久事件的一致性。重新运行对应场景时加上 `--update-snapshots`，并在提交前审阅该差异。
+SDK 场景会比对 `scripts/snapshots/python-sdk-single-exe/` 下已提交的期望输出。`minimal/model-visible.json` 固定 Linux／macOS `sdk-minimal` profile 所组装的系统提示词、对外公布的工具 schema 与模型可见消息；`minimal/win-x64/model-visible.json` 固定对应的 PowerShell 版本。`authoring/model-visible.json` 固定 Linux／macOS 的 Office 创作技能目录和依赖结果；`authoring/win-x64/model-visible.json` 固定 Windows 的技能目录，其中包含 ACL 诊断技能。因此，插件一旦贡献出计划外的系统分段或 user 消息，该任务即失败，且该 profile 发出的每条消息都会参与比对。`advanced/` 跨所有目标固定一个复杂进程的 SDK 结果及父／子会话日志。`restart-current/` 针对同一持久化根目录启动两个隔离的 SDK 运行时进程，再启动第三个进程恢复第一个会话。它固定初始历史、结果和持久日志；`resume.json` 固定恢复后的轮次序列、通知及历史保留状态。`sdk-minimal-in-history` 复用持久 shell 与编辑器场景，并在首次 shell 调用成功后更改一个分段。`minimal-in-history/prompt-history.json` 固定两个提示词版本、后续请求中不变的首条提示词、追加的 SDK system-message 事件及 `request/context.systemPromptUpdate`；工具 schema 保持不变，并独立检查编辑器创建的文件。`sdk-dynamic-tools` 在 `dynamic-tools-current/tool-history.json` 中固定 `when` 条件控制的逐步原生工具可见性，包括历史 header 引用，以及 Python SDK 结果、通知与持久事件的一致性。加上 `--update-snapshots` 重新运行对应场景，审阅每项差异，再独立运行一次不带此标志的场景后才能提交。
 
-`scheduler-recovery/` 记录一个失败的工具轮次及后续完成的轮次。它保留原始的 `UNKNOWN` 轮次错误、第一个工具已完成的结果，以及其余调用的 `TOOL_OUTCOME_UNKNOWN` / `TOOL_NOT_STARTED` 结果。`sdk-snapshot` 和 `all` 包含此场景；`--scenario sdk-recovery` 单独运行它。
+`scheduler-recovery-current/` 记录一个失败的工具轮次及后续完成的轮次。它保留原始的 `UNKNOWN` 轮次错误、第一个工具已完成的结果，以及其余调用的 `TOOL_OUTCOME_UNKNOWN` / `TOOL_NOT_STARTED` 结果。`sdk-snapshot` 和 `all` 包含此场景；`--scenario sdk-recovery` 单独运行它。
 
-`advanced` 与 `restart` 的比较按每份输入自身的 Session 代际匹配原生 delivery 限定值，包括 SDK 事件与通知。捕获的代际及其他 delivery 代际保留数值。每一侧的 Session 角色必须使用同一个代际，新日志必须标识当前写入器。比较绝不重写已提交的记录。
+`restart-current/` 与 `scheduler-recovery-current/` 加载进程内的时钟 fixture（测试前置数据），将模型可见时间固定为 `2026-11-17T00:00:00+00:00[UTC]`，真实定时器继续运行。时间消息保留在模型请求、SDK 事件和持久日志中。
+
+`advanced/` 与 `restart-current/` 的比较按每份输入自身的 Session 代际匹配原生 delivery 限定值，包括 SDK 事件与通知。捕获的代际及其他 delivery 代际保留数值。每一侧的 Session 角色必须使用同一个代际，新日志必须标识当前写入器。比较绝不重写已提交的记录。
 
 可信拉取请求与 master 推送还会在各自选定的原生目标上运行 `--scenario sdk-live --installed-wheel`。该场景面向 `https://api.deepseek.com` 执行两个使用工具的轮次：立即检查已创建文件，将其内容替换为仅宿主知道的随机挑战值，并要求第二轮将变更后的内容复制到全新的回执文件，且不修改源文件。两个轮次都必须完成、返回精确的哨兵答案并由模型请求调用工具；文件通过外部逐字节比较验证。仓库密钥缺失时失败，而不是自行 skip。Fork 与 Dependabot 拉取请求会运行完整的 keyless 安装后 wheel 路径，但不会获得密钥。
 
@@ -61,10 +63,18 @@ with DeepSeekHarness(dsh_home="/absolute/path/to/test-dsh-home") as harness:
 
 仓库贡献者可以选择以下任一开发路径；两者都执行普通的 `dsh --profile sdk` 启动器：
 
-- 设置 `DSH_RUNTIME_MODE=node`，在系统 Node `>=22.19` 上使用已构建的 Node 载体。构建脚本会刷新该载体，但分发物绝不会包含或自动选择它。
+- 设置 `DSH_RUNTIME_MODE=node`，在系统 Node `>=24.9` 上使用已构建的 Node 载体。构建脚本会刷新该载体，但分发物绝不会包含或自动选择它。
 - 将 `dsh_bin` 设置为已构建 `apps/cli/lib/bin.js` 的绝对路径，直接验证当前 checkout 的 CLI。请显式提供 `dsh_home`，并按需提供 `profile` 与有序 `patches`。
 
 `python/sdk/tests/manual_sdk_agent_smoke.py` 使用内部 `_launch_args` 测试适配器，通过 tsx 验证未构建的 TypeScript CLI。公开 SDK 刻意不提供任意 argv 替换。
+
+手动[关闭示例](sdk/tests/manual_sdk_shutdown_smoke.py)只使用普通 SDK 调用：运行一轮真实模型短对话，以默认 1 秒预算立即关闭，再启动另一个运行时恢复同一会话。安装 SDK／运行时并设置 `DEEPSEEK_API_KEY` 后运行：
+
+```sh
+python python/sdk/tests/manual_sdk_shutdown_smoke.py
+```
+
+示例打印关闭耗时和历史文件列表，保留临时目录，并让恢复失败正常抛出异常。恢复进程使用独立的 30 秒关闭预算。能否复现取决于主机和首轮耗时，恢复成功不能确定关闭耗时上限。pytest 不收集此手动示例。
 
 ## 构建分发包
 

@@ -8,7 +8,7 @@ import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@xpeach
 import { SessionId } from '@xpeach/xph-session'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@xpeach/xph-agent-loop-testkit'
 import TokenMeter from '@xpeach/xph-token-meter'
-import { defineContentToolFixture } from '@xpeach/xph-tools'
+import { defineContentToolFixture } from '@xpeach/xph-tool-testkit'
 import BasicCompaction from '@xpeach/xph-compaction-basic'
 import { expect, it } from 'vitest'
 

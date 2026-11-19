@@ -1,0 +1,7 @@
+# Bilingual-pair consistency record for action-cards.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/subsystems/action-cards.md
+/action-cards:
+  en: 526d95804aa08902
+  zh: dbaa7252aec8b93b

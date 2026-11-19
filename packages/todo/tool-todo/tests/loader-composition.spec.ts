@@ -1,6 +1,8 @@
+import { executeToolFixture } from '@xpeach/xph-tool-testkit'
 // Proves `allowParallelInProgress` is real configurability and not a constant:
 // the flag is set in a cordis.yml booted through the real Loader, and both faces
 // it controls — the model-facing description and the accepted input — follow it.
+import * as NativeToolExecutor from '@xpeach/xph-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -60,6 +62,7 @@ async function boot(configLines: readonly string[]): Promise<Context> {
     "- name: '@xpeach/xph-agent'",
     "- name: '@xpeach/xph-system-prompt'",
     "- name: '@xpeach/xph-tools'",
+    "- name: '@xpeach/xph-tool-executor-native'",
     "- name: '@xpeach/xph-session-projection'",
     "- name: '@xpeach/xph-tool-todo'",
     ...configLines.length > 0 ? ['  config:', ...configLines] : [],
@@ -75,6 +78,7 @@ async function boot(configLines: readonly string[]): Promise<Context> {
     ['@xpeach/xph-agent', AgentRegistry],
     ['@xpeach/xph-system-prompt', SystemPrompt],
     ['@xpeach/xph-tools', ToolRuntime],
+    ['@xpeach/xph-tool-executor-native', NativeToolExecutor],
     ['@xpeach/xph-session-projection', SessionProjectionRegistry],
     ['@xpeach/xph-tool-todo', ToolTodo],
   ])
@@ -104,7 +108,7 @@ describe('tool-todo real Loader composition through cordis.yml', () => {
     expect(description).not.toContain('several only')
 
     const owner = await agent(ctx)
-    const result = await ctx.tools.execute({
+    const result = await executeToolFixture(ctx, {
       signal: new AbortController().signal,
       callId: ToolCallId('parallel'),
       name: 'todo_write',
@@ -122,7 +126,7 @@ describe('tool-todo real Loader composition through cordis.yml', () => {
     expect(description).toContain('several only when work runs in parallel')
 
     const owner = await agent(ctx)
-    const result = await ctx.tools.execute({
+    const result = await executeToolFixture(ctx, {
       signal: new AbortController().signal,
       callId: ToolCallId('parallel-enabled'),
       name: 'todo_write',

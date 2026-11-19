@@ -421,6 +421,45 @@ type Branded<B extends string> = string & { readonly [BRAND]: B }
 
 两个核心 ID 是 `ToolCallId`（关联工具调用及其结果；dsh-llm）和 `SessionId`（活跃 agent 与持久会话共享的标识；dsh-session）。能力包也会品牌化各自的 id，例如 [jobs.md](jobs.zh.md) 中的 `JobId`。
 
+<a id="agent-model-selection-and-turn-boundaries"></a>
+## Agent 模型选择与轮次边界
+
+Agent 包拥有实时模型选择字段与轮次边界词汇。独立的持久[模型选择投影](session-projection.zh.md#session-controller-model-selection)由 Session controller 拥有。
+
+```ts type-equiv
+/** Complete provider, model, and optional reasoning effort selected for one live Agent. */
+interface ModelSelection {
+  /** Registered provider route. */
+  provider: string
+  /** Provider-owned model id. */
+  model: string
+  /** Adapter-owned reasoning effort, or provider/default behavior when absent. */
+  reasoningEffort?: ReasoningEffortId
+}
+```
+
+```ts type-equiv
+/**
+ * Turn and step boundaries folded from one agent session log.
+ *
+ * Reader contract: the key is registered by `dsh-agent-loop` and absent
+ * otherwise. Without agent-loop no turn events exist, so readers treat an
+ * absent key as "no open turn / no boundaries" — capability absence, not a
+ * corrupt state. A reader whose behavior has no safe fallback for that
+ * absence (the step-open decision, for example) may fail loud instead.
+ */
+interface TurnBoundaryProjection {
+  /** Seq of the open turn's `turn/start`, or null between turns. */
+  readonly openTurnStartSeq: OptionalSessionSeq
+  /** Seq of the latest `step/start` event, or null before the first step. */
+  readonly lastStepStartSeq: OptionalSessionSeq
+  /** The latest step boundary (`step/start` or `step/end`) and its seq, or null before the first step boundary. */
+  readonly lastStepBoundary: { readonly kind: 'start' | 'end'; readonly seq: SessionSeq } | null
+  /** Turn number of the latest `turn/start`; 0 before the first turn. */
+  readonly lastTurn: number
+}
+```
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -604,14 +643,17 @@ Initiator methods provide same-process causal attribution only. Ambient presence
 
 ```ts cordis-catalog
 /**
- * Read the Agent that initiated the inherited asynchronous driver chain.
- * Use this optional form for logging, tracing, metrics, or host attribution
- * that also supports agentless calls. When a parent creates a child, setup
- * reports the causal parent while the setup callback's Agent parameter
- * identifies the child.
- * @returns the inherited Agent, or `undefined` outside an initiator boundary
- *   and inside an explicit clearing boundary.
- * @throws when this service instance has been disposed.
+ * Read the turn and step positions recorded in a Session.
+ * @param session - Session whose committed events are read.
+ * @returns the current turn and step positions; do not mutate the returned value.
+ */
+turnBoundaryOf(session: Session): TurnBoundaryProjection
+
+/**
+ * 读取当前异步驱动链继承的发起 Agent，允许无 Agent 的日志、追踪和宿主调用。
+ * 父 Agent 创建子 Agent 时，此处返回因果上的父 Agent；setup 参数中的 Agent 标识子 Agent。
+ * @returns 继承的 Agent；未进入发起作用域或显式清除发起者时返回 undefined。
+ * @throws 服务实例已经释放时抛出错误。
  */
 currentInitiator(): Agent | undefined
 
@@ -769,7 +811,28 @@ list(): Agent[]
 roots(): Agent[]
 ```
 
+Types: [Session](session.zh.md)
+
 Source: [`packages/core/agent/src/index.ts`](../../packages/core/agent/src/index.ts)
+
+<a id="ctxsessionactivation--sessionactivation"></a>
+
+### `ctx.sessionActivation` — `SessionActivation`
+
+应用提供并持有激活的 Agent；消费者仅在借用操作期间使用，不得释放其句柄。
+
+```ts cordis-catalog
+/**
+ * 复用应用拥有的活动 Agent，或恢复指定的持久会话；不存在或不可读时拒绝，不创建替代会话。
+ * 提供方撤回服务时先等待依赖方排空，再释放 Agent 和持久化资源。
+ * @param sessionId - 需要激活的持久会话标识。
+ * @param operation - 在 Agent 保持存活期间完成的投递及持久化操作；不得保留 Agent 引用。
+ * @returns 借用操作完成后的结果；关闭等待已接纳操作排空。
+ */
+withAgent<T>(sessionId: SessionId, operation: (agent: Agent) => Promise<T>): Promise<T>
+```
+
+Source: [`packages/core/agent/src/session-activation.ts`](../../packages/core/agent/src/session-activation.ts)
 
 <a id="agent-events"></a>
 
@@ -955,7 +1018,7 @@ Reject a proposed step or replace the messages that enter it. Calling `next()` p
  * Scope-filtered dispatch (`@xpeach/xph-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
  */
-'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
+'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal; modelSelection?: unknown }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
 ```
 
 Types: [Scoped](scope.zh.md) · [UserMessage](session.zh.md)

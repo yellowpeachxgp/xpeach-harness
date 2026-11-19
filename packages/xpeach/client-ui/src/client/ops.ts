@@ -4,10 +4,15 @@ import type {
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
   XPeachModel,
+  XPeachModelPerfDetail,
+  XPeachModelPerfSummary,
+  XPeachPerfGroupRow,
+  XPeachPerfSeriesPoint,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
   XPeachSsoDeviceStartResult,
+  XPeachSuccessRatePoint,
   XPeachTokenLogEntry,
   XPeachTokenUsage,
 } from '@xpeach/xph-account/types'
@@ -16,10 +21,15 @@ export type {
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachModelPerfDetail,
+  XPeachModelPerfSummary,
+  XPeachPerfGroupRow,
+  XPeachPerfSeriesPoint,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
   XPeachSsoDeviceStartResult,
+  XPeachSuccessRatePoint,
 }
 
 /** One combined usage/log read outcome. */
@@ -134,6 +144,8 @@ export interface XPeachSiteCatalog {
   readonly tokenGroups: readonly string[]
   readonly models: readonly string[]
   readonly tokenId?: number
+  readonly tokenName?: string
+  readonly keyTail?: string
 }
 
 /** Outcome of a model-catalog sync. */
@@ -142,6 +154,8 @@ export interface XPeachModelSyncResult {
   readonly count: number
   readonly groups: readonly string[]
   readonly error?: string
+  readonly tokenId?: number
+  readonly tokenName?: string
 }
 
 /** Supported local conversation source identifier. */
@@ -604,6 +618,20 @@ export interface XPeachOps {
     channel?: XPeachReleaseChannel
     force?: boolean
   }) => Promise<XPeachUpdateCheckResult | { error: string }>
+  /** Dispatch a native OS notification through the Host process when running outside the desktop shell. */
+  readonly sendSystemNotification?: (req: {
+    id: string
+    kind: 'completed' | 'approval' | 'question' | 'plan-review' | 'error'
+    title: string
+    subtitle?: string | undefined
+    body: string
+    urgent?: boolean | undefined
+    silent?: boolean | undefined
+  }) => Promise<{ delivered: boolean; platform: string; reason?: string | undefined }>
+  /** Fetch 24-hour performance telemetry summaries across all models from PeachAPI. */
+  readonly perfMetricsSummary?: (hours?: number) => Promise<readonly XPeachModelPerfSummary[] | { error: string }>
+  /** Fetch per-group 24-hour performance telemetry and hourly time series for one model from PeachAPI. */
+  readonly perfMetricsDetail?: (model: string, hours?: number) => Promise<XPeachModelPerfDetail | { error: string }>
 }
 
 /** Admin-facing row aliases kept client-side (mirrors host types). */
@@ -682,6 +710,8 @@ export interface XPeachBillingRate {
 export interface XPeachPricingCatalog {
   readonly entries: readonly XPeachPricingRow[]
   readonly groupRatio: Readonly<Record<string, number>>
+  readonly usableGroup?: Readonly<Record<string, string>> | undefined
+  readonly autoGroups?: readonly string[] | undefined
 }
 
 /** One measured health row for a probed model (optional fields mirror the remote face). */

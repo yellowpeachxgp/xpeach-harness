@@ -1,4 +1,5 @@
 /** Plan text and resource identities derived from logged native or PTC calls. */
+import type {} from '@xpeach/xph-tool-executor-ptc/client'
 import type { ToolCallId } from '@xpeach/xph-llm/brand'
 import type { SessionId } from '@xpeach/xph-session/types'
 import type { SessionAddress } from '@xpeach/xph-api-session-controller/types'

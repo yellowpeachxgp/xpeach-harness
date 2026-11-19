@@ -238,6 +238,7 @@ export const OPTIONAL_BUNDLES: readonly string[] = [
   '@xpeach/xph-experimental-inspector-profile',
   '@xpeach/xph-experimental-plugin-market-bundle',
   '@xpeach/xph-experimental-tool-worktree',
+  '@xpeach/xph-experimental-forge-bundle',
 ]
 
 const PROFILE_PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied after every bundle layer:

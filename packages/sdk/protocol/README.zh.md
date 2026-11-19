@@ -3,7 +3,7 @@ description: "面向客户端与服务端实现者的 SDK 协议格式（wire fo
 kind: "package-library"
 ---
 
-# @deepseek-ai/dsh-sdk-protocol
+# @xpeach/xph-sdk-protocol
 
 [English](README.md) | 中文
 
@@ -33,12 +33,13 @@ kind: "package-library"
 
 ### SDK 方法
 
-两个协议端共享同一套方法：七个客户端到服务端请求与四个服务端到客户端通知。
+方法映射声明八个客户端到服务器请求、六个服务器到客户端通知，以及两个由客户端显式启用的服务器到客户端请求。
 
 | 方向 | 方法 | 载荷类型 |
 |---|---|---|
 | client→server | `initialize` | `InitializeParams` → `InitializeResult` |
 | client→server | `session/prompt` | `SessionPromptParams` → `SessionPromptResult`（持久入队回执） |
+| client→server | `session/query` | `SessionQueryParams` → `SessionQueryResult` |
 | client→server | `session/resume` | `SessionResumeParams` → `{}` |
 | client→server | `session/wait` | `SessionWaitParams` → `{}` |
 | 客户端→服务端 | `session/working-directory/get` | `SessionWorkingDirectoryParams` → `SessionWorkingDirectoryResult` |
@@ -46,14 +47,25 @@ kind: "package-library"
 | client→server | `shutdown` | 无参数 → `{}` |
 | server→client | `session.event` | `SessionEventNotification`（运行时内每个会话，不过滤） |
 | server→client | `session.status` | `SessionStatusNotification`（整个 agent（智能体）的 `running`/`idle` 转换） |
+| server→client | `session.query.completed` | `{ sessionId, commandId, finalResponse, finishReason }` |
 | server→client | `subagent.started` | `SubagentStartedNotification` |
 | server→client | `subagent.finished` | `SubagentFinishedNotification`（仅进程内运行） |
+| server→client | `user-question.cancelled` | `SdkUserQuestionCancelled` |
+| server→client | `approval/request` | `ApprovalRequestParams` → `ApprovalRequestResult`（显式启用的请求） |
+| server→client | `user-question/ask` | `SdkUserQuestionRequest` → `SdkUserQuestionResult`（显式启用的请求） |
 
-`HarnessSdkRequestMap` 与 `HarnessSdkNotificationMap` 按方法名索引这些结构；包根与传输一起导出它们。
+`HarnessSdkRequestMap` 与 `HarnessSdkNotificationMap` 按方法名索引客户端请求和运行时通知；`HarnessSdkClientRequestMap` 索引审批请求，`HarnessSdkHostRequestMap` 索引用户问题请求。包根将这四种映射与传输类一同导出。
 
 `session/wait` 接受已有 SDK 会话的 `{ sessionId }`，在根 Agent 持续空闲且活跃的受管理后代工作结束后返回 `{}`。带有停放输入的空闲后代保持驻留，不阻塞这次等待。未知 id，以及没有后续终止事件记录的 Agent 运行时错误，都会使请求失败。等待期间提交的通知在同一传输上先于响应到达；原始 `session.status` 转换仍表示整个 Agent 的状态。
 
+`session/query` 接受 `{ sessionId, contentBlocks }`，其中 `contentBlocks` 使用 `SdkPromptContentBlock[]`。两个 SDK 都将字符串规范化为文本块，并通过同一入口发送内容块数组。普通输入保留内容块顺序排队，返回 `{ kind: "prompt", messageId }`；受支持命令结束后返回 `{ kind: "command", execution }`。已识别命令要求一个完整文本块，其他块只能是编码图片；其他组合会在执行或入队前被拒绝。图片经过原生附件接纳与处理器校验。空数组和只包含空白文本的数组会被拒绝；允许仅图片输入。Prompt 回执不是模型结果，命令完成也不要求 inbox 回执或 idle 通知。识别规则及受支持命令由 [SDK 服务端](../server/README.zh.md)定义。
+
+`session/prompt` 将内容块排入队列，不经过原生 slash command 路由；运行时 skill（技能）识别仍然适用。
+
+命令生命周期通知先于 `session/query` 的 handler 响应到达。命令查询以同一 `commandId` 的 `session.query.completed` 通知结束高层观察，等待命令启动的模型活动；目标创建和恢复还等待目标终止及收尾活动。状态命令无需模型 turn，其完成通知可以先于响应到达。SDK 内部消费该回执并返回 `RunResult`，转发器必须保持顺序。关闭会取消尚未结束的观察。
+
 `session/resume` 接受非空的持久化 `{ sessionId }`，恢复该会话后返回 `{}`。它要求先完成初始化并使用原持久化存储，不发送新输入；会话缺失、不可读、不兼容或被占用时，请求失败且不创建替代会话。历史事件保留在存储日志中，通知只报告新提交的事件。
+
 
 ### 载荷语义
 
@@ -119,7 +131,7 @@ kind: "package-library"
 
 - **无协议版本协商**——握手只携带 `serverInfo.version`（`0.0.1`，客户端不校验）；处于预发布阶段，无兼容承诺。
 - **无取消与会话关闭方法**——客户端放弃轮次的方式是关闭运行时进程；见 [JSON-RPC 服务插件](../server/README.zh.md)。
-- **server→client 请求是未使用的能力**——传输层支持，但服务器从不发送；Python SDK 的应答接口为未来审批流程预留。
+- **运行时请求须由客户端显式启用**——审批请求要求 `InitializeParams.approvalRequests`，用户问题请求要求 `InitializeParams.capabilities.userQuestions`。未启用时，保留原生进程内回答器的控制权。
 
 <a id="dev-note"></a>
 ### 开发备注

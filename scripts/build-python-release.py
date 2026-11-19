@@ -122,15 +122,16 @@ def pep440_version(version: str) -> str:
     stable, separator, prerelease = version.partition("-")
     if not separator:
         return stable
-    match = re.fullmatch(r"(a|b|c|rc|alpha|beta|pre|preview)\.?(\d+)", prerelease)
-    if match is None:
+    match = re.fullmatch(r"(a|b|c|rc|alpha|beta|pre|preview)(?:\.?(\d+))?", prerelease)
+    if match is None or (match.group(2) is None and match.group(1) not in {"alpha", "beta", "rc"}):
         raise ValueError(
             f"prerelease segment {prerelease!r} has no PEP 440 spelling; use rc.N, alpha.N, or beta.N"
         )
     identifier = {"alpha": "a", "beta": "b", "c": "rc", "pre": "rc", "preview": "rc"}.get(
         match.group(1), match.group(1)
     )
-    return f"{stable}{identifier}{match.group(2)}"
+    number = match.group(2) or "0"
+    return f"{stable}{identifier}{number}"
 
 
 def validate_release_tag(tag: str | None, version: str) -> None:

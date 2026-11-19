@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-desktop-host",
   "description": "Private Node-mode host process for the Electron desktop application",
-  "version": "0.0.25-beta",
+  "version": "0.0.36-alpha",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -11,6 +11,7 @@
     "lib/cli.js"
   ],
   "dependencies": {
+    "js-yaml": "^4.3.2",
     "koffi": "3.1.1",
     "@deepseek-ai/libreoffice-kit": "^0.1.5",
     "@xpeach/xph-cordis": "workspace:~",
@@ -28,8 +29,10 @@
     "@xpeach/xph-workspace": "workspace:*"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@xpeach/xph-cordis-plugin-loader": "workspace:~",
     "@xpeach/xph-cordis-plugin-include": "workspace:~",
-    "@xpeach/xph-skill": "workspace:*"
+    "@xpeach/xph-skill": "workspace:*",
+    "@xpeach/xph-tool-executor-native": "workspace:*"
   }
 }

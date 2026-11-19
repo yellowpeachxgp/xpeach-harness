@@ -1,0 +1,28 @@
+# Bilingual-pair consistency record for 2026-11-17-action-cards-attribution.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/persistence-changes/2026-11-17-action-cards-attribution.md
+/:
+  en: 3d5a424ae7d7e46b
+  zh: c22a8e4a62d8cc1a
+/2026-11-17-action-cards-attribution:
+  en: 54f5a7eafbe32d15
+  zh: ce00daeeb58de937
+/2026-11-17-action-cards-attribution/summary:
+  en: 5cfc7921e1d89821
+  zh: 37f5656c1e5f9f5e
+/2026-11-17-action-cards-attribution/table-of-contents:
+  en: 6cf314a069ceb451
+  zh: 9adff678e9ecab3b
+/2026-11-17-action-cards-attribution/declaration:
+  en: 6907136f28e48c90
+  zh: 02f8298485f3d8e7
+/2026-11-17-action-cards-attribution/compatibility:
+  en: c25e94959daffa9b
+  zh: 9613938466077557
+/2026-11-17-action-cards-attribution/verification:
+  en: c9d68101ab034b01
+  zh: 2d211465734c430d
+/2026-11-17-action-cards-attribution/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

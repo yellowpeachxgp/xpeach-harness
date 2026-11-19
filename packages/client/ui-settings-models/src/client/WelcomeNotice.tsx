@@ -41,15 +41,21 @@ export function WelcomeNotice(props: WelcomeNoticeProps): ReactNode {
     complete()
   }, [complete])
 
+  const xpeachOwned = Boolean((globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__)
+
   useEffect(() => {
+    if (xpeachOwned) {
+      finish()
+      return
+    }
     if (state.status === 'idle') void controller.load()
-  }, [controller, state.status])
+  }, [controller, finish, state.status, xpeachOwned])
 
   useEffect(() => {
-    if (state.acknowledged) finish()
-  }, [finish, state.acknowledged])
+    if (state.acknowledged || xpeachOwned) finish()
+  }, [finish, state.acknowledged, xpeachOwned])
 
-  if (state.status === 'idle' || state.status === 'loading' || state.acknowledged) return null
+  if (xpeachOwned || state.status === 'idle' || state.status === 'loading' || state.acknowledged) return null
 
   const acknowledge = async (): Promise<void> => {
     if (await controller.acknowledge()) finish()

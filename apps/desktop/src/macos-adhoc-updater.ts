@@ -31,7 +31,8 @@ export function resolveMacAppBundle(execPath: string = process.execPath): string
  * @param resourcesPath - Packaged `process.resourcesPath` directory.
  * @returns `true` when `app-update.yml` declares `provider: github`.
  */
-export function isPackagedGitHubProvider(resourcesPath: string = process.resourcesPath): boolean {
+export function isPackagedGitHubProvider(resourcesPath: string | undefined = process.resourcesPath): boolean {
+  if (typeof resourcesPath !== 'string' || resourcesPath.length === 0) return false
   const configPath = join(resourcesPath, 'app-update.yml')
   if (!existsSync(configPath)) return false
   try {

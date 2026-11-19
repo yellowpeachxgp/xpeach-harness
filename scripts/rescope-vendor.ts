@@ -98,6 +98,17 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   { file: 'packages/client/ui-agent-preset/tests/locales.client.spec.ts', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/tests/section-store.client.spec.ts', upstream: ['cordis'] },
   { file: 'packages/client/ui-agent-preset/tests/section.client.spec.tsx', upstream: ['cordis'] },
+  // 以下位置的 cordis 同样是 Creator 预设标识，不是 npm 模块名。
+  { file: 'packages/client/ui-agent-preset/src/client/analytics.ts', upstream: ['cordis'] },
+  { file: 'packages/client/ui-agent-preset/tests/analytics.client.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/client/ui-conversation/tests/service-orchestration.client.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/client/ui-entry-customization/src/client/index.ts', upstream: ['cordis'] },
+  { file: 'packages/client/ui-entry-customization/tests/menu.client.spec.tsx', upstream: ['cordis'] },
+  { file: 'packages/client/ui-workspace/tests/workspaces-service.client.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/experimental/creation-recommendations/src/index.ts', upstream: ['cordis'] },
+  { file: 'packages/experimental/creation-recommendations/tests/creation.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/experimental/creation-recommendations/tests/loader-composition.spec.ts', upstream: ['cordis'] },
+  { file: 'packages/xpeach/client-ui/src/client/ModuleSettingsSection.tsx', upstream: ['cordis'] },
   { file: 'packages/client/ui-conversation/src/client/input/submission-analytics.ts', upstream: ['cordis'] },
   { file: 'packages/bundle/web-app/cordis.patch.yml', upstream: ['cordis'] },
   { file: 'apps/cli/tests/optional-bundle-transitions.e2e.ts', upstream: ['cordis'] },
@@ -264,7 +275,7 @@ const EXACT_EDITS: readonly ExactEdit[] = [
     id: 'root-agents-vendored-name-contract',
     file: 'AGENTS.md',
     find: 'vendored packages keep upstream names and are `private: true`. `cordis` is a peerDependency (+ dev) of every harness package.',
-    replace: 'vendor is [rescoped](docs/rescope.md) and `private: true`. Harness packages declare `@deepseek-ai/cordis` in `peerDependencies`/`devDependencies`.',
+    replace: 'vendor is [rescoped](docs/rescope.md) and `private: true`. Harness packages declare `@xpeach/xph-cordis` in `peerDependencies`/`devDependencies`.',
     expect: 1,
   },
   {
@@ -451,6 +462,7 @@ const VENDORED_LIBRARY = /^@xpeach\\/xph-(cosmokit|schemastery)(\\/|$)/
  * @returns Whether the codemod must preserve the file without scanning its tokens.
  */
 export function isRescopeExcluded(file: string): boolean {
+  if (file.startsWith('handoff/')) return true // 原始交接材料及本地核查记录保持原样。
   if (file === 'scripts/rescope-vendor.ts') return true // the mapping itself
   if (file.startsWith('.agents/notes/')) return true // notes record what was true when written
   // Recorded model payloads quote documentation verbatim, so they must mirror the
@@ -583,14 +595,25 @@ export function exactEditState(text: string, find: string, replace: string, expe
   return hits === expect && landed === 0 ? 'pending' : 'invalid'
 }
 
+/**
+ * 列出已跟踪路径与未忽略的新文件；调用方排除已删除的跟踪路径。
+ * @param repoRoot - Git working directory.
+ * @param env - Git's environment; omitted, Git inherits this process's environment.
+ * @returns 可扫描的仓库相对路径，包括大体积索引和新文件。
+ */
+export function listRescopeFiles(repoRoot: string, env?: NodeJS.ProcessEnv): string[] {
+  return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z'], { cwd: repoRoot, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
+    .split('\0')
+    .filter(file => file !== '' && !isRescopeExcluded(file))
+}
+
 function main(): void {
   const args = process.argv.slice(2)
   const mode = args.includes('--apply') ? 'apply' : args.includes('--check') ? 'check' : 'dry'
   const reverse = args.includes('--reverse')
   const all = patterns(reverse)
-  const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
-    .split('\0')
-    .filter(file => file !== '' && !isRescopeExcluded(file))
+  const deleted = new Set(execFileSync('git', ['ls-files', '--deleted', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }).split('\0'))
+  const files = listRescopeFiles(root).filter(file => !deleted.has(file))
 
   const counts = new Map<string, { files: number; lines: number }>()
   const failures: string[] = []
@@ -642,7 +665,7 @@ function main(): void {
     if (mode === 'apply') writeFileSync(path, after)
   }
 
-  console.log(`rescope-vendor: ${mode}${reverse ? ' --reverse' : ''} over ${String(files.length)} tracked files`)
+  console.log(`rescope-vendor: ${mode}${reverse ? ' --reverse' : ''}，扫描 ${String(files.length)} 个源码文件`)
   for (const kind of [...counts.keys()].sort()) {
     const { files: count, lines } = counts.get(kind) ?? { files: 0, lines: 0 }
     console.log(`  ${kind.padEnd(24)} ${String(count).padStart(4)} file(s), ${String(lines)} line(s)`)

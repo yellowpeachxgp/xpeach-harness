@@ -665,3 +665,66 @@ export function parseGitHubReleasesJson(
   }
   return candidates
 }
+
+/**
+ * Synthesize an `electron-updater` update descriptor YAML directly from a parsed
+ * GitHub Release candidate and its asset SHA-256 digests (`sha2`).
+ *
+ * Excludes `.pkg` installers on macOS and sorts `.zip` archives before `.dmg` disk images
+ * so `MacUpdater` and `installMacosAdhocUpdate` always select the `.zip` payload.
+ *
+ * @param release - Parsed GitHub Release candidate containing `assets`.
+ * @param channelFile - Requested descriptor filename (for example `'latest-mac.yml'`, `'beta-linux.yml'`, `'latest.yml'`).
+ * @returns Synthesized YAML string, or `null` when the release has no matching installer asset with a SHA-256 digest.
+ */
+export function synthesizeUpdateYamlFromRelease(
+  release: XPeachReleaseCandidate,
+  channelFile: string,
+): string | null {
+  const assets = release.assets
+  if (assets === undefined || assets.length === 0) return null
+  const lowerChannelFile = channelFile.toLowerCase()
+  const isMac = lowerChannelFile.endsWith('-mac.yml')
+  const isLinux = lowerChannelFile.includes('-linux')
+
+  const candidates = assets.filter((asset) => {
+    if (asset.sha256 === undefined) return false
+    const lower = asset.name.toLowerCase()
+    if (lower.endsWith('.blockmap') || lower.endsWith('.yml')) return false
+    if (isMac) return lower.endsWith('.zip') || lower.endsWith('.dmg')
+    if (isLinux) return lower.endsWith('.appimage')
+    return lower.endsWith('.exe')
+  })
+
+  if (candidates.length === 0) return null
+
+  if (isMac) {
+    candidates.sort((a, b) => {
+      const aZip = a.name.toLowerCase().endsWith('.zip') ? 0 : 1
+      const bZip = b.name.toLowerCase().endsWith('.zip') ? 0 : 1
+      return aZip - bZip
+    })
+  }
+
+  const primary = candidates[0]
+  if (primary === undefined || primary.sha256 === undefined) return null
+
+  const filesBlock = candidates
+    .filter((a): a is typeof primary & { readonly sha256: string } => a.sha256 !== undefined)
+    .map(a => [
+      `  - url: ${JSON.stringify(a.name)}`,
+      `    sha2: ${a.sha256}`,
+      `    size: ${String(a.size ?? 0)}`,
+    ].join('\n'))
+    .join('\n')
+
+  return [
+    `version: ${JSON.stringify(release.version)}`,
+    'files:',
+    filesBlock,
+    `path: ${JSON.stringify(primary.name)}`,
+    `sha2: ${primary.sha256}`,
+    `releaseDate: ${JSON.stringify(release.publishedAt ?? new Date(0).toISOString())}`,
+    '',
+  ].join('\n')
+}

@@ -170,6 +170,10 @@ export interface XPeachSiteCatalog {
   readonly models: readonly string[]
   /** Token row id when known. */
   readonly tokenId?: number
+  /** Bound token's display name when the record carries one. */
+  readonly tokenName?: string
+  /** Last characters of the bound relay key, for confirming which credential a group edit targets. */
+  readonly keyTail?: string
 }
 
 /** Outcome of a model-catalog sync into the llm-pi-ai settings section. */
@@ -178,6 +182,12 @@ export interface XPeachModelSyncResult {
   readonly count: number
   readonly groups: readonly string[]
   readonly error?: string
+  /** 同步未完成的稳定原因；旧的可信目录保持原样。 */
+  readonly code?: 'identity-unknown' | 'identity-budget-exhausted' | 'credential-changed' | 'credential-write-incomplete'
+  /** Token row id a group write targeted, when one ran. */
+  readonly tokenId?: number
+  /** Bound token's display name a group write targeted, when one ran. */
+  readonly tokenName?: string
 }
 
 /** One relay log row as /api/log/token returns it. */
@@ -671,6 +681,8 @@ export interface XPeachSsoDevicePollRequest {
 export interface XPeachSsoBridgePayload {
   readonly sso?: {
     readonly accessToken: string
+    readonly refreshToken?: string | undefined
+    readonly idToken?: string | undefined
     readonly expiresIn?: number | undefined
     readonly user?: {
       readonly id: string
@@ -706,7 +718,7 @@ export interface XPeachSsoDevicePollResult {
   readonly message?: string | undefined
 }
 
-/** Result of verifying or refreshing an SSO + PeachCode credential bundle (`POST /api/v1/peachcode/credentials`). */
+/** Result of verifying or refreshing an SSO + PeachCode credential bundle via `@xpeach/ts-xpeach`. */
 export type XPeachSsoCredentialSyncResult =
   | {
     readonly status: 'ok'
@@ -724,7 +736,7 @@ export type XPeachSsoCredentialSyncResult =
     readonly message: string
   }
 
-/** Request options for revoking an SSO session and its linked PeachCode credentials (`POST /api/v1/peachcode/revoke`). */
+/** Request options for revoking an SSO session via RFC 7009 (`@xpeach/ts-xpeach`). */
 export interface XPeachSsoRevokeRequest {
   readonly allDevices?: boolean | undefined
   readonly revokePeachcode?: boolean | undefined
@@ -742,6 +754,88 @@ export interface XPeachSsoSessionStatus {
   readonly message?: string | undefined
 }
 
+/** Supported human-verification scenes centrally governed by XPeach SSO. */
+export type XPeachSsoCaptchaScene = 'login' | 'register' | 'recovery' | 'reset_password' | 'checkin' | 'partner_consent'
+
+/** Unified public human-verification policy served by XPeach SSO (including self-hosted Cap). */
+export interface XPeachSsoCaptchaPolicy {
+  readonly provider: 'none' | 'builtin' | 'turnstile' | 'recaptcha' | 'hcaptcha' | 'cap'
+  readonly enabled: boolean
+  readonly siteKey: string
+  readonly capOrigin: string | null
+  readonly capSiteKeys: {
+    readonly login: string
+    readonly register: string
+    readonly recovery: string
+    readonly checkin: string
+    readonly partnerConsent: string
+  }
+  readonly scenes: {
+    readonly login: boolean
+    readonly register: boolean
+    readonly recovery: boolean
+    readonly checkin: boolean
+    readonly partnerConsent: boolean
+  }
+}
+
+/** Request payload for fetching a scene-scoped SSO human-verification challenge. */
+export interface XPeachSsoCaptchaChallengeRequest {
+  readonly scene: XPeachSsoCaptchaScene
+}
+
+/** Scene-scoped human-verification challenge payload returned by XPeach SSO. */
+export interface XPeachSsoCaptchaChallenge {
+  readonly provider: 'none' | 'builtin' | 'turnstile' | 'recaptcha' | 'hcaptcha' | 'cap'
+  readonly siteKey: string
+  readonly capOrigin: string | null
+  readonly enabled: boolean
+  readonly question: string | null
+  readonly captchaToken: string | null
+}
+
+/** Hourly success-rate sample from PeachAPI `/api/perf-metrics/summary`. */
+export interface XPeachSuccessRatePoint {
+  readonly ts: number
+  readonly success_rate: number
+}
+
+/** Per-model 24-hour performance summary from PeachAPI `/api/perf-metrics/summary`. */
+export interface XPeachModelPerfSummary {
+  readonly model_name: string
+  readonly avg_latency_ms: number
+  readonly success_rate: number
+  readonly avg_tps: number
+  readonly recent_success_series?: readonly XPeachSuccessRatePoint[] | undefined
+}
+
+/** Hourly per-group performance sample from PeachAPI `/api/perf-metrics`. */
+export interface XPeachPerfSeriesPoint {
+  readonly ts: number
+  readonly avg_ttft_ms: number
+  readonly avg_latency_ms: number
+  readonly success_rate: number
+  readonly avg_tps: number
+}
+
+/** Per-group performance aggregate and time series for one model from `/api/perf-metrics`. */
+export interface XPeachPerfGroupRow {
+  readonly group: string
+  readonly avg_ttft_ms: number
+  readonly avg_latency_ms: number
+  readonly success_rate: number
+  readonly avg_tps: number
+  readonly series: readonly XPeachPerfSeriesPoint[]
+}
+
+/** Full model performance detail across groups from PeachAPI `/api/perf-metrics`. */
+export interface XPeachModelPerfDetail {
+  readonly model_name: string
+  readonly hours?: number | undefined
+  readonly series_schema?: string | undefined
+  readonly groups: readonly XPeachPerfGroupRow[]
+}
+
 export type {
   ParsedXPeachVersion,
   XPeachCheckUpdateRequest,
@@ -752,3 +846,10 @@ export type {
   XPeachUpdateCheckResult,
   XPeachUpdatePreference,
 } from './update-channel.ts'
+
+export type {
+  XPeachSystemNotificationKind,
+  XPeachSystemNotificationOptions,
+  XPeachSystemNotificationRequest,
+  XPeachSystemNotificationResult,
+} from './system-notification.ts'

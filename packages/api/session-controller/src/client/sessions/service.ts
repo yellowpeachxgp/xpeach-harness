@@ -5,7 +5,7 @@ import { SessionSeq, type SessionId } from '@xpeach/xph-session/types'
 import { workspaceTitleOf } from '@xpeach/xph-util-workspace-path'
 import type { WorkspaceId } from '@xpeach/xph-workspace/types'
 import { SESSION_SEARCH_RESULT_LIMIT } from '../../types.ts'
-import type { SessionProjectionMap } from '@xpeach/xph-session-projection/types'
+import type { SessionProjectionSummaryValues } from '@xpeach/xph-session-projection/types'
 import {
   createSnapshotStore, notifySubscribers, type ObservableSnapshot, type SnapshotStore,
 } from '@xpeach/xph-client-store'
@@ -43,14 +43,18 @@ export interface SessionSummary {
   /**
    * New Session presentation and reuse eligibility, derived from the Host
    * summary, `sessionListMetadata`, and client acceptance/running observations.
-   * Workspace reconnection may reuse a blank in the same workspace. Filtering
+   * New Session and Workspace reconnection may reuse a blank in the same workspace. Filtering
    * stays with the consumer: the store carries every row, while the Workspace
    * browser shows only the selected blank entry.
    */
   blank: boolean
   updatedAt: number
-  /** Current host-computed projection values retained by the object layer. */
-  projectionValues?: Readonly<Partial<SessionProjectionMap>>
+  /**
+   * The row's summary projection values retained by the object layer, never the
+   * full projection set. A connected Session's store may hold more values from
+   * its control/follow baseline; those are outside the list contract.
+   */
+  projectionValues?: Readonly<Partial<SessionProjectionSummaryValues>>
 }
 
 /** Catalog metadata and local source counts; catalog membership owns no Client generation. */

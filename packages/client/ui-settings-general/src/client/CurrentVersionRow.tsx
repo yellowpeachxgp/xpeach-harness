@@ -29,7 +29,8 @@ export type CurrentVersionRowProps =
 
 function readAutoUpdatePreference(): boolean {
   try {
-    return globalThis.localStorage.getItem(AUTO_UPDATE_STORAGE_KEY) !== '0'
+    const raw = globalThis.localStorage.getItem(AUTO_UPDATE_STORAGE_KEY)
+    return raw !== '0' && raw !== 'false'
   } catch (_storageError) {
     return true
   }
@@ -38,6 +39,9 @@ function readAutoUpdatePreference(): boolean {
 function writeAutoUpdatePreference(enabled: boolean): void {
   try {
     globalThis.localStorage.setItem(AUTO_UPDATE_STORAGE_KEY, enabled ? '1' : '0')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('xpeach:auto-update-change'))
+    }
   } catch (_storageError) {
     // Ignore private-mode or sandboxed storage restrictions.
   }
@@ -56,11 +60,21 @@ export function CurrentVersionRow({
   const [autoUpdate, setAutoUpdate] = useState<boolean>(() => readAutoUpdatePreference())
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sync = (): void => { setAutoUpdate(readAutoUpdatePreference()) }
+    window.addEventListener('xpeach:auto-update-change', sync)
+    return () => { window.removeEventListener('xpeach:auto-update-change', sync) }
+  }, [])
+
+  useEffect(() => {
     if (autoUpdate && refreshDesktopUpdate !== undefined) {
       refreshDesktopUpdate()
     }
   }, [autoUpdate, refreshDesktopUpdate])
 
+  if ((globalThis as { __XPH_UPDATE_CHANNEL_OWNER__?: boolean }).__XPH_UPDATE_CHANNEL_OWNER__ === true) {
+    return null
+  }
   if (version === undefined) return null
   if (useDesktopUpdate === undefined || openDesktopUpdate === undefined) {
     return <div className={css.row}>{t('general.currentVersion', { version })}</div>
