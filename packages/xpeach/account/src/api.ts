@@ -360,11 +360,16 @@ export class XPeachApi {
    * @returns the first successful response.
    */
   private async send(url: string, init: RequestInit, timeoutMs: number, signal: AbortSignal): Promise<Response> {
-    const origin = new URL(url).origin
+    const parsed = new URL(url)
+    const origin = parsed.origin
     const attempts = [url]
-    for (const route of ROUTES) {
-      if (route.url === origin) continue
-      attempts.push(route.url + new URL(url).pathname + new URL(url).search)
+    // 仅当当前站点属于内置官方多线路路由池时才允许跨线路容灾，
+    // 严格防止本地回环或私有/测试环境的 Bearer Token 与 API Key 泄漏至生产默认端点。
+    if (ROUTES.some(route => route.url === origin)) {
+      for (const route of ROUTES) {
+        if (route.url === origin) continue
+        attempts.push(route.url + parsed.pathname + parsed.search)
+      }
     }
     let last: unknown
     for (const [index, target] of attempts.entries()) {
