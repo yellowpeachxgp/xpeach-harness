@@ -81,7 +81,7 @@
     "@xpeach/xph-client-ui-session": "workspace:*",
     "@xpeach/xph-llm": "workspace:*",
     "@xpeach/xph-attachment": "workspace:*",
-    "@tanstack/react-virtual": "3.14.10",
+    "@tanstack/react-virtual": "3.14.21",
     "diff": "^9.0.0",
     "@xpeach/xph-api-gateway": "workspace:*",
     "@xpeach/xph-api-remotes": "workspace:*",
