@@ -8,6 +8,7 @@ overrides:
   extract-zip>yauzl: 3.4.0
   '@xpeach/xph-cosmokit': link:vendor/cosmokit
   '@xpeach/xph-schemastery': link:vendor/schemastery
+  '@xpeach/ts-xpeach': link:vendor/ts-xpeach
 
 patchedDependencies:
   '@botiverse/oar@0.67.0': 65de2ca1966421e30893d8d4fed6a3d88e4247e131e7575fe791246e594538d6
@@ -17226,6 +17227,9 @@ importers:
 
   packages/xpeach/account:
     dependencies:
+      '@xpeach/ts-xpeach':
+        specifier: link:../../../vendor/ts-xpeach
+        version: link:../../../vendor/ts-xpeach
       '@xpeach/xph-atomic-write':
         specifier: workspace:*
         version: link:../../util/atomic-write
@@ -17932,6 +17936,8 @@ importers:
       '@xpeach/xph-cosmokit':
         specifier: link:../cosmokit
         version: link:../cosmokit
+
+  vendor/ts-xpeach: {}
 
   website:
     devDependencies:

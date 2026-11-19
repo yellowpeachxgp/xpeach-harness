@@ -18,6 +18,7 @@ overrides:
   'extract-zip>yauzl': '3.4.0'
   '@xpeach/xph-cosmokit': 'link:vendor/cosmokit'
   '@xpeach/xph-schemastery': 'link:vendor/schemastery'
+  '@xpeach/ts-xpeach': 'link:vendor/ts-xpeach'
 
 peerDependencyRules:
   allowedVersions:

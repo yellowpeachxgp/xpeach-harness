@@ -681,6 +681,8 @@ export interface XPeachSsoDevicePollRequest {
 export interface XPeachSsoBridgePayload {
   readonly sso?: {
     readonly accessToken: string
+    readonly refreshToken?: string | undefined
+    readonly idToken?: string | undefined
     readonly expiresIn?: number | undefined
     readonly user?: {
       readonly id: string
@@ -716,7 +718,7 @@ export interface XPeachSsoDevicePollResult {
   readonly message?: string | undefined
 }
 
-/** Result of verifying or refreshing an SSO + PeachCode credential bundle (`POST /api/v1/peachcode/credentials`). */
+/** Result of verifying or refreshing an SSO + PeachCode credential bundle via `@xpeach/ts-xpeach`. */
 export type XPeachSsoCredentialSyncResult =
   | {
     readonly status: 'ok'
@@ -734,7 +736,7 @@ export type XPeachSsoCredentialSyncResult =
     readonly message: string
   }
 
-/** Request options for revoking an SSO session and its linked PeachCode credentials (`POST /api/v1/peachcode/revoke`). */
+/** Request options for revoking an SSO session via RFC 7009 (`@xpeach/ts-xpeach`). */
 export interface XPeachSsoRevokeRequest {
   readonly allDevices?: boolean | undefined
   readonly revokePeachcode?: boolean | undefined

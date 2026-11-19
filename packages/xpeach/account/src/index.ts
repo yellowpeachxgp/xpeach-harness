@@ -135,7 +135,7 @@ export {
   type XPeachUpdateCheckResult,
   type XPeachUpdatePreference,
 } from './update-channel.ts'
-export { candidateSsoBaseURLs, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
+export { XPeachApi, candidateSsoBaseURLs, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
 export {
   dispatchHostSystemNotification,
   resetHostSystemNotificationCache,
@@ -405,6 +405,8 @@ function unwrapConfigValue<T>(value: T): T {
 
 interface StoredSsoState {
   readonly accessToken?: string | undefined
+  readonly refreshToken?: string | undefined
+  readonly idToken?: string | undefined
   readonly expiresIn?: number | undefined
   readonly user?: {
     readonly id?: string | undefined
@@ -614,6 +616,59 @@ export class XPeachDeepSeekAccount extends Service {
     const clientLabel = rawLabel.length > 0
       ? `XPeach Harness (${rawLabel})`
       : `XPeach Harness (${process.platform})`
+
+    const pkceStarter = (this.account as {
+      ssoPkceLoopbackStartOp?: (
+        request: { readonly openBrowser?: boolean | undefined },
+        signal: AbortSignal,
+      ) => Promise<{
+        readonly authorizationUrl: string
+        readonly expiresIn: number
+        readonly waitForBound: () => Promise<XPeachSsoDevicePollResult>
+      }>
+    }).ssoPkceLoopbackStartOp
+
+    if (typeof pkceStarter === 'function' && process.env.XPEACH_SSO_LOGIN_MODE !== 'device') {
+      try {
+        const pkceStarted = await pkceStarter.call(this.account, { openBrowser: false }, abortController.signal)
+        this.attempt = {
+          id: attemptId,
+          phase: 'waiting-browser',
+          authorizeUrl: pkceStarted.authorizationUrl,
+          expiresAt: Date.now() + (pkceStarted.expiresIn || 300) * 1000,
+        }
+        this.notifyWatchers(false)
+        void (async () => {
+          try {
+            const outcome = await pkceStarted.waitForBound()
+            if (abortController.signal.aborted || this.attempt?.id !== attemptId) return
+            if (outcome.status === 'approved' && outcome.bound === true) {
+              this.attempt = { id: attemptId, phase: 'succeeded' }
+              this.notifyWatchers(true)
+              return
+            }
+            this.attempt = {
+              id: attemptId,
+              phase: outcome.status === 'expired' ? 'expired' : 'failed',
+              errorCode: outcome.status === 'expired' ? 'expired' : 'protocol',
+            }
+            this.notifyWatchers(false)
+          } catch (err) {
+            if (abortController.signal.aborted || this.attempt?.id !== attemptId) return
+            const isExpired = err instanceof Error && (err.message.includes('超时') || err.message === 'expired_token')
+            this.attempt = {
+              id: attemptId,
+              phase: isExpired ? 'expired' : 'failed',
+              errorCode: isExpired ? 'expired' : 'network',
+            }
+            this.notifyWatchers(false)
+          }
+        })()
+        return await this.getState()
+      } catch (_pkceFallbackErr) {
+        if (abortController.signal.aborted) return await this.getState()
+      }
+    }
 
     try {
       const started = await this.account.ssoDeviceStartOp(
@@ -3544,6 +3599,8 @@ export class XPeachAccount extends TypertRemoteService {
             revokePeachcode: options.revokePeachcode ?? false,
           },
           AbortSignal.timeout(5_000),
+          sso.refreshToken,
+          this.currentSsoClientId(),
         ).catch(() => false)
       }
 
@@ -3680,6 +3737,8 @@ export class XPeachAccount extends TypertRemoteService {
             this.currentSsoBaseURL(),
             sso.accessToken,
             effectiveSignal,
+            sso.refreshToken,
+            this.currentSsoClientId(),
           )
         } catch (err) {
           this.assertCredentialSnapshot(snapshot)
@@ -3701,7 +3760,7 @@ export class XPeachAccount extends TypertRemoteService {
           }
         }
         if (sync.status === 'transient_error') {
-          if (isLocallyExpired) {
+          if (isLocallyExpired && !sso.refreshToken) {
             await this.revokeAllLocalCredentials('expired')
             return {
               valid: false,
@@ -3723,10 +3782,14 @@ export class XPeachAccount extends TypertRemoteService {
         const peach = sync.payload.peachcode
         const refreshedSso = sync.payload.sso
         const nextSsoToken = refreshedSso?.accessToken ?? sso.accessToken
+        const nextRefreshToken = refreshedSso?.refreshToken ?? sso.refreshToken
+        const nextIdToken = refreshedSso?.idToken ?? sso.idToken
         const nextExpiresIn = refreshedSso?.expiresIn ?? sso.expiresIn
         const nextUser = refreshedSso?.user ?? sso.user
         const nextPeachcodeUserId = peach?.userId ?? sso.peachcodeUserId
         const ssoChanged = nextSsoToken !== sso.accessToken
+          || nextRefreshToken !== sso.refreshToken
+          || nextIdToken !== sso.idToken
           || nextExpiresIn !== sso.expiresIn
           || nextPeachcodeUserId !== sso.peachcodeUserId
           || !deepEqualJson(nextUser ?? null, sso.user ?? null)
@@ -3734,6 +3797,8 @@ export class XPeachAccount extends TypertRemoteService {
           try {
             const ssoContent = JSON.stringify({
               accessToken: nextSsoToken,
+              ...(nextRefreshToken ? { refreshToken: nextRefreshToken } : {}),
+              ...(nextIdToken ? { idToken: nextIdToken } : {}),
               expiresIn: nextExpiresIn,
               user: nextUser,
               peachcodeUserId: nextPeachcodeUserId,
@@ -3996,7 +4061,7 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Self-revoke the active SSO session (`POST /api/v1/peachcode/revoke` Mode B)
+   * Self-revoke the active SSO session via RFC 7009 (`@xpeach/ts-xpeach`)
    * and wipe all local credentials.
    *
    * @param request - optional `allDevices` and `revokePeachcode` flags.
@@ -4079,6 +4144,8 @@ export class XPeachAccount extends TypertRemoteService {
       try {
         const ssoContent = JSON.stringify({
           accessToken: sso.accessToken,
+          ...(sso.refreshToken ? { refreshToken: sso.refreshToken } : {}),
+          ...(sso.idToken ? { idToken: sso.idToken } : {}),
           expiresIn: sso.expiresIn,
           user: sso.user,
           peachcodeUserId: peach?.userId,
@@ -4144,6 +4211,52 @@ export class XPeachAccount extends TypertRemoteService {
       ...(accessToken !== undefined && accessToken.length >= 8
         ? { adminPreview: accessToken.slice(0, 4) + '…' + accessToken.slice(-4) }
         : {}),
+    }
+  }
+
+  /**
+   * Start a 1-click OIDC Authorization Code + PKCE S256 loopback login session
+   * via `@xpeach/ts-xpeach` and bind credentials immediately upon browser approval.
+   *
+   * @param request - optional browser-open flag and loopback port list.
+   * @param signal - carrier cancellation.
+   * @returns authorization URL, redirect URI, expiry, browser-opened flag, and completion promise.
+   */
+  async ssoPkceLoopbackStartOp(
+    request: {
+      readonly openBrowser?: boolean | undefined
+      readonly preferredPorts?: readonly number[] | undefined
+    },
+    signal: AbortSignal,
+  ): Promise<{
+    readonly authorizationUrl: string
+    readonly redirectUri: string
+    readonly expiresIn: number
+    readonly browserOpened: boolean
+    readonly waitForBound: () => Promise<XPeachSsoDevicePollResult>
+  }> {
+    signal.throwIfAborted()
+    const ssoBaseURL = this.currentSsoBaseURL()
+    const clientId = this.currentSsoClientId()
+    const snapshot = this.captureCredentialSnapshot()
+    const pkce = await this.api.ssoPkceLoopbackStart(
+      ssoBaseURL,
+      clientId,
+      signal,
+      request.preferredPorts ?? [18920, 18921, 18922, 0],
+    )
+    const browserOpened = request.openBrowser !== false
+      ? await this.openUrlInSystemBrowser(pkce.authorizationUrl, ssoBaseURL)
+      : false
+    return {
+      authorizationUrl: pkce.authorizationUrl,
+      redirectUri: pkce.redirectUri,
+      expiresIn: pkce.expiresIn,
+      browserOpened,
+      waitForBound: async () => {
+        const payload = await pkce.waitForApproval()
+        return await this.applySsoBridgePayload(payload, signal, snapshot)
+      },
     }
   }
 
@@ -4250,6 +4363,22 @@ export class XPeachAccount extends TypertRemoteService {
    */
   @Remote('sessionLogin')
   async sessionLoginOp(signal: AbortSignal): Promise<{ bound: boolean; as?: string; minted?: boolean; mintErr?: string }> {
+    if (process.env.XPEACH_SSO_LOGIN_MODE !== 'device') {
+      try {
+        const pkce = await this.ssoPkceLoopbackStartOp({ openBrowser: true }, signal)
+        const outcome = await pkce.waitForBound()
+        if (outcome.status === 'approved' && outcome.bound === true) {
+          return {
+            bound: true,
+            ...(outcome.username !== undefined ? { as: outcome.username } : {}),
+            minted: true,
+          }
+        }
+      } catch (_pkceErr) {
+        if (signal.aborted) throw _pkceErr
+      }
+    }
+
     let started: XPeachSsoDeviceStartResult | undefined
     try {
       started = await this.ssoDeviceStartOp({ openBrowser: true }, signal)

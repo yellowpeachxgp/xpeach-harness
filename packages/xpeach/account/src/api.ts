@@ -6,6 +6,15 @@
  * one module means upstream New API changes touch this file and only this file.
  */
 import { RemoteError } from '@xpeach/xph-typert-protocol'
+import {
+  OAuthProtocolError,
+  OidcClient,
+  XpeachClient,
+  isDefinitiveTokenRejection,
+  type OidcTokenSet,
+  type VerifiedAccessIdentity,
+} from '@xpeach/ts-xpeach'
+import { startPkceLoopbackListener } from '@xpeach/ts-xpeach/oidc-node'
 import { ROUTES } from './network.ts'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import type { JsonValue } from '@xpeach/xph-util-values'
@@ -1686,7 +1695,7 @@ export class XPeachApi {
     return this.adminWrite('PATCH', '/api/option/model_pricing', { changes }, signal)
   }
 
-  /* ---------- XPeach SSO Device Authorization & Bridge surfaces ---------- */
+  /* ---------- XPeach SSO Official SDK (@xpeach/ts-xpeach) surfaces ---------- */
 
   /**
    * Resolve the validated candidate SSO origin list for a configured SSO base URL.
@@ -1698,91 +1707,137 @@ export class XPeachApi {
     return candidateSsoBaseURLs(ssoBaseURL)
   }
 
+  private createSsoOidcClient(ssoBaseURL: string, clientId = 'xpeach-harness'): { activeBase: string; oidc: OidcClient } {
+    const activeBase = this.candidateSsoBaseURLs(ssoBaseURL)[0] ?? validateSsoBaseUrl(ssoBaseURL)
+    const effectiveClientId = clientId.trim() || 'xpeach-harness'
+    const oidc = new OidcClient({
+      baseUrl: activeBase,
+      clientId: effectiveClientId,
+      timeoutMs: Math.min(this.timeoutMs, 8000),
+      retry: { maxAttempts: 1 },
+    })
+    return { activeBase, oidc }
+  }
+
+  private buildBridgePayloadFromVerifiedIdentity(
+    tokenSet: Pick<OidcTokenSet, 'accessToken' | 'expiresIn'> & {
+      readonly refreshToken?: string | undefined
+      readonly idToken?: string | undefined
+    },
+    identity: VerifiedAccessIdentity,
+  ): XPeachSsoBridgePayload {
+    const cleanRelayBase = this.baseURL.trim().replace(/\/+$/u, '')
+    const fallbackName = identity.username ?? identity.name ?? identity.sub
+    return {
+      sso: {
+        accessToken: tokenSet.accessToken,
+        ...(tokenSet.refreshToken ? { refreshToken: tokenSet.refreshToken } : {}),
+        ...(tokenSet.idToken ? { idToken: tokenSet.idToken } : {}),
+        expiresIn: tokenSet.expiresIn,
+        user: {
+          id: identity.sub,
+          username: identity.username,
+          email: identity.email,
+          name: identity.name,
+        },
+      },
+      peachcode: {
+        ...(cleanRelayBase.length > 0 ? { baseUrl: cleanRelayBase } : {}),
+        username: fallbackName,
+        group: identity.group,
+        accessToken: tokenSet.accessToken,
+      },
+    }
+  }
+
   /**
-   * Initiate an XPeach SSO Device Authorization session (`POST /api/v1/device/authorize`).
+   * Start a 1-click OIDC Authorization Code + PKCE S256 loopback login listener
+   * via `@xpeach/ts-xpeach/oidc-node` so local Desktop/Web/CLI sessions complete
+   * immediately upon browser approval without device-code polling.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param clientId - registered OAuth public client identifier.
+   * @param signal - request cancellation signal.
+   * @param preferredPorts - candidate loopback ports (defaults to `[18920, 18921, 18922, 0]`).
+   * @returns authorization URL, redirect URI, expiry, and completion handle.
+   */
+  async ssoPkceLoopbackStart(
+    ssoBaseURL: string,
+    clientId: string,
+    signal: AbortSignal,
+    preferredPorts: readonly number[] = [18920, 18921, 18922, 0],
+  ): Promise<{
+    readonly authorizationUrl: string
+    readonly redirectUri: string
+    readonly expiresIn: number
+    readonly waitForApproval: () => Promise<XPeachSsoBridgePayload>
+    readonly close: () => Promise<void>
+  }> {
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const listener = await startPkceLoopbackListener({
+      oidc,
+      preferredPorts,
+      scope: 'openid profile email offline_access api',
+      timeoutMs: 300_000,
+      signal,
+    })
+    const safeAuthorizationUrl = validateVerificationUrl(listener.authorizationUrl, activeBase)
+    return {
+      authorizationUrl: safeAuthorizationUrl,
+      redirectUri: listener.redirectUri,
+      expiresIn: 300,
+      waitForApproval: async (): Promise<XPeachSsoBridgePayload> => {
+        const tokenSet = await listener.waitForTokens()
+        const identity = await oidc.verifyAccessToken(tokenSet.accessToken, { signal })
+        return this.buildBridgePayloadFromVerifiedIdentity(tokenSet, identity)
+      },
+      close: () => listener.close(),
+    }
+  }
+
+  /**
+   * Initiate an XPeach SSO RFC 8628 Device Authorization session (`POST /device/auth`)
+   * exclusively through the official `@xpeach/ts-xpeach` SDK.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
    * @param clientId - registered client identifier.
-   * @param clientName - human-readable device/client label.
+   * @param _clientName - human-readable device/client label.
    * @param signal - request cancellation signal.
    * @returns device code, user code, verification URLs, and polling parameters.
    */
   async ssoDeviceAuthorize(
     ssoBaseURL: string,
     clientId: string,
-    clientName: string,
+    _clientName: string,
     signal: AbortSignal,
   ): Promise<Omit<XPeachSsoDeviceStartResult, 'browserOpened'>> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    let response: Response | undefined
-    let activeBase = candidates[0] ?? validateSsoBaseUrl(ssoBaseURL)
-    let lastCause: unknown
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(`${candidate}/api/v1/device/authorize`, {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientId,
-            clientName,
-            scope: 'openid profile email offline_access peachcode:credentials',
-          }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        response = res
-        activeBase = candidate
-        break
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        lastCause = cause
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    try {
+      const started = await oidc.startDeviceAuthorization(
+        { scope: 'openid profile email offline_access api' },
+        { signal },
+      )
+      const verificationUri = validateVerificationUrl(started.verificationUri, activeBase)
+      const rawComplete = started.verificationUriComplete ?? `${verificationUri}?user_code=${encodeURIComponent(started.userCode)}`
+      const verificationUriComplete = validateVerificationUrl(rawComplete, activeBase)
+      return {
+        deviceCode: started.deviceCode,
+        userCode: started.userCode,
+        verificationUri,
+        verificationUriComplete,
+        expiresIn: started.expiresIn,
+        interval: started.intervalSeconds,
       }
-    }
-    if (response === undefined) {
-      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${String(lastCause)}`, { status: 0, message: String(lastCause) })
-    }
-    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
-    if (!response.ok || body === undefined) {
-      const msg = typeof body?.['message'] === 'string'
-        ? body['message']
-        : typeof body?.['error'] === 'string'
-          ? body['error']
-          : response.statusText
-      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize rejected: ${msg}`, { status: response.status, message: msg })
-    }
-    const readStr = (val: unknown, fallback = ''): string => typeof val === 'string' ? val : fallback
-    const deviceCode = readStr(body['deviceCode'] ?? body['device_code'])
-    const userCode = readStr(body['userCode'] ?? body['user_code'])
-    const rawVerificationUri = readStr(body['verificationUri'] ?? body['verification_uri'], `${activeBase}/device`)
-    const verificationUri = validateVerificationUrl(rawVerificationUri, activeBase)
-    const rawVerificationUriComplete = readStr(
-      body['verificationUriComplete'] ?? body['verification_uri_complete'],
-      `${verificationUri}?code=${encodeURIComponent(userCode)}`,
-    )
-    const verificationUriComplete = validateVerificationUrl(rawVerificationUriComplete, activeBase)
-    const expiresIn = typeof body['expiresIn'] === 'number'
-      ? body['expiresIn']
-      : typeof body['expires_in'] === 'number'
-        ? body['expires_in']
-        : 600
-    const interval = typeof body['interval'] === 'number' && body['interval'] > 0 ? body['interval'] : 2
-    if (deviceCode.length === 0 || userCode.length === 0) {
-      throw new RemoteError('xpeach/request-failed', 'xpeach: SSO device authorize returned incomplete codes', { status: response.status, message: 'incomplete device payload' })
-    }
-    return {
-      deviceCode,
-      userCode,
-      verificationUri,
-      verificationUriComplete,
-      expiresIn,
-      interval,
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      const msg = cause instanceof Error ? cause.message : String(cause)
+      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${msg}`, { status: 0, message: msg })
     }
   }
 
   /**
-   * Poll the XPeach SSO Device Token endpoint (`POST /api/v1/device/token`).
+   * Poll the XPeach SSO OIDC Token endpoint (`POST /token` with RFC 8628 `device_code` grant)
+   * via `@xpeach/ts-xpeach` and resolve authoritative identity via `verifyAccessToken`.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
    * @param clientId - registered client identifier.
@@ -1800,141 +1855,128 @@ export class XPeachApi {
     readonly message?: string | undefined
     readonly payload?: XPeachSsoBridgePayload | undefined
   }> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    let response: Response | undefined
-    let lastCause: unknown
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(`${candidate}/api/v1/device/token`, {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientId, deviceCode }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        response = res
-        break
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        lastCause = cause
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const rawSdk = new XpeachClient({
+      baseUrl: activeBase,
+      timeoutMs: Math.min(this.timeoutMs, 8000),
+      retry: { maxAttempts: 1 },
+    })
+    try {
+      const rawToken = await rawSdk.oidcToken(
+        {
+          body: {
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            client_id: oidc.clientId,
+            device_code: deviceCode,
+          },
+        },
+        { signal },
+      )
+      const accessToken = rawToken.access_token?.trim() ?? ''
+      if (accessToken.length === 0) {
+        return { status: 'error', message: 'OIDC token response missing access_token' }
       }
-    }
-    if (response === undefined) {
-      return { status: 'error', message: String(lastCause) }
-    }
-    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
-    if (body === undefined) {
-      return { status: 'error', message: `HTTP ${String(response.status)}` }
-    }
-    const rawStatus = typeof body['status'] === 'string'
-      ? body['status']
-      : typeof body['error'] === 'string'
-        ? body['error']
-        : ''
-    if (rawStatus === 'authorization_pending' || rawStatus === 'pending' || rawStatus === 'slow_down') {
-      return { status: 'pending' }
-    }
-    if (rawStatus === 'expired_token' || rawStatus === 'expired' || rawStatus === 'invalid_grant') {
-      return { status: 'expired', message: typeof body['message'] === 'string' ? body['message'] : '验证码已过期' }
-    }
-    if (rawStatus === 'access_denied' || rawStatus === 'denied') {
-      return { status: 'denied', message: typeof body['message'] === 'string' ? body['message'] : '已拒绝授权' }
-    }
-    if (body['ok'] === true || rawStatus === 'approved') {
+      const identity = await oidc.verifyAccessToken(accessToken, { signal })
       return {
         status: 'approved',
-        payload: {
-          sso: body['sso'] as XPeachSsoBridgePayload['sso'],
-          peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
-        },
+        payload: this.buildBridgePayloadFromVerifiedIdentity(
+          {
+            accessToken,
+            expiresIn: typeof rawToken.expires_in === 'number' && rawToken.expires_in > 0 ? rawToken.expires_in : 3600,
+            ...(rawToken.refresh_token ? { refreshToken: rawToken.refresh_token } : {}),
+            ...(rawToken.id_token ? { idToken: rawToken.id_token } : {}),
+          },
+          identity,
+        ),
       }
-    }
-    return {
-      status: 'error',
-      message: typeof body['message'] === 'string' ? body['message'] : (rawStatus || `HTTP ${String(response.status)}`),
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      if (cause instanceof OAuthProtocolError) {
+        if (cause.error === 'authorization_pending' || cause.error === 'slow_down') {
+          return { status: 'pending' }
+        }
+        if (cause.error === 'expired_token' || cause.error === 'invalid_grant') {
+          return { status: 'expired', message: cause.errorDescription ?? '验证码已过期' }
+        }
+        if (cause.error === 'access_denied') {
+          return { status: 'denied', message: cause.errorDescription ?? '已拒绝授权' }
+        }
+        return { status: 'error', message: cause.errorDescription ?? (cause.error || `HTTP ${String(cause.httpStatus)}`) }
+      }
+      return { status: 'error', message: cause instanceof Error ? cause.message : String(cause) }
     }
   }
 
   /**
-   * Fetch or refresh PeachCode (NewAPI) credentials from XPeach SSO using a
-   * previously issued SSO Bearer `AccessToken` (`POST /api/v1/peachcode/credentials`).
-   * Distinguishes definitive revocation/ban (`401`/`403` -> `status: 'revoked'`, `revoked: true`)
-   * from transient network or 5xx failures (`status: 'transient_error'`, `transient: true`).
+   * Verify and proactively rotate the active SSO session via `@xpeach/ts-xpeach`
+   * (`GET /api/internal/verify` + automatic `POST /token` `refresh_token` rotation).
+   * Distinguishes definitive revocation/ban (`status: 'revoked'`) from transient
+   * network or 5xx failures (`status: 'transient_error'`).
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
-   * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
+   * @param ssoAccessToken - active SSO Bearer access token (`at+jwt` or `xph_at_...`).
    * @param signal - request cancellation signal.
+   * @param refreshToken - optional OIDC refresh token used for automatic silent rotation.
+   * @param clientId - optional OIDC client identifier.
    * @returns credential sync status and payload when valid.
    */
   async ssoPeachcodeCredentials(
     ssoBaseURL: string,
     ssoAccessToken: string,
     signal: AbortSignal,
+    refreshToken?: string,
+    clientId = 'xpeach-harness',
   ): Promise<XPeachSsoCredentialSyncResult> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    let response: Response | undefined
-    let lastCause: unknown
-    for (const candidate of candidates) {
-      try {
-        const res = await fetch(`${candidate}/api/v1/peachcode/credentials`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${ssoAccessToken}`,
-          },
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        response = res
-        break
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        lastCause = cause
-      }
-    }
-    if (response === undefined) {
+    const { oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    try {
+      const identity = await oidc.verifyAccessToken(ssoAccessToken, { signal })
+      const nowSec = Math.floor(Date.now() / 1000)
+      const remainingSec = Math.max(60, identity.exp - nowSec)
       return {
-        status: 'transient_error',
-        transient: true,
-        message: String(lastCause),
+        status: 'ok',
+        payload: this.buildBridgePayloadFromVerifiedIdentity(
+          {
+            accessToken: ssoAccessToken,
+            expiresIn: remainingSec,
+            ...(refreshToken ? { refreshToken } : {}),
+          },
+          identity,
+        ),
       }
-    }
-    const body = await response.json().catch(() => undefined) as Record<string, unknown> | undefined
-    if (response.status === 401 || response.status === 403) {
-      const msg = typeof body?.['message'] === 'string'
-        ? body['message']
-        : typeof body?.['error'] === 'string'
-          ? body['error']
-          : response.statusText
+    } catch (verifyErr) {
+      if (signal.aborted) throw verifyErr
+      if (!isDefinitiveTokenRejection(verifyErr)) {
+        return {
+          status: 'transient_error',
+          transient: true,
+          message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        }
+      }
+      if (refreshToken !== undefined && refreshToken.trim().length > 0) {
+        try {
+          const rotated = await oidc.refreshToken({ refreshToken: refreshToken.trim() }, { signal })
+          const identity = await oidc.verifyAccessToken(rotated.accessToken, { signal })
+          return {
+            status: 'ok',
+            payload: this.buildBridgePayloadFromVerifiedIdentity(rotated, identity),
+          }
+        } catch (refreshErr) {
+          if (signal.aborted) throw refreshErr
+          if (!isDefinitiveTokenRejection(refreshErr)) {
+            return {
+              status: 'transient_error',
+              transient: true,
+              message: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
+            }
+          }
+        }
+      }
       return {
         status: 'revoked',
         revoked: true,
-        code: response.status,
-        message: msg || (response.status === 403 ? 'Account has been disabled' : 'SSO session expired or revoked'),
+        code: 401,
+        message: 'SSO session expired or revoked',
       }
-    }
-    if (!response.ok || body?.['ok'] !== true) {
-      const msg = typeof body?.['message'] === 'string'
-        ? body['message']
-        : typeof body?.['error'] === 'string'
-          ? body['error']
-          : response.statusText
-      return {
-        status: 'transient_error',
-        transient: true,
-        message: msg || `HTTP ${String(response.status)}`,
-      }
-    }
-    return {
-      status: 'ok',
-      payload: {
-        sso: body['sso'] as XPeachSsoBridgePayload['sso'],
-        peachcode: body['peachcode'] as XPeachSsoBridgePayload['peachcode'],
-      },
     }
   }
 
@@ -1942,7 +1984,7 @@ export class XPeachApi {
    * Alias of `ssoPeachcodeCredentials` for callers expecting `fetchPeachcodeCredentialsFromSso`.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
-   * @param ssoAccessToken - opaque or JWT SSO access token (`xph_at_...`).
+   * @param ssoAccessToken - active SSO access token.
    * @param signal - request cancellation signal.
    * @returns credential sync status and payload when valid.
    */
@@ -1955,45 +1997,43 @@ export class XPeachApi {
   }
 
   /**
-   * Self-revoke the active SSO session and optionally all device tokens and
-   * PeachCode credentials (`POST /api/v1/peachcode/revoke` Mode B).
+   * Revoke the active SSO refresh/access tokens via RFC 7009 (`POST /token/revocation`)
+   * through the official `@xpeach/ts-xpeach` SDK.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
-   * @param ssoAccessToken - active SSO Bearer access token (`xph_at_...`).
-   * @param options - revocation scope flags (`allDevices`, `revokePeachcode`).
+   * @param ssoAccessToken - active SSO Bearer access token.
+   * @param _options - revocation scope flags.
    * @param signal - request cancellation signal.
+   * @param refreshToken - optional OIDC refresh token to revoke first.
+   * @param clientId - optional OIDC client identifier.
    * @returns `true` when the SSO server acknowledged revocation.
    */
   async ssoRevokeToken(
     ssoBaseURL: string,
     ssoAccessToken: string,
-    options: XPeachSsoRevokeRequest,
+    _options: XPeachSsoRevokeRequest,
     signal: AbortSignal,
+    refreshToken?: string,
+    clientId = 'xpeach-harness',
   ): Promise<boolean> {
-    const candidates = this.candidateSsoBaseURLs(ssoBaseURL)
-    for (const candidate of candidates) {
+    const { oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    let acknowledged = false
+    if (refreshToken !== undefined && refreshToken.trim().length > 0) {
       try {
-        const res = await fetch(`${candidate}/api/v1/peachcode/revoke`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ssoAccessToken}`,
-          },
-          body: JSON.stringify({
-            allDevices: options.allDevices ?? false,
-            revokePeachcode: options.revokePeachcode ?? false,
-          }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
-        })
-        if (res.status === 404 && candidates.length > 1 && candidate !== candidates[candidates.length - 1]) {
-          continue
-        }
-        return res.ok
+        await oidc.revokeToken({ token: refreshToken.trim(), tokenTypeHint: 'refresh_token' }, { signal })
+        acknowledged = true
       } catch (cause) {
         if (signal.aborted) throw cause
       }
     }
-    return false
+    if (ssoAccessToken.trim().length > 0) {
+      try {
+        await oidc.revokeToken({ token: ssoAccessToken.trim(), tokenTypeHint: 'access_token' }, { signal })
+        acknowledged = true
+      } catch (cause) {
+        if (signal.aborted) throw cause
+      }
+    }
+    return acknowledged
   }
 }
