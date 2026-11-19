@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { XPeachApi } from '../src/api.ts'
-import { XPeachAccount, XPeachDeepSeekAccount, scrubbedBrowserEnv } from '../src/index.ts'
+import { scrubbedSqliteEnv } from '../src/chatgpt-db.ts'
+import { XPeachAccount, XPeachDeepSeekAccount, scrubbedBrowserEnv, sleepWithAbort } from '../src/index.ts'
 import { probeRoutes } from '../src/network.ts'
 
 function signTestJwt(privatePem: string, kid: string, payload: Record<string, unknown>): string {
@@ -57,10 +58,11 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
           res.end(JSON.stringify(body))
         }
         if (req.method === 'GET' && url.pathname === '/.well-known/jwks') {
-          return send(200, { keys: [jwk] })
+          send(200, { keys: [jwk] })
+          return
         }
         if (req.method === 'POST' && url.pathname === '/device/auth') {
-          return send(200, {
+          send(200, {
             device_code: 'sdk-dev-code',
             user_code: 'SDK1-2345',
             verification_uri: `${ssoBase}/device`,
@@ -68,6 +70,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
             expires_in: 300,
             interval: 1,
           })
+          return
         }
         if (req.method === 'POST' && url.pathname === '/token') {
           const form = new URLSearchParams(raw)
@@ -82,7 +85,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
               iat: nowSec,
               ...(lastNonce ? { nonce: lastNonce } : {}),
             })
-            return send(200, {
+            send(200, {
               access_token: 'xph_at_pkce_live_001',
               token_type: 'Bearer',
               expires_in: 3600,
@@ -90,6 +93,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
               id_token: idToken,
               scope: 'openid profile email offline_access api',
             })
+            return
           }
           if (grantType === 'urn:ietf:params:oauth:grant-type:device_code') {
             const devCode = form.get('device_code')
@@ -140,31 +144,35 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
             }
             devicePollCount += 1
             if (devicePollCount === 1) {
-              return send(400, { error: 'authorization_pending' })
+              send(400, { error: 'authorization_pending' })
+              return
             }
-            return send(200, {
+            send(200, {
               access_token: 'xph_at_device_live_001',
               token_type: 'Bearer',
               expires_in: 1800,
               refresh_token: 'xph_rt_device_001',
             })
+            return
           }
           if (grantType === 'refresh_token') {
             if (form.get('refresh_token') !== 'xph_rt_pkce_001') {
-              return send(400, { error: 'invalid_grant' })
+              send(400, { error: 'invalid_grant' })
+              return
             }
-            return send(200, {
+            send(200, {
               access_token: 'xph_at_rotated_live_002',
               token_type: 'Bearer',
               expires_in: 3600,
               refresh_token: 'xph_rt_rotated_002',
             })
+            return
           }
         }
         if (req.method === 'GET' && url.pathname === '/api/internal/verify') {
           const auth = req.headers['authorization']
           if (auth === 'Bearer xph_at_expired') {
-            return send(401, {
+            send(401, {
               api_version: 'v1',
               request_id: 'r-exp',
               timestamp: '2026-11-18T00:00:00Z',
@@ -179,8 +187,9 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
                 request_id: 'r-exp',
               },
             }, { pragma: 'no-cache' })
+            return
           }
-          return send(200, {
+          send(200, {
             api_version: 'v1',
             request_id: 'r-ok',
             timestamp: '2026-11-18T00:00:00Z',
@@ -209,6 +218,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
             'x-auth-aff-code': 'SDK01',
             'x-auth-inviter': '',
           })
+          return
         }
         if (req.method === 'POST' && url.pathname === '/api/v1/peachcode/revoke') {
           callOrder.push('v1_peachcode_revoke')
@@ -238,7 +248,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
           return
         }
         if (req.method === 'GET' && url.pathname === '/api/v2/captcha/policy') {
-          return send(200, {
+          send(200, {
             enabled: true,
             provider: 'cap',
             site_key: 'cap_login_key',
@@ -258,6 +268,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
               partner_consent: true,
             },
           })
+          return
         }
         if (req.method === 'GET' && url.pathname === '/api/v2/portal/auth/captcha') {
           const scene = url.searchParams.get('scene') ?? 'login'
@@ -269,7 +280,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
             partner_consent: 'cap_consent_key',
           }
           const enabled = scene !== 'recovery'
-          return send(200, {
+          send(200, {
             enabled,
             provider: enabled ? 'cap' : 'none',
             site_key: enabled ? (siteKeys[scene] ?? 'cap_login_key') : '',
@@ -277,6 +288,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
             question: null,
             captcha_token: null,
           })
+          return
         }
         send(404, { status: 404, title: 'not_found', code: 'not_found' })
       })
@@ -285,7 +297,7 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
     ssoBase = `http://127.0.0.1:${(ssoSrv.address() as AddressInfo).port}`
   })
 
-  afterAll(() => new Promise<void>(resolve => ssoSrv.close(() => resolve())))
+  afterAll(() => new Promise<void>(resolve => ssoSrv.close(() => { resolve() })))
 
   it('通过 @xpeach/ts-xpeach 完成 PKCE 一键登录、RFC8628 设备流、自动 refresh_token 轮换与 RFC7009 吊销', async () => {
     const api = new XPeachApi({ baseURL: 'http://127.0.0.1:13000', timeoutMs: 5000 })
@@ -461,13 +473,13 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
         return new Response(null, { status: 302, headers: { Location: `${sinkOrigin}/steal` } })
       })
       const routeProbes = await probeRoutes('sk-secret-relay-key', 2000)
-      expect(routeProbes.every(p => p.ok === false)).toBe(true)
+      expect(routeProbes.every(p => !p.ok)).toBe(true)
       expect(fetchSpy).toHaveBeenCalled()
 
       expect(sinkHits).toEqual([])
     } finally {
-      await new Promise<void>(resolve => redirectSrv.close(() => resolve()))
-      await new Promise<void>(resolve => sinkSrv.close(() => resolve()))
+      await new Promise<void>(resolve => redirectSrv.close(() => { resolve() }))
+      await new Promise<void>(resolve => sinkSrv.close(() => { resolve() }))
     }
   })
 
@@ -724,18 +736,38 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
       apiKeyEnv: 'XPEACH_TEST_NO_ENV_API',
       timeoutMs: 5000,
       api: {
-        sessionSelf: vi.fn().mockResolvedValue({ username: 'cookie-user' }),
+        siteBaseURL: 'https://session-probe-test.invalid',
         setSessionKey,
         setAdminKey: vi.fn(),
       },
       ctx: { emit: vi.fn(), get: () => undefined },
     })
 
-    const bound = await account.bindSession('raw-cookie-secret-value', AbortSignal.timeout(5000))
-    expect(bound).toEqual({ bound: true, as: 'cookie-user' })
-    expect(process.env[sessionVar]).toBeUndefined()
-    expect(readFileSync(sessionKeyFile, 'utf8').trim()).toBe('raw-cookie-secret-value')
-    expect(setSessionKey).toHaveBeenLastCalledWith('raw-cookie-secret-value')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : input)
+      expect(url.origin).toBe('https://session-probe-test.invalid')
+      expect(url.pathname).toBe('/api/user/self')
+      const headers = new Headers(init?.headers)
+      if (headers.get('Cookie') === 'session=bad-cookie-value') {
+        return Response.json({ success: false, message: 'invalid session' }, { status: 401 })
+      }
+      expect(headers.get('Cookie')).toBe('session=raw-cookie-secret-value')
+      return Response.json({ success: true, data: { username: 'cookie-user' } }, { status: 200 })
+    })
+    try {
+      // Failed probe must never mutate shared this.api.setSessionKey override
+      await expect(account.bindSession('bad-cookie-value', AbortSignal.timeout(5000))).rejects.toThrow('invalid session')
+      expect(setSessionKey).not.toHaveBeenCalled()
+
+      const bound = await account.bindSession('raw-cookie-secret-value', AbortSignal.timeout(5000))
+      expect(bound).toEqual({ bound: true, as: 'cookie-user' })
+      expect(process.env[sessionVar]).toBeUndefined()
+      expect(readFileSync(sessionKeyFile, 'utf8').trim()).toBe('raw-cookie-secret-value')
+      expect(setSessionKey).toHaveBeenCalledTimes(1)
+      expect(setSessionKey).toHaveBeenLastCalledWith('raw-cookie-secret-value')
+    } finally {
+      fetchSpy.mockRestore()
+    }
 
     // Cold bootstrap with xpeach.session on disk also keeps cookie out of process.env
     setSessionKey.mockClear()
@@ -824,5 +856,302 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
     })
     expect(setBaseURL).not.toHaveBeenCalled()
     expect(Reflect.get(account, 'activeBaseURL')).toBe('https://fast.xpeach.codes')
+  })
+
+  it('已删除遗留 sessionLoginInteractive 死代码，且 scrubbedSqliteEnv 过滤凭据与宿主前缀变量', () => {
+    expect('sessionLoginInteractive' in XPeachApi.prototype).toBe(false)
+    const sqliteEnv = scrubbedSqliteEnv({
+      PATH: '/usr/bin',
+      HOME: '/Users/tester',
+      LANG: 'en_US.UTF-8',
+      XPEACH_RELAY_KEY: 'sk-secret',
+      XPEACH_ADMIN_KEY: 'adm-secret',
+      XPH_HOME: '/tmp/home',
+      DSH_PROFILE: 'xpeach',
+      OPENAI_API_KEY: 'sk-other',
+      MY_PASSWORD: 'pw',
+      AUTH_HEADER: 'bearer',
+      SESSION_ID: 'sess',
+      COOKIE_JAR: 'cookie',
+      APP_TOKEN: 'tok',
+      CLIENT_SECRET: 'sec',
+    })
+    expect(sqliteEnv).toEqual({
+      PATH: '/usr/bin',
+      HOME: '/Users/tester',
+      LANG: 'en_US.UTF-8',
+    })
+  })
+
+  it('applySsoBridgePayload 在中转密钥铸造失败时不在磁盘、镜像目录或环境变量留下孤立 SSO/Admin 凭据', async () => {
+    const home = freshTempHome()
+    const profile = join(home, 'profiles', 'xpeach')
+    const desktopProfile = join(home, 'profiles', 'xpeach-desktop')
+    mkdirSync(profile, { recursive: true })
+    mkdirSync(desktopProfile, { recursive: true })
+    vi.stubEnv('XPH_HOME', home)
+    vi.stubEnv('DSH_HOME', home)
+
+    const adminKeyVar = 'XPEACH_TEST_MINT_FAIL_ADMIN_KEY'
+    Reflect.deleteProperty(process.env, adminKeyVar)
+    const signedOutMarker = join(home, '.xpeach-signed-out')
+    writeFileSync(signedOutMarker, '2026-11-19T00:00:00Z\n', { mode: 0o600 })
+
+    const setBaseURL = vi.fn()
+    const setAdminKey = vi.fn()
+    const account = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(account, {
+      liveConfig: { ssoBaseURL: 'https://sso.xpeach.codes', ssoClientId: 'xpeach-harness' },
+      baseURL: 'https://fast.xpeach.codes',
+      activeBaseURL: 'https://fast.xpeach.codes',
+      keyFile: join(profile, 'xpeach.key'),
+      keyVar: 'XPEACH_TEST_MINT_FAIL_RELAY_KEY',
+      adminKeyFile: join(profile, 'xpeach.admin'),
+      adminKeyVar,
+      sessionKeyFile: join(profile, 'xpeach.session'),
+      sessionKeyVar: 'XPEACH_TEST_MINT_FAIL_SESSION_KEY',
+      ssoStateFile: join(profile, 'xpeach.sso.json'),
+      routeFile: join(profile, 'xpeach.route.json'),
+      apiKeyEnv: 'XPEACH_TEST_MINT_FAIL_API_KEY',
+      timeoutMs: 5000,
+      lastSsoVerifyAt: 0,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        setBaseURL,
+        setAdminKey,
+        setSessionKey: vi.fn(),
+      },
+      ctx: { emit: vi.fn(), get: () => undefined },
+    })
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : input)
+      expect(url.origin).toBe('https://candidate-relay.invalid')
+      const headers = new Headers(init?.headers)
+      expect(headers.get('Authorization')).toBe('xph_at_mint_fail_admin_token')
+      return Response.json({ success: false, message: 'relay token service unavailable' }, { status: 503 })
+    })
+
+    try {
+      const applyBridge = Reflect.get(XPeachAccount.prototype, 'applySsoBridgePayload') as (
+        payload: unknown,
+        signal: AbortSignal,
+      ) => Promise<{ status: string; bound: boolean; message?: string }>
+      const result = await applyBridge.call(
+        account,
+        {
+          sso: {
+            accessToken: 'xph_at_orphan_candidate',
+            refreshToken: 'xph_rt_orphan_candidate',
+            expiresIn: 3600,
+            user: { id: 'u-orphan', username: 'orphan', email: 'orphan@xpeach.invalid' },
+          },
+          peachcode: {
+            baseUrl: 'https://candidate-relay.invalid',
+            username: 'orphan',
+            accessToken: 'xph_at_mint_fail_admin_token',
+          },
+        },
+        AbortSignal.timeout(5000),
+      )
+
+      expect(result.status).toBe('error')
+      expect(result.bound).toBe(false)
+      expect(setAdminKey).not.toHaveBeenCalled()
+      expect(setBaseURL).not.toHaveBeenCalled()
+      expect(Reflect.get(account, 'activeBaseURL')).toBe('https://fast.xpeach.codes')
+      expect(process.env[adminKeyVar]).toBeUndefined()
+      expect(existsSync(signedOutMarker)).toBe(true)
+
+      for (const dir of [profile, home, desktopProfile]) {
+        expect(existsSync(join(dir, 'xpeach.sso.json')), `orphaned xpeach.sso.json in ${dir}`).toBe(false)
+        expect(existsSync(join(dir, 'xpeach.admin')), `orphaned xpeach.admin in ${dir}`).toBe(false)
+        expect(existsSync(join(dir, 'xpeach.key')), `orphaned xpeach.key in ${dir}`).toBe(false)
+      }
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('sleepWithAbort、sessionLoginOp 与 pollDeviceAttempt 在 AbortSignal 触发时立即唤醒取消', async () => {
+    // 1. sleepWithAbort wakes immediately instead of waiting 30s
+    const cSleep = new AbortController()
+    const sleepStart = Date.now()
+    const sleepPromise = sleepWithAbort(30_000, cSleep.signal)
+    setTimeout(() => { cSleep.abort(new Error('sleep-cancelled')) }, 15)
+    await expect(sleepPromise).rejects.toThrow('sleep-cancelled')
+    expect(Date.now() - sleepStart).toBeLessThan(1000)
+
+    // 2. sessionLoginOp device-flow poll sleep wakes immediately on AbortSignal
+    vi.stubEnv('XPEACH_SSO_LOGIN_MODE', 'device')
+    const account = Object.create(XPeachAccount.prototype) as XPeachAccount
+    const pollSpy = vi.fn()
+    Object.assign(account, {
+      ssoDeviceStartOp: vi.fn().mockResolvedValue({
+        deviceCode: 'dev-abort-sleep',
+        userCode: 'ABRT-1234',
+        verificationUri: 'https://sso.xpeach.codes/device',
+        verificationUriComplete: 'https://sso.xpeach.codes/device?user_code=ABRT-1234',
+        expiresIn: 300,
+        interval: 30,
+        browserOpened: false,
+      }),
+      ssoDevicePollOp: pollSpy,
+    })
+    const cLogin = new AbortController()
+    const loginStart = Date.now()
+    const loginPromise = account.sessionLoginOp(cLogin.signal)
+    setTimeout(() => { cLogin.abort(new Error('login-cancelled-during-sleep')) }, 20)
+    await expect(loginPromise).rejects.toThrow('login-cancelled-during-sleep')
+    expect(Date.now() - loginStart).toBeLessThan(1000)
+    expect(pollSpy).not.toHaveBeenCalled()
+
+    // 3. XPeachDeepSeekAccount.pollDeviceAttempt exits immediately when aborted mid-sleep
+    const bridge = Object.create(XPeachDeepSeekAccount.prototype) as XPeachDeepSeekAccount
+    const bridgePollSpy = vi.fn()
+    Object.assign(bridge, {
+      account: { ssoDevicePollOp: bridgePollSpy },
+      attempt: { id: 'att-1', phase: 'waiting-browser', expiresAt: Date.now() + 60_000 },
+      notifyWatchers: vi.fn(),
+    })
+    const pollDeviceAttempt = Reflect.get(XPeachDeepSeekAccount.prototype, 'pollDeviceAttempt') as (
+      attemptId: string,
+      deviceCode: string,
+      intervalSec: number,
+      signal: AbortSignal,
+    ) => Promise<void>
+    const cBridge = new AbortController()
+    const bridgeStart = Date.now()
+    const bridgePromise = pollDeviceAttempt.call(bridge, 'att-1', 'dev-bridge-abort', 30, cBridge.signal)
+    setTimeout(() => { cBridge.abort() }, 20)
+    await expect(bridgePromise).resolves.toBeUndefined()
+    expect(Date.now() - bridgeStart).toBeLessThan(1000)
+    expect(bridgePollSpy).not.toHaveBeenCalled()
+  })
+
+  it('单飞共享操作 (usageInFlight/ssoDevicePollInFlight/catalogSyncPromise/updateCheckInFlight) 隔离 Caller 1 的 AbortSignal', async () => {
+    const home = freshTempHome()
+    const profile = join(home, 'profiles', 'xpeach')
+    mkdirSync(profile, { recursive: true })
+    const keyFile = join(profile, 'xpeach.key')
+    writeFileSync(keyFile, 'sk-singleflight-test-key\n', { mode: 0o600 })
+
+    // 1. usageInFlight
+    const usageGate = Promise.withResolvers<undefined>()
+    const tokenUsageMock = vi.fn(async (sig: AbortSignal) => {
+      await usageGate.promise
+      expect(sig.aborted).toBe(false)
+      return {
+        name: 'sf-token',
+        total_granted: 100,
+        total_used: 10,
+        total_available: 90,
+        expires_at: 0,
+        unlimited_quota: false,
+        model_limits_enabled: false,
+      }
+    })
+    // 2. ssoDevicePollInFlight
+    const pollGate = Promise.withResolvers<undefined>()
+    const deviceTokenMock = vi.fn(async (_url: string, _cid: string, _code: string, sig: AbortSignal) => {
+      await pollGate.promise
+      expect(sig.aborted).toBe(false)
+      return { status: 'pending' as const }
+    })
+    // 3. catalogSyncPromise
+    const syncGate = Promise.withResolvers<undefined>()
+    const runSyncMock = vi.fn(async (sig: AbortSignal) => {
+      await syncGate.promise
+      expect(sig.aborted).toBe(false)
+      return { ok: true, count: 3, groups: ['SWE'] }
+    })
+    // 4. updateCheckInFlight
+    const updateGate = Promise.withResolvers<undefined>()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      await updateGate.promise
+      expect(init?.signal?.aborted).toBe(false)
+      return Response.json([
+        {
+          tag_name: 'v0.0.99-alpha',
+          draft: false,
+          html_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.99-alpha',
+          body: 'release',
+        },
+      ])
+    })
+
+    const account = Object.create(XPeachAccount.prototype) as XPeachAccount
+    Object.assign(account, {
+      liveConfig: { ssoBaseURL: 'https://sso.xpeach.codes', ssoClientId: 'xpeach-harness' },
+      keyFile,
+      keyVar: 'XPEACH_SF_RELAY',
+      adminKeyFile: join(profile, 'xpeach.admin'),
+      adminKeyVar: 'XPEACH_SF_ADMIN',
+      sessionKeyFile: join(profile, 'xpeach.session'),
+      sessionKeyVar: 'XPEACH_SF_SESSION',
+      ssoStateFile: join(profile, 'xpeach.sso.json'),
+      apiKeyEnv: 'XPEACH_SF_API',
+      timeoutMs: 5000,
+      api: {
+        siteBaseURL: 'https://fast.xpeach.codes',
+        tokenUsage: tokenUsageMock,
+        ssoDeviceToken: deviceTokenMock,
+      },
+      ctx: { emit: vi.fn(), get: () => undefined },
+      runSyncModelCatalog: runSyncMock,
+    })
+
+    try {
+      // usageInFlight: Caller 1 aborts, Caller 2 succeeds
+      const u1 = new AbortController()
+      const u2 = new AbortController()
+      const up1 = account.tokenUsage({}, u1.signal)
+      const up2 = account.tokenUsage({}, u2.signal)
+      u1.abort(new Error('usage-c1-abort'))
+      await expect(up1).rejects.toThrow('usage-c1-abort')
+      usageGate.resolve(undefined)
+      await expect(up2).resolves.toMatchObject({ name: 'sf-token', total_available: 90 })
+      expect(tokenUsageMock).toHaveBeenCalledTimes(1)
+
+      // ssoDevicePollInFlight: Caller 1 aborts, Caller 2 succeeds
+      const d1 = new AbortController()
+      const d2 = new AbortController()
+      const dp1 = account.ssoDevicePollOp({ deviceCode: 'dev-sf-1' }, d1.signal)
+      const dp2 = account.ssoDevicePollOp({ deviceCode: 'dev-sf-1' }, d2.signal)
+      d1.abort(new Error('poll-c1-abort'))
+      await expect(dp1).rejects.toThrow('poll-c1-abort')
+      pollGate.resolve(undefined)
+      await expect(dp2).resolves.toEqual({ status: 'pending' })
+      expect(deviceTokenMock).toHaveBeenCalledTimes(1)
+
+      // catalogSyncPromise: Caller 1 aborts, Caller 2 succeeds
+      const s1 = new AbortController()
+      const s2 = new AbortController()
+      const sp1 = account.syncModelsOp({}, s1.signal)
+      const sp2 = account.syncModelsOp({}, s2.signal)
+      s1.abort(new Error('sync-c1-abort'))
+      await expect(sp1).rejects.toThrow('sync-c1-abort')
+      syncGate.resolve(undefined)
+      await expect(sp2).resolves.toEqual({ ok: true, count: 3, groups: ['SWE'] })
+      expect(runSyncMock).toHaveBeenCalledTimes(1)
+
+      // updateCheckInFlight: Caller 1 aborts, Caller 2 succeeds
+      const r1 = new AbortController()
+      const r2 = new AbortController()
+      const fetchReleases = Reflect.get(XPeachAccount.prototype, 'fetchGitHubReleaseCandidates') as (
+        force: boolean,
+        signal?: AbortSignal,
+      ) => Promise<readonly { version: string }[]>
+      const rp1 = fetchReleases.call(account, true, r1.signal)
+      const rp2 = fetchReleases.call(account, true, r2.signal)
+      r1.abort(new Error('update-c1-abort'))
+      await expect(rp1).rejects.toThrow('update-c1-abort')
+      updateGate.resolve(undefined)
+      const releases = await rp2
+      expect(releases[0]?.version).toBe('0.0.99-alpha')
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 })

@@ -350,6 +350,51 @@ async function raceWithAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal)
   }
 }
 
+/**
+ * Create an internal `.unref()`'d timeout controller for shared single-flight work
+ * so cancelling one caller never cancels peer callers waiting on the same flight.
+ */
+function createInternalTimeoutController(timeoutMs: number, message: string): {
+  readonly signal: AbortSignal
+  readonly clear: () => void
+} {
+  const controller = new AbortController()
+  const safeMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 15_000
+  const timer = setTimeout(() => {
+    controller.abort(new DOMException(message, 'TimeoutError'))
+  }, safeMs)
+  timer.unref()
+  return {
+    signal: controller.signal,
+    clear: () => { clearTimeout(timer) },
+  }
+}
+
+/**
+ * Sleep for `ms` milliseconds using an `.unref()`'d timer that wakes and rejects
+ * immediately when `signal` aborts.
+ *
+ * @param ms - sleep duration in milliseconds.
+ * @param signal - optional cancellation signal.
+ */
+export function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(abortReasonError(signal))
+  }
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      reject(signal !== undefined ? abortReasonError(signal) : new DOMException('The operation was aborted.', 'AbortError'))
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    timer.unref()
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 interface ReconcileSessionHeader {
   readonly id: string
   readonly createdAt: number | string
@@ -773,10 +818,11 @@ export class XPeachDeepSeekAccount extends Service {
         this.notifyWatchers(false)
         return
       }
-      await new Promise<void>((res) => {
-        const timer = setTimeout(res, intervalMs)
-        timer.unref()
-      })
+      try {
+        await sleepWithAbort(intervalMs, signal)
+      } catch (_abortErr) {
+        return
+      }
       if (isAborted() || currentAttempt()?.id !== attemptId) return
       const postWaitExpiresAt = currentAttempt()?.expiresAt
       if (postWaitExpiresAt !== undefined && Date.now() >= postWaitExpiresAt) {
@@ -1750,10 +1796,15 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /** 管理通道不可用时改用用户通道；预算耗尽不伪装成完整目录。 */
-  private async listTokenPages(signal: AbortSignal, userOnly = false, snapshot = this.captureCredentialSnapshot()): Promise<TokenScan> {
+  private async listTokenPages(
+    signal: AbortSignal,
+    userOnly = false,
+    snapshot = this.captureCredentialSnapshot(),
+    apiClient: XPeachApi = this.api,
+  ): Promise<TokenScan> {
     const limits = this.resolveTokenLookupLimits()
     const readUser = async (page: number): Promise<{ items: XPeachAdminToken[]; total: number }> => {
-      const result = await this.api.userTokens(page, signal)
+      const result = await apiClient.userTokens(page, signal)
       return { items: result.items.map(item => ({ ...item, user_id: 0 })), total: result.total }
     }
     const assertCurrent = (): void => { this.assertCredentialSnapshot(snapshot) }
@@ -1770,7 +1821,7 @@ export class XPeachAccount extends TypertRemoteService {
         : result
     }
     if (userOnly) return await scan(readUser)
-    const admin = await scan((page, size) => this.api.adminTokens(page, size, signal))
+    const admin = await scan((page, size) => apiClient.adminTokens(page, size, signal))
     if (admin.status !== 'unavailable') return admin
     const user = await scan(readUser)
     const items = new Map(admin.items.map(item => [item.id, item]))
@@ -1784,13 +1835,14 @@ export class XPeachAccount extends TypertRemoteService {
     signal: AbortSignal,
     snapshot = this.captureCredentialSnapshot(),
     userOnly = false,
+    apiClient: XPeachApi = this.api,
   ): Promise<{ key?: string } | undefined> {
     const attempts: (() => Promise<{ key?: string }>)[] = []
-    if (typeof this.api.userTokenKey === 'function') {
-      attempts.push(() => this.api.userTokenKey(id, signal))
+    if (typeof apiClient.userTokenKey === 'function') {
+      attempts.push(() => apiClient.userTokenKey(id, signal))
     }
-    if (!userOnly && typeof this.api.adminTokenKey === 'function') {
-      attempts.push(() => this.api.adminTokenKey(id, signal))
+    if (!userOnly && typeof apiClient.adminTokenKey === 'function') {
+      attempts.push(() => apiClient.adminTokenKey(id, signal))
     }
     for (const attempt of attempts) {
       try {
@@ -1938,10 +1990,10 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /** Model counts per site group, filtered to groups usable by the signed-in user. */
-  private async groupModelCounts(signal: AbortSignal): Promise<Map<string, number>> {
+  private async groupModelCounts(signal: AbortSignal, apiClient: XPeachApi = this.api): Promise<Map<string, number>> {
     const [pricing, groupCat] = await Promise.all([
-      this.api.adminPricing(signal).catch(() => undefined),
-      typeof this.api.groups === 'function' ? this.api.groups(signal).catch(() => undefined) : Promise.resolve(undefined),
+      apiClient.adminPricing(signal).catch(() => undefined),
+      typeof apiClient.groups === 'function' ? apiClient.groups(signal).catch(() => undefined) : Promise.resolve(undefined),
     ])
     const counts = new Map<string, number>()
     if (pricing !== undefined) {
@@ -2152,21 +2204,29 @@ export class XPeachAccount extends TypertRemoteService {
     manual = false,
     options?: { readonly forceGroupSwitch?: boolean },
   ): Promise<XPeachModelSyncResult> {
+    signal.throwIfAborted()
     if (this.catalogSyncPromise !== undefined) {
       if (options?.forceGroupSwitch === true) {
-        await this.catalogSyncPromise.catch(() => undefined)
+        await raceWithAbortSignal(this.catalogSyncPromise.catch(() => undefined), signal)
       } else {
-        const joined = await this.catalogSyncPromise
+        const joined = await raceWithAbortSignal(this.catalogSyncPromise, signal)
         // A joined run discarded for staleness leaves this caller's catalog
         // unpublished — run once more against the current credential.
         if (joined.ok || joined.code !== 'credential-changed') return joined
       }
     }
-    const run = this.runSyncModelCatalog(signal, manual, options).finally(() => {
+    signal.throwIfAborted()
+    const internalTimeout = createInternalTimeoutController(
+      Math.max((this.timeoutMs || 15_000) * 2, 30_000),
+      'Model catalog sync timed out',
+    )
+    const run = this.runSyncModelCatalog(internalTimeout.signal, manual, options).finally(() => {
+      internalTimeout.clear()
       if (this.catalogSyncPromise === run) this.catalogSyncPromise = undefined
     })
     this.catalogSyncPromise = run
-    return await run
+    void run.catch(() => {})
+    return await raceWithAbortSignal(run, signal)
   }
 
   private async runSyncModelCatalog(
@@ -2710,18 +2770,21 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   private async cachedTokenUsage(signal: AbortSignal): Promise<XPeachTokenUsage> {
+    signal.throwIfAborted()
     const cacheKey = `${this.readKeyFile() ?? ''}|${this.resolveAdmin() ?? ''}`
     if (this.usageCache !== undefined && this.usageCache.key === cacheKey && Date.now() - this.usageCache.at < 15_000) {
       return this.usageCache.usage
     }
     if (this.usageInFlight !== undefined) {
-      return await this.usageInFlight
+      return await raceWithAbortSignal(this.usageInFlight, signal)
     }
+    const internalTimeout = createInternalTimeoutController(this.timeoutMs || 15_000, 'Token usage request timed out')
+    const effectiveSignal = internalTimeout.signal
     const run = (async (): Promise<XPeachTokenUsage> => {
-      const usage = await this.api.tokenUsage(signal)
+      const usage = await this.api.tokenUsage(effectiveSignal)
       if ((usage.unlimited_quota || usage.total_available < 0) && this.resolveAdmin() !== undefined) {
         try {
-          const me = await this.api.userSelf(signal)
+          const me = await this.api.userSelf(effectiveSignal)
           if (typeof me.quota === 'number' && Number.isFinite(me.quota)) {
             const used = typeof me.used_quota === 'number' && Number.isFinite(me.used_quota)
               ? me.used_quota
@@ -2745,10 +2808,12 @@ export class XPeachAccount extends TypertRemoteService {
       this.usageCache = { at: Date.now(), key: cacheKey, usage }
       return usage
     })().finally(() => {
-      this.usageInFlight = undefined
+      internalTimeout.clear()
+      if (this.usageInFlight === run) this.usageInFlight = undefined
     })
     this.usageInFlight = run
-    return await run
+    void run.catch(() => {})
+    return await raceWithAbortSignal(run, signal)
   }
 
   /**
@@ -2955,14 +3020,15 @@ export class XPeachAccount extends TypertRemoteService {
     }
     const snapshot = this.captureCredentialSnapshot()
     const previousAdmin = this.resolveAdmin()
-    this.api.setAdminKey(token)
-    try {
-      await this.api.adminSelf(signal)
-      this.assertCredentialSnapshot(snapshot)
-    } catch (e) {
-      this.api.setAdminKey(undefined)
-      throw e
-    }
+    const candidate = new XPeachApi({
+      baseURL: this.api.siteBaseURL,
+      timeoutMs: this.timeoutMs,
+      resolveKey: () => Promise.reject(new RemoteError('xpeach/missing-credential', 'xpeach: probe client has no relay key', { ref: 'key' })),
+      resolveAdmin: () => token,
+      resolveCookie: () => undefined,
+    })
+    await candidate.adminSelf(signal)
+    this.assertCredentialSnapshot(snapshot)
     if (previousAdmin !== undefined && previousAdmin !== token) {
       await this.commitRelay(snapshot, {})
       try { unlinkSync(this.slotsFile()) } catch (_err) { /* absent */ }
@@ -3345,26 +3411,25 @@ export class XPeachAccount extends TypertRemoteService {
    */
   @Remote('bindSession')
   async bindSession(value: string, signal: AbortSignal): Promise<{ bound: boolean; as?: string }> {
+    signal.throwIfAborted()
     const trimmed = value.trim()
     if (trimmed.length === 0) throw new RemoteError('xpeach/request-failed', 'xpeach: empty session cookie', { status: 0, message: 'empty session cookie' })
-    const previousSession = this.resolveSession()
+    const candidate = new XPeachApi({
+      baseURL: this.api.siteBaseURL,
+      timeoutMs: this.timeoutMs,
+      resolveKey: () => Promise.reject(new RemoteError('xpeach/missing-credential', 'xpeach: probe client has no relay key', { ref: 'key' })),
+      resolveAdmin: () => undefined,
+      resolveCookie: () => trimmed,
+    })
+    const me = await candidate.sessionSelf(signal)
+    const content = trimmed + '\n'
+    this.writeState(this.sessionKeyFile, content)
+    this.mirrorCredentialFile('xpeach.session', content)
     this.api.setSessionKey(trimmed)
-    let bound = false
-    try {
-      const me = await this.api.sessionSelf(signal)
-      const content = trimmed + '\n'
-      this.writeState(this.sessionKeyFile, content)
-      this.mirrorCredentialFile('xpeach.session', content)
-      bound = true
-      this.markOnboardedAndClearSignOut()
-      void this.ensureDesktopOnboardingCompleted().catch(() => {})
-      this.notifyKeyChanged()
-      return { bound: true, as: me.username }
-    } finally {
-      if (!bound) {
-        this.api.setSessionKey(previousSession)
-      }
-    }
+    this.markOnboardedAndClearSignOut()
+    void this.ensureDesktopOnboardingCompleted().catch(() => {})
+    this.notifyKeyChanged()
+    return { bound: true, as: me.username }
   }
 
   private currentSsoBaseURL(): string {
@@ -4355,13 +4420,60 @@ export class XPeachAccount extends TypertRemoteService {
     const username = peach?.username ?? sso?.user?.username ?? sso?.user?.name ?? undefined
     const email = sso?.user?.email ?? undefined
 
-    if (typeof peach?.baseUrl === 'string' && peach.baseUrl.trim().length > 0) {
-      const normalizedBase = validateSsoBaseUrl(peach.baseUrl)
-      if (normalizedBase !== this.activeBaseURL) {
-        this.activeBaseURL = normalizedBase
-        ;(this.api as { setBaseURL?: (url: string) => void }).setBaseURL?.(normalizedBase)
-        void this.applyProviderBase().catch(() => {})
+    const normalizedBase = typeof peach?.baseUrl === 'string' && peach.baseUrl.trim().length > 0
+      ? validateSsoBaseUrl(peach.baseUrl)
+      : undefined
+    const effectiveBaseURL = normalizedBase ?? (this.activeBaseURL || this.api.siteBaseURL)
+    const accessToken = peach?.accessToken?.trim()
+
+    let apiKey = peach?.apiKey?.trim()
+    let preview: string | undefined
+    if (apiKey !== undefined && apiKey.length > 0) {
+      if (apiKey.match(/^(?:xpk|sk)-/u) === null) apiKey = 'sk-' + apiKey
+      const bridgeGroups = Array.isArray(peach?.tokenGroups)
+        ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.trim().length > 0).map(g => g.trim())
+        : typeof peach?.group === 'string' && peach.group.trim().length > 0
+          ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
+          : []
+      await this.persistRelayCredential(apiKey, {
+        ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
+        ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
+        ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
+        key: apiKey,
+      }, snapshot, signal)
+      preview = apiKey.slice(0, 5) + '…' + apiKey.slice(-4)
+    } else if (accessToken !== undefined && accessToken.length > 0) {
+      const candidateApi = new XPeachApi({
+        baseURL: effectiveBaseURL,
+        timeoutMs: this.timeoutMs || 15_000,
+        resolveKey: () => this.resolveKey(),
+        resolveAdmin: () => accessToken,
+        resolveCookie: () => undefined,
+      })
+      const minted = await this.mintRelayToken(signal, 'admin', candidateApi, snapshot)
+      if (!minted.ok) {
+        return {
+          status: 'error',
+          bound: false,
+          message: 'SSO 已授权，但未能获取或铸造可用的 API 密钥 (XPEACH_RELAY_KEY)，请重试。',
+        }
       }
+      preview = minted.preview
+    }
+
+    const boundRelayKey = this.readKeyFile()
+    if (boundRelayKey === undefined || boundRelayKey.length === 0) {
+      return {
+        status: 'error',
+        bound: false,
+        message: 'SSO 已授权，但未能获取或铸造可用的 API 密钥 (XPEACH_RELAY_KEY)，请重试。',
+      }
+    }
+
+    if (normalizedBase !== undefined && normalizedBase !== this.activeBaseURL) {
+      this.activeBaseURL = normalizedBase
+      ;(this.api as { setBaseURL?: (url: string) => void }).setBaseURL?.(normalizedBase)
+      void this.applyProviderBase().catch(() => {})
     }
 
     if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
@@ -4380,41 +4492,8 @@ export class XPeachAccount extends TypertRemoteService {
       } catch (_err) { /* best effort */ }
     }
 
-    const accessToken = peach?.accessToken?.trim()
     if (accessToken !== undefined && accessToken.length > 0) {
       this.persistAdmin(accessToken)
-    }
-
-    let apiKey = peach?.apiKey?.trim()
-    let preview: string | undefined
-    if (apiKey !== undefined && apiKey.length > 0) {
-      if (apiKey.match(/^(?:xpk|sk)-/u) === null) apiKey = 'sk-' + apiKey
-      const bridgeGroups = Array.isArray(peach?.tokenGroups)
-        ? peach.tokenGroups.filter((g): g is string => typeof g === 'string' && g.trim().length > 0).map(g => g.trim())
-        : typeof peach?.group === 'string' && peach.group.trim().length > 0
-          ? peach.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
-          : []
-      await this.persistRelayCredential(apiKey, {
-        ...(peach?.tokenId !== undefined ? { id: peach.tokenId } : {}),
-        ...(peach?.tokenName !== undefined ? { name: peach.tokenName } : {}),
-        ...(bridgeGroups.length > 0 ? { groups: bridgeGroups } : {}),
-        key: apiKey,
-      }, snapshot)
-      preview = apiKey.slice(0, 5) + '…' + apiKey.slice(-4)
-    } else if (accessToken !== undefined && accessToken.length > 0) {
-      const minted = await this.mintKeyWithAccessToken(signal)
-      if (minted.ok) {
-        preview = minted.preview
-      }
-    }
-
-    const boundRelayKey = this.readKeyFile()
-    if (boundRelayKey === undefined || boundRelayKey.length === 0) {
-      return {
-        status: 'error',
-        bound: false,
-        message: 'SSO 已授权，但未能获取或铸造可用的 API 密钥 (XPEACH_RELAY_KEY)，请重试。',
-      }
     }
 
     this.lastSsoVerifyAt = Date.now()
@@ -4544,15 +4623,20 @@ export class XPeachAccount extends TypertRemoteService {
     }
     const inFlight = inFlightMap.get(deviceCode)
     if (inFlight !== undefined) {
-      return await inFlight
+      return await raceWithAbortSignal(inFlight, signal)
     }
+    const internalTimeout = createInternalTimeoutController(
+      Math.max((this.timeoutMs || 15_000) * 2, 30_000),
+      'SSO device poll timed out',
+    )
+    const effectiveSignal = internalTimeout.signal
     const run = (async (): Promise<XPeachSsoDevicePollResult> => {
       const snapshot = this.captureCredentialSnapshot()
       const polled = await this.api.ssoDeviceToken(
         this.currentSsoBaseURL(),
         this.currentSsoClientId(),
         deviceCode,
-        signal,
+        effectiveSignal,
       )
       this.assertCredentialSnapshot(snapshot)
       if (polled.status === 'slow_down') {
@@ -4567,7 +4651,7 @@ export class XPeachAccount extends TypertRemoteService {
           ...(polled.message !== undefined ? { message: polled.message } : {}),
         }
       }
-      const applied = await this.applySsoBridgePayload(polled.payload, signal, snapshot)
+      const applied = await this.applySsoBridgePayload(polled.payload, effectiveSignal, snapshot)
       if (applied.status === 'approved' && applied.bound === true) {
         if (approvedCache.size >= 32) {
           const oldestKey = approvedCache.keys().next().value
@@ -4577,10 +4661,12 @@ export class XPeachAccount extends TypertRemoteService {
       }
       return applied
     })().finally(() => {
-      inFlightMap.delete(deviceCode)
+      internalTimeout.clear()
+      if (inFlightMap.get(deviceCode) === run) inFlightMap.delete(deviceCode)
     })
     inFlightMap.set(deviceCode, run)
-    return await run
+    void run.catch(() => {})
+    return await raceWithAbortSignal(run, signal)
   }
 
   /**
@@ -4647,8 +4733,7 @@ export class XPeachAccount extends TypertRemoteService {
       let intervalMs = Math.max(1500, (started.interval || 2) * 1000)
       const deadline = Date.now() + Math.min((started.expiresIn || 600) * 1000, 180_000)
       while (Date.now() < deadline) {
-        signal.throwIfAborted()
-        await new Promise(res => setTimeout(res, intervalMs))
+        await sleepWithAbort(intervalMs, signal)
         const polled = await this.ssoDevicePollOp({ deviceCode: started.deviceCode }, signal)
         if ((polled.status as string) === 'slow_down') {
           intervalMs += 5000
@@ -4697,18 +4782,22 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /** 两种认证通道共用完整扫描及绑定规则；仅管理员为本次新建的令牌设置默认组。 */
-  private async mintRelayToken(signal: AbortSignal, channel: 'admin' | 'console'): Promise<{ ok: boolean; err?: string; preview?: string }> {
-    const snapshot = this.captureCredentialSnapshot()
+  private async mintRelayToken(
+    signal: AbortSignal,
+    channel: 'admin' | 'console',
+    apiClient: XPeachApi = this.api,
+    snapshot = this.captureCredentialSnapshot(),
+  ): Promise<{ ok: boolean; err?: string; preview?: string }> {
     const userOnly = channel === 'console'
     const reveal = async (id: number): Promise<{ key?: string } | undefined> =>
-      await this.revealTokenKey(id, signal, snapshot, userOnly)
+      await this.revealTokenKey(id, signal, snapshot, userOnly, apiClient)
     let creationRequested = false
     try {
       let id: number | undefined
       let name: string | undefined
       let defaults: string[] = []
       let created = false
-      const page = await this.listTokenPages(signal, userOnly, snapshot)
+      const page = await this.listTokenPages(signal, userOnly, snapshot, apiClient)
       if (page.status !== 'complete') return { ok: false, err: '令牌列表扫描未完成，未创建或修改令牌。' }
       const activeKey = this.readKeyFile()
       const normKey = this.normalizeRelayKey(activeKey)
@@ -4732,7 +4821,7 @@ export class XPeachAccount extends TypertRemoteService {
         id = live.id
         name = live.name
       } else {
-        if (!userOnly) defaults = await this.defaultGroups(signal)
+        if (!userOnly) defaults = await this.defaultGroups(signal, apiClient)
         this.assertCredentialSnapshot(snapshot)
         name = 'xph-' + randomUUID()
         creationRequested = true
@@ -4744,10 +4833,10 @@ export class XPeachAccount extends TypertRemoteService {
           unlimited_quota: true,
           model_limits_enabled: false,
         }
-        if (userOnly) await this.api.userTokenCreate(payload, signal)
-        else await this.api.adminTokenCreate({ ...payload, groups: [] }, signal)
+        if (userOnly) await apiClient.userTokenCreate(payload, signal)
+        else await apiClient.adminTokenCreate({ ...payload, groups: [] }, signal)
         this.assertCredentialSnapshot(snapshot)
-        const after = await this.listTokenPages(signal, userOnly, snapshot)
+        const after = await this.listTokenPages(signal, userOnly, snapshot, apiClient)
         const existingIds = new Set(page.items.map(token => token.id))
         const matches = after.items.filter(token => token.name === name && !existingIds.has(token.id))
         const hit = matches[0]
@@ -4767,7 +4856,7 @@ export class XPeachAccount extends TypertRemoteService {
         return { ok: false, err: '令牌不再持有当前密钥，分组未修改。' }
       }
       if (key.match(/^(?:xpk|sk)-/u) === null) key = 'sk-' + key
-      const detail = userOnly ? live : await this.api.adminTokenGet(id, signal)
+      const detail = userOnly ? live : await apiClient.adminTokenGet(id, signal)
       this.assertCredentialSnapshot(snapshot)
       const currentGroups = this.extractTokenGroups(detail)
       if (created && defaults.length > 0) {
@@ -4776,7 +4865,7 @@ export class XPeachAccount extends TypertRemoteService {
           if (confirmed?.key === undefined || this.normalizeRelayKey(confirmed.key) !== this.normalizeRelayKey(key)) {
             throw new RemoteError('xpeach/identity-incomplete', '写入前无法确认令牌密钥，分组未修改。', { reason: 'identity-unknown' })
           }
-          await this.api.adminTokenUpdate({ ...detail, id, groups: defaults, group: defaults[0] ?? '' }, signal)
+          await apiClient.adminTokenUpdate({ ...detail, id, groups: defaults, group: defaults[0] ?? '' }, signal)
           this.assertCredentialSnapshot(snapshot)
         }, signal)
       }
@@ -6508,18 +6597,19 @@ export class XPeachAccount extends TypertRemoteService {
     force: boolean,
     signal?: AbortSignal,
   ): Promise<readonly XPeachReleaseCandidate[]> {
+    signal?.throwIfAborted()
     const cached = this.releasesCache
     if (!force && cached !== undefined && Date.now() - cached.at < 30_000) {
       return cached.items
     }
     if (this.updateCheckInFlight !== undefined) {
-      return await this.updateCheckInFlight
+      return await raceWithAbortSignal(this.updateCheckInFlight, signal)
     }
+    const internalTimeout = createInternalTimeoutController(
+      this.timeoutMs > 0 ? this.timeoutMs : 15_000,
+      'Release update check timed out',
+    )
     const run = (async (): Promise<readonly XPeachReleaseCandidate[]> => {
-      const timeoutSignal = AbortSignal.timeout(this.timeoutMs > 0 ? this.timeoutMs : 15_000)
-      const effectiveSignal = signal !== undefined
-        ? AbortSignal.any([signal, timeoutSignal])
-        : timeoutSignal
       const repoSlug = 'yellowpeachxgp/xpeach-harness'
       try {
         const res = await fetch(`https://api.github.com/repos/${repoSlug}/releases?per_page=30`, {
@@ -6527,7 +6617,7 @@ export class XPeachAccount extends TypertRemoteService {
             Accept: 'application/vnd.github+json',
             'User-Agent': 'XPeach-Harness-Updater',
           },
-          signal: effectiveSignal,
+          signal: internalTimeout.signal,
         })
         if (res.ok) {
           const json: unknown = await res.json()
@@ -6538,14 +6628,16 @@ export class XPeachAccount extends TypertRemoteService {
           }
         }
       } catch (_err) {
-        if (signal?.aborted) throw signal.reason
+        // Fall back to cached items on network failure or internal timeout.
       }
       return cached?.items ?? []
     })().finally(() => {
-      this.updateCheckInFlight = undefined
+      internalTimeout.clear()
+      if (this.updateCheckInFlight === run) this.updateCheckInFlight = undefined
     })
     this.updateCheckInFlight = run
-    return await run
+    void run.catch(() => {})
+    return await raceWithAbortSignal(run, signal)
   }
 
   private skillsRoot(): string {

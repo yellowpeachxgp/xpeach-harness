@@ -96,6 +96,51 @@ function resolveShippedPatchContent(): string {
 }
 
 /**
+ * Resolve the persisted relay key while respecting explicit sign-out markers
+ * and the authoritative `xpeach.relay.json` state (fail-closed when signed out,
+ * revoked, pending projection, or malformed).
+ */
+function resolvePersistedRelayKey(xphHome: string, xphProfile: string): string | undefined {
+  if (existsSync(join(xphHome, '.xpeach-signed-out'))) {
+    return undefined
+  }
+  const relayStatePaths = [
+    join(xphHome, 'xpeach.relay.json'),
+    join(xphProfile, 'xpeach.relay.json'),
+    join(xphHome, 'profiles', 'xpeach-desktop', 'xpeach.relay.json'),
+  ]
+  for (const relayPath of relayStatePaths) {
+    if (!existsSync(relayPath)) continue
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(relayPath, 'utf8'))
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+      const record = parsed as { readonly key?: unknown; readonly projectionPending?: unknown }
+      if (record.projectionPending === true) return undefined
+      const key = typeof record.key === 'string' ? record.key.trim() : ''
+      return key.length > 0 ? key : undefined
+    } catch (_err) {
+      // Fail-closed: corrupt or unreadable authoritative relay state must not fall back to stale xpeach.key.
+      return undefined
+    }
+  }
+  const keyPaths = [
+    join(xphProfile, 'xpeach.key'),
+    join(xphHome, 'profiles', 'xpeach-desktop', 'xpeach.key'),
+  ]
+  for (const keyPath of keyPaths) {
+    try {
+      if (existsSync(keyPath)) {
+        const key = readFileSync(keyPath, 'utf8').trim()
+        if (key.length > 0) return key
+      }
+    } catch (_err) {
+      // Ignore unreadable key files; unauthenticated sessions prompt for login in the UI.
+    }
+  }
+  return undefined
+}
+
+/**
  * Ensure the `~/.xph` home directory and `xpeach` profile exist, migrate any
  * `@deepseek-ai/dsh-*` legacy references in the profile manifest/patch, and
  * populate `XPEACH_RELAY_KEY` / `XPEACH_API_KEY` from the persisted `xpeach.key`
@@ -172,23 +217,10 @@ export async function ensureXpeachProfile(home?: string): Promise<string> {
   }
 
   if (!process.env.XPEACH_RELAY_KEY) {
-    const keyPaths = [
-      join(xphProfile, 'xpeach.key'),
-      join(XPH_HOME, 'profiles', 'xpeach-desktop', 'xpeach.key'),
-    ]
-    for (const keyPath of keyPaths) {
-      try {
-        if (existsSync(keyPath)) {
-          const key = readFileSync(keyPath, 'utf8').trim()
-          if (key.length > 0) {
-            process.env.XPEACH_RELAY_KEY = key
-            process.env.XPEACH_API_KEY = key
-            break
-          }
-        }
-      } catch (_err) {
-        // Ignore unreadable key files; unauthenticated sessions prompt for login in the UI.
-      }
+    const persistedKey = resolvePersistedRelayKey(XPH_HOME, xphProfile)
+    if (persistedKey !== undefined) {
+      process.env.XPEACH_RELAY_KEY = persistedKey
+      process.env.XPEACH_API_KEY = persistedKey
     }
   }
 

@@ -70,8 +70,13 @@ function installedProfileFixture(source: 'explicit' | 'desktop' | 'repository' |
     import { syncBuiltinESMExports } from 'node:module';
     import { existsSync, readFileSync } from 'node:fs';
     const calls = [];
+    const leakedEnvKeys = [];
     childProcess.execFileSync = (command, args, options) => {
       calls.push(command);
+      const passedEnv = options?.env ?? process.env;
+      for (const forbidden of ['XPEACH_RELAY_KEY', 'XPEACH_ADMIN_KEY', 'XPH_TEST_SECRET', 'DSH_AGENTS_HOME']) {
+        if (forbidden in passedEnv) leakedEnvKeys.push(command + ':' + forbidden);
+      }
       return options?.encoding ? 'fixture-version' : Buffer.alloc(0);
     };
     syncBuiltinESMExports();
@@ -81,9 +86,9 @@ function installedProfileFixture(source: 'explicit' | 'desktop' | 'repository' |
     try {
       const result = ${action === 'build' ? 'await installer.buildMacosPkgInstaller' : `await installer.runMacosInstallerAction(${JSON.stringify(action)}, `}(${JSON.stringify(options)})${action === 'build' ? '' : ')'};
       const patch = ${JSON.stringify(join(options.ownHome, 'profiles', 'xpeach', 'cordis.patch.yml'))};
-      process.stdout.write(JSON.stringify({ ok: result.ok, patch: readFileSync(patch, 'utf8') }));
+      process.stdout.write(JSON.stringify({ ok: result.ok, patch: readFileSync(patch, 'utf8'), leakedEnvKeys }));
     } catch (error) {
-      process.stdout.write(JSON.stringify({ error: { code: error.code, path: error.path }, calls,
+      process.stdout.write(JSON.stringify({ error: { code: error.code, path: error.path }, calls, leakedEnvKeys,
         profileCreated: existsSync(${JSON.stringify(join(options.ownHome, 'profiles', 'xpeach'))}) }));
     }
   `
@@ -93,6 +98,7 @@ function installedProfileFixture(source: 'explicit' | 'desktop' | 'repository' |
       NODE_NO_WARNINGS: '1', HOME: options.homeDir, USERPROFILE: options.homeDir,
       XDG_CONFIG_HOME: options.homeDir, XDG_CACHE_HOME: options.homeDir, XDG_STATE_HOME: options.homeDir,
       APPDATA: options.homeDir, LOCALAPPDATA: options.homeDir, DSH_AGENTS_HOME: options.homeDir,
+      XPEACH_RELAY_KEY: 'sk-must-not-leak', XPEACH_ADMIN_KEY: 'adm-must-not-leak', XPH_TEST_SECRET: 'secret',
     },
     encoding: 'utf8',
     timeout: processTimeoutMs,
@@ -103,6 +109,7 @@ function installedProfileFixture(source: 'explicit' | 'desktop' | 'repository' |
 it.each(['explicit', 'desktop', 'repository'] as const)('安装布局从选中的规范资源播种：%s', (source) => {
   expect(installedProfileFixture(source)).toMatchObject({
     ok: true,
+    leakedEnvKeys: [],
     patch: readFileSync(new URL('../../../../apps/cli/resources/xpeach.profile.yml', import.meta.url), 'utf8'),
   })
 })

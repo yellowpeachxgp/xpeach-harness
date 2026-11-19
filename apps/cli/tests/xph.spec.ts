@@ -261,4 +261,69 @@ describe('ensureXpeachProfile', () => {
       expect(existsSync(join(seededProfile, file)), `${file} must not be copied from ~/.dsh`).toBe(false)
     }
   })
+
+  it('refuses to resurrect stale xpeach.key when .xpeach-signed-out marker is present', async () => {
+    const home = makeTempHome()
+    const profileDir = join(home, 'profiles', 'xpeach')
+    const desktopDir = join(home, 'profiles', 'xpeach-desktop')
+    mkdirSync(profileDir, { recursive: true })
+    mkdirSync(desktopDir, { recursive: true })
+    writeFileSync(join(home, '.xpeach-signed-out'), '2026-11-19T00:00:00Z\n', 'utf8')
+    writeFileSync(join(profileDir, 'xpeach.key'), 'sk-stale-cli-key\n', 'utf8')
+    writeFileSync(join(desktopDir, 'xpeach.key'), 'sk-stale-desktop-key\n', 'utf8')
+    writeFileSync(
+      join(home, 'xpeach.relay.json'),
+      JSON.stringify({ version: 1, revision: 1, key: 'sk-relay-ignored-when-signed-out', projectionPending: false }),
+      'utf8',
+    )
+
+    vi.stubEnv('XPH_HOME', home)
+    delete process.env.XPEACH_RELAY_KEY
+    delete process.env.XPEACH_API_KEY
+
+    await ensureXpeachProfile(home)
+    expect(process.env.XPEACH_RELAY_KEY).toBeUndefined()
+    expect(process.env.XPEACH_API_KEY).toBeUndefined()
+  })
+
+  it.each([
+    { label: 'revoked (omitted key)', body: JSON.stringify({ version: 1, revision: 2, projectionPending: false }) },
+    { label: 'empty key', body: JSON.stringify({ version: 1, revision: 2, key: '   ', projectionPending: false }) },
+    { label: 'projection pending', body: JSON.stringify({ version: 1, revision: 2, key: 'sk-pending', projectionPending: true }) },
+    { label: 'corrupt JSON', body: '{not-valid-json' },
+  ])('refuses to resurrect stale xpeach.key when xpeach.relay.json is $label', async ({ body }) => {
+    const home = makeTempHome()
+    const profileDir = join(home, 'profiles', 'xpeach')
+    mkdirSync(profileDir, { recursive: true })
+    writeFileSync(join(home, 'xpeach.relay.json'), body, 'utf8')
+    writeFileSync(join(profileDir, 'xpeach.key'), 'sk-stale-resurrected-key\n', 'utf8')
+
+    vi.stubEnv('XPH_HOME', home)
+    delete process.env.XPEACH_RELAY_KEY
+    delete process.env.XPEACH_API_KEY
+
+    await ensureXpeachProfile(home)
+    expect(process.env.XPEACH_RELAY_KEY).toBeUndefined()
+    expect(process.env.XPEACH_API_KEY).toBeUndefined()
+  })
+
+  it('prefers authoritative xpeach.relay.json key over stale legacy xpeach.key', async () => {
+    const home = makeTempHome()
+    const profileDir = join(home, 'profiles', 'xpeach')
+    mkdirSync(profileDir, { recursive: true })
+    writeFileSync(
+      join(home, 'xpeach.relay.json'),
+      JSON.stringify({ version: 1, revision: 3, key: 'sk-authoritative-relay-key', projectionPending: false }),
+      'utf8',
+    )
+    writeFileSync(join(profileDir, 'xpeach.key'), 'sk-stale-legacy-key\n', 'utf8')
+
+    vi.stubEnv('XPH_HOME', home)
+    delete process.env.XPEACH_RELAY_KEY
+    delete process.env.XPEACH_API_KEY
+
+    await ensureXpeachProfile(home)
+    expect(process.env.XPEACH_RELAY_KEY).toBe('sk-authoritative-relay-key')
+    expect(process.env.XPEACH_API_KEY).toBe('sk-authoritative-relay-key')
+  })
 })

@@ -12,7 +12,6 @@ import {
   OidcClient,
   XpeachClient,
   isDefinitiveTokenRejection,
-  type CaptchaScene,
   type OidcTokenSet,
   type VerifiedAccessIdentity,
 } from '@xpeach/ts-xpeach'
@@ -1391,80 +1390,6 @@ export class XPeachApi {
   }
 
   /**
-   * Interactive login: launch a persistent (headed) Chromium on the site's login
-   * page; the user solves Turnstile in the window, and the session cookie is
-   * harvested the moment it lands. The temp profile is deleted on exit.
-   *
-   * @param signal - request cancellation signal.
-   * @returns harvested `session` cookie value.
-   */
-  async sessionLoginInteractive(signal: AbortSignal): Promise<string> {
-    // Playwright ships with the workspace's web test tooling, not this package —
-    // resolve through the apps/web package (monorepo sibling) via createRequire.
-    const { createRequire } = await import('node:module')
-    const { fileURLToPath, pathToFileURL } = await import('node:url')
-    const anchors = [
-      fileURLToPath(new URL('../../../../apps/web/package.json', import.meta.url)),
-      fileURLToPath(new URL('../../../apps/web/package.json', import.meta.url)),
-      fileURLToPath(new URL('../../apps/web/package.json', import.meta.url)),
-    ]
-    let mod: unknown = null
-    const tried: string[] = []
-    for (const rel of anchors) {
-      try {
-        const req = createRequire(rel)
-        mod = await import(pathToFileURL(req.resolve('playwright')).href)
-        break
-      } catch (e) { tried.push(rel + ':' + String(e).slice(0, 60)) }
-    }
-    if (mod === null) {
-      const bareSpec = 'playwright'
-      try { mod = await import(bareSpec) } catch (e) { tried.push('bare:' + String(e).slice(0, 60)) }
-    }
-    if (mod === null) throw new Error('playwright unavailable [' + tried.join(' | ') + ']')
-    const pw = ((mod as { default?: unknown }).default ?? mod) as {
-      chromium?: { launchPersistentContext(dir: string, opts: Record<string, unknown>): Promise<{
-        pages(): { isClosed(): boolean; goto(url: string, o: Record<string, unknown>): Promise<unknown> }[]
-        newPage(): Promise<{ isClosed(): boolean; goto(url: string, o: Record<string, unknown>): Promise<unknown> }>
-        cookies(url: string): Promise<{ name: string; value: string }[]>
-        close(): Promise<void>
-      }> }
-    }
-    if (pw.chromium === undefined) throw new Error('playwright module shape unexpected: ' + Object.keys(mod as object).join(','))
-    const os = await import('node:os')
-    const path = await import('node:path')
-    const { mkdtempSync } = await import('node:fs')
-    // mkdtempSync: random suffix + owner-only (0700) creation in one step — the
-    // login profile holds a harvested session cookie, so it must not sit in a
-    // directory another local user could predict or pre-create.
-    const profileDir = mkdtempSync(path.join(os.tmpdir(), 'xpeach-login-'))
-    console.error('[xpeach-login] resolved playwright, launching headed chromium…')
-    const context = await pw.chromium.launchPersistentContext(profileDir, { headless: false, args: ['--window-size=480,720'], timeout: 20000 })
-    console.error('[xpeach-login] chromium up, goto login page')
-    try {
-      const page = context.pages()[0] ?? await context.newPage()
-      await page.goto(this.baseURL + '/login', { waitUntil: 'domcontentloaded', timeout: 30000 })
-      console.error('[xpeach-login] login page loaded, polling cookies')
-      const deadline = Date.now() + 120_000
-      while (Date.now() < deadline) {
-        if (signal.aborted) throw new Error('login cancelled')
-        const cookies: { name: string; value: string }[] = await context.cookies(this.baseURL)
-        const hit = cookies.find(c => c.name === 'session' && c.value !== '')
-        if (hit !== undefined) return hit.value
-        await new Promise(res => setTimeout(res, 1500))
-        // Window closed by the user → abort quietly.
-        if (!page.isClosed()) continue
-        throw new Error('login window closed before sign-in')
-      }
-      throw new Error('login timed out (120s)')
-    } finally {
-      await context.close().catch(() => {})
-      const { rmSync } = await import('node:fs')
-      try { rmSync(profileDir, { recursive: true, force: true }) } catch (_err) { /* best effort */ }
-    }
-  }
-
-  /**
    * Reveal a token's full key (session scope, CriticalRateLimit).
    *
    * @param id - token row identifier.
@@ -2024,7 +1949,7 @@ export class XPeachApi {
             payload: this.buildBridgePayloadFromVerifiedIdentity(rotated, identity),
           }
         } catch (refreshErr) {
-          if (signal.aborted) throw refreshErr
+          signal.throwIfAborted()
           if (!isDefinitiveTokenRejection(refreshErr)) {
             return {
               status: 'transient_error',
@@ -2188,7 +2113,7 @@ export class XPeachApi {
   ): Promise<XPeachSsoCaptchaChallenge> {
     const base = validateSsoBaseUrl(ssoBaseURL)
     const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
-    const raw = await captcha.getChallenge(scene as CaptchaScene, { signal })
+    const raw = await captcha.getChallenge(scene, { signal })
     return {
       provider: raw.provider,
       siteKey: raw.site_key,

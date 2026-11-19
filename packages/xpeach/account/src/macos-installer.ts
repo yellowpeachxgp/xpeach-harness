@@ -582,6 +582,7 @@ function signAndRegisterAppBundle(appBundleDir: string): void {
     try {
       execFileSync('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', appBundleDir], {
         stdio: 'pipe',
+        env: packagingEnv(),
       })
     } catch (_err) { /* ad-hoc codesign best-effort */ }
   }
@@ -589,7 +590,7 @@ function signAndRegisterAppBundle(appBundleDir: string): void {
     '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
   if (existsSync(lsregister)) {
     try {
-      execFileSync(lsregister, ['-f', appBundleDir], { stdio: 'pipe' })
+      execFileSync(lsregister, ['-f', appBundleDir], { stdio: 'pipe', env: packagingEnv() })
     } catch (_err) { /* LaunchServices registration best-effort */ }
   }
 }
@@ -1126,6 +1127,7 @@ export async function buildMacosPkgInstaller(
     const payloadFilesRaw = execFileSync('/usr/sbin/pkgutil', ['--payload-files', paths.pkgPath], {
       encoding: 'utf8',
       maxBuffer: 128 * 1024 * 1024,
+      env: packagingEnv(),
     }).trim()
     const payloadLines = payloadFilesRaw.split('\n')
     const payloadFilesOut = payloadLines.length <= 200
@@ -1145,6 +1147,7 @@ export async function buildMacosPkgInstaller(
       volInfoOut = execFileSync('/usr/sbin/installer', ['-pkg', paths.pkgPath, '-volinfo'], {
         encoding: 'utf8',
         maxBuffer: 16 * 1024 * 1024,
+        env: packagingEnv(),
       }).trim()
     } catch (_err) { /* volinfo optional on restricted environments */ }
 
@@ -1231,6 +1234,7 @@ export async function runMacosInstallerAction(
   if (action === 'open') {
     execFileSync('/usr/bin/open', ['-a', '/System/Library/CoreServices/Installer.app', paths.pkgPath], {
       stdio: 'ignore',
+      env: packagingEnv(),
     })
     return {
       ok: true,
@@ -1244,6 +1248,7 @@ export async function runMacosInstallerAction(
   if (action === 'reveal') {
     execFileSync('/usr/bin/open', ['-R', paths.pkgPath], {
       stdio: 'ignore',
+      env: packagingEnv(),
     })
     return {
       ok: true,
@@ -1326,9 +1331,12 @@ export async function runMacosInstallerAction(
     : execFileSync(
       join(installedAppPath, 'Contents', 'MacOS', 'XPeachHarness'),
       ['--version'],
-      { encoding: 'utf8' },
+      { encoding: 'utf8', env: packagingEnv() },
     ).trim()
-  const xphVersionOut = execFileSync(localXphPath, ['--version'], { encoding: 'utf8' }).trim()
+  const xphVersionOut = execFileSync(localXphPath, ['--version'], {
+    encoding: 'utf8',
+    env: packagingEnv(),
+  }).trim()
 
   const combinedVerify = [
     verifyOutput ?? '',

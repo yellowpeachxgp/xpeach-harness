@@ -133,12 +133,23 @@ describe('account state writes on a fresh install', () => {
       const sessionDirs = readdirSync(join(destSessions, projectDirs[0]!))
       expect(sessionDirs).toHaveLength(1)
       const archivePath = join(destSessions, projectDirs[0]!, sessionDirs[0]!, 'session.v4.jsonl.zstd')
-      const decompressed = zstdDecompressSync(readFileSync(archivePath)).toString('utf8').trim().split('\n')
-      const header = JSON.parse(decompressed[0]!) as { createdAt: number; cwd: string; version: number }
+      const archiveBytes = readFileSync(archivePath)
+      const zstdMagic = Buffer.from([0x28, 0xb5, 0x2f, 0xfd])
+      const secondFrameOffset = archiveBytes.indexOf(zstdMagic, 4)
+      expect(secondFrameOffset).toBeGreaterThan(0)
+      const headerText = zstdDecompressSync(archiveBytes.subarray(0, secondFrameOffset)).toString('utf8').trim()
+      const bodyText = zstdDecompressSync(archiveBytes.subarray(secondFrameOffset)).toString('utf8').trim()
+      const header = JSON.parse(headerText) as { createdAt: number; cwd: string; version: number }
       expect(header.version).toBe(4)
       expect(Number.isSafeInteger(header.createdAt)).toBe(true)
       expect(header.cwd.startsWith('/')).toBe(true)
-      const events = decompressed.slice(1).map(line => JSON.parse(line) as { type: string; time: number; data: Record<string, unknown> })
+      const events = bodyText.split('\n').map(line => JSON.parse(line) as { type: string; time: number; data: Record<string, unknown> })
+      expect(events.length).toBeGreaterThan(0)
+      // Imported sessions inherit the active deployment preset rather than hardcoding danger-full-access.
+      expect(events.some(ev => ev.type === 'permission/preset' || ev.type === 'sandbox/mode' || ev.type === 'approval/policy')).toBe(false)
+      expect(events.some(ev => ev.type === 'session/end-seed')).toBe(true)
+      expect(events.some(ev => ev.type === 'user/message')).toBe(true)
+      expect(events.some(ev => ev.type === 'assistant/message')).toBe(true)
       let openSteps = 0
       for (const ev of events) {
         expect(Number.isSafeInteger(ev.time)).toBe(true)
@@ -222,15 +233,32 @@ describe('account state writes on a fresh install', () => {
       get: (name: string) => (name === 'credentials' ? { set, unset } : undefined),
       emit,
     }
+    const setAdminKey = vi.fn()
+    const setSessionKey = vi.fn()
     fakeAccount['api'] = {
-      setAdminKey: vi.fn(),
-      setSessionKey: vi.fn(),
+      siteBaseURL: 'https://bindkey-probe-test.invalid',
+      setAdminKey,
+      setSessionKey,
       ssoRevokeToken: vi.fn().mockResolvedValue(true),
-      adminSelf: vi.fn(async () => { throw new Error('unauthorized') }),
     }
 
     const bindKey = Reflect.get(XPeachAccount.prototype, 'bindKey') as (req: { key: string }, sig: AbortSignal) => Promise<unknown>
-    await expect(bindKey.call(fakeAccount, { key: 'adm-invalid9999' }, new AbortController().signal)).rejects.toThrow('unauthorized')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : input)
+      expect(url.origin).toBe('https://bindkey-probe-test.invalid')
+      expect(url.pathname).toBe('/api/user/self')
+      const headers = new Headers(init?.headers)
+      expect(headers.get('Authorization')).toBe('adm-invalid9999')
+      return Response.json({ success: false, message: 'unauthorized' }, { status: 401 })
+    })
+    try {
+      await expect(bindKey.call(fakeAccount, { key: 'adm-invalid9999' }, new AbortController().signal)).rejects.toThrow('unauthorized')
+      // Probing must use an isolated XPeachApi instance and never mutate shared override setters.
+      expect(setAdminKey).not.toHaveBeenCalled()
+      expect(setSessionKey).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+    }
     expect(readFileSync(keyFile, 'utf8')).toBe('sk-existing1234\n')
     expect(readFileSync(adminKeyFile, 'utf8')).toBe('adm-existing1234\n')
     expect(existsSync(slotsFile)).toBe(true)
@@ -453,6 +481,10 @@ describe('account state writes on a fresh install', () => {
         headers: { Authorization: 'Bearer ghp_test' },
       }, sig)
       expect(afterMcpSave.servers).toHaveLength(2)
+      if (process.platform !== 'win32') {
+        expect(statSync(patchPath).mode & 0o777).toBe(0o600)
+      }
+      expect(readdirSync(profileDir).filter(name => name.includes('.tmp.'))).toEqual([])
 
       const afterMcpToggle = fakeAccount.mcpToggleOp({ id: 'mcp-github', enabled: false }, sig)
       expect(afterMcpToggle.servers.find(s => s.id === 'mcp-github')?.disabled).toBe(true)
@@ -463,6 +495,9 @@ describe('account state writes on a fresh install', () => {
       expect(readMcpPatchEntries(patchPath)).toHaveLength(1)
       writeMcpPatchEntries(patchPath, [])
       expect(readFileSync(patchPath, 'utf8')).toContain("name: '@xpeach/xph-account'")
+      if (process.platform !== 'win32') {
+        expect(statSync(patchPath).mode & 0o777).toBe(0o600)
+      }
     } finally {
       if (prevXphHome === undefined) delete process.env.XPH_HOME
       else process.env.XPH_HOME = prevXphHome

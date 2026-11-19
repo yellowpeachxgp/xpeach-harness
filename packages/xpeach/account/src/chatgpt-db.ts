@@ -27,6 +27,27 @@ export interface DbThread {
 
 const DB_EXTENSIONS = /\.(db|sqlite|sqlite3)$/i
 const UNPARSED = Symbol('unparsed')
+const SQLITE_SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN|SESSION|COOKIE|AUTH/i
+const SQLITE_BLOCKED_ENV_PREFIXES = ['XPEACH_', 'XPH_', 'DSH_'] as const
+
+/**
+ * Scrub credential-shaped and harness-prefixed environment variables before
+ * spawning the system `sqlite3` CLI.
+ *
+ * @param source - parent environment map to filter (defaults to `process.env`).
+ * @returns sanitized environment dictionary safe to pass to `execFileSync`.
+ */
+export function scrubbedSqliteEnv(source: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue
+    const upper = key.toUpperCase()
+    if (SQLITE_SENSITIVE_ENV_PATTERN.test(key)) continue
+    if (SQLITE_BLOCKED_ENV_PREFIXES.some(prefix => upper.startsWith(prefix))) continue
+    env[key] = value
+  }
+  return env
+}
 
 /** Quote a SQLite table or column identifier with doubled embedded quotes. */
 function quoteIdent(id: string): string {
@@ -38,7 +59,7 @@ function query(db: string, sql: string): unknown[] {
   let raw = ''
   try {
     raw = execFileSync('sqlite3', ['-readonly', '-json', db, sql], {
-      encoding: 'utf8', timeout: 15_000, maxBuffer: 32 * 1024 * 1024,
+      encoding: 'utf8', timeout: 15_000, maxBuffer: 32 * 1024 * 1024, env: scrubbedSqliteEnv(),
     })
   } catch (_err) { return [] }
   const out = raw.trim()

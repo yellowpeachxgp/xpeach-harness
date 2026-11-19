@@ -4,10 +4,10 @@
  * Claude Code / Codex / zcode are decoded into native XPeach session logs
  * (v4 JSONL, concatenated zstd frames: one header frame + one event frame).
  */
-import { closeSync, cpSync, type Dirent, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, cpSync, type Dirent, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { constants, zstdCompressSync, zstdDecompressSync } from 'node:zlib'
 import type { JsonValue } from '@xpeach/xph-util-values'
 import { chatgptDatabaseFiles, decodeChatgptDatabase } from './chatgpt-db.ts'
@@ -1058,9 +1058,6 @@ function writeSession(root: string, thread: ImportedThread): string {
     events.push({ type, seq: seq++, time: time(seq * 1000), data, ...extra })
     return current
   }
-  push('permission/preset', { preset: 'danger-full-access' })
-  push('sandbox/mode', { mode: 'danger-full-access' })
-  push('approval/policy', { policy: 'never' })
   push('session/end-seed', {})
   // Group messages into turns: one user message plus the assistants that follow.
   const turns: { user?: { text: string; time: number }; assistants: { text: string; time: number }[] }[] = []
@@ -1511,6 +1508,21 @@ function formatMcpPatchEntry(entry: XPeachMcpPatchEntry): string {
   return lines.join('\n')
 }
 
+function writePrivateFileAtomic(filePath: string, content: string): void {
+  mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 })
+  const tmpPath = `${filePath}.tmp.${String(process.pid)}.${randomBytes(6).toString('hex')}`
+  try {
+    writeFileSync(tmpPath, content, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    try {
+      chmodSync(tmpPath, 0o600)
+    } catch (_err) { /* chmod may be a no-op on Windows */ }
+    renameSync(tmpPath, filePath)
+  } catch (err) {
+    try { unlinkSync(tmpPath) } catch (_cleanupErr) { /* ignore */ }
+    throw err
+  }
+}
+
 /**
  * Write deduplicated MCP client entries into `cordis.patch.yml`, preserving all non-MCP patch entries.
  * @param patchPath - path to `cordis.patch.yml`.
@@ -1526,7 +1538,6 @@ export function writeMcpPatchEntries(patchPath: string, entries: readonly XPeach
     .replace(/(?:^|\n)\s*\[\]\s*$/, '')
     .trimEnd()
 
-  mkdirSync(dirname(patchPath), { recursive: true })
   if (deduped.length === 0) {
     const hasNonComment = baseText.split(/\r?\n/).some(l => l.trim().length > 0 && !l.trim().startsWith('#'))
     const out = hasNonComment
@@ -1534,13 +1545,13 @@ export function writeMcpPatchEntries(patchPath: string, entries: readonly XPeach
       : baseText.length > 0
         ? `${baseText}\n[]\n`
         : '[]\n'
-    writeFileSync(patchPath, out, 'utf8')
+    writePrivateFileAtomic(patchPath, out)
     return
   }
 
   const mcpBlock = `- insert:\n${deduped.map(formatMcpPatchEntry).join('\n')}\n`
   const prefix = baseText.length > 0 ? `${baseText}\n` : ''
-  writeFileSync(patchPath, `${prefix}${mcpBlock}`, 'utf8')
+  writePrivateFileAtomic(patchPath, `${prefix}${mcpBlock}`)
 }
 
 /**
