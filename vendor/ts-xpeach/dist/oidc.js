@@ -133,39 +133,137 @@ export function buildAuthorizationUrl(input) {
         url.searchParams.set("login_hint", input.loginHint);
     return url.toString();
 }
-export function parseAuthorizationCallback(callbackUrlOrQuery, expectedState) {
+function constantTimeEqual(a, b) {
+    const bytesA = new TextEncoder().encode(a);
+    const bytesB = new TextEncoder().encode(b);
+    const maxLen = Math.max(bytesA.length, bytesB.length);
+    let diff = bytesA.length ^ bytesB.length;
+    for (let i = 0; i < maxLen; i++) {
+        diff |= (bytesA[i] ?? 0) ^ (bytesB[i] ?? 0);
+    }
+    return diff === 0;
+}
+function validateIssuerUrl(rawIss) {
+    const trimmed = rawIss.trim();
+    if (!trimmed) {
+        throw new ResponseFormatError("OIDC 授权回调 iss 参数不能为空");
+    }
+    let parsed;
+    try {
+        parsed = new URL(trimmed);
+    }
+    catch {
+        throw new ResponseFormatError("OIDC 授权回调 iss 参数不是合法绝对 URL");
+    }
+    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+        parsed.username ||
+        parsed.password ||
+        parsed.search ||
+        parsed.hash) {
+        throw new ResponseFormatError("OIDC 授权回调 iss 参数格式无效");
+    }
+    return trimmed.replace(/\/+$/, "");
+}
+async function sleepWithAbort(ms, signal, customSleep) {
+    if (signal?.aborted) {
+        throw new TransportError("设备授权轮询已取消");
+    }
+    if (!signal) {
+        if (customSleep) {
+            await customSleep(ms);
+            return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, ms));
+        return;
+    }
+    await new Promise((resolve, reject) => {
+        let settled = false;
+        let timer;
+        const onAbort = () => {
+            if (settled)
+                return;
+            settled = true;
+            if (timer !== undefined)
+                clearTimeout(timer);
+            reject(new TransportError("设备授权轮询已取消"));
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+        if (customSleep) {
+            void customSleep(ms).then(() => {
+                if (settled)
+                    return;
+                settled = true;
+                signal.removeEventListener("abort", onAbort);
+                resolve();
+            }, (err) => {
+                if (settled)
+                    return;
+                settled = true;
+                signal.removeEventListener("abort", onAbort);
+                reject(err);
+            });
+        }
+        else {
+            timer = setTimeout(() => {
+                if (settled)
+                    return;
+                settled = true;
+                signal.removeEventListener("abort", onAbort);
+                resolve();
+            }, ms);
+        }
+    });
+}
+export function parseAuthorizationCallback(callbackUrlOrQuery, expectedState, expectedIssuer) {
     if (!expectedState.trim()) {
         throw new ResponseFormatError("OIDC 回调校验必须提供非空 expectedState");
     }
-    const params = callbackUrlOrQuery instanceof URLSearchParams
-        ? callbackUrlOrQuery
-        : callbackUrlOrQuery instanceof URL
-            ? callbackUrlOrQuery.searchParams
-            : callbackUrlOrQuery.startsWith("?")
-                ? new URLSearchParams(callbackUrlOrQuery.slice(1))
-                : callbackUrlOrQuery.includes("://")
-                    ? new URL(callbackUrlOrQuery).searchParams
-                    : new URL(callbackUrlOrQuery, "http://127.0.0.1").searchParams;
+    let params;
+    try {
+        params =
+            callbackUrlOrQuery instanceof URLSearchParams
+                ? callbackUrlOrQuery
+                : callbackUrlOrQuery instanceof URL
+                    ? callbackUrlOrQuery.searchParams
+                    : callbackUrlOrQuery.startsWith("?")
+                        ? new URLSearchParams(callbackUrlOrQuery.slice(1))
+                        : callbackUrlOrQuery.includes("://")
+                            ? new URL(callbackUrlOrQuery).searchParams
+                            : new URL(callbackUrlOrQuery, "http://127.0.0.1").searchParams;
+    }
+    catch {
+        throw new ResponseFormatError("OIDC 回调 URL 格式无效");
+    }
+    let validatedIss;
+    if (params.has("iss")) {
+        const normalizedIss = validateIssuerUrl(params.get("iss") ?? "");
+        if (expectedIssuer !== undefined && expectedIssuer.trim() !== "") {
+            const normalizedExpected = expectedIssuer.trim().replace(/\/+$/, "");
+            if (normalizedIss !== normalizedExpected) {
+                throw new ResponseFormatError("OIDC 授权回调 iss 与预期签发方不一致");
+            }
+        }
+        validatedIss = normalizedIss;
+    }
     const returnedState = params.get("state") ?? undefined;
     const oauthErr = params.get("error");
     if (oauthErr) {
-        if (returnedState !== expectedState) {
+        if (!returnedState || !constantTimeEqual(returnedState, expectedState)) {
             throw new ResponseFormatError("OIDC 错误回调 state 不匹配，拒绝采信");
         }
         throw new OAuthCallbackError(oauthErr, params.get("error_description") ?? undefined, returnedState);
     }
-    if (!returnedState || returnedState !== expectedState) {
+    if (!returnedState || !constantTimeEqual(returnedState, expectedState)) {
         throw new ResponseFormatError("OIDC 授权回调 state 不匹配");
     }
     const code = params.get("code")?.trim() ?? "";
     if (!code) {
         throw new ResponseFormatError("OIDC 授权回调缺少 code");
     }
-    const iss = params.get("iss") ?? undefined;
     return {
         code,
         state: returnedState,
-        ...(iss !== undefined ? { iss } : {}),
+        ...(validatedIss !== undefined ? { iss: validatedIss } : {}),
     };
 }
 /** 判断异常是否属于令牌已被服务端明确拒绝/吊销/失效（而非网络抖动或 5xx）。 */
@@ -202,7 +300,10 @@ export class OidcClient {
     authMethod;
     baseTransportConfig;
     jwksCacheTtlMs;
+    forcedJwksCooldownMs = 15_000;
     cachedJwks = null;
+    lastForcedJwksRefreshAt = 0;
+    inflightForcedJwks = null;
     constructor(options) {
         this.baseUrl = normalizeOrigin(options.baseUrl);
         if (!options.clientId.trim()) {
@@ -298,6 +399,21 @@ export class OidcClient {
         this.cachedJwks = { fetchedAt: now, keys };
         return keys;
     }
+    async refreshJwksOnUnknownKid(options) {
+        if (this.inflightForcedJwks) {
+            return this.inflightForcedJwks;
+        }
+        const now = Date.now();
+        if (this.lastForcedJwksRefreshAt > 0 && now - this.lastForcedJwksRefreshAt < this.forcedJwksCooldownMs) {
+            return this.cachedJwks?.keys ?? [];
+        }
+        this.lastForcedJwksRefreshAt = now;
+        const task = this.fetchJwks(true, options).finally(() => {
+            this.inflightForcedJwks = null;
+        });
+        this.inflightForcedJwks = task;
+        return task;
+    }
     async verifyIdToken(idToken, opts, requestOptions) {
         const parts = idToken.split(".");
         if (parts.length !== 3) {
@@ -307,12 +423,24 @@ export class OidcClient {
         if (header.alg !== "RS256") {
             throw new ResponseFormatError(`ID Token 签名算法不受支持：${String(header.alg)}`);
         }
+        if (header.typ !== undefined) {
+            if (typeof header.typ !== "string") {
+                throw new ResponseFormatError("ID Token typ 头格式无效");
+            }
+            const normalizedTyp = header.typ.trim().toLowerCase();
+            if (normalizedTyp === "at+jwt" || normalizedTyp === "application/at+jwt") {
+                throw new ResponseFormatError("拒绝将访问令牌 (at+jwt) 作为 ID Token 校验");
+            }
+        }
         const kid = typeof header.kid === "string" ? header.kid : undefined;
+        const isMatchingSigKey = (k) => k.kty === "RSA" &&
+            (k.use === undefined || k.use === "" || k.use === "sig") &&
+            (!kid || k.kid === kid);
         let keys = await this.fetchJwks(false, requestOptions);
-        let jwk = keys.find((k) => k.kty === "RSA" && (!kid || k.kid === kid));
+        let jwk = keys.find(isMatchingSigKey);
         if (!jwk) {
-            keys = await this.fetchJwks(true, requestOptions);
-            jwk = keys.find((k) => k.kty === "RSA" && (!kid || k.kid === kid));
+            keys = await this.refreshJwksOnUnknownKid(requestOptions);
+            jwk = keys.find(isMatchingSigKey);
         }
         if (!jwk || typeof jwk.n !== "string" || typeof jwk.e !== "string") {
             throw new ResponseFormatError("JWKS 中未找到匹配的 RSA 签名公钥");
@@ -344,13 +472,27 @@ export class OidcClient {
         if (!audList.includes(this.clientId)) {
             throw new ResponseFormatError("ID Token audience 不包含当前 clientId");
         }
+        if (audList.length > 1) {
+            const azp = typeof payload.azp === "string" ? payload.azp : "";
+            if (azp !== this.clientId) {
+                throw new ResponseFormatError("多受众 ID Token 缺少匹配的 azp");
+            }
+        }
+        else if (payload.azp !== undefined && payload.azp !== this.clientId) {
+            throw new ResponseFormatError("ID Token azp 与当前 clientId 不一致");
+        }
         const skew = opts?.clockSkewSeconds ?? 60;
         const nowSec = opts?.nowSeconds ?? Math.floor(Date.now() / 1000);
         if (!Number.isFinite(exp) || nowSec - skew >= exp) {
             throw new ResponseFormatError("ID Token 已过期");
         }
-        if (!Number.isFinite(iat) || iat > nowSec + skew) {
+        if (!Number.isFinite(iat) || iat <= 0 || iat > nowSec + skew) {
             throw new ResponseFormatError("ID Token 签发时间异常");
+        }
+        if (payload.nbf !== undefined) {
+            if (typeof payload.nbf !== "number" || !Number.isFinite(payload.nbf) || payload.nbf > nowSec + skew) {
+                throw new ResponseFormatError("ID Token 尚未生效");
+            }
         }
         if (opts?.expectedNonce !== undefined && payload.nonce !== opts.expectedNonce) {
             throw new ResponseFormatError("ID Token nonce 与授权请求不一致");
@@ -398,6 +540,9 @@ export class OidcClient {
     async exchangeAuthorizationCode(params, options) {
         if (!params.code.trim() || !params.redirectUri.trim()) {
             throw new ResponseFormatError("授权码换取令牌必须提供 code 与 redirectUri");
+        }
+        if (params.verifyIdToken === false && params.expectedNonce !== undefined) {
+            throw new ResponseFormatError("已要求校验 nonce，不允许跳过 ID Token 验签");
         }
         const raw = await this.submitTokenForm({
             grant_type: "authorization_code",
@@ -463,7 +608,7 @@ export class OidcClient {
         }
         let intervalSeconds = Math.max(1, params.intervalSeconds ?? 5);
         const deadline = Date.now() + Math.max(5, params.expiresInSeconds ?? 600) * 1000;
-        const sleepFn = this.baseTransportConfig.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+        const customSleep = this.baseTransportConfig.sleep;
         for (let attempt = 1; Date.now() < deadline; attempt++) {
             if (options?.signal?.aborted) {
                 throw new TransportError("设备授权轮询已取消");
@@ -483,13 +628,13 @@ export class OidcClient {
                 if (err instanceof OAuthProtocolError) {
                     if (err.error === "authorization_pending") {
                         params.onPending?.(attempt, intervalSeconds);
-                        await sleepFn(intervalSeconds * 1000);
+                        await sleepWithAbort(intervalSeconds * 1000, options?.signal, customSleep);
                         continue;
                     }
                     if (err.error === "slow_down") {
                         intervalSeconds += 5;
                         params.onPending?.(attempt, intervalSeconds);
-                        await sleepFn(intervalSeconds * 1000);
+                        await sleepWithAbort(intervalSeconds * 1000, options?.signal, customSleep);
                         continue;
                     }
                 }
@@ -516,6 +661,13 @@ export class OidcClient {
     /** 调用 SSO 权威令牌校验端点（同时支持 RS256 at+jwt 与 xph_at_ 不透明令牌）。 */
     async verifyAccessToken(accessToken, options) {
         const res = await this.bearerSdk(accessToken).v1InternalVerify(options);
+        if (res.issuer && res.issuer.replace(/\/+$/, "") !== this.issuer.replace(/\/+$/, "")) {
+            throw new ResponseFormatError("访问令牌 issuer 与当前 OIDC 客户端配置不一致");
+        }
+        const resolvedTenantSlug = res.tenant_slug ?? null;
+        if (this.tenantSlug && resolvedTenantSlug && resolvedTenantSlug !== this.tenantSlug) {
+            throw new ResponseFormatError("访问令牌 tenant_slug 与当前 OIDC 客户端配置不一致");
+        }
         return {
             active: true,
             format: res.format,
@@ -527,7 +679,8 @@ export class OidcClient {
             group: res.group,
             affCode: res.aff_code,
             tenantId: res.tenant_id,
-            tenantSlug: res.format === "jwt" ? res.tenant_slug : null,
+            tenantSlug: resolvedTenantSlug,
+            ...(res.issuer ? { issuer: res.issuer } : {}),
             clientId: res.client_id,
             scope: res.scope,
             roles: res.format === "jwt" ? res.roles : [],

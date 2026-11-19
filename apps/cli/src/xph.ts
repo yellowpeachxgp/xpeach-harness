@@ -116,9 +116,9 @@ export async function ensureXpeachProfile(home?: string): Promise<string> {
   const xphProfile = join(XPH_HOME, 'profiles', 'xpeach')
   if (!explicitHome && !existsSync(xphProfile) && existsSync(legacyProfile)) {
     mkdirSync(join(XPH_HOME, 'profiles'), { recursive: true })
-    // Copy the user patch layer without carrying credentials, lockfiles, or legacy manifests.
+    // Copy the user patch layer without carrying credentials, state files, temp files, lockfiles, or legacy manifests.
     const excluded = new RegExp(
-      'xpeach\\.(key|key\\.bak|keys|key\\.seeded|session|admin)$|\\.credentials|pricing\\.json$|package\\.json$|pnpm-.*\\.yaml$|pnpm-lock\\.yaml$|node_modules$',
+      'xpeach\\.(key|key\\.bak|keys|key\\.seeded|session|admin|sso\\.json|token|relay\\.json|route\\.json)$|\\.tmp\\.[^/\\\\]+$|\\.credentials|pricing\\.json$|package\\.json$|pnpm-.*\\.yaml$|pnpm-lock\\.yaml$|node_modules$',
     )
     cpSync(legacyProfile, xphProfile, { recursive: true, dereference: false, filter: src => !excluded.test(src) })
     console.log('[xph] seeded profile from ~/.dsh — from now on the two homes are independent')

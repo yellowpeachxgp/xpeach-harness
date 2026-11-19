@@ -221,4 +221,44 @@ describe('ensureXpeachProfile', () => {
     expect(updatedPatch).toContain('name: "@xpeach/xph-client-locale"')
     expect(updatedPatch).not.toContain('@deepseek-ai/')
   })
+
+  it('excludes xpeach SSO/token/relay/route state and temp files when seeding from legacy ~/.dsh', async () => {
+    const fakeUserHome = makeTempHome()
+    const legacyProfile = join(fakeUserHome, '.dsh', 'profiles', 'xpeach')
+    mkdirSync(legacyProfile, { recursive: true })
+    writeFileSync(
+      join(legacyProfile, 'cordis.patch.yml'),
+      '- id: locale\n  config:\n    preference: zh-CN\n',
+      'utf8',
+    )
+    const excludedFiles = [
+      'xpeach.key',
+      'xpeach.admin',
+      'xpeach.session',
+      'xpeach.sso.json',
+      'xpeach.token',
+      'xpeach.relay.json',
+      'xpeach.route.json',
+      'xpeach.key.tmp.1234',
+      'xpeach.sso.json.tmp.5678.abcdef123456',
+    ]
+    for (const file of excludedFiles) {
+      writeFileSync(join(legacyProfile, file), 'sensitive-legacy-content\n', 'utf8')
+    }
+
+    vi.stubEnv('HOME', fakeUserHome)
+    vi.stubEnv('USERPROFILE', fakeUserHome)
+    vi.stubEnv('XPH_HOME', '')
+    vi.stubEnv('DSH_HOME', '')
+    delete process.env.XPH_HOME
+    delete process.env.DSH_HOME
+    vi.stubEnv('XPEACH_RELAY_KEY', 'fixture-key')
+
+    const seededProfile = await ensureXpeachProfile()
+    expect(seededProfile).toBe(join(fakeUserHome, '.xph', 'profiles', 'xpeach'))
+    expect(readFileSync(join(seededProfile, 'cordis.patch.yml'), 'utf8')).toContain('preference: zh-CN')
+    for (const file of excludedFiles) {
+      expect(existsSync(join(seededProfile, file)), `${file} must not be copied from ~/.dsh`).toBe(false)
+    }
+  })
 })

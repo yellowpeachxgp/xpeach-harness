@@ -10,6 +10,7 @@ import {
   cpSync,
   type Dirent,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -19,7 +20,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { homedir, release, tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { Context, Service } from '@xpeach/xph-cordis'
@@ -295,6 +296,59 @@ function profileHome(): string {
 }
 
 const INITIAL_PROFILE_HOME = profileHome()
+
+const BROWSER_SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN|SESSION|COOKIE|AUTH/i
+const BROWSER_BLOCKED_ENV_PREFIXES = ['XPEACH_', 'XPH_', 'DSH_'] as const
+
+/**
+ * Scrub credential-shaped and harness-prefixed environment variables before
+ * launching an external system browser process.
+ *
+ * @param source - parent environment map to filter (defaults to `process.env`).
+ * @returns sanitized environment dictionary safe to pass to `spawn(..., { env })`.
+ */
+export function scrubbedBrowserEnv(source: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue
+    const upper = key.toUpperCase()
+    if (BROWSER_SENSITIVE_ENV_PATTERN.test(key)) continue
+    if (BROWSER_BLOCKED_ENV_PREFIXES.some(prefix => upper.startsWith(prefix))) continue
+    env[key] = value
+  }
+  return env
+}
+
+function abortReasonError(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason
+  if (reason instanceof Error) return reason
+  return new DOMException(typeof reason === 'string' && reason.length > 0 ? reason : 'The operation was aborted.', 'AbortError')
+}
+
+/**
+ * Race a shared in-flight promise against a caller-specific `AbortSignal`
+ * without propagating that caller's cancellation into the shared work.
+ */
+async function raceWithAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (signal === undefined) return await promise
+  if (signal.aborted) throw abortReasonError(signal)
+  let onAbort: (() => void) | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, rejectPromise) => {
+        onAbort = (): void => {
+          rejectPromise(abortReasonError(signal))
+        }
+        signal.addEventListener('abort', onAbort, { once: true })
+      }),
+    ])
+  } finally {
+    if (onAbort !== undefined) {
+      signal.removeEventListener('abort', onAbort)
+    }
+  }
+}
 
 interface ReconcileSessionHeader {
   readonly id: string
@@ -705,7 +759,7 @@ export class XPeachDeepSeekAccount extends Service {
     intervalSec: number,
     signal: AbortSignal,
   ): Promise<void> {
-    const intervalMs = Math.max(1500, intervalSec * 1000)
+    let intervalMs = Math.max(1500, intervalSec * 1000)
     const isAborted = (): boolean => signal.aborted
     const currentAttempt = (): DeepSeekSignInAttemptView | null => this.attempt
     while (!isAborted() && currentAttempt()?.id === attemptId && currentAttempt()?.phase === 'waiting-browser') {
@@ -736,7 +790,16 @@ export class XPeachDeepSeekAccount extends Service {
       }
       try {
         const polled = await this.account.ssoDevicePollOp({ deviceCode }, signal)
-        if (polled.status === 'pending') continue
+        if ((polled.status as string) === 'slow_down') {
+          intervalMs += 5000
+          continue
+        }
+        if (polled.status === 'pending') {
+          if (polled.message === 'slow_down') {
+            intervalMs += 5000
+          }
+          continue
+        }
         if (polled.status === 'approved') {
           this.attempt = { id: attemptId, phase: 'succeeded' }
           this.notifyWatchers(true)
@@ -879,15 +942,49 @@ export class XPeachDeepSeekAccount extends Service {
     return Promise.resolve(false)
   }
 
+  private allowedOrigins(): Set<string> {
+    if (typeof this.account.allowedRelayOrigins === 'function') {
+      const list = this.account.allowedRelayOrigins()
+      if (list.length > 0) return new Set(list)
+    }
+    const origins = new Set<string>()
+    const currentRoot = typeof this.account.currentSiteRoot === 'function'
+      ? this.account.currentSiteRoot()
+      : undefined
+    if (typeof currentRoot === 'string' && currentRoot.trim().length > 0) {
+      try {
+        const origin = new URL(currentRoot.trim()).origin
+        origins.add(origin)
+        if (ROUTES.some(route => route.url === origin)) {
+          for (const route of ROUTES) origins.add(route.url)
+        }
+      } catch { /* ignore invalid */ }
+    }
+    return origins
+  }
+
   /**
    * Resolve the active inference relay token when signed in.
    *
    * @param urlOrSignal - optional destination URL or cancellation signal.
    * @param signal - optional cancellation signal.
-   * @returns active relay token, or `undefined` when signed out or unavailable.
+   * @returns active relay token, or `undefined` when signed out, origin-mismatched, or unavailable.
    */
   async resolveToken(urlOrSignal?: string | AbortSignal, signal?: AbortSignal): Promise<string | undefined> {
     const effectiveSignal = urlOrSignal instanceof AbortSignal ? urlOrSignal : signal
+    if (typeof urlOrSignal === 'string') {
+      let targetOrigin: string
+      try {
+        const parsed = new URL(urlOrSignal.trim())
+        if (parsed.username !== '' || parsed.password !== '') return undefined
+        targetOrigin = parsed.origin
+      } catch {
+        return undefined
+      }
+      if (!this.allowedOrigins().has(targetOrigin)) {
+        return undefined
+      }
+    }
     if (!this.account.isBound()) return undefined
     try {
       return await this.account.resolveVerifiedRelayKey(false, effectiveSignal)
@@ -1175,14 +1272,16 @@ export class XPeachAccount extends TypertRemoteService {
     })
     this.ctx.effect(() => {
       const timer = setInterval(() => { void this.api.pricingSync(false, AbortSignal.timeout(30_000)).catch(() => {}) }, 60_000)
-      const networkTimer = setInterval(() => { void this.probeNetwork().catch(() => {}) }, 180_000)
+      const networkTimer = setInterval(() => {
+        if (this.usesOfficialRoutePool()) void this.probeNetwork().catch(() => {})
+      }, 180_000)
       const ssoVerifyTimer = setInterval(() => {
         if (this.isBound()) {
           void this.verifyAndSyncSsoSession(false).catch(() => {})
         }
       }, 120_000)
       const firstProbe = setTimeout(() => {
-        void this.probeNetwork().catch(() => {})
+        if (this.usesOfficialRoutePool()) void this.probeNetwork().catch(() => {})
         if (this.isBound()) {
           void this.verifyAndSyncSsoSession(false).catch(() => {})
         }
@@ -1210,11 +1309,15 @@ export class XPeachAccount extends TypertRemoteService {
     await this.bootstrapKey()
   }
 
+  private isDefaultXphHome(rootHome: string): boolean {
+    return !isTemporaryCredentialDirectory(rootHome) && resolve(rootHome) === resolve(join(homedir(), '.xph'))
+  }
+
   private getRelayState(): RelayState {
     if (this.relayState !== undefined) return this.relayState
     const mirrors = this.sharedMirrorDirs()
     const root = mirrors.length === 0 ? dirname(this.keyFile) : this.profileRootHome()
-    const sharedRoot = mirrors.length === 0 || isTemporaryCredentialDirectory(root) ? root : join(homedir(), '.xph')
+    const sharedRoot = mirrors.length === 0 || !this.isDefaultXphHome(root) ? root : join(homedir(), '.xph')
     const defaultFile = join(sharedRoot, 'xpeach.relay.json')
     const configured = this.liveConfig.relayStateFile
     if (configured !== undefined && !isAbsolute(configured)) {
@@ -1276,7 +1379,8 @@ export class XPeachAccount extends TypertRemoteService {
 
   /**
    * Candidate shared/sibling directories for cross-profile and dev/packaged credential persistence.
-   * When running inside `os.tmpdir()` (isolated unit tests), candidates stay strictly inside that temp home.
+   * Any custom or temporary `XPH_HOME` (`resolve(rootHome) !== resolve(join(homedir(), '.xph'))`)
+   * stays strictly isolated within its own `rootHome` and never mirrors into `~/.xph`.
    */
   private sharedMirrorDirs(): string[] {
     if (typeof this.keyFile !== 'string' || this.keyFile.length === 0) return []
@@ -1284,17 +1388,17 @@ export class XPeachAccount extends TypertRemoteService {
     const parentDir = dirname(profileDir)
     if (basename(parentDir) !== 'profiles') return []
     const rootHome = dirname(parentDir)
-    const inTmp = isTemporaryCredentialDirectory(rootHome)
     const defaultHome = join(homedir(), '.xph')
+    const isDefaultHome = this.isDefaultXphHome(rootHome)
     const candidates = [
       rootHome,
       join(rootHome, 'profiles', 'xpeach-desktop'),
       join(rootHome, 'profiles', 'xpeach'),
-      ...(inTmp ? [] : [
+      ...(isDefaultHome ? [
         defaultHome,
         join(defaultHome, 'profiles', 'xpeach-desktop'),
         join(defaultHome, 'profiles', 'xpeach'),
-      ]),
+      ] : []),
     ]
     const seen = new Set<string>([resolve(profileDir)])
     const result: string[] = []
@@ -1313,10 +1417,10 @@ export class XPeachAccount extends TypertRemoteService {
    */
   private mirrorCredentialFile(filename: string, body: string): void {
     const rootHome = this.profileRootHome()
-    const inTmp = isTemporaryCredentialDirectory(rootHome)
     const defaultHome = join(homedir(), '.xph')
+    const isDefaultHome = this.isDefaultXphHome(rootHome)
     for (const dir of this.sharedMirrorDirs()) {
-      const isRootDir = resolve(dir) === resolve(rootHome) || (!inTmp && resolve(dir) === resolve(defaultHome))
+      const isRootDir = resolve(dir) === resolve(rootHome) || (isDefaultHome && resolve(dir) === resolve(defaultHome))
       if (!isRootDir && !existsSync(dir)) continue
       try {
         this.writeState(join(dir, filename), body)
@@ -1330,9 +1434,14 @@ export class XPeachAccount extends TypertRemoteService {
   private markOnboardedAndClearSignOut(): void {
     const stamp = new Date().toISOString() + '\n'
     const rootHome = this.profileRootHome()
-    const inTmp = isTemporaryCredentialDirectory(rootHome)
-    const homes = new Set<string>([rootHome, this.ownHome()])
-    if (!inTmp) homes.add(join(homedir(), '.xph'))
+    const defaultHome = join(homedir(), '.xph')
+    const isDefaultHome = this.isDefaultXphHome(rootHome)
+    const homes = new Set<string>([rootHome])
+    const own = this.ownHome()
+    if (isDefaultHome || resolve(own) === resolve(rootHome)) {
+      homes.add(own)
+    }
+    if (isDefaultHome) homes.add(defaultHome)
     for (const home of homes) {
       const marker = this.signedOutMarker(home)
       if (existsSync(marker)) {
@@ -1380,8 +1489,8 @@ export class XPeachAccount extends TypertRemoteService {
   private adoptSharedCredentials(): void {
     const rootHome = this.profileRootHome()
     if (existsSync(this.signedOutMarker(rootHome))) return
-    const inTmp = isTemporaryCredentialDirectory(rootHome)
-    if (!inTmp && ! this.isBound() && existsSync(this.signedOutMarker(join(homedir(), '.xph')))) return
+    const defaultHome = join(homedir(), '.xph')
+    if (this.isDefaultXphHome(rootHome) && !this.isBound() && existsSync(this.signedOutMarker(defaultHome))) return
     const mirrorDirs = this.sharedMirrorDirs()
     if (mirrorDirs.length === 0) return
 
@@ -1447,7 +1556,7 @@ export class XPeachAccount extends TypertRemoteService {
     }
     const session = this.resolveSession()
     if (session !== undefined) {
-      process.env[this.sessionKeyVar] = session
+      ;(this.api as { setSessionKey?: (cookie: string | undefined) => void } | undefined)?.setSessionKey?.(session)
     }
     const sso = this.readSsoState()
     const hasEffect = typeof (this.ctx as { effect?: unknown } | undefined)?.effect === 'function'
@@ -1512,16 +1621,26 @@ export class XPeachAccount extends TypertRemoteService {
   private writeState(path: string, body: string): void {
     if (existsSync(path)) {
       try {
-        if (readFileSync(path, 'utf8') === body) return
+        if (!lstatSync(path).isSymbolicLink() && readFileSync(path, 'utf8') === body) {
+          try {
+            chmodSync(path, 0o600)
+          } catch (_err) { /* chmod may be a no-op on Windows */ }
+          return
+        }
       } catch (_err) { /* proceed with atomic write */ }
     }
-    mkdirSync(dirname(path), { recursive: true })
-    const tmpPath = `${path}.tmp.${String(process.pid)}`
-    writeFileSync(tmpPath, body, { encoding: 'utf8', mode: 0o600 })
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+    const tmpPath = `${path}.tmp.${String(process.pid)}.${randomBytes(6).toString('hex')}`
     try {
-      chmodSync(tmpPath, 0o600)
-    } catch (_err) { /* chmod may be a no-op on Windows */ }
-    renameSync(tmpPath, path)
+      writeFileSync(tmpPath, body, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+      try {
+        chmodSync(tmpPath, 0o600)
+      } catch (_err) { /* chmod may be a no-op on Windows */ }
+      renameSync(tmpPath, path)
+    } catch (err) {
+      try { unlinkSync(tmpPath) } catch (_cleanupErr) { /* ignore */ }
+      throw err
+    }
   }
 
   /** Read the profile-local key file; absent or empty → undefined. */
@@ -3228,19 +3347,23 @@ export class XPeachAccount extends TypertRemoteService {
   async bindSession(value: string, signal: AbortSignal): Promise<{ bound: boolean; as?: string }> {
     const trimmed = value.trim()
     if (trimmed.length === 0) throw new RemoteError('xpeach/request-failed', 'xpeach: empty session cookie', { status: 0, message: 'empty session cookie' })
+    const previousSession = this.resolveSession()
     this.api.setSessionKey(trimmed)
+    let bound = false
     try {
       const me = await this.api.sessionSelf(signal)
       const content = trimmed + '\n'
       this.writeState(this.sessionKeyFile, content)
       this.mirrorCredentialFile('xpeach.session', content)
-      process.env[this.sessionKeyVar] = trimmed
+      bound = true
       this.markOnboardedAndClearSignOut()
       void this.ensureDesktopOnboardingCompleted().catch(() => {})
       this.notifyKeyChanged()
       return { bound: true, as: me.username }
     } finally {
-      this.api.setSessionKey(undefined)
+      if (!bound) {
+        this.api.setSessionKey(previousSession)
+      }
     }
   }
 
@@ -3261,6 +3384,41 @@ export class XPeachAccount extends TypertRemoteService {
    */
   currentSiteRoot(): string {
     return this.api.siteBaseURL.replace(/\/+$/, '')
+  }
+
+  /**
+   * Origins permitted to receive the active relay API key from `DeepSeekAccount.resolveToken(url)`.
+   *
+   * @returns allowed relay origins (active site root, configured baseURL, custom routing origin,
+   * and official `ROUTES` only when operating on the official route pool).
+   */
+  allowedRelayOrigins(): readonly string[] {
+    const origins = new Set<string>()
+    const addOrigin = (raw: string | undefined): void => {
+      if (typeof raw !== 'string' || raw.trim().length === 0) return
+      try {
+        origins.add(new URL(raw.trim()).origin)
+      } catch { /* ignore invalid */ }
+    }
+    let currentRoot: string | undefined
+    try {
+      currentRoot = this.currentSiteRoot()
+    } catch {
+      currentRoot = typeof this.activeBaseURL === 'string' ? this.activeBaseURL.replace(/\/+$/u, '') : undefined
+    }
+    addOrigin(currentRoot)
+    addOrigin(this.baseURL)
+    if (typeof this.readModelRouting === 'function') {
+      try {
+        addOrigin(this.readModelRouting().customBaseUrl)
+      } catch { /* ignore in partial mocks */ }
+    }
+    if (this.isOfficialRouteUrl(currentRoot) || this.isOfficialRouteUrl(this.baseURL)) {
+      for (const route of ROUTES) {
+        addOrigin(route.url)
+      }
+    }
+    return [...origins]
   }
 
   /**
@@ -3646,9 +3804,9 @@ export class XPeachAccount extends TypertRemoteService {
           const rootHome = this.profileRootHome()
           const stamp = new Date().toISOString() + '\n'
           try { this.writeState(this.signedOutMarker(rootHome), stamp) } catch (_err) { /* best effort */ }
-          const inTmp = isTemporaryCredentialDirectory(rootHome)
-          if (!inTmp) {
-            try { this.writeState(this.signedOutMarker(join(homedir(), '.xph')), stamp) } catch (_err) { /* best effort */ }
+          const defaultHome = join(homedir(), '.xph')
+          if (this.isDefaultXphHome(rootHome)) {
+            try { this.writeState(this.signedOutMarker(defaultHome), stamp) } catch (_err) { /* best effort */ }
           }
         }
 
@@ -3717,9 +3875,18 @@ export class XPeachAccount extends TypertRemoteService {
       }
     }
     if (this.ssoVerifyPromise !== undefined) {
-      return await this.ssoVerifyPromise
+      return await raceWithAbortSignal(this.ssoVerifyPromise, signal)
     }
-    const effectiveSignal = signal ?? AbortSignal.timeout(Math.min(this.timeoutMs, 8_000))
+    if (signal?.aborted) {
+      signal.throwIfAborted()
+    }
+    const internalController = new AbortController()
+    const verifyTimeoutMs = Math.min(this.timeoutMs || 15_000, 8_000)
+    const internalTimer = setTimeout(() => {
+      internalController.abort(new DOMException('SSO verification timed out', 'TimeoutError'))
+    }, verifyTimeoutMs)
+    internalTimer.unref()
+    const effectiveSignal = internalController.signal
     const run = (async (): Promise<XPeachSsoSessionStatus> => {
       const snapshot = this.captureCredentialSnapshot()
       const sso = this.readSsoState()
@@ -3734,13 +3901,15 @@ export class XPeachAccount extends TypertRemoteService {
         && (boundAtMs + sso.expiresIn * 1000 <= Date.now())
 
       if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
+        const testedAccessToken = sso.accessToken
+        const testedRefreshToken = sso.refreshToken
         let sync: XPeachSsoCredentialSyncResult
         try {
           sync = await this.api.ssoPeachcodeCredentials(
             this.currentSsoBaseURL(),
-            sso.accessToken,
+            testedAccessToken,
             effectiveSignal,
-            sso.refreshToken,
+            testedRefreshToken,
             this.currentSsoClientId(),
           )
         } catch (err) {
@@ -3752,18 +3921,47 @@ export class XPeachAccount extends TypertRemoteService {
           }
         }
         this.assertCredentialSnapshot(snapshot)
-        if (sync.status === 'revoked') {
-          await this.revokeAllLocalCredentials(sync.code === 403 ? 'banned' : 'revoked')
+        const rawSyncStatus = sync.status as string
+        if (sync.status === 'revoked' || rawSyncStatus === 'banned') {
+          const syncMessage = 'message' in sync && typeof sync.message === 'string'
+            ? sync.message
+            : 'SSO session expired or revoked'
+          const latestSso = this.readSsoState()
+          const rotatedOnDisk = latestSso !== undefined
+            && typeof latestSso.accessToken === 'string'
+            && latestSso.accessToken.length > 0
+            && (
+              latestSso.accessToken !== testedAccessToken
+              || (
+                typeof latestSso.refreshToken === 'string'
+                && latestSso.refreshToken.length > 0
+                && latestSso.refreshToken !== testedRefreshToken
+              )
+            )
+          if (rotatedOnDisk) {
+            this.lastSsoVerifyAt = Date.now()
+            const username = latestSso.user?.username ?? undefined
+            const email = latestSso.user?.email ?? undefined
+            return {
+              valid: true,
+              status: 'ok',
+              ...(username ? { username } : {}),
+              ...(email ? { email } : {}),
+            }
+          }
+          const isBanned = rawSyncStatus === 'banned'
+            || ('code' in sync && sync.code === 403)
+          await this.revokeAllLocalCredentials(isBanned ? 'banned' : 'revoked')
           return {
             valid: false,
             status: 'revoked',
             revoked: true,
-            error: sync.message,
-            message: sync.message,
+            error: syncMessage,
+            message: syncMessage,
           }
         }
         if (sync.status === 'transient_error') {
-          if (isLocallyExpired && !sso.refreshToken) {
+          if (isLocallyExpired && !testedRefreshToken) {
             await this.revokeAllLocalCredentials('expired')
             return {
               valid: false,
@@ -3784,38 +3982,56 @@ export class XPeachAccount extends TypertRemoteService {
         this.lastSsoVerifyAt = Date.now()
         const peach = sync.payload.peachcode
         const refreshedSso = sync.payload.sso
-        const nextSsoToken = refreshedSso?.accessToken ?? sso.accessToken
-        const nextRefreshToken = refreshedSso?.refreshToken ?? sso.refreshToken
+        const nextSsoToken = refreshedSso?.accessToken ?? testedAccessToken
+        const nextRefreshToken = refreshedSso?.refreshToken ?? testedRefreshToken
         const nextIdToken = refreshedSso?.idToken ?? sso.idToken
         const nextExpiresIn = refreshedSso?.expiresIn ?? sso.expiresIn
         const nextUser = refreshedSso?.user ?? sso.user
         const nextPeachcodeUserId = peach?.userId ?? sso.peachcodeUserId
-        const ssoChanged = nextSsoToken !== sso.accessToken
-          || nextRefreshToken !== sso.refreshToken
+        const ssoChanged = nextSsoToken !== testedAccessToken
+          || nextRefreshToken !== testedRefreshToken
           || nextIdToken !== sso.idToken
           || nextExpiresIn !== sso.expiresIn
           || nextPeachcodeUserId !== sso.peachcodeUserId
           || !deepEqualJson(nextUser ?? null, sso.user ?? null)
         if (nextSsoToken.length > 0 && ssoChanged) {
+          const rotatedTokens = nextSsoToken !== testedAccessToken || nextRefreshToken !== testedRefreshToken
+          const ssoContent = JSON.stringify({
+            accessToken: nextSsoToken,
+            ...(nextRefreshToken ? { refreshToken: nextRefreshToken } : {}),
+            ...(nextIdToken ? { idToken: nextIdToken } : {}),
+            expiresIn: nextExpiresIn,
+            user: nextUser,
+            peachcodeUserId: nextPeachcodeUserId,
+            boundAt: refreshedSso?.accessToken !== undefined && refreshedSso.accessToken !== testedAccessToken
+              ? Date.now()
+              : (sso.boundAt ?? Date.now()),
+          }, null, 2) + '\n'
           try {
-            const ssoContent = JSON.stringify({
-              accessToken: nextSsoToken,
-              ...(nextRefreshToken ? { refreshToken: nextRefreshToken } : {}),
-              ...(nextIdToken ? { idToken: nextIdToken } : {}),
-              expiresIn: nextExpiresIn,
-              user: nextUser,
-              peachcodeUserId: nextPeachcodeUserId,
-              boundAt: refreshedSso?.accessToken !== undefined && refreshedSso.accessToken !== sso.accessToken
-                ? Date.now()
-                : (sso.boundAt ?? Date.now()),
-            }, null, 2) + '\n'
             this.writeState(this.ssoStateFile, ssoContent)
+          } catch (persistErr) {
+            const detail = persistErr instanceof Error ? persistErr.message : String(persistErr)
+            console.error('[xpeach] 持久化已轮换的 SSO 会话状态失败：', detail)
+            if (rotatedTokens) {
+              throw new RemoteError(
+                'xpeach/request-failed',
+                `xpeach: failed to persist rotated SSO tokens to ${this.ssoStateFile}: ${detail}`,
+                { status: 0, message: `sso-persist-failed: ${detail}` },
+              )
+            }
+          }
+          try {
             this.mirrorCredentialFile('xpeach.sso.json', ssoContent)
-          } catch (_err) { /* best effort */ }
+          } catch (mirrorErr) {
+            console.error(
+              '[xpeach] 镜像 SSO 会话状态失败：',
+              mirrorErr instanceof Error ? mirrorErr.message : String(mirrorErr),
+            )
+          }
         }
         if (typeof peach?.baseUrl === 'string' && peach.baseUrl.trim().length > 0) {
-          const normalizedBase = peach.baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/u, '')
-          if (normalizedBase.length > 0 && normalizedBase !== this.activeBaseURL) {
+          const normalizedBase = validateSsoBaseUrl(peach.baseUrl)
+          if (normalizedBase !== this.activeBaseURL) {
             this.activeBaseURL = normalizedBase
             ;(this.api as { setBaseURL?: (url: string) => void }).setBaseURL?.(normalizedBase)
             void this.applyProviderBase().catch(() => {})
@@ -3982,10 +4198,12 @@ export class XPeachAccount extends TypertRemoteService {
 
       return { valid: false, status: 'unbound' }
     })().finally(() => {
+      clearTimeout(internalTimer)
       this.ssoVerifyPromise = undefined
     })
     this.ssoVerifyPromise = run
-    return await run
+    void run.catch(() => {})
+    return await raceWithAbortSignal(run, signal)
   }
 
   private async *guardLlmStream(
@@ -4093,16 +4311,19 @@ export class XPeachAccount extends TypertRemoteService {
     if (process.env.VITEST !== undefined || process.env.NODE_ENV === 'test') return false
     try {
       const { spawn } = await import('node:child_process')
+      const env = scrubbedBrowserEnv()
       const child = process.platform === 'win32'
         ? spawn('rundll32.exe', ['url.dll,FileProtocolHandler', safeUrl], {
           detached: true,
           stdio: 'ignore',
           windowsHide: true,
+          env,
         })
         : spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [safeUrl], {
           detached: true,
           stdio: 'ignore',
           windowsHide: true,
+          env,
         })
       return await new Promise<boolean>((resolvePromise) => {
         let settled = false
@@ -4135,8 +4356,8 @@ export class XPeachAccount extends TypertRemoteService {
     const email = sso?.user?.email ?? undefined
 
     if (typeof peach?.baseUrl === 'string' && peach.baseUrl.trim().length > 0) {
-      const normalizedBase = peach.baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/u, '')
-      if (normalizedBase.length > 0 && normalizedBase !== this.activeBaseURL) {
+      const normalizedBase = validateSsoBaseUrl(peach.baseUrl)
+      if (normalizedBase !== this.activeBaseURL) {
         this.activeBaseURL = normalizedBase
         ;(this.api as { setBaseURL?: (url: string) => void }).setBaseURL?.(normalizedBase)
         void this.applyProviderBase().catch(() => {})
@@ -4334,6 +4555,12 @@ export class XPeachAccount extends TypertRemoteService {
         signal,
       )
       this.assertCredentialSnapshot(snapshot)
+      if (polled.status === 'slow_down') {
+        return {
+          status: 'pending',
+          message: 'slow_down',
+        }
+      }
       if (polled.status !== 'approved' || polled.payload === undefined) {
         return {
           status: polled.status,
@@ -4412,17 +4639,27 @@ export class XPeachAccount extends TypertRemoteService {
     let started: XPeachSsoDeviceStartResult | undefined
     try {
       started = await this.ssoDeviceStartOp({ openBrowser: true }, signal)
-    } catch (_err) {
+    } catch (cause) {
+      if (signal.aborted) throw cause
       started = undefined
     }
     if (started !== undefined) {
-      const intervalMs = Math.max(1500, (started.interval || 2) * 1000)
+      let intervalMs = Math.max(1500, (started.interval || 2) * 1000)
       const deadline = Date.now() + Math.min((started.expiresIn || 600) * 1000, 180_000)
       while (Date.now() < deadline) {
         signal.throwIfAborted()
         await new Promise(res => setTimeout(res, intervalMs))
         const polled = await this.ssoDevicePollOp({ deviceCode: started.deviceCode }, signal)
-        if (polled.status === 'pending') continue
+        if ((polled.status as string) === 'slow_down') {
+          intervalMs += 5000
+          continue
+        }
+        if (polled.status === 'pending') {
+          if (polled.message === 'slow_down') {
+            intervalMs += 5000
+          }
+          continue
+        }
         if (polled.status === 'approved') {
           return {
             bound: true,
@@ -4903,6 +5140,12 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('unbindSession')
   unbindSessionOp(): { bound: boolean } {
     if (existsSync(this.sessionKeyFile)) { try { unlinkSync(this.sessionKeyFile) } catch (_err) { /* absent */ } }
+    for (const dir of this.sharedMirrorDirs()) {
+      const mirrored = join(dir, 'xpeach.session')
+      if (existsSync(mirrored)) {
+        try { unlinkSync(mirrored) } catch (_err) { /* absent */ }
+      }
+    }
     Reflect.deleteProperty(process.env, this.sessionKeyVar)
     this.api.setSessionKey(undefined)
     return { bound: false }
@@ -5316,11 +5559,32 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
+  private isOfficialRouteUrl(url: string | undefined): boolean {
+    if (typeof url !== 'string' || url.trim().length === 0) return false
+    const normalized = url.trim().replace(/\/+$/u, '')
+    return ROUTES.some(route => route.url === normalized)
+  }
+
+  private usesOfficialRoutePool(): boolean {
+    return this.isOfficialRouteUrl(this.baseURL) && this.isOfficialRouteUrl(this.activeBaseURL)
+  }
+
   /** Probe all routes, switch if auto and another route wins, record history. */
   private async probeNetwork(): Promise<XPeachNetworkSnapshot> {
+    if (!this.usesOfficialRoutePool()) {
+      const snapshot: XPeachNetworkSnapshot = {
+        at: Date.now(),
+        active: this.activeBaseURL,
+        auto: this.networkAuto,
+        probes: [],
+        history: { ...this.networkHistory },
+      }
+      this.networkSnapshot = snapshot
+      return snapshot
+    }
     const key = await this.resolveKey().catch(() => undefined)
     const probes = await probeRoutes(key, Math.min(this.timeoutMs, 4000))
-    if (this.networkAuto) {
+    if (this.networkAuto && this.usesOfficialRoutePool()) {
       const best = chooseBest(probes, this.activeBaseURL)
       if (best !== undefined && best.url !== this.activeBaseURL) this.applyRoute(best.url)
     }

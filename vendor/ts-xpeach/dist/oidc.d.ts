@@ -99,6 +99,7 @@ export interface VerifiedAccessIdentity {
     readonly affCode: string;
     readonly tenantId: string;
     readonly tenantSlug: string | null;
+    readonly issuer?: string;
     readonly clientId: string;
     readonly scope: string;
     readonly roles: readonly string[];
@@ -143,7 +144,7 @@ export declare function generateNonce(byteLength?: number): string;
 export declare function computeS256Challenge(codeVerifier: string): Promise<string>;
 export declare function createPkcePair(byteLength?: number): Promise<PkcePair>;
 export declare function buildAuthorizationUrl(input: AuthorizationUrlInput): string;
-export declare function parseAuthorizationCallback(callbackUrlOrQuery: string | URL | URLSearchParams, expectedState: string): AuthorizationCallbackResult;
+export declare function parseAuthorizationCallback(callbackUrlOrQuery: string | URL | URLSearchParams, expectedState: string, expectedIssuer?: string): AuthorizationCallbackResult;
 /** 判断异常是否属于令牌已被服务端明确拒绝/吊销/失效（而非网络抖动或 5xx）。 */
 export declare function isDefinitiveTokenRejection(error: unknown): boolean;
 export declare class OidcClient {
@@ -154,7 +155,10 @@ export declare class OidcClient {
     private readonly authMethod;
     private readonly baseTransportConfig;
     private readonly jwksCacheTtlMs;
+    private readonly forcedJwksCooldownMs;
     private cachedJwks;
+    private lastForcedJwksRefreshAt;
+    private inflightForcedJwks;
     constructor(options: OidcClientOptions);
     get issuer(): string;
     private publicSdk;
@@ -163,6 +167,7 @@ export declare class OidcClient {
     buildAuthorizationUrl(params: Omit<AuthorizationUrlInput, "baseUrl" | "clientId" | "tenantSlug">): string;
     discover(options?: RequestOptions): Promise<T.OidcDiscoveryDocument>;
     fetchJwks(forceRefresh?: boolean, options?: RequestOptions): Promise<readonly Record<string, unknown>[]>;
+    private refreshJwksOnUnknownKid;
     verifyIdToken(idToken: string, opts?: {
         expectedNonce?: string;
         clockSkewSeconds?: number;

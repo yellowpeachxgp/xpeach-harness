@@ -42,9 +42,13 @@ async function probeRoute(route: XPeachRoute, key: string | undefined, timeoutMs
     attempts += 1
     const started = performance.now()
     try {
-      const response = await fetch(route.url + path, { headers, signal: AbortSignal.timeout(timeoutMs) })
+      const response = await fetch(route.url + path, {
+        headers,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(timeoutMs),
+      })
       await response.body?.cancel().catch(() => {})
-      if (response.ok) {
+      if (response.type !== 'opaqueredirect' && response.status >= 200 && response.status < 300) {
         okCount += 1
         latencies.push(performance.now() - started)
         break

@@ -78,25 +78,49 @@ describe('SubprocessRuntime seam', () => {
     await expect(ctx.plugin(SecondService)).rejects.toThrow(/service "subprocess" has been registered/)
   })
 
-  it('scrubbedParentEnv drops credential-shaped and DSH_ names (case-insensitively) but keeps PATH', () => {
+  it('scrubbedParentEnv drops credential-shaped and harness-prefixed names (case-insensitively) but keeps PATH', () => {
     process.env.DSH_SCRUB_PROBE = 'stale'
     process.env.dsh_scrub_probe_lower = 'stale'
+    process.env.XPH_HOME = '/tmp/xph-probe'
+    process.env.xph_profile_lower = 'xpeach'
+    process.env.XPEACH_SESSION = 'raw-session-cookie'
+    process.env.XPEACH_CUSTOM_FLAG = 'internal'
+    process.env.xpeach_lower_flag = 'internal'
     process.env.SCRUB_PROBE_TOKEN = 'secret'
     process.env.SCRUB_PROBE_PASSWORD = 'secret'
+    process.env.SCRUB_PROBE_SESSION = 'secret-session'
+    process.env.SCRUB_PROBE_COOKIE = 'secret-cookie'
+    process.env.SCRUB_PROBE_AUTH = 'secret-auth'
     process.env.SCRUB_PROBE_PLAIN = 'visible'
     try {
       const env = scrubbedParentEnv()
       expect(env.DSH_SCRUB_PROBE).toBeUndefined()
       expect(env.dsh_scrub_probe_lower).toBeUndefined()
+      expect(env.XPH_HOME).toBeUndefined()
+      expect(env.xph_profile_lower).toBeUndefined()
+      expect(env.XPEACH_SESSION).toBeUndefined()
+      expect(env.XPEACH_CUSTOM_FLAG).toBeUndefined()
+      expect(env.xpeach_lower_flag).toBeUndefined()
       expect(env.SCRUB_PROBE_TOKEN).toBeUndefined()
       expect(env.SCRUB_PROBE_PASSWORD).toBeUndefined()
+      expect(env.SCRUB_PROBE_SESSION).toBeUndefined()
+      expect(env.SCRUB_PROBE_COOKIE).toBeUndefined()
+      expect(env.SCRUB_PROBE_AUTH).toBeUndefined()
       expect(env.SCRUB_PROBE_PLAIN).toBe('visible')
       expect(env.PATH).toBeDefined()
     } finally {
       delete process.env.DSH_SCRUB_PROBE
       delete process.env.dsh_scrub_probe_lower
+      delete process.env.XPH_HOME
+      delete process.env.xph_profile_lower
+      delete process.env.XPEACH_SESSION
+      delete process.env.XPEACH_CUSTOM_FLAG
+      delete process.env.xpeach_lower_flag
       delete process.env.SCRUB_PROBE_TOKEN
       delete process.env.SCRUB_PROBE_PASSWORD
+      delete process.env.SCRUB_PROBE_SESSION
+      delete process.env.SCRUB_PROBE_COOKIE
+      delete process.env.SCRUB_PROBE_AUTH
       delete process.env.SCRUB_PROBE_PLAIN
     }
   })

@@ -6887,6 +6887,7 @@ export interface LegacyInternalVerifyJwt {
     "client_id": string;
     "scope": string;
     "exp": number;
+    "issuer"?: string;
     "format": "jwt";
     "tenant_slug": string | null;
     "roles": LegacyInternalVerifyJwtRolesItem[];
@@ -6910,6 +6911,8 @@ export interface LegacyInternalVerifyOpaque {
     "client_id": string;
     "scope": string;
     "exp": number;
+    "issuer"?: string;
+    "tenant_slug"?: string | null;
     "format": "opaque";
 }
 export type LegacyInternalVerifyResponse = LegacyInternalVerifyJwt | LegacyInternalVerifyOpaque;

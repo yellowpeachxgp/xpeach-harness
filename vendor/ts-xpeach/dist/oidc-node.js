@@ -6,7 +6,7 @@
  */
 import { createServer } from "node:http";
 import { ResponseFormatError, TransportError } from "./generated/runtime.js";
-import { createPkcePair, generateNonce, generateState, parseAuthorizationCallback, } from "./oidc.js";
+import { OAuthCallbackError, createPkcePair, generateNonce, generateState, parseAuthorizationCallback, } from "./oidc.js";
 function escapeHtml(text) {
     return text
         .replaceAll("&", "&amp;")
@@ -73,7 +73,37 @@ async function listenFirstAvailable(handler, host, ports) {
     }
     throw new TransportError("无法绑定本地 OIDC 回环回调端口", lastError);
 }
+const LOOPBACK_SECURITY_HEADERS = {
+    "cache-control": "no-store",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+};
+function sendLoopbackResponse(res, status, contentType, body) {
+    return new Promise((resolve) => {
+        let finished = false;
+        const done = () => {
+            if (!finished) {
+                finished = true;
+                resolve();
+            }
+        };
+        res.once("close", done);
+        res.once("error", done);
+        if (!res.headersSent) {
+            res.writeHead(status, {
+                ...LOOPBACK_SECURITY_HEADERS,
+                "content-type": contentType,
+            });
+        }
+        res.end(body, done);
+    });
+}
 export async function startPkceLoopbackListener(options) {
+    if (options.signal?.aborted) {
+        throw new TransportError("本地回环 OIDC 登录已取消");
+    }
     const host = options.host ?? "127.0.0.1";
     const callbackPath = options.callbackPath ?? "/oauth/callback";
     if (!callbackPath.startsWith("/")) {
@@ -83,9 +113,13 @@ export async function startPkceLoopbackListener(options) {
     const pkce = await createPkcePair();
     const state = generateState();
     const nonce = generateNonce();
+    if (options.signal?.aborted) {
+        throw new TransportError("本地回环 OIDC 登录已取消");
+    }
     let resolveResult;
     let rejectResult;
     let settled = false;
+    let exchanging = false;
     const resultPromise = new Promise((resolve, reject) => {
         resolveResult = resolve;
         rejectResult = reject;
@@ -93,39 +127,82 @@ export async function startPkceLoopbackListener(options) {
     // 防止调用方尚未调用 waitForTokens 时触发 Node 未捕获拒绝告警
     void resultPromise.catch(() => { });
     let redirectUri = "";
+    let expectedHost = "";
     let timer;
     const server = await listenFirstAvailable((req, res) => {
-        const reqUrl = new URL(req.url ?? "/", `http://${host}`);
+        const hostHeader = typeof req.headers.host === "string" ? req.headers.host.trim() : "";
+        if (!expectedHost || hostHeader.toLowerCase() !== expectedHost.toLowerCase()) {
+            void sendLoopbackResponse(res, 400, "text/plain; charset=utf-8", "Bad Request");
+            return;
+        }
+        let reqUrl;
+        try {
+            reqUrl = new URL(req.url ?? "/", `http://${expectedHost}`);
+        }
+        catch {
+            void sendLoopbackResponse(res, 400, "text/plain; charset=utf-8", "Bad Request");
+            return;
+        }
         if (req.method !== "GET" || reqUrl.pathname !== callbackPath) {
-            res.writeHead(404, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
-            res.end("Not Found");
+            void sendLoopbackResponse(res, 404, "text/plain; charset=utf-8", "Not Found");
             return;
         }
         if (settled) {
-            res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-            res.end(renderCallbackHtml(true, "登录请求已处理", "你可以直接关闭此浏览器标签页并返回客户端。"));
+            void sendLoopbackResponse(res, 200, "text/html; charset=utf-8", renderCallbackHtml(true, "登录请求已处理", "你可以直接关闭此浏览器标签页并返回客户端。"));
             return;
         }
+        if (exchanging) {
+            void sendLoopbackResponse(res, 200, "text/html; charset=utf-8", renderCallbackHtml(true, "登录请求正在处理中", "授权回调正在校验，请稍候片刻。"));
+            return;
+        }
+        let parsed;
+        try {
+            parsed = parseAuthorizationCallback(reqUrl.searchParams, state, options.oidc.issuer);
+        }
+        catch (err) {
+            if (err instanceof OAuthCallbackError) {
+                settled = true;
+                void (async () => {
+                    await sendLoopbackResponse(res, 400, "text/html; charset=utf-8", renderCallbackHtml(false, "XPeach 登录未完成", err.message));
+                    await closeServer();
+                    rejectResult(err);
+                })();
+                return;
+            }
+            const message = err instanceof Error ? err.message : "授权回调参数无效";
+            void sendLoopbackResponse(res, 400, "text/html; charset=utf-8", renderCallbackHtml(false, "无效的授权回调", message));
+            return;
+        }
+        exchanging = true;
         void (async () => {
             try {
-                const parsed = parseAuthorizationCallback(reqUrl.searchParams, state);
                 const tokenSet = await options.oidc.exchangeAuthorizationCode({
                     code: parsed.code,
                     redirectUri,
                     codeVerifier: pkce.codeVerifier,
                     expectedNonce: nonce,
                 }, options.signal ? { signal: options.signal } : undefined);
+                if (settled) {
+                    if (!res.writableEnded) {
+                        await sendLoopbackResponse(res, 400, "text/html; charset=utf-8", renderCallbackHtml(false, "XPeach 登录已取消", "本地回环登录已提前结束。"));
+                    }
+                    return;
+                }
                 settled = true;
-                res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-                res.end(renderCallbackHtml(true, options.successTitle ?? "XPeach 登录成功", options.successMessage ?? "授权已完成，你可以关闭此页面并回到 XPeach 客户端。"));
+                await sendLoopbackResponse(res, 200, "text/html; charset=utf-8", renderCallbackHtml(true, options.successTitle ?? "XPeach 登录成功", options.successMessage ?? "授权已完成，你可以关闭此页面并回到 XPeach 客户端。"));
                 await closeServer();
                 resolveResult(tokenSet);
             }
             catch (err) {
+                if (settled) {
+                    if (!res.writableEnded) {
+                        await sendLoopbackResponse(res, 400, "text/html; charset=utf-8", renderCallbackHtml(false, "XPeach 登录已取消", "本地回环登录已提前结束。"));
+                    }
+                    return;
+                }
                 settled = true;
                 const message = err instanceof Error ? err.message : "授权回调校验失败";
-                res.writeHead(400, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-                res.end(renderCallbackHtml(false, "XPeach 登录未完成", message));
+                await sendLoopbackResponse(res, 400, "text/html; charset=utf-8", renderCallbackHtml(false, "XPeach 登录未完成", message));
                 await closeServer();
                 rejectResult(err);
             }
@@ -136,7 +213,8 @@ export async function startPkceLoopbackListener(options) {
         server.close();
         throw new TransportError("回环监听器未能取得有效 TCP 端口");
     }
-    redirectUri = `http://${host}:${address.port}${callbackPath}`;
+    expectedHost = `${host}:${address.port}`;
+    redirectUri = `http://${expectedHost}${callbackPath}`;
     let closed = false;
     const closeServer = async () => {
         if (closed)
@@ -157,7 +235,9 @@ export async function startPkceLoopbackListener(options) {
     };
     if (options.signal) {
         if (options.signal.aborted) {
-            onAbort();
+            settled = true;
+            await closeServer();
+            throw new TransportError("本地回环 OIDC 登录已取消");
         }
         else {
             options.signal.addEventListener("abort", onAbort, { once: true });
@@ -171,16 +251,25 @@ export async function startPkceLoopbackListener(options) {
         void closeServer();
         rejectResult(new TransportError("本地回环 OIDC 登录等待超时"));
     }, timeoutMs);
-    const authorizationUrl = options.oidc.buildAuthorizationUrl({
-        redirectUri,
-        state,
-        nonce,
-        codeChallenge: pkce.codeChallenge,
-        codeChallengeMethod: "S256",
-        ...(options.scope ? { scope: options.scope } : {}),
-        ...(options.prompt ? { prompt: options.prompt } : {}),
-        ...(options.loginHint ? { loginHint: options.loginHint } : {}),
-    });
+    timer.unref?.();
+    let authorizationUrl;
+    try {
+        authorizationUrl = options.oidc.buildAuthorizationUrl({
+            redirectUri,
+            state,
+            nonce,
+            codeChallenge: pkce.codeChallenge,
+            codeChallengeMethod: "S256",
+            ...(options.scope ? { scope: options.scope } : {}),
+            ...(options.prompt ? { prompt: options.prompt } : {}),
+            ...(options.loginHint ? { loginHint: options.loginHint } : {}),
+        });
+    }
+    catch (err) {
+        settled = true;
+        await closeServer();
+        throw err;
+    }
     return {
         authorizationUrl,
         redirectUri,

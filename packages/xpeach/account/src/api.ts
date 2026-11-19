@@ -174,6 +174,10 @@ function isTokenUsage(value: unknown): value is XPeachTokenUsage {
     && typeof fields.model_limits_enabled === 'boolean'
 }
 
+function isRedirectResponse(response: Response): boolean {
+  return response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
+}
+
 /** HTTP adapter for XPeach relay, session, and site-administration endpoints. */
 export class XPeachApi {
   private baseURL: string
@@ -379,12 +383,21 @@ export class XPeachApi {
       try {
         const response = await fetch(target, {
           ...init,
+          redirect: 'manual',
           signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
         })
+        if (isRedirectResponse(response)) {
+          await response.body?.cancel().catch(() => {})
+          throw new RemoteError(
+            'xpeach/request-failed',
+            `xpeach: unexpected redirect (${String(response.status)}) from ${target}`,
+            { status: response.status, message: 'redirect-blocked' },
+          )
+        }
         if (index > 0) this.setBaseURL(new URL(target).origin)
         return response
       } catch (cause) {
-        if (signal.aborted) throw cause
+        if (signal.aborted || cause instanceof RemoteError) throw cause
         last = cause
       }
     }
@@ -396,7 +409,7 @@ export class XPeachApi {
     try {
       response = await this.send(url, init, timeoutMs, signal)
     } catch (cause) {
-      if (signal.aborted) throw cause
+      if (signal.aborted || cause instanceof RemoteError) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body: unknown = await response.json().catch(() => undefined)
@@ -407,7 +420,7 @@ export class XPeachApi {
         (response.status === 401 || response.status === 403)
         && this.onAuthRejected !== undefined
         && this.adminKeyOverride === undefined
-        && this.sessionKeyOverride === undefined
+        && (this.sessionKeyOverride === undefined || this.sessionKeyOverride === this.resolveCookie())
       ) {
         let pathname = url
         try {
@@ -627,6 +640,7 @@ export class XPeachApi {
       try {
         response = await fetch(url, {
           method: 'POST',
+          redirect: 'manual',
           headers: {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + key,
@@ -645,6 +659,14 @@ export class XPeachApi {
       } catch (cause) {
         if (signal.aborted) throw cause
         throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
+      }
+      if (isRedirectResponse(response)) {
+        await response.body?.cancel().catch(() => {})
+        throw new RemoteError(
+          'xpeach/request-failed',
+          `xpeach: /v1/messages unexpected redirect (${String(response.status)})`,
+          { status: response.status, message: 'redirect-blocked' },
+        )
       }
       if (!response.ok) {
         const text = await response.text().catch(() => '')
@@ -705,6 +727,7 @@ export class XPeachApi {
     try {
       response = await fetch(url, {
         method: 'POST',
+        redirect: 'manual',
         headers: {
           Authorization: 'Bearer ' + key,
           ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
@@ -734,6 +757,14 @@ export class XPeachApi {
       if (signal.aborted) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
     }
+    if (isRedirectResponse(response)) {
+      await response.body?.cancel().catch(() => {})
+      throw new RemoteError(
+        'xpeach/request-failed',
+        `xpeach: ${endpointPath} unexpected redirect (${String(response.status)})`,
+        { status: response.status, message: 'redirect-blocked' },
+      )
+    }
     if (!response.ok || response.body === null) {
       const text = await response.text().catch(() => '')
       const snippet = text.slice(0, 200)
@@ -749,10 +780,14 @@ export class XPeachApi {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let completed = false
     try {
       for (;;) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          completed = true
+          break
+        }
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split(String.fromCharCode(10))
         buffer = lines.pop() ?? ''
@@ -788,6 +823,9 @@ export class XPeachApi {
         }
       }
     } finally {
+      if (!completed) {
+        await reader.cancel().catch(() => {})
+      }
       reader.releaseLock()
     }
     return { content, promptTokens, completionTokens, latencyMs: Date.now() - started }
@@ -809,6 +847,7 @@ export class XPeachApi {
       const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
       const response = await fetch(this.baseURL + endpointPath, {
         method: 'POST',
+        redirect: 'manual',
         headers: {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + key,
@@ -821,6 +860,10 @@ export class XPeachApi {
         signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
       })
       const latencyMs = Date.now() - started
+      if (isRedirectResponse(response)) {
+        await response.body?.cancel().catch(() => {})
+        return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: redirect blocked` }
+      }
       const text = await response.text()
       if (!response.ok) return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: ${text.slice(0, 120)}` }
       // A 200 can still be a mock channel answering "[Mock]本分组禁探针" —
@@ -1859,7 +1902,7 @@ export class XPeachApi {
     deviceCode: string,
     signal: AbortSignal,
   ): Promise<{
-    readonly status: 'pending' | 'approved' | 'expired' | 'denied' | 'error'
+    readonly status: 'pending' | 'slow_down' | 'approved' | 'expired' | 'denied' | 'error'
     readonly message?: string | undefined
     readonly payload?: XPeachSsoBridgePayload | undefined
   }> {
@@ -1884,7 +1927,16 @@ export class XPeachApi {
       if (accessToken.length === 0) {
         return { status: 'error', message: 'OIDC token response missing access_token' }
       }
+      const idToken = typeof rawToken.id_token === 'string' && rawToken.id_token.trim().length > 0
+        ? rawToken.id_token.trim()
+        : undefined
+      const idTokenClaims = idToken !== undefined
+        ? await oidc.verifyIdToken(idToken, undefined, { signal })
+        : undefined
       const identity = await oidc.verifyAccessToken(accessToken, { signal })
+      if (idTokenClaims !== undefined && idTokenClaims.sub !== identity.sub) {
+        return { status: 'error', message: 'OIDC id_token subject mismatch' }
+      }
       return {
         status: 'approved',
         payload: this.buildBridgePayloadFromVerifiedIdentity(
@@ -1892,7 +1944,7 @@ export class XPeachApi {
             accessToken,
             expiresIn: typeof rawToken.expires_in === 'number' && rawToken.expires_in > 0 ? rawToken.expires_in : 3600,
             ...(rawToken.refresh_token ? { refreshToken: rawToken.refresh_token } : {}),
-            ...(rawToken.id_token ? { idToken: rawToken.id_token } : {}),
+            ...(idToken !== undefined ? { idToken } : {}),
           },
           identity,
         ),
@@ -1900,8 +1952,11 @@ export class XPeachApi {
     } catch (cause) {
       if (signal.aborted) throw cause
       if (cause instanceof OAuthProtocolError) {
-        if (cause.error === 'authorization_pending' || cause.error === 'slow_down') {
+        if (cause.error === 'authorization_pending') {
           return { status: 'pending' }
+        }
+        if (cause.error === 'slow_down') {
+          return { status: 'slow_down' }
         }
         if (cause.error === 'expired_token' || cause.error === 'invalid_grant') {
           return { status: 'expired', message: cause.errorDescription ?? '验证码已过期' }
@@ -2006,11 +2061,14 @@ export class XPeachApi {
 
   /**
    * Revoke the active SSO refresh/access tokens via RFC 7009 (`POST /token/revocation`)
-   * through the official `@xpeach/ts-xpeach` SDK.
+   * through the official `@xpeach/ts-xpeach` SDK. When `options.allDevices` or
+   * `options.revokePeachcode` is enabled, also calls `POST /api/v1/peachcode/revoke`
+   * before revoking the calling access token so multi-device / downstream PeachCode
+   * revocation is enforced server-side.
    *
    * @param ssoBaseURL - root URL of the XPeach SSO service.
    * @param ssoAccessToken - active SSO Bearer access token.
-   * @param _options - revocation scope flags.
+   * @param options - revocation scope flags.
    * @param signal - request cancellation signal.
    * @param refreshToken - optional OIDC refresh token to revoke first.
    * @param clientId - optional OIDC client identifier.
@@ -2019,13 +2077,50 @@ export class XPeachApi {
   async ssoRevokeToken(
     ssoBaseURL: string,
     ssoAccessToken: string,
-    _options: XPeachSsoRevokeRequest,
+    options: XPeachSsoRevokeRequest,
     signal: AbortSignal,
     refreshToken?: string,
     clientId = 'xpeach-harness',
   ): Promise<boolean> {
-    const { oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
     let acknowledged = false
+    const trimmedAccess = ssoAccessToken.trim()
+    if ((options.allDevices === true || options.revokePeachcode === true) && trimmedAccess.length > 0) {
+      const revokeBody = {
+        allDevices: options.allDevices === true,
+        revokePeachcode: options.revokePeachcode === true,
+      }
+      const sdk = new XpeachClient({
+        baseUrl: activeBase,
+        accessToken: trimmedAccess,
+        timeoutMs: Math.min(this.timeoutMs, 8000),
+        retry: { maxAttempts: 1 },
+      })
+      try {
+        if (typeof sdk.v1PeachcodeRevoke === 'function') {
+          await sdk.v1PeachcodeRevoke({ body: revokeBody }, { signal })
+          acknowledged = true
+        } else {
+          const response = await fetch(`${activeBase}/api/v1/peachcode/revoke`, {
+            method: 'POST',
+            redirect: 'manual',
+            headers: {
+              Authorization: `Bearer ${trimmedAccess}`,
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify(revokeBody),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 8000))]),
+          })
+          await response.body?.cancel().catch(() => {})
+          if (!isRedirectResponse(response) && response.ok) {
+            acknowledged = true
+          }
+        }
+      } catch (cause) {
+        if (signal.aborted) throw cause
+      }
+    }
     if (refreshToken !== undefined && refreshToken.trim().length > 0) {
       try {
         await oidc.revokeToken({ token: refreshToken.trim(), tokenTypeHint: 'refresh_token' }, { signal })
@@ -2034,9 +2129,9 @@ export class XPeachApi {
         if (signal.aborted) throw cause
       }
     }
-    if (ssoAccessToken.trim().length > 0) {
+    if (trimmedAccess.length > 0) {
       try {
-        await oidc.revokeToken({ token: ssoAccessToken.trim(), tokenTypeHint: 'access_token' }, { signal })
+        await oidc.revokeToken({ token: trimmedAccess, tokenTypeHint: 'access_token' }, { signal })
         acknowledged = true
       } catch (cause) {
         if (signal.aborted) throw cause
