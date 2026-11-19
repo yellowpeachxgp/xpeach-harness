@@ -57,6 +57,10 @@ describe('临时凭据路径隔离', () => {
     expect(isTemporaryCredentialDirectory(realpathSync(root))).toBe(true)
     expect(isTemporaryCredentialDirectory(join(realpathSync(root), 'new', 'profile'))).toBe(true)
     expect(isTemporaryCredentialDirectory(resolve(tmpdir()) + '-other/profile')).toBe(false)
+    if (process.platform !== 'win32') {
+      expect(isTemporaryCredentialDirectory('/tmp/xph-isolated-sandbox')).toBe(true)
+      expect(isTemporaryCredentialDirectory('/tmp-other/xph-isolated-sandbox')).toBe(false)
+    }
   })
 
   it('原始和规范临时 home 均只列出隔离组内镜像与 authority', () => {

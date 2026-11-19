@@ -20,11 +20,22 @@ function physicalPath(path: string): string {
 }
 
 /**
- * 判断目录是否属于系统临时根，支持符号链接别名与尚不存在的子目录。
+ * 判断目录是否属于系统临时根（含 os.tmpdir() 与 POSIX /tmp），支持符号链接别名与尚不存在的子目录。
  * @param directory - 待判断的目录路径。
  * @returns 规范后的物理路径位于系统临时根内时为 true；权限错误直接传播。
  */
 export function isTemporaryCredentialDirectory(directory: string): boolean {
-  const suffix = relative(physicalPath(tmpdir()), physicalPath(directory))
-  return suffix === '' || (!isAbsolute(suffix) && suffix.split(sep)[0] !== '..')
+  const target = physicalPath(directory)
+  const roots = [physicalPath(tmpdir())]
+  if (process.platform !== 'win32') {
+    try {
+      roots.push(physicalPath('/tmp'))
+    } catch {
+      // 忽略无 /tmp 的受限环境
+    }
+  }
+  return roots.some((root) => {
+    const suffix = relative(root, target)
+    return suffix === '' || (!isAbsolute(suffix) && suffix.split(sep)[0] !== '..')
+  })
 }
