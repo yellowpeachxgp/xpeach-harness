@@ -87,6 +87,9 @@ import type {
   XPeachSkillToggleRequest,
   XPeachSourceId,
   XPeachSsoBridgePayload,
+  XPeachSsoCaptchaChallenge,
+  XPeachSsoCaptchaChallengeRequest,
+  XPeachSsoCaptchaPolicy,
   XPeachSsoCredentialSyncResult,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
@@ -4354,9 +4357,36 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Launch interactive browser sign-in via XPeach SSO Device Authorization (with
-   * legacy Playwright fallback if SSO is unreachable), bind bridged credentials,
-   * and sync the relay model catalog.
+   * Fetch the unified human-verification policy centrally governed by XPeach SSO.
+   *
+   * @param signal - request cancellation signal.
+   * @returns normalized SSO captcha policy (including self-hosted Cap config).
+   */
+  @Remote('ssoCaptchaPolicy')
+  async ssoCaptchaPolicyOp(signal: AbortSignal): Promise<XPeachSsoCaptchaPolicy> {
+    return await this.api.ssoCaptchaPolicy(this.currentSsoBaseURL(), signal)
+  }
+
+  /**
+   * Fetch a scene-scoped human-verification challenge from XPeach SSO.
+   *
+   * @param request - target captcha scene governed by SSO.
+   * @param signal - request cancellation signal.
+   * @returns scene-scoped challenge configuration from XPeach SSO.
+   */
+  @Remote('ssoCaptchaChallenge')
+  async ssoCaptchaChallengeOp(
+    request: XPeachSsoCaptchaChallengeRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoCaptchaChallenge> {
+    return await this.api.ssoCaptchaChallenge(this.currentSsoBaseURL(), request.scene, signal)
+  }
+
+  /**
+   * Launch interactive browser sign-in strictly through XPeach SSO (1-click PKCE S256
+   * loopback with RFC 8628 Device Authorization fallback) so all human verification
+   * (including self-hosted Cap) is enforced centrally by SSO without bypassing to legacy
+   * main-site cookie scraping.
    *
    * @param signal - carrier cancellation.
    * @returns bound status, username, and relay key minting status.
@@ -4405,31 +4435,15 @@ export class XPeachAccount extends TypertRemoteService {
       throw new RemoteError('xpeach/request-failed', 'SSO 设备授权超时', { status: 0, message: 'sso login timed out' })
     }
 
-    const cookie = await this.api.sessionLoginInteractive(signal)
-    this.api.setSessionKey(cookie)
-    let me: XPeachUserSelf
-    try {
-      me = await this.api.sessionSelf(signal)
-    } finally {
-      this.api.setSessionKey(undefined)
-    }
-    const cookieContent = cookie + '\n'
-    this.writeState(this.sessionKeyFile, cookieContent)
-    this.mirrorCredentialFile('xpeach.session', cookieContent)
-    process.env[this.sessionKeyVar] = cookie
-    this.markOnboardedAndClearSignOut()
-    void this.ensureDesktopOnboardingCompleted().catch(() => {})
-    const mint = await this.mintConsoleKey(signal)
-    return {
-      bound: true,
-      as: me.username,
-      minted: mint.ok,
-      ...(mint.ok ? {} : { mintErr: mint.err ?? 'mint failed' }),
-    }
+    throw new RemoteError(
+      'xpeach/request-failed',
+      '无法连接 XPeach SSO 完成统一登录与人机验证，请检查网络或 SSO 服务地址后重试。',
+      { status: 0, message: 'sso unreachable' },
+    )
   }
 
   /** 通过控制台认证通道精确复用或新建令牌，不按名称认领。 */
-  private async mintConsoleKey(signal: AbortSignal): Promise<{ ok: boolean; err?: string }> {
+  protected async mintConsoleKey(signal: AbortSignal): Promise<{ ok: boolean; err?: string }> {
     const result = await this.mintRelayToken(signal, 'console')
     if (result.ok) {
       this.notifyKeyChanged()

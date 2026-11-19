@@ -8,6 +8,7 @@ import { XpeachClient } from "./generated/client.js";
 import type * as C from "./generated/client.js";
 import { type ClientConfig, type RequestOptions } from "./generated/runtime.js";
 import type * as T from "./generated/types.js";
+import { CaptchaClient } from "./captcha.js";
 import { OidcClient, type OidcClientOptions } from "./oidc.js";
 export interface TwoPhaseExecutionOutcome<TResult> {
     readonly result: TResult;
@@ -96,6 +97,7 @@ export declare class XpeachSdk {
     readonly portal: PortalDomainClient;
     readonly health: HealthDomainClient;
     readonly internal: InternalDomainClient;
+    readonly captcha: CaptchaClient;
     private readonly baseConfig;
     constructor(config: ClientConfig);
     /** 创建与当前 SDK 传输配置对齐的强类型 OIDC 客户端。 */

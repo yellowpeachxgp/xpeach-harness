@@ -754,6 +754,46 @@ export interface XPeachSsoSessionStatus {
   readonly message?: string | undefined
 }
 
+/** Supported human-verification scenes centrally governed by XPeach SSO. */
+export type XPeachSsoCaptchaScene = 'login' | 'register' | 'recovery' | 'reset_password' | 'checkin' | 'partner_consent'
+
+/** Unified public human-verification policy served by XPeach SSO (including self-hosted Cap). */
+export interface XPeachSsoCaptchaPolicy {
+  readonly provider: 'none' | 'builtin' | 'turnstile' | 'recaptcha' | 'hcaptcha' | 'cap'
+  readonly enabled: boolean
+  readonly siteKey: string
+  readonly capOrigin: string | null
+  readonly capSiteKeys: {
+    readonly login: string
+    readonly register: string
+    readonly recovery: string
+    readonly checkin: string
+    readonly partnerConsent: string
+  }
+  readonly scenes: {
+    readonly login: boolean
+    readonly register: boolean
+    readonly recovery: boolean
+    readonly checkin: boolean
+    readonly partnerConsent: boolean
+  }
+}
+
+/** Request payload for fetching a scene-scoped SSO human-verification challenge. */
+export interface XPeachSsoCaptchaChallengeRequest {
+  readonly scene: XPeachSsoCaptchaScene
+}
+
+/** Scene-scoped human-verification challenge payload returned by XPeach SSO. */
+export interface XPeachSsoCaptchaChallenge {
+  readonly provider: 'none' | 'builtin' | 'turnstile' | 'recaptcha' | 'hcaptcha' | 'cap'
+  readonly siteKey: string
+  readonly capOrigin: string | null
+  readonly enabled: boolean
+  readonly question: string | null
+  readonly captchaToken: string | null
+}
+
 /** Hourly success-rate sample from PeachAPI `/api/perf-metrics/summary`. */
 export interface XPeachSuccessRatePoint {
   readonly ts: number

@@ -6,5 +6,6 @@ export * from "./generated/types.js";
 export * from "./generated/runtime.js";
 export * from "./generated/client.js";
 export * from "./browser.js";
+export * from "./captcha.js";
 export * from "./oidc.js";
 export * from "./domains.js";

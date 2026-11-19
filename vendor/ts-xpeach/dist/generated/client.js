@@ -235,6 +235,8 @@ const OP_LEGACY_BUSINESS_REFERRALS_GET = OPERATIONS["legacy_business_referrals_g
 const OP_LEGACY_BUSINESS_REFERRALS_BIND_PATH = OPERATIONS["legacy_business_referrals_bind_path"];
 const OP_LEGACY_BUSINESS_COST_BRIDGE_OPENCLAW = OPERATIONS["legacy_business_cost_bridge_openclaw"];
 const OP_OIDC_AUTHORIZE = OPERATIONS["oidc_authorize"];
+const OP_CAPTCHA_POLICY_GET = OPERATIONS["captcha_policy_get"];
+const OP_CAPTCHA_VERIFY = OPERATIONS["captcha_verify"];
 const OP_CDK_REDEEM = OPERATIONS["cdk_redeem"];
 const OP_SITE_OBSERVATION_LEGACY_EXPORT = OPERATIONS["site_observation_legacy_export"];
 const OP_LEGACY_CONSOLE_SOCIAL_START = OPERATIONS["legacy_console_social_start"];
@@ -1532,6 +1534,16 @@ export class XpeachClient {
     async oidcAuthorize(args, options) {
         await executeOperation(this.cfg, OP_OIDC_AUTHORIZE, { query: { "client_id": args.clientId, "redirect_uri": args.redirectUri, "response_type": args.responseType, "scope": args.scope, "state": args.state, "code_challenge": args.codeChallenge, "code_challenge_method": args.codeChallengeMethod } }, options);
         return;
+    }
+    /** 读取单中心统一人机验证公开策略（供主站与客户端统一渲染） */
+    async captchaPolicyGet(options) {
+        const out = await executeOperation(this.cfg, OP_CAPTCHA_POLICY_GET, {}, options);
+        return out;
+    }
+    /** 第一方下游服务统一通过SSO核验人机验证令牌 */
+    async captchaVerify(args, options) {
+        const out = await executeOperation(this.cfg, OP_CAPTCHA_VERIFY, { body: args.body }, options);
+        return out;
     }
     /** CDK核销（事务幂等防双兑/复活） */
     async cdkRedeem(args, options) {

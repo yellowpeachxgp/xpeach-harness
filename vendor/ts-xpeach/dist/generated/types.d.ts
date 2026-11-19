@@ -690,6 +690,20 @@ export interface DeviceAuthorizationResult {
     "expires_in"?: number;
     "interval"?: number;
 }
+export interface CapSceneSiteKeys {
+    "login": string;
+    "register": string;
+    "recovery": string;
+    "checkin": string;
+    "partnerConsent": string;
+}
+export interface CapSceneSiteKeysPatch {
+    "login"?: string;
+    "register"?: string;
+    "recovery"?: string;
+    "checkin"?: string;
+    "partnerConsent"?: string;
+}
 export interface CenterBranding {
     "displayName": string;
     "logoUrl": string;
@@ -721,13 +735,18 @@ export interface CenterMail {
     "notifyOnAccountStatus": boolean;
     "notifyOnNewLogin": boolean;
 }
-export type CenterCaptchaProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha";
+export type CenterCaptchaProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha" | "cap";
 export interface CenterCaptcha {
     "provider": CenterCaptchaProvider;
     "siteKey": string;
+    "capOrigin": string;
+    "capVerifyOrigin": string;
+    "capSiteKeys": CapSceneSiteKeys;
     "enableOnLogin": boolean;
     "enableOnRegister": boolean;
     "enableOnRecovery": boolean;
+    "enableOnCheckin": boolean;
+    "enableOnPartnerConsent": boolean;
 }
 export interface CenterSecurity {
     "maxFailedAttempts": number;
@@ -779,13 +798,18 @@ export interface CenterMailPatch {
     "notifyOnAccountStatus"?: boolean;
     "notifyOnNewLogin"?: boolean;
 }
-export type CenterCaptchaPatchProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha";
+export type CenterCaptchaPatchProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha" | "cap";
 export interface CenterCaptchaPatch {
     "provider"?: CenterCaptchaPatchProvider;
     "siteKey"?: string;
+    "capOrigin"?: string;
+    "capVerifyOrigin"?: string;
+    "capSiteKeys"?: CapSceneSiteKeysPatch;
     "enableOnLogin"?: boolean;
     "enableOnRegister"?: boolean;
     "enableOnRecovery"?: boolean;
+    "enableOnCheckin"?: boolean;
+    "enableOnPartnerConsent"?: boolean;
 }
 export interface CenterSecurityPatch {
     "maxFailedAttempts"?: number;
@@ -970,13 +994,57 @@ export interface CenterPublicBrand {
     "signup_enabled": boolean;
     "email_verification_policy": string;
 }
-export type PortalCaptchaChallengeProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha";
+export type PortalCaptchaChallengeProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha" | "cap";
 export interface PortalCaptchaChallenge {
     "provider": PortalCaptchaChallengeProvider;
     "site_key": string;
+    "cap_origin": string | null;
     "enabled": boolean;
     "question": string | null;
     "captcha_token": string | null;
+}
+export interface CaptchaPolicySiteKeys {
+    "login": string;
+    "register": string;
+    "recovery": string;
+    "checkin": string;
+    "partner_consent": string;
+}
+export interface CaptchaPolicyScenes {
+    "login": boolean;
+    "register": boolean;
+    "recovery": boolean;
+    "checkin": boolean;
+    "partner_consent": boolean;
+}
+export type CaptchaPublicPolicyProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha" | "cap";
+export interface CaptchaPublicPolicy {
+    "provider": CaptchaPublicPolicyProvider;
+    "enabled": boolean;
+    "site_key": string;
+    "cap_origin": string | null;
+    "cap_site_keys": CaptchaPolicySiteKeys;
+    "scenes": CaptchaPolicyScenes;
+}
+export type CaptchaVerifyRequestScene = "login" | "register" | "recovery" | "reset_password" | "checkin" | "partner_consent";
+export interface CaptchaVerifyRequest {
+    "scene": CaptchaVerifyRequestScene;
+    "captcha_response"?: string;
+    "captcha_token"?: string;
+    "captcha_answer"?: string;
+    "remote_ip"?: string;
+    "expected_action"?: string;
+    "expected_hostnames"?: string[];
+}
+export type CaptchaVerifyResponseProvider = "none" | "builtin" | "turnstile" | "recaptcha" | "hcaptcha" | "cap";
+export type CaptchaVerifyResponseScene = "login" | "register" | "recovery" | "checkin" | "partner_consent";
+export interface CaptchaVerifyResponse {
+    "ok": boolean;
+    "provider": CaptchaVerifyResponseProvider;
+    "scene": CaptchaVerifyResponseScene;
+    "enforced": boolean;
+    "code": string;
+    "message": string;
 }
 export interface SystemCounts {
     "users": NonNegQuota;
@@ -9041,7 +9109,7 @@ export type AdminWeeklySheetActionAction = "approve" | "reject" | "pay";
 export type AdminFinanceOverviewRange = "all" | "7d" | "30d" | "90d" | "custom";
 export type AdminFinanceReceiptsRange = "all" | "7d" | "30d" | "90d" | "custom";
 export type CenterOauthPutProvider = "github" | "google" | "discord" | "wechat" | "qq" | "cloudflare-access" | "oidc";
-export type PortalCaptchaGetScene = "login" | "register" | "recovery";
+export type PortalCaptchaGetScene = "login" | "register" | "recovery" | "reset_password" | "checkin" | "partner_consent";
 export type CenterInterfaceUpdateCredential = "internalService" | "clusterRedemption" | "costBridge";
 export type UserDirectoryExportStatus = "active" | "disabled";
 export type UserDirectoryActionAction = "notify" | "send_reset" | "send_verification" | "unlink_identity" | "clear_passkeys" | "revoke_sessions" | "bind_inviter" | "upsert_site" | "delete_site";

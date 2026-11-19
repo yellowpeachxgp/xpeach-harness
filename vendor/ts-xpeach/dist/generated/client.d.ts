@@ -1276,6 +1276,11 @@ export interface OidcAuthorizeArgs {
     codeChallenge?: string;
     codeChallengeMethod?: string;
 }
+export type CaptchaPolicyGetErrorBody = T.Problem;
+export type CaptchaVerifyErrorBody = T.Problem;
+export interface CaptchaVerifyArgs {
+    body: T.CaptchaVerifyRequest;
+}
 export type CdkRedeemErrorBody = T.Problem;
 export interface CdkRedeemArgs {
     idempotencyKey: string;
@@ -2228,6 +2233,10 @@ export declare class XpeachClient {
     legacyBusinessCostBridgeOpenclaw(args: LegacyBusinessCostBridgeOpenclawArgs, options?: RequestOptions): Promise<T.FinanceIntegrityBridgeResponse>;
     /** 授权端点（code+PKCE；浏览器身份缺省转交互登录） */
     oidcAuthorize(args: OidcAuthorizeArgs, options?: RequestOptions): Promise<void>;
+    /** 读取单中心统一人机验证公开策略（供主站与客户端统一渲染） */
+    captchaPolicyGet(options?: RequestOptions): Promise<T.CaptchaPublicPolicy>;
+    /** 第一方下游服务统一通过SSO核验人机验证令牌 */
+    captchaVerify(args: CaptchaVerifyArgs, options?: RequestOptions): Promise<T.CaptchaVerifyResponse>;
     /** CDK核销（事务幂等防双兑/复活） */
     cdkRedeem(args: CdkRedeemArgs, options?: RequestOptions): Promise<T.CdkClosureReceipt>;
     /** 旧全局站点CSV完整导出，复用当前新鲜人类管理员认证和窄审计 */

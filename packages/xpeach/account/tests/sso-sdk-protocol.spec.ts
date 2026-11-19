@@ -152,6 +152,47 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
           res.end()
           return
         }
+        if (req.method === 'GET' && url.pathname === '/api/v2/captcha/policy') {
+          return send(200, {
+            enabled: true,
+            provider: 'cap',
+            site_key: 'cap_login_key',
+            cap_origin: 'http://127.0.0.1:14250',
+            cap_site_keys: {
+              login: 'cap_login_key',
+              register: 'cap_register_key',
+              recovery: 'cap_recovery_key',
+              checkin: 'cap_checkin_key',
+              partner_consent: 'cap_consent_key',
+            },
+            scenes: {
+              login: true,
+              register: true,
+              recovery: false,
+              checkin: true,
+              partner_consent: true,
+            },
+          })
+        }
+        if (req.method === 'GET' && url.pathname === '/api/v2/portal/auth/captcha') {
+          const scene = url.searchParams.get('scene') ?? 'login'
+          const siteKeys: Record<string, string> = {
+            login: 'cap_login_key',
+            register: 'cap_register_key',
+            recovery: 'cap_recovery_key',
+            checkin: 'cap_checkin_key',
+            partner_consent: 'cap_consent_key',
+          }
+          const enabled = scene !== 'recovery'
+          return send(200, {
+            enabled,
+            provider: enabled ? 'cap' : 'none',
+            site_key: enabled ? (siteKeys[scene] ?? 'cap_login_key') : '',
+            cap_origin: enabled ? 'http://127.0.0.1:14250' : null,
+            question: null,
+            captcha_token: null,
+          })
+        }
         send(404, { status: 404, title: 'not_found', code: 'not_found' })
       })
     })
@@ -199,5 +240,30 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
     const okRevoke = await api.ssoRevokeToken(ssoBase, 'xph_at_rotated_live_002', {}, signal, 'xph_rt_rotated_002', 'xpeach-harness')
     expect(okRevoke).toBe(true)
     expect(revoked).toEqual(['xph_rt_rotated_002', 'xph_at_rotated_live_002'])
+  })
+
+  it('通过 @xpeach/ts-xpeach CaptchaClient 统一获取 SSO 本地 Cap 人机校验策略与分场景挑战', async () => {
+    const api = new XPeachApi({ baseURL: 'http://127.0.0.1:13000', timeoutMs: 5000 })
+    const signal = AbortSignal.timeout(5000)
+
+    const policy = await api.ssoCaptchaPolicy(ssoBase, signal)
+    expect(policy.enabled).toBe(true)
+    expect(policy.provider).toBe('cap')
+    expect(policy.capOrigin).toBe('http://127.0.0.1:14250')
+    expect(policy.capSiteKeys.checkin).toBe('cap_checkin_key')
+    expect(policy.capSiteKeys.partnerConsent).toBe('cap_consent_key')
+    expect(policy.scenes.checkin).toBe(true)
+    expect(policy.scenes.recovery).toBe(false)
+
+    const checkin = await api.ssoCaptchaChallenge(ssoBase, 'checkin', signal)
+    expect(checkin.enabled).toBe(true)
+    expect(checkin.provider).toBe('cap')
+    expect(checkin.siteKey).toBe('cap_checkin_key')
+    expect(checkin.capOrigin).toBe('http://127.0.0.1:14250')
+
+    const recovery = await api.ssoCaptchaChallenge(ssoBase, 'recovery', signal)
+    expect(recovery.enabled).toBe(false)
+    expect(recovery.provider).toBe('none')
+    expect(recovery.capOrigin).toBeNull()
   })
 })

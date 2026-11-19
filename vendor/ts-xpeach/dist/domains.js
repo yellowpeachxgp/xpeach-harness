@@ -6,6 +6,7 @@
  */
 import { XpeachClient } from "./generated/client.js";
 import { ResponseFormatError } from "./generated/runtime.js";
+import { CaptchaClient } from "./captcha.js";
 import { OidcClient } from "./oidc.js";
 export class WalletDomainClient {
     raw;
@@ -176,6 +177,7 @@ export class XpeachSdk {
     portal;
     health;
     internal;
+    captcha;
     baseConfig;
     constructor(config) {
         this.baseConfig = config;
@@ -186,6 +188,7 @@ export class XpeachSdk {
         this.portal = new PortalDomainClient(this.raw);
         this.health = new HealthDomainClient(this.raw);
         this.internal = new InternalDomainClient(this.raw);
+        this.captcha = new CaptchaClient(this.raw);
     }
     /** 创建与当前 SDK 传输配置对齐的强类型 OIDC 客户端。 */
     createOidcClient(options) {

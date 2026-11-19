@@ -7,10 +7,12 @@
  */
 import { RemoteError } from '@xpeach/xph-typert-protocol'
 import {
+  CaptchaClient,
   OAuthProtocolError,
   OidcClient,
   XpeachClient,
   isDefinitiveTokenRejection,
+  type CaptchaScene,
   type OidcTokenSet,
   type VerifiedAccessIdentity,
 } from '@xpeach/ts-xpeach'
@@ -26,7 +28,8 @@ import type {
   XPeachPerfGroupRow, XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption,
   XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
   XPeachUserSelf, XPeachSelfLogPage, XPeachSelfLogStat,
-  XPeachSsoBridgePayload, XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
+  XPeachSsoBridgePayload, XPeachSsoCaptchaChallenge, XPeachSsoCaptchaPolicy, XPeachSsoCaptchaScene,
+  XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
 } from './types.ts'
 
 /**
@@ -2040,5 +2043,64 @@ export class XPeachApi {
       }
     }
     return acknowledged
+  }
+
+  /**
+   * Fetch the unified human-verification policy from XPeach SSO via `@xpeach/ts-xpeach`.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param signal - request cancellation signal.
+   * @returns normalized SSO captcha policy (including self-hosted Cap origin and per-scene keys).
+   */
+  async ssoCaptchaPolicy(ssoBaseURL: string, signal: AbortSignal): Promise<XPeachSsoCaptchaPolicy> {
+    const base = validateSsoBaseUrl(ssoBaseURL)
+    const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
+    const raw = await captcha.getPolicy({ signal })
+    return {
+      provider: raw.provider,
+      enabled: raw.enabled,
+      siteKey: raw.site_key,
+      capOrigin: raw.cap_origin,
+      capSiteKeys: {
+        login: raw.cap_site_keys.login,
+        register: raw.cap_site_keys.register,
+        recovery: raw.cap_site_keys.recovery,
+        checkin: raw.cap_site_keys.checkin,
+        partnerConsent: raw.cap_site_keys.partner_consent,
+      },
+      scenes: {
+        login: raw.scenes.login,
+        register: raw.scenes.register,
+        recovery: raw.scenes.recovery,
+        checkin: raw.scenes.checkin,
+        partnerConsent: raw.scenes.partner_consent,
+      },
+    }
+  }
+
+  /**
+   * Fetch a scene-scoped human-verification challenge from XPeach SSO via `@xpeach/ts-xpeach`.
+   *
+   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param scene - target scene governed by SSO.
+   * @param signal - request cancellation signal.
+   * @returns scene-scoped challenge configuration (Cap origin/siteKey, Turnstile key, or builtin puzzle).
+   */
+  async ssoCaptchaChallenge(
+    ssoBaseURL: string,
+    scene: XPeachSsoCaptchaScene,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoCaptchaChallenge> {
+    const base = validateSsoBaseUrl(ssoBaseURL)
+    const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
+    const raw = await captcha.getChallenge(scene as CaptchaScene, { signal })
+    return {
+      provider: raw.provider,
+      siteKey: raw.site_key,
+      capOrigin: raw.cap_origin,
+      enabled: raw.enabled,
+      question: raw.question,
+      captchaToken: raw.captcha_token,
+    }
   }
 }
