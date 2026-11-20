@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-client-ui-entry-customization",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "description": "Customize plugin entries in the left sidebar, conversation views, and right sidebar, and quickly create new plugins.",
   "publishConfig": {
     "access": "public"

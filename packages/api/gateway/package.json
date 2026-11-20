@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-api-gateway",
   "description": "Typert Remote Host dispatcher and Client API endpoint",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

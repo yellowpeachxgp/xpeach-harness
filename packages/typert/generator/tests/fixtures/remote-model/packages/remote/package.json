@@ -20,5 +20,5 @@
     "lib/typert.remote-client.js",
     "lib/typert.remote-client.d.ts"
   ],
-  "version": "0.0.37-beta"
+  "version": "0.0.38-alpha"
 }

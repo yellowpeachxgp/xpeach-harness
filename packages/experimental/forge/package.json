@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-forge",
   "description": "Provider-neutral change request registry with shared status polling",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

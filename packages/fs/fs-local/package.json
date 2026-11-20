@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-fs-local",
   "description": "Local-filesystem implementation of the XPeach Harness filesystem seam (ctx.fs)",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

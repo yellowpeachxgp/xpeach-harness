@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-experimental-tool-subagent-oar",
   "description": "Delegate standalone tasks to configured external subagent providers",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

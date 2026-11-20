@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-working-directory",
   "description": "Session working directories with durable changes and model context",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

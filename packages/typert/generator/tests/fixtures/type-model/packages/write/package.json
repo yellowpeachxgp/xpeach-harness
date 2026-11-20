@@ -8,5 +8,5 @@
       "default": "./lib/index.js"
     }
   },
-  "version": "0.0.37-beta"
+  "version": "0.0.38-alpha"
 }

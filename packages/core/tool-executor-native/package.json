@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-executor-native",
   "description": "Native tool execution plugin",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

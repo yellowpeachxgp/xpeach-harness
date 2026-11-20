@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-retry",
   "description": "Provider-routed LLM request retry policy for the DeepSeek Harness",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

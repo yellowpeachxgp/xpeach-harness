@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-plugin-detail",
   "description": "Plugin detail documents: meta.detail or README selection, image paths, and local and npm CDN file sources",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

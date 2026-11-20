@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-preset-registry",
   "description": "Declarative Agent preset registry and profile-backed editing",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

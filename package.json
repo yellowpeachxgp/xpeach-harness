@@ -1,6 +1,6 @@
 {
   "name": "@xpeach/xph-root",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "license": "MIT",
   "private": true,
   "type": "module",

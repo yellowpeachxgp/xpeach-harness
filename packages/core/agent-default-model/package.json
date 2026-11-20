@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-agent-default-model",
   "description": "Default model selection shared by Agent entry points",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },

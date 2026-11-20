@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-settings",
   "description": "Abstract user-settings seam (ctx.settings) for the DeepSeek Harness",
-  "version": "0.0.37-beta",
+  "version": "0.0.38-alpha",
   "publishConfig": {
     "access": "public"
   },
