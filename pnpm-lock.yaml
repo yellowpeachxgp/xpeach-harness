@@ -17227,9 +17227,6 @@ importers:
 
   packages/xpeach/account:
     dependencies:
-      '@xpeach/ts-xpeach':
-        specifier: link:../../../vendor/ts-xpeach
-        version: link:../../../vendor/ts-xpeach
       '@xpeach/xph-atomic-write':
         specifier: workspace:*
         version: link:../../util/atomic-write
@@ -17246,6 +17243,9 @@ importers:
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
+      '@xpeach/ts-xpeach':
+        specifier: link:../../../vendor/ts-xpeach
+        version: link:../../../vendor/ts-xpeach
       '@xpeach/xph-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes

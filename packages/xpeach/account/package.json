@@ -50,6 +50,7 @@
     "@xpeach/xph-launch-environment": "workspace:*"
   },
   "devDependencies": {
+    "@xpeach/ts-xpeach": "workspace:~",
     "@xpeach/xph-atomic-write": "workspace:*",
     "@xpeach/xph-api-remotes": "workspace:*",
     "@xpeach/xph-cordis": "workspace:~",
@@ -68,7 +69,6 @@
     "@types/js-yaml": "^4.0.9"
   },
   "dependencies": {
-    "@xpeach/ts-xpeach": "workspace:~",
     "@xpeach/xph-atomic-write": "workspace:*",
     "@xpeach/xph-schemastery": "workspace:~",
     "@xpeach/xph-util-values": "workspace:*",
