@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-llm-deepseek",
   "description": "DeepSeek Messages adapter",
-  "version": "0.0.36-alpha",
+  "version": "0.0.37-beta",
   "publishConfig": {
     "access": "public"
   },

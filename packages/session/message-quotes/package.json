@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-message-quotes",
   "description": "Selected-text quotation and Markdown blockquote presentation",
-  "version": "0.0.36-alpha",
+  "version": "0.0.37-beta",
   "publishConfig": {
     "access": "public"
   },

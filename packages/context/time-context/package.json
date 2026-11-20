@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-time-context",
   "description": "Durable per-step context with the current time and elapsed time",
-  "version": "0.0.36-alpha",
+  "version": "0.0.37-beta",
   "publishConfig": {
     "access": "public"
   },

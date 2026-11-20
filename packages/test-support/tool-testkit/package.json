@@ -1,7 +1,7 @@
 {
   "name": "@xpeach/xph-tool-testkit",
   "description": "Tool definition and execution fixtures for tests and benchmarks",
-  "version": "0.0.36-alpha",
+  "version": "0.0.37-beta",
   "publishConfig": {
     "access": "public"
   },
