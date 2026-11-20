@@ -177,6 +177,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
   private readonly contextsBySeq = new Map<number, InternalContext[]>()
   private readonly contextsByTarget = new Map<string, Set<InternalContext>>()
   private readonly inputs = new Map<number, SessionEventLikeEntry>()
+  private readonly transientsByAttempt = new Map<LlmAttemptId, Map<number, SessionTransientEventEntry>>()
   private readonly locationIndex = new ConversationLocationIndex()
   private readonly dirty = new Set<InternalContext>()
   private readonly dirtyByTarget = new Map<string, Set<InternalContext>>()
@@ -229,13 +230,14 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     this.contextsBySeq.clear()
     this.contextsByTarget.clear()
     this.inputs.clear()
+    this.transientsByAttempt.clear()
     this.dirty.clear()
     this.dirtyByTarget.clear()
     this.revised.clear()
     this.dependents.clear()
     this.hasMore = hasMore
     const sorted = [...entries].sort((left, right) => left.event.seq - right.event.seq)
-    for (const entry of sorted) this.inputs.set(entry.event.seq, entry)
+    for (const entry of sorted) this.recordInput(entry)
     this.locationIndex.rebuild(sorted)
     this.timelineDirty = true
     for (const entry of sorted) this.matchInput(entry)
@@ -244,6 +246,18 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     for (const context of this.contexts.values()) this.markDirty(context)
     this.replacePending = true
     return 'immediate'
+  }
+
+  private recordInput(entry: SessionEventLikeEntry): void {
+    this.inputs.set(entry.event.seq, entry)
+    if (entry.type !== 'transient') return
+    const attemptId = entry.event.data.attemptId
+    let bySeq = this.transientsByAttempt.get(attemptId)
+    if (bySeq === undefined) {
+      bySeq = new Map()
+      this.transientsByAttempt.set(attemptId, bySeq)
+    }
+    bySeq.set(entry.event.seq, entry)
   }
 
   /**
@@ -255,7 +269,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     const event = record.event
     if (this.inputs.has(event.seq)) return 'none'
     if (this.revised.size > 0) this.revised.clear()
-    this.inputs.set(event.seq, record)
+    this.recordInput(record)
     let publication: ConversationPublication = 'none'
     if (event.type !== 'assistant/live-chunk' && isLocationBoundary(event.type)) {
       const previousTimeline = this.locationIndex.snapshot()
@@ -288,19 +302,19 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     entry?: SessionAssistantSettlementEntry,
   ): ConversationPublication {
     this.revised.clear()
-    const retired = [...this.inputs.values()].filter((candidate): candidate is SessionTransientEventEntry => (
-      candidate.type === 'transient'
-      && candidate.event.data.attemptId === attemptId
-    ))
-    const retiredSeqs = new Set(retired.map(candidate => candidate.event.seq))
+    const attemptTransients = this.transientsByAttempt.get(attemptId)
+    this.transientsByAttempt.delete(attemptId)
+    const retired = attemptTransients === undefined ? [] : [...attemptTransients.values()]
     const affected = new Set<InternalContext>()
-    for (const seq of retiredSeqs) {
-      this.inputs.delete(seq)
-      for (const context of this.contextsBySeq.get(seq) ?? []) affected.add(context)
-      this.contextsBySeq.delete(seq)
-    }
-    for (const context of affected) {
-      context.matches = context.matches.filter(match => !retiredSeqs.has(match.event.seq))
+    if (attemptTransients !== undefined) {
+      for (const seq of attemptTransients.keys()) {
+        this.inputs.delete(seq)
+        for (const context of this.contextsBySeq.get(seq) ?? []) affected.add(context)
+        this.contextsBySeq.delete(seq)
+      }
+      for (const context of affected) {
+        context.matches = context.matches.filter(match => !attemptTransients.has(match.event.seq))
+      }
     }
     this.locationIndex.removeAssistantTransients(retired.map(candidate => candidate.event))
 
@@ -331,7 +345,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     const fresh = entries
       .filter(entry => !this.inputs.has(entry.event.seq))
       .sort((left, right) => left.event.seq - right.event.seq)
-    for (const entry of fresh) this.inputs.set(entry.event.seq, entry)
+    for (const entry of fresh) this.recordInput(entry)
     this.hasMore = hasMore
     const previousTimeline = this.locationIndex.snapshot()
     const changedLocations = this.locationIndex.rebuild(this.sortedInputs())

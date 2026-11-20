@@ -3683,6 +3683,9 @@ describe('Task detail name and instruction edits', () => {
     expect(tabStrip).toMatch(/min-height:\s*44px;/)
     const placement = /^\.tabBody > \.detail \.detailTabsBar\s*\{([^}]*)\}/m.exec(stylesheet)?.[1] ?? ''
     expect(placement).toMatch(/min-height:\s*37px;/)
+    expect(stylesheet).toMatch(
+      /\[data-platform='darwin'\][^{]*\.page \.detailTabsBar\s*\{[^}]*padding-top:\s*var\(--dsh-frame-top-clearance, 0px\);/,
+    )
     expect(tabStrip).toMatch(/padding:\s*0 var\(--detail-gutter\);/)
     expect(stylesheet).toMatch(/\.detailActions\s*\{[^}]*margin-right:\s*-8px;/)
     // The mock's `.detail-heading` is the scrolling rule view's first content:

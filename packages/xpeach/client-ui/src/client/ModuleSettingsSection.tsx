@@ -460,12 +460,33 @@ export function ModuleSettingsBody({
   return (
     <div>
       <div className={css.modFilterBar}>
-        <div className={css.modFilterPills} role="tablist" aria-label={t('modules.title')}>
+        <div
+          className={css.modFilterPills}
+          role="tablist"
+          aria-label={t('modules.title')}
+          onKeyDown={(event) => {
+            const idx = categories.findIndex(cat => cat.id === category)
+            if (idx < 0) return
+            let nextIdx = -1
+            if (event.key === 'ArrowRight') nextIdx = (idx + 1) % categories.length
+            else if (event.key === 'ArrowLeft') nextIdx = (idx - 1 + categories.length) % categories.length
+            else if (event.key === 'Home') nextIdx = 0
+            else if (event.key === 'End') nextIdx = categories.length - 1
+            if (nextIdx >= 0) {
+              event.preventDefault()
+              const next = categories[nextIdx]
+              if (next !== undefined) setCategory(next.id)
+              const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="tab"]')
+              buttons[nextIdx]?.focus()
+            }
+          }}
+        >
           {categories.map(cat => (
             <button
               key={cat.id}
               type="button"
               role="tab"
+              tabIndex={category === cat.id ? 0 : -1}
               aria-selected={category === cat.id}
               className={category === cat.id ? css.modFilterPillOn : css.modFilterPill}
               onClick={() => { setCategory(cat.id) }}
@@ -1472,13 +1493,16 @@ export function ModuleSettingsSection(props: ModuleSettingsSectionProps): JSX.El
   )
 }
 
+/** Props passed to the `模块参数配置` (`Module Settings`) tab seat. */
+export type ModuleSettingsTabProps = PropsLocale<'xpeach.account'> & InjectFace<ModuleSettingsInjected>
+
 /**
  * Render the `模块参数配置` (`Module Settings`) tab inside `设置 → 内置插件`.
  * @param props - localized copy and injected operations.
  * @returns the tab body element.
  */
 export function ModuleSettingsTab(
-  props: PropsLocale<'xpeach.account'> & InjectFace<ModuleSettingsInjected>,
+  props: ModuleSettingsTabProps,
 ): JSX.Element {
   return <ModuleSettingsBody {...props} />
 }

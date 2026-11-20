@@ -73,6 +73,13 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
   /** Quiet frames left before the loop may stop; refreshed by every report. */
   let grace = 0
 
+  /** Cached live `[data-window-drag]` rows; invalidated on element childList or drag-mark attribute mutations. */
+  let liveRows: readonly Element[] | null = null
+  const getLiveRows = (): readonly Element[] => {
+    liveRows ??= Array.from(doc.querySelectorAll(ROW_SELECTOR))
+    return liveRows
+  }
+
   /**
    * Measure every marked row and pulse when any box differs from the last frame's.
    * Runs once per frame while the surface keeps moving.
@@ -83,7 +90,7 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
     // Electron observe a computed app-region value that changed back. Reordering these
     // two statements silently drops the pulse.
     doc.body.removeAttribute(RECALL_MARK)
-    const rows = Array.from(doc.querySelectorAll(ROW_SELECTOR))
+    const rows = getLiveRows()
     watchBoxes(rows)
     const next = new Map(rows.map(row => [row, readBox(row)] as const))
     const moved = rows.length !== geometry.size
@@ -122,8 +129,9 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
 
   /** Keep one box watcher per live row, re-watching when its frame moves or unmounts. */
   const watchBoxes = (rows: readonly Element[]): void => {
+    const liveSet = new Set(rows)
     for (const [row, dispose] of boxes) {
-      if (rows.includes(row)) continue
+      if (liveSet.has(row)) continue
       dispose()
       boxes.delete(row)
     }
@@ -150,7 +158,8 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
   }
 
   const observer = new MutationObserver((records) => {
-    if (records.some(record => touchesRows(record, geometry.keys()))) arm()
+    if (records.some(invalidatesRowSet)) liveRows = null
+    if (records.some(record => touchesRows(record, geometry.keys(), getLiveRows))) arm()
   })
   observer.observe(doc.body, { subtree: true, childList: true, attributes: true, characterData: true })
   for (const type of MOTION_EVENTS) doc.addEventListener(type, onMotion, true)
@@ -165,6 +174,7 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
     for (const dispose of boxes.values()) dispose()
     boxes.clear()
     geometry.clear()
+    liveRows = null
     doc.body.removeAttribute(RECALL_MARK)
   }
 }
@@ -173,6 +183,18 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
 function readBox(row: Element): string {
   const rect = row.getBoundingClientRect()
   return `${rect.x},${rect.y},${rect.width},${rect.height}`
+}
+
+function hasElementNode(nodes: NodeList): boolean {
+  for (let i = 0; i < nodes.length; i += 1) {
+    if (nodes[i] instanceof Element) return true
+  }
+  return false
+}
+
+function invalidatesRowSet(record: MutationRecord): boolean {
+  if (record.type === 'attributes') return record.attributeName === DRAG_MARK
+  return record.type === 'childList' && (hasElementNode(record.addedNodes) || hasElementNode(record.removedNodes))
 }
 
 /**
@@ -185,9 +207,14 @@ function readBox(row: Element): string {
  * change of its own.
  * @param record - the mutation record to classify.
  * @param rows - the rows the last frame measured.
+ * @param getLiveRows - cached selector snapshot of currently connected marked rows.
  * @returns true when the drag surface has to be re-measured.
  */
-function touchesRows(record: MutationRecord, rows: Iterable<Element>): boolean {
+function touchesRows(
+  record: MutationRecord,
+  rows: Iterable<Element>,
+  getLiveRows: () => readonly Element[],
+): boolean {
   // The pulse writes its own mark on the body; that write is not a movement, and
   // treating it as one would re-arm the watcher from its own output every frame.
   if (record.attributeName === RECALL_MARK) return false
@@ -206,7 +233,10 @@ function touchesRows(record: MutationRecord, rows: Iterable<Element>): boolean {
     for (const row of rows) if (target.contains(row)) return true
     return false
   }
-  return target.closest(ROW_SELECTOR) !== null || target.querySelector(ROW_SELECTOR) !== null
+  for (const row of getLiveRows()) {
+    if (row.contains(target) || target.contains(row)) return true
+  }
+  return false
 }
 
 /** Schedule one frame through the browser's animation frame queue. */

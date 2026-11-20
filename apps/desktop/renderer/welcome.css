@@ -11,6 +11,7 @@ body {
   --dsw-alias-button-primary-hover: #43454a;
   --dsw-alias-button-elevated-fill: #fff;
   --dsw-alias-button-floating-hover: #f1f3f5;
+  --dsw-alias-bg-layer-1: #ffffff80;
   --dsw-alias-border-l2: #0000001a;
   --dsw-alias-border-l4: #00000029;
   --dsw-alias-label-caption: #adb2b8;
@@ -20,6 +21,7 @@ body {
   --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --dsw-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --dsw-font-family-brand: 'Montserrat', var(--dsw-font-family);
+  --ds-font-family-code: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +33,7 @@ body {
     --dsw-alias-button-primary-hover: #ebeef2;
     --dsw-alias-button-elevated-fill: #43454a;
     --dsw-alias-button-floating-hover: #353638;
+    --dsw-alias-bg-layer-1: #ffffff0f;
     --dsw-alias-border-l2: #ffffff1f;
     --dsw-alias-border-l4: #ffffff33;
     --dsw-alias-label-caption: #81858c;
@@ -179,10 +182,6 @@ body {
   color: var(--dsw-alias-label-primary-inverted);
 }
 
-.primary:hover:not(:disabled) {
-  background: var(--dsw-alias-button-primary-hover);
-}
-
 .actions .secondary {
   border-color: var(--dsw-alias-border-l2);
   background: var(--dsw-alias-button-elevated-fill);
@@ -209,9 +208,19 @@ body {
   line-height: 20px;
 }
 
-/* Platform text actions use color-only hover, preserving the native backdrop. */
-.actions .back:hover:not(:disabled) {
-  color: var(--dsw-alias-brand-primary);
+@media (hover: hover) {
+  .primary:hover:not(:disabled) {
+    background: var(--dsw-alias-button-primary-hover);
+  }
+
+  /* Platform text actions use color-only hover, preserving the native backdrop. */
+  .actions .back:hover:not(:disabled) {
+    color: var(--dsw-alias-brand-primary);
+  }
+
+  .actions .secondary:hover:not(:disabled) {
+    background: var(--dsw-alias-button-floating-hover);
+  }
 }
 
 .actions .back:disabled {
@@ -223,10 +232,6 @@ body {
   .actions button {
     transition: none;
   }
-}
-
-.actions .secondary:hover:not(:disabled) {
-  background: var(--dsw-alias-button-floating-hover);
 }
 
 .key-form {
@@ -287,6 +292,12 @@ body {
 
 .key-field input:focus {
   border-color: var(--dsw-alias-brand-primary);
+}
+
+@media (pointer: coarse) {
+  .key-field input {
+    font-size: 16px;
+  }
 }
 
 .key-field input::placeholder {
@@ -364,7 +375,7 @@ body {
 }
 
 .welcome-user-code-value {
-  font-family: var(--dsw-alias-font-mono, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: 20px;
   font-weight: 500;
   line-height: 26px;

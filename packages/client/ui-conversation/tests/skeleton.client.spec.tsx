@@ -1033,4 +1033,11 @@ describe('ConversationRoot resident composer', () => {
     const b = mount(sessionSnapshotOf({ blank: true }))
     expect(b.view.container.querySelector('[data-width-handle]')).toBeNull()
   })
+
+  it('isolates composer draft updates to the input dock without re-rendering views or the composer bar slot', () => {
+    const b = mount(sessionSnapshotOf())
+    b.slotCalls.length = 0
+    act(() => { b.wiring.setDraft('typing without shell churn') })
+    expect(b.slotCalls).toEqual(['conversation.input.dock'])
+  })
 })

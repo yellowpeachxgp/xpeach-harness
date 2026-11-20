@@ -9,7 +9,7 @@
   min-height: 28px;
   padding: 3px 7px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
@@ -61,7 +61,7 @@
   padding: 8px 2px 0;
   overflow: hidden;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-lg);
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
   box-shadow: var(--dsw-elevation-prominent);
   max-width: var(--dsh-anchored-max-width, none);
@@ -76,7 +76,7 @@
   position: absolute;
   z-index: -1;
   inset: 0;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-specific-menu);
   backdrop-filter: var(--dsw-menu-backdrop-filter);
 }
@@ -143,7 +143,7 @@
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
   box-shadow: var(--dsw-elevation-stroke);
-  border-radius: 8px;
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   text-align: left;
@@ -162,8 +162,8 @@
 }
 
 .member:not(:disabled):focus-visible {
-  --dsw-elevation-stroke-color: var(--dsw-alias-border-l3);
-  box-shadow: var(--dsw-elevation-panel);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
 }
 
 @media (hover: hover) {
@@ -266,7 +266,7 @@
 .task {
   padding: 11px 13px;
   border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 9px;
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-2);
 }
 

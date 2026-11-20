@@ -40,10 +40,12 @@ export interface XPeachUserSelf {
   readonly has_password?: boolean
 }
 
-/** One own-usage log row as /api/log/self reports it. */
+/** One own-usage log row as /api/log/usage reports it. */
 export interface XPeachSelfLogEntry {
   readonly id: number
+  readonly user_id?: number
   readonly created_at: number
+  readonly username?: string
   readonly model_name?: string
   readonly token_name?: string
   readonly group?: string
@@ -52,6 +54,8 @@ export interface XPeachSelfLogEntry {
   readonly completion_tokens: number
   readonly use_time: number
   readonly is_stream?: boolean
+  readonly channel?: number
+  readonly request_id?: string
   readonly other?: string
 }
 
@@ -287,6 +291,9 @@ export interface XPeachAdminToken {
   readonly key?: string
   readonly status?: number
   readonly group?: string
+  readonly groups?: string[]
+  readonly auto_groups?: string[] | null
+  readonly cross_group_retry?: boolean
   readonly remain_quota?: number
   readonly used_quota?: number
   readonly unlimited_quota?: boolean
@@ -476,6 +483,17 @@ export interface XPeachSkillToggleRequest {
   readonly enabled: boolean
 }
 
+/** Request payload for `xpeach.skillBatchToggle`. */
+export interface XPeachSkillBatchToggleRequest {
+  readonly items: readonly { readonly dirName: string; readonly name: string }[]
+  readonly enabled: boolean
+}
+
+/** Request payload for `xpeach.skillBatchDelete`. */
+export interface XPeachSkillBatchDeleteRequest {
+  readonly dirNames: readonly string[]
+}
+
 /** Request payload for `xpeach.skillSave`. */
 export interface XPeachSkillSaveRequest {
   readonly dirName?: string
@@ -539,6 +557,17 @@ export interface XPeachMcpSaveRequest {
 /** Request payload for `xpeach.mcpDelete`. */
 export interface XPeachMcpDeleteRequest {
   readonly id: string
+}
+
+/** Request payload for `xpeach.mcpBatchToggle`. */
+export interface XPeachMcpBatchToggleRequest {
+  readonly ids: readonly string[]
+  readonly enabled: boolean
+}
+
+/** Request payload for `xpeach.mcpBatchDelete`. */
+export interface XPeachMcpBatchDeleteRequest {
+  readonly ids: readonly string[]
 }
 
 /** One detected local conversation store. */
@@ -670,11 +699,42 @@ export interface XPeachSsoDeviceStartResult {
   readonly expiresIn: number
   readonly interval: number
   readonly browserOpened: boolean
+  readonly clientId?: string | undefined
+  readonly issuer?: string | undefined
 }
 
 /** Request payload for polling an XPeach SSO Device Authorization flow. */
 export interface XPeachSsoDevicePollRequest {
   readonly deviceCode: string
+}
+
+/** Request options for starting a unified 1-click XPeach SSO browser sign-in (PKCE S256 loopback with Device fallback). */
+export interface XPeachSsoBrowserStartRequest {
+  readonly openBrowser?: boolean | undefined
+  readonly clientName?: string | undefined
+}
+
+/** Non-blocking session descriptor returned by `ssoBrowserStart`. */
+export interface XPeachSsoBrowserStartResult {
+  readonly attemptId: string
+  readonly mode: 'pkce' | 'device'
+  readonly authorizationUrl: string
+  readonly expiresIn: number
+  readonly interval: number
+  readonly browserOpened: boolean
+  readonly deviceCode?: string | undefined
+  readonly userCode?: string | undefined
+}
+
+/** Request payload for polling a unified XPeach SSO browser sign-in attempt. */
+export interface XPeachSsoBrowserPollRequest {
+  readonly attemptId: string
+  readonly deviceCode?: string | undefined
+}
+
+/** Request payload for cancelling an in-flight XPeach SSO browser sign-in attempt. */
+export interface XPeachSsoBrowserCancelRequest {
+  readonly attemptId: string
 }
 
 /** Bridged SSO + PeachCode (NewAPI) credential bundle returned upon Device Flow approval. */
@@ -684,6 +744,8 @@ export interface XPeachSsoBridgePayload {
     readonly refreshToken?: string | undefined
     readonly idToken?: string | undefined
     readonly expiresIn?: number | undefined
+    readonly issuer?: string | undefined
+    readonly clientId?: string | undefined
     readonly user?: {
       readonly id: string
       readonly username?: string | null | undefined
@@ -853,3 +915,298 @@ export type {
   XPeachSystemNotificationRequest,
   XPeachSystemNotificationResult,
 } from './system-notification.ts'
+
+/** Supported upstream wire protocols in the XPeach Gateway & Prompt Inspector. */
+export type XPeachWireProtocol = 'openai-completions' | 'openai-responses' | 'anthropic-messages'
+
+/** Custom system-prompt section authored by the user in the Prompt Inspector. */
+export interface XPeachCustomPromptSection {
+  readonly id: string
+  readonly name: string
+  readonly order: number
+  readonly text: string
+  readonly enabled: boolean
+}
+
+/** Custom runtime-context block authored by the user in the Prompt Inspector. */
+export interface XPeachCustomContextBlock {
+  readonly id: string
+  readonly name: string
+  readonly order: number
+  readonly text: string
+  readonly enabled: boolean
+}
+
+/** Custom pre-step implicit user-turn prompt injection authored by the user. */
+export interface XPeachCustomPreStepInjection {
+  readonly id: string
+  readonly label: string
+  readonly placement: 'before-user' | 'after-user'
+  readonly text: string
+  readonly enabled: boolean
+}
+
+/** Custom HTTP header configured for upstream gateway requests. */
+export interface XPeachCustomGatewayHeader {
+  readonly key: string
+  readonly value: string
+  readonly enabled: boolean
+}
+
+/** Durable user overrides for system prompts, implicit injections, tools, and upstream gateway headers/body. */
+export interface XPeachPromptOverridesConfig {
+  readonly disabledSections: readonly string[]
+  readonly sectionOverrides: Readonly<Record<string, string>>
+  readonly customSections: readonly XPeachCustomPromptSection[]
+  readonly disabledContexts: readonly string[]
+  readonly contextOverrides: Readonly<Record<string, string>>
+  readonly customContexts: readonly XPeachCustomContextBlock[]
+  readonly disabledImplicitInjectors: readonly string[]
+  readonly customPreStepInjections: readonly XPeachCustomPreStepInjection[]
+  readonly disabledTools: readonly string[]
+  readonly toolDescriptionOverrides: Readonly<Record<string, string>>
+  readonly customHeaders: readonly XPeachCustomGatewayHeader[]
+  readonly conversationTracking: boolean
+  readonly reasoningEffort: 'default' | 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+  readonly cacheRetention: 'default' | 'none' | 'short' | 'long'
+  readonly temperature: number | null
+  readonly maxTokens: number | null
+}
+
+/** Request payload for `xpeach.gatewayInspectorSnapshot`. */
+export interface XPeachGatewayInspectorRequest {
+  readonly protocol?: XPeachWireProtocol
+  readonly model?: string
+  readonly sessionId?: string
+  readonly sampleUserMessage?: string
+}
+
+/** Request payload for `xpeach.gatewayInspectorSave`. */
+export interface XPeachGatewayInspectorSaveRequest {
+  readonly config: XPeachPromptOverridesConfig
+  readonly preview?: XPeachGatewayInspectorRequest
+}
+
+/** One HTTP header entry displayed in the upstream gateway inspector. */
+export interface XPeachGatewayHeaderItem {
+  readonly name: string
+  readonly value: string
+  readonly source: 'auth' | 'protocol' | 'attribution' | 'tracking' | 'custom'
+  readonly editable: boolean
+  readonly enabled: boolean
+}
+
+/** One system-prompt section inspected before variable interpolation and wire serialization. */
+export interface XPeachInspectedPromptSection {
+  readonly name: string
+  readonly order: number
+  readonly category: 'identity' | 'persona' | 'policy' | 'tool-guidance' | 'environment' | 'custom'
+  readonly defaultText: string
+  readonly effectiveText: string
+  readonly enabled: boolean
+  readonly overridden: boolean
+  readonly isCustom: boolean
+  readonly customId?: string
+  readonly charCount: number
+  readonly estTokens: number
+}
+
+/** One dynamic runtime-context block inspected in the prompt studio. */
+export interface XPeachInspectedContextBlock {
+  readonly name: string
+  readonly order: number
+  readonly required: boolean
+  readonly defaultText: string
+  readonly effectiveText: string
+  readonly enabled: boolean
+  readonly overridden: boolean
+  readonly isCustom: boolean
+  readonly customId?: string
+  readonly charCount: number
+  readonly estTokens: number
+}
+
+/** One implicit / pre-step prompt injection exposed to the user. */
+export interface XPeachInspectedImplicitItem {
+  readonly id: string
+  readonly label: string
+  readonly sourceKind: string
+  readonly trigger: 'every-turn' | 'workspace-rules' | 'skill-catalog' | 'conditional' | 'custom'
+  readonly enabled: boolean
+  readonly toggleable: boolean
+  readonly previewText: string
+  readonly charCount: number
+  readonly estTokens: number
+  readonly isCustom?: boolean
+  readonly placement?: 'before-user' | 'after-user'
+}
+
+/** One tool schema exposed in the upstream request body. */
+export interface XPeachInspectedToolItem {
+  readonly name: string
+  readonly source: 'builtin' | 'mcp' | 'skill' | 'extension'
+  readonly defaultDescription: string
+  readonly effectiveDescription: string
+  readonly parameters: Readonly<Record<string, JsonValue>>
+  readonly enabled: boolean
+  readonly overridden: boolean
+  readonly estTokens: number
+}
+
+/** One captured real outbound LLM gateway request recorded at `llm/stream`. */
+export interface XPeachCapturedOutboundRequest {
+  readonly id: string
+  readonly timestamp: number
+  readonly provider: string
+  readonly protocol: XPeachWireProtocol
+  readonly model: string
+  readonly sessionId?: string
+  readonly method: 'POST'
+  readonly url: string
+  readonly headers: readonly XPeachGatewayHeaderItem[]
+  readonly bodyJson: string
+  readonly messageCount: number
+  readonly toolCount: number
+  readonly estTotalTokens: number
+}
+
+/** Complete snapshot of assembled prompts, implicit injections, tools, headers, and upstream request body. */
+export interface XPeachGatewayInspectorSnapshot {
+  readonly method: 'POST'
+  readonly endpointUrl: string
+  readonly activeBaseUrl: string
+  readonly protocol: XPeachWireProtocol
+  readonly providerKey: string
+  readonly model: string
+  readonly availableModels: readonly string[]
+  readonly recentSessions: readonly {
+    readonly id: string
+    readonly title?: string
+    readonly cwd?: string
+    readonly updatedAt: number
+  }[]
+  readonly selectedSessionId?: string
+  readonly headers: readonly XPeachGatewayHeaderItem[]
+  readonly sections: readonly XPeachInspectedPromptSection[]
+  readonly contexts: readonly XPeachInspectedContextBlock[]
+  readonly implicitInjections: readonly XPeachInspectedImplicitItem[]
+  readonly tools: readonly XPeachInspectedToolItem[]
+  readonly variables: Readonly<Record<string, string>>
+  readonly renderedSystemPrompt: string
+  readonly renderedRuntimeContext: string
+  readonly requestBodyJson: string
+  readonly curlPreview: string
+  readonly stats: {
+    readonly systemTokens: number
+    readonly contextTokens: number
+    readonly implicitTokens: number
+    readonly toolTokens: number
+    readonly totalEstTokens: number
+  }
+  readonly config: XPeachPromptOverridesConfig
+  readonly capturedRequests: readonly XPeachCapturedOutboundRequest[]
+}
+
+/** Primary wire-endpoint pool identifier for XPeach model routing. */
+export type XPeachEndpointPoolId = 'openai-completions' | 'openai-responses' | 'anthropic-messages'
+
+/** Selectable reasoning-effort level identifier for per-model configuration. */
+export type XPeachModelReasoningLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+
+/** Per-model wire-compatibility overrides stored in `xpeach.model-routing.json`. */
+export interface XPeachModelCompatSettings {
+  readonly thinkingFormat?:
+    | 'openai'
+    | 'deepseek'
+    | 'openrouter'
+    | 'together'
+    | 'baseten'
+    | 'zai'
+    | 'qwen'
+    | 'chat-template'
+    | 'qwen-chat-template'
+    | 'string-thinking'
+    | 'ant-ling'
+    | undefined
+  readonly maxTokensField?: 'max_completion_tokens' | 'max_tokens' | undefined
+  readonly supportsDeveloperRole?: boolean | undefined
+  readonly supportsReasoningEffort?: boolean | undefined
+  readonly requiresThinkingAsText?: boolean | undefined
+  readonly supportsStrictMode?: boolean | undefined
+  readonly supportsMaxOutputTokens?: boolean | undefined
+  readonly supportsLongCacheRetention?: boolean | undefined
+  readonly forceAdaptiveThinking?: boolean | undefined
+  readonly supportsTemperature?: boolean | undefined
+  readonly supportsCacheControlOnTools?: boolean | undefined
+  readonly supportsStrictTools?: boolean | undefined
+  readonly allowEmptySignature?: boolean | undefined
+}
+
+/** Durable per-model invocation and capability overrides persisted across restarts. */
+export interface XPeachModelCallSettings {
+  readonly displayName?: string | undefined
+  readonly contextWindow?: number | undefined
+  readonly maxTokens?: number | undefined
+  readonly input?: readonly ('text' | 'image')[] | undefined
+  readonly defaultReasoning?: 'default' | XPeachModelReasoningLevel | undefined
+  readonly enabledEfforts?: readonly XPeachModelReasoningLevel[] | undefined
+  readonly temperature?: number | null | undefined
+  readonly compat?: XPeachModelCompatSettings | undefined
+  readonly disabled?: boolean | undefined
+}
+
+/** Durable profile-scoped XPeach model routing and per-model settings ledger (`xpeach.model-routing.json`). */
+export interface XPeachModelRoutingState {
+  readonly version: 1
+  readonly endpointOverrides: Readonly<Record<string, XPeachEndpointPoolId>>
+  readonly poolOrder: Readonly<Partial<Record<XPeachEndpointPoolId, readonly string[]>>>
+  readonly modelSettings: Readonly<Record<string, XPeachModelCallSettings>>
+  readonly customModels: readonly string[]
+  readonly customBaseUrl?: string | undefined
+  readonly conversationTracking?: boolean | undefined
+}
+
+/** Resolved view of one model inside the 3-endpoint pool studio. */
+export interface XPeachModelPoolEntry {
+  readonly id: string
+  readonly displayName: string
+  readonly endpoint: XPeachEndpointPoolId
+  readonly recommendedEndpoint: XPeachEndpointPoolId
+  readonly overriddenEndpoint: boolean
+  readonly groups: readonly string[]
+  readonly supportedEndpoints: readonly string[]
+  readonly contextWindow: number
+  readonly defaultContextWindow: number
+  readonly maxTokens: number
+  readonly defaultMaxTokens: number
+  readonly input: readonly ('text' | 'image')[]
+  readonly defaultInput: readonly ('text' | 'image')[]
+  readonly defaultReasoning: 'default' | XPeachModelReasoningLevel
+  readonly enabledEfforts: readonly XPeachModelReasoningLevel[]
+  readonly temperature: number | null
+  readonly compat: XPeachModelCompatSettings
+  readonly disabled: boolean
+  readonly isCustom: boolean
+  readonly hasCustomSettings: boolean
+}
+
+/** Complete snapshot of the three XPeach endpoint pools, gateway settings, and disabled models. */
+export interface XPeachModelPoolsSnapshot {
+  readonly baseUrl: string
+  readonly defaultBaseUrl: string
+  readonly conversationTracking: boolean
+  readonly autoSyncModels: boolean
+  readonly activeDefaultModel?: {
+    readonly provider: string
+    readonly model: string
+  } | undefined
+  readonly pools: Readonly<Record<XPeachEndpointPoolId, readonly XPeachModelPoolEntry[]>>
+  readonly disabledModels: readonly XPeachModelPoolEntry[]
+  readonly routing: XPeachModelRoutingState
+}
+
+/** Request payload for saving updated XPeach endpoint pool assignments and per-model call settings. */
+export interface XPeachModelPoolsSaveRequest {
+  readonly routing: XPeachModelRoutingState
+  readonly autoSyncModels?: boolean | undefined
+}

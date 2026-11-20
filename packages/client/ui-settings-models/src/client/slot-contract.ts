@@ -34,6 +34,11 @@ declare module '@xpeach/xph-client-ui-slots' {
     /** Optional account login choice before the credential editor. */
     'settings.models.sign-in': { kind: 'single'; scope: 'root'; owner: { complete: () => void; useApiKey: () => void } }
     /**
+     * Ordered extension area above the provider rows for primary gateway pool studios.
+     * Without a registrant the area renders nothing.
+     */
+    'settings.models.header': { kind: 'list'; scope: 'root'; owner: ModelsHeaderOwnerProps }
+    /**
      * Ordered extension area after the provider rows and the add controls.
      * Without a registrant the area renders nothing.
      */
@@ -49,6 +54,12 @@ export interface ProviderCardExtrasOwnerProps {
   configured: boolean
   /** Whether the row's referenced api-key credential is confirmed configured (the page's credential join). */
   keyConfigured: boolean
+}
+
+/** Owner share of the header area (the section supplies nothing). */
+export interface ModelsHeaderOwnerProps {
+  /** Marker field: header owner props are intentionally empty. */
+  children?: never
 }
 
 /** Owner share of the footer area (the section supplies nothing). */

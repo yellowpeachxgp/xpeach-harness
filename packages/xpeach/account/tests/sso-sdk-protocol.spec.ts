@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { XPeachApi } from '../src/api.ts'
+import { XPeachApi, parseSsoIssuer, validateSsoBaseUrl } from '../src/api.ts'
 import { scrubbedSqliteEnv } from '../src/chatgpt-db.ts'
 import { XPeachAccount, XPeachDeepSeekAccount, scrubbedBrowserEnv, sleepWithAbort } from '../src/index.ts'
 import { probeRoutes } from '../src/network.ts'
@@ -498,18 +498,17 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
   it('chatStream 在读取异常或中止时取消底层 reader 释放连接', async () => {
     const cancelSpy = vi.fn().mockResolvedValue(undefined)
     const releaseSpy = vi.fn()
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      type: 'basic',
-      body: {
+    const mockRes = new Response(null, { status: 200 })
+    Object.defineProperty(mockRes, 'body', {
+      value: {
         getReader: () => ({
           read: vi.fn().mockRejectedValue(new Error('stream aborted mid-flight')),
           cancel: cancelSpy,
           releaseLock: releaseSpy,
         }),
       },
-    } as unknown as Response)
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockRes)
 
     const api = new XPeachApi({
       baseURL: 'http://127.0.0.1:13000',
@@ -656,8 +655,10 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
 
     // Scenario C: Persisting a newly rotated refreshToken must surface write failure instead of swallowing
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(account as unknown as { writeState: (p: string, b: string) => void }, 'writeState').mockImplementation((p) => {
+    const origWriteState = Reflect.get(account, 'writeState') as (p: string, b: string) => void
+    Reflect.set(account, 'writeState', (p: string, b: string) => {
       if (p === ssoStateFile) throw new Error('ENOSPC: disk full')
+      origWriteState.call(account, p, b)
     })
     ssoCredsMock.mockResolvedValueOnce({
       status: 'ok' as const,
@@ -1162,6 +1163,560 @@ describe('XPeachApi @xpeach/ts-xpeach 正式 SDK 协议闭环', () => {
       const releases = await rp2
       expect(releases[0]?.version).toBe('0.0.99-alpha')
       expect(fetchSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('支持多租户 /t/acme issuer 发现、PKCE 预检 client/redirect 回退及租户级 Device/Revoke 闭环', async () => {
+    expect(parseSsoIssuer('https://sso.xpeach.codes/t/acme/')).toEqual({
+      origin: 'https://sso.xpeach.codes',
+      tenantSlug: 'acme',
+      issuer: 'https://sso.xpeach.codes/t/acme',
+    })
+    expect(validateSsoBaseUrl('https://sso.xpeach.codes/t/acme')).toBe('https://sso.xpeach.codes/t/acme')
+    expect(validateSsoBaseUrl('https://sso.xpeach.codes/device')).toBe('https://sso.xpeach.codes')
+
+    const seenAuthClients: string[] = []
+    const seenPaths: string[] = []
+    let lastNonce = ''
+    let tenantSsoOrigin = ''
+
+    const tenantSsoSrv = createServer((req, res) => {
+      const chunks: Buffer[] = []
+      req.on('data', (c: Buffer) => chunks.push(c))
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8')
+        const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+        seenPaths.push(`${req.method ?? 'GET'} ${url.pathname}`)
+        const send = (status: number, body: unknown, extraHeaders: Record<string, string> = {}): void => {
+          res.writeHead(status, {
+            'content-type': 'application/json',
+            'cache-control': 'no-store',
+            ...extraHeaders,
+          })
+          res.end(JSON.stringify(body))
+        }
+
+        if (req.method === 'GET' && url.pathname === '/t/acme/auth') {
+          const cid = url.searchParams.get('client_id') ?? ''
+          const ruri = url.searchParams.get('redirect_uri') ?? ''
+          seenAuthClients.push(`${cid}|${new URL(ruri).pathname}`)
+          if (cid === 'xpeach-harness') {
+            send(400, { error: 'invalid_client', error_description: 'unknown client' })
+            return
+          }
+          if (new URL(ruri).pathname !== '/callback') {
+            send(400, { error: 'invalid_redirect_uri', error_description: 'redirect_uri not registered' })
+            return
+          }
+          lastNonce = url.searchParams.get('nonce') ?? ''
+          res.writeHead(303, { location: '/portal/login?return_to=%2Ft%2Facme%2Fauth' })
+          res.end()
+          return
+        }
+        if (req.method === 'GET' && url.pathname === '/t/acme/jwks') {
+          send(200, { keys: [jwk] })
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/t/acme/device/auth') {
+          const form = new URLSearchParams(raw)
+          const cid = form.get('client_id') ?? ''
+          if (cid === 'xpeach-harness') {
+            send(400, { error: 'invalid_client', error_description: 'unknown client' })
+            return
+          }
+          send(200, {
+            device_code: 'dvc_tenant_001',
+            user_code: 'ACME-8899',
+            verification_uri: `${tenantSsoOrigin}/t/acme/device`,
+            verification_uri_complete: `${tenantSsoOrigin}/t/acme/device?code=ACME-8899`,
+            expires_in: 600,
+            interval: 2,
+          })
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/t/acme/token') {
+          const form = new URLSearchParams(raw)
+          const grantType = form.get('grant_type')
+          const cid = form.get('client_id') ?? ''
+          if (cid !== 'peachcode-cli') {
+            send(400, { error: 'invalid_client', error_description: 'unknown client' })
+            return
+          }
+          const nowSec = Math.floor(Date.now() / 1000)
+          const idToken = signTestJwt(privPem, 'harness-k1', {
+            iss: `${tenantSsoOrigin}/t/acme`,
+            sub: 'sub-tenant-user',
+            aud: 'peachcode-cli',
+            exp: nowSec + 600,
+            iat: nowSec - 5,
+            ...(grantType === 'authorization_code' && lastNonce ? { nonce: lastNonce } : {}),
+            preferred_username: 'acme_user',
+          })
+          send(200, {
+            access_token: 'xph_at_tenant_live_001',
+            token_type: 'Bearer',
+            expires_in: 3600,
+            refresh_token: 'xph_rt_tenant_live_001',
+            id_token: idToken,
+          })
+          return
+        }
+        if (req.method === 'GET' && url.pathname === '/api/internal/verify') {
+          send(200, {
+            api_version: 'v1',
+            request_id: 'r-tenant-verify',
+            timestamp: '2026-11-20T00:00:00Z',
+            ok: true,
+            active: true,
+            sub: 'sub-tenant-user',
+            username: 'acme_user',
+            email: 'acme@xpeach.invalid',
+            email_verified: true,
+            name: 'Acme User',
+            group: 'default',
+            aff_code: 'ACME01',
+            inviter_sub: null,
+            invited_from_site: null,
+            tenant_id: '22222222-2222-4222-8222-222222222222',
+            tenant_slug: 'acme',
+            issuer: `${tenantSsoOrigin}/t/acme`,
+            client_id: 'peachcode-cli',
+            scope: 'openid profile email offline_access api',
+            exp: Math.floor(Date.now() / 1000) + 3600,
+            format: 'jwt',
+            roles: ['member'],
+          }, {
+            pragma: 'no-cache',
+            'x-auth-user': 'sub-tenant-user',
+            'x-auth-username': 'acme_user',
+            'x-auth-email': 'acme@xpeach.invalid',
+            'x-auth-group': 'default',
+            'x-auth-aff-code': 'ACME01',
+            'x-auth-inviter': '',
+            'x-auth-tenant': 'acme',
+            'x-auth-roles': 'member',
+          })
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/t/acme/token/revocation') {
+          res.writeHead(200, { 'cache-control': 'no-store' })
+          res.end()
+          return
+        }
+        send(404, { status: 404, title: 'not_found', code: 'not_found' })
+      })
+    })
+    await new Promise<void>(resolve => tenantSsoSrv.listen(0, '127.0.0.1', () => { resolve() }))
+    tenantSsoOrigin = `http://127.0.0.1:${String((tenantSsoSrv.address() as AddressInfo).port)}`
+
+    let advertisedEndpoint = `${tenantSsoOrigin}/t/acme/auth`
+    const siteSrv = createServer((req, res) => {
+      if (req.url === '/api/status') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          success: true,
+          data: { oidc_enabled: true, oidc_authorization_endpoint: advertisedEndpoint },
+        }))
+        return
+      }
+      res.writeHead(404)
+      res.end()
+    })
+    await new Promise<void>(resolve => siteSrv.listen(0, '127.0.0.1', () => { resolve() }))
+    const siteBase = `http://127.0.0.1:${String((siteSrv.address() as AddressInfo).port)}`
+
+    try {
+      const api = new XPeachApi({
+        baseURL: siteBase,
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-tenant',
+        resolveAdmin: () => undefined,
+        resolveCookie: () => undefined,
+      })
+      const signal = AbortSignal.timeout(10_000)
+
+      // 1. Discover tenant issuer from /api/status
+      const discovered = await api.discoverSsoIssuer(tenantSsoOrigin, signal)
+      expect(discovered).toBe(`${tenantSsoOrigin}/t/acme`)
+
+      // Cross-origin advertisement is rejected (falls back to configured origin)
+      advertisedEndpoint = 'https://evil.example/t/acme/auth'
+      const apiCrossOrigin = new XPeachApi({
+        baseURL: siteBase,
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-tenant',
+        resolveAdmin: () => undefined,
+        resolveCookie: () => undefined,
+      })
+      expect(await apiCrossOrigin.discoverSsoIssuer(tenantSsoOrigin, signal)).toBe(tenantSsoOrigin)
+
+      // 2. PKCE preflight falls back xpeach-harness -> peachcode-cli and /oauth/callback -> /callback
+      const pkce = await api.ssoPkceLoopbackStart(discovered, 'xpeach-harness', signal, [0], { allowClientFallback: true })
+      try {
+        expect(pkce.clientId).toBe('peachcode-cli')
+        expect(pkce.issuer).toBe(`${tenantSsoOrigin}/t/acme`)
+        expect(new URL(pkce.redirectUri).pathname).toBe('/callback')
+        expect(seenAuthClients).toEqual([
+          'xpeach-harness|/oauth/callback',
+          'peachcode-cli|/oauth/callback',
+          'peachcode-cli|/callback',
+        ])
+        const authUrl = new URL(pkce.authorizationUrl)
+        expect(authUrl.pathname).toBe('/t/acme/auth')
+        const state = authUrl.searchParams.get('state') ?? ''
+        const cb = await fetch(`${pkce.redirectUri}?code=acme_code&state=${encodeURIComponent(state)}&iss=${encodeURIComponent(discovered)}`)
+        expect(cb.status).toBe(200)
+        const payload = await pkce.waitForApproval()
+        expect(payload.sso?.issuer).toBe(`${tenantSsoOrigin}/t/acme`)
+        expect(payload.sso?.clientId).toBe('peachcode-cli')
+        expect(payload.sso?.user?.username).toBe('acme_user')
+      } finally {
+        await pkce.close()
+      }
+
+      // 3. Device flow fallback + tenant token poll + tenant revocation
+      const dev = await api.ssoDeviceAuthorize(discovered, 'xpeach-harness', 'Harness', signal, true)
+      expect(dev.clientId).toBe('peachcode-cli')
+      expect(dev.issuer).toBe(`${tenantSsoOrigin}/t/acme`)
+      const polled = await api.ssoDeviceToken(discovered, dev.clientId ?? 'peachcode-cli', dev.deviceCode, signal)
+      expect(polled.status).toBe('approved')
+      expect(polled.payload?.sso?.issuer).toBe(`${tenantSsoOrigin}/t/acme`)
+      expect(polled.payload?.sso?.clientId).toBe('peachcode-cli')
+      expect(await api.ssoRevokeToken(discovered, 'xph_at_tenant_live_001', {}, signal, 'xph_rt_tenant_live_001', 'peachcode-cli')).toBe(true)
+      expect(seenPaths).toContain('POST /t/acme/device/auth')
+      expect(seenPaths).toContain('POST /t/acme/token')
+      expect(seenPaths).toContain('POST /t/acme/token/revocation')
+    } finally {
+      await new Promise<void>(resolve => tenantSsoSrv.close(() => { resolve() }))
+      await new Promise<void>(resolve => siteSrv.close(() => { resolve() }))
+    }
+  })
+
+  it('临期 SSO 令牌自动静默刷新、缺少 api scope 拒绝并触发 401 透明重试', async () => {
+    let refreshCount = 0
+    const ssoLocal = createServer((req, res) => {
+      const chunks: Buffer[] = []
+      req.on('data', (c: Buffer) => chunks.push(c))
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8')
+        const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+        const send = (status: number, body: unknown, extraHeaders: Record<string, string> = {}): void => {
+          res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...extraHeaders })
+          res.end(JSON.stringify(body))
+        }
+        const verifyHeaders = {
+          pragma: 'no-cache',
+          'x-auth-user': 'sub-u1',
+          'x-auth-username': 'u1',
+          'x-auth-email': 'u1@xpeach.invalid',
+          'x-auth-group': 'default',
+          'x-auth-aff-code': 'U1',
+          'x-auth-inviter': '',
+        }
+        if (req.method === 'POST' && url.pathname === '/token') {
+          const form = new URLSearchParams(raw)
+          refreshCount += 1
+          if (form.get('refresh_token') === 'rt_no_api') {
+            send(200, { access_token: 'at_still_no_api', token_type: 'Bearer', expires_in: 3600, refresh_token: 'rt_no_api_2' })
+            return
+          }
+          send(200, { access_token: 'at_fresh_rotated', token_type: 'Bearer', expires_in: 3600, refresh_token: 'rt_fresh_rotated' })
+          return
+        }
+        if (req.method === 'GET' && url.pathname === '/api/internal/verify') {
+          const auth = req.headers['authorization']
+          const nowSec = Math.floor(Date.now() / 1000)
+          const base = {
+            api_version: 'v1',
+            request_id: 'r-v',
+            timestamp: '2026-11-20T00:00:00Z',
+            ok: true,
+            active: true,
+            sub: 'sub-u1',
+            username: 'u1',
+            email: 'u1@xpeach.invalid',
+            email_verified: true,
+            name: 'U1',
+            group: 'default',
+            aff_code: 'U1',
+            inviter_sub: null,
+            invited_from_site: null,
+            tenant_id: '11111111-1111-4111-8111-111111111111',
+            client_id: 'xpeach-harness',
+            format: 'opaque',
+          }
+          if (auth === 'Bearer at_expiring_soon') {
+            send(200, { ...base, scope: 'openid profile email offline_access api', exp: nowSec + 25 }, verifyHeaders)
+            return
+          }
+          if (auth === 'Bearer at_no_api' || auth === 'Bearer at_still_no_api') {
+            send(200, { ...base, scope: 'openid profile email offline_access peachcode:credentials', exp: nowSec + 3600 }, verifyHeaders)
+            return
+          }
+          send(200, { ...base, scope: 'openid profile email offline_access api', exp: nowSec + 3600 }, verifyHeaders)
+          return
+        }
+        send(404, { error: 'not_found' })
+      })
+    })
+    await new Promise<void>(resolve => ssoLocal.listen(0, '127.0.0.1', () => { resolve() }))
+    const ssoLocalBase = `http://127.0.0.1:${String((ssoLocal.address() as AddressInfo).port)}`
+
+    let activeToken = 'at_stale_1'
+    const authHeadersSeen: string[] = []
+    const apiSrv = createServer((req, res) => {
+      const auth = req.headers['authorization'] ?? ''
+      authHeadersSeen.push(`${req.url ?? '/'}|${auth}`)
+      if (auth === 'at_stale_1') {
+        res.writeHead(401, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ success: false, message: 'expired' }))
+        return
+      }
+      if (req.url?.startsWith('/api/pricing')) {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ data: [], group_ratio: { SWE: 0.5 } }))
+        return
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ success: true, data: { id: 1, username: 'u1', items: [], total: 0 } }))
+    })
+    await new Promise<void>(resolve => apiSrv.listen(0, '127.0.0.1', () => { resolve() }))
+    const apiBase = `http://127.0.0.1:${String((apiSrv.address() as AddressInfo).port)}`
+
+    try {
+      let onRefreshCalls = 0
+      const api = new XPeachApi({
+        baseURL: apiBase,
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-test',
+        resolveAdmin: () => activeToken,
+        resolveCookie: () => undefined,
+        onRefreshAuth: async () => {
+          onRefreshCalls += 1
+          activeToken = 'at_fresh_2'
+          return true
+        },
+      })
+      const signal = AbortSignal.timeout(10_000)
+
+      // Proactive refresh when <= 60s left
+      const proactive = await api.ssoPeachcodeCredentials(ssoLocalBase, 'at_expiring_soon', signal, 'rt_live')
+      expect(proactive.status).toBe('ok')
+      if (proactive.status === 'ok') {
+        expect(proactive.payload.sso?.accessToken).toBe('at_fresh_rotated')
+      }
+      expect(refreshCount).toBe(1)
+
+      // Missing api scope is rejected cleanly
+      const missingScope = await api.ssoPeachcodeCredentials(ssoLocalBase, 'at_no_api', signal, 'rt_no_api')
+      expect(missingScope.status).toBe('revoked')
+
+      // 1x transparent 401 refresh-and-retry on userSelf + adminPricing
+      const me = await api.userSelf(signal)
+      expect(me.username).toBe('u1')
+      expect(onRefreshCalls).toBe(1)
+
+      activeToken = 'at_stale_1'
+      const pricing = await api.adminPricing(signal)
+      expect(pricing.groupRatio).toEqual({ SWE: 0.5 })
+      expect(onRefreshCalls).toBe(2)
+      expect(authHeadersSeen).toContain('/api/user/self|at_stale_1')
+      expect(authHeadersSeen).toContain('/api/user/self|at_fresh_2')
+      expect(authHeadersSeen).toContain('/api/pricing|at_stale_1')
+      expect(authHeadersSeen).toContain('/api/pricing|at_fresh_2')
+    } finally {
+      await new Promise<void>(resolve => ssoLocal.close(() => { resolve() }))
+      await new Promise<void>(resolve => apiSrv.close(() => { resolve() }))
+    }
+  })
+
+  it('新版主站接口适配：/api/log/usage、tokenLogs 403 回退、SSO_BEARER_ADMIN_DENIED 不误退登、auto_groups 多分组读写', async () => {
+    const requestedPaths: string[] = []
+    const rejectedCalls: number[] = []
+    const siteSrv = createServer((req, res) => {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+      requestedPaths.push(url.pathname)
+      if (url.pathname === '/api/log/token') {
+        res.writeHead(403, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ success: false, code: 'AUTH_INSUFFICIENT_PRIVILEGE', message: 'forbidden' }))
+        return
+      }
+      if (url.pathname === '/api/log/usage') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          success: true,
+          data: {
+            page: 1,
+            page_size: 50,
+            total: 1,
+            items: [{ id: 101, created_at: 1700000000, model_name: 'swe-2-max', quota: 120, prompt_tokens: 10, completion_tokens: 5, use_time: 1 }],
+          },
+        }))
+        return
+      }
+      if (url.pathname === '/api/log/usage/stat') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ success: true, data: { quota: 999, rpm: 2, tpm: 500 } }))
+        return
+      }
+      if (url.pathname === '/api/user/') {
+        res.writeHead(403, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ success: false, code: 'SSO_BEARER_ADMIN_DENIED', message: 'admin denied' }))
+        return
+      }
+      res.writeHead(404)
+      res.end()
+    })
+    await new Promise<void>(resolve => siteSrv.listen(0, '127.0.0.1', () => { resolve() }))
+    const siteBase = `http://127.0.0.1:${String((siteSrv.address() as AddressInfo).port)}`
+
+    try {
+      const api = new XPeachApi({
+        baseURL: siteBase,
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-user-key',
+        resolveAdmin: () => 'at_sso_user',
+        resolveCookie: () => undefined,
+        onAuthRejected: (status) => { rejectedCalls.push(status) },
+      })
+      const signal = AbortSignal.timeout(10_000)
+
+      // tokenLogs falls back to /api/log/usage on 403
+      const rows = await api.tokenLogs(signal)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]?.model_name).toBe('swe-2-max')
+
+      // userLogStat & adminSelfStat hit /api/log/usage/stat
+      expect(await api.userLogStat(signal)).toMatchObject({ quota: 999, rpm: 2, tpm: 500 })
+      expect(await api.adminSelfStat(signal)).toMatchObject({ quota: 999 })
+      expect(requestedPaths).not.toContain('/api/log/self')
+      expect(requestedPaths).not.toContain('/api/log/self/stat')
+
+      // SSO_BEARER_ADMIN_DENIED must not trigger onAuthRejected
+      await expect(api.adminUsers(0, 10, signal)).rejects.toThrow(/admin denied/)
+      expect(rejectedCalls).toEqual([])
+
+      // auto_groups encoding & decoding helpers on XPeachAccount
+      const extract = Reflect.get(XPeachAccount.prototype, 'extractTokenGroups') as (d: Record<string, unknown>) => string[]
+      const build = Reflect.get(XPeachAccount.prototype, 'buildTokenGroupFields') as (g: readonly string[]) => Record<string, unknown>
+      expect(extract({ group: 'auto', auto_groups: ['SWE', 'Claude'] })).toEqual(['SWE', 'Claude'])
+      expect(extract({ group: 'auto', auto_groups: [] })).toEqual([])
+      expect(build(['SWE', 'Claude'])).toEqual({
+        group: 'auto',
+        auto_groups: ['SWE', 'Claude'],
+        cross_group_retry: true,
+        groups: ['SWE', 'Claude'],
+      })
+      expect(build(['SWE'])).toEqual({
+        group: 'SWE',
+        auto_groups: [],
+        cross_group_retry: false,
+        groups: ['SWE'],
+      })
+    } finally {
+      await new Promise<void>(resolve => siteSrv.close(() => { resolve() }))
+    }
+  })
+
+  it('支持 /v1/responses 对话、SSE 流式、健康探针，以及 /v1/chat/completions 500 get_channel_failed 自动回退', async () => {
+    const calledEndpoints: string[] = []
+    const relaySrv = createServer((req, res) => {
+      const chunks: Buffer[] = []
+      req.on('data', (c: Buffer) => chunks.push(c))
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8')
+        const body = raw.length > 0 ? JSON.parse(raw) as { stream?: boolean; max_output_tokens?: number } : {}
+        calledEndpoints.push(`${req.url ?? ''}|stream=${String(Boolean(body.stream))}`)
+        if (req.url === '/v1/chat/completions') {
+          res.writeHead(500, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: { code: 'get_channel_failed', message: 'No available channel for model' } }))
+          return
+        }
+        if (req.url === '/v1/responses') {
+          if (body.stream === true) {
+            res.writeHead(200, { 'content-type': 'text/event-stream' })
+            res.write('data: {"type":"response.output_text.delta","delta":"hello "}\n\n')
+            res.write('data: {"type":"response.output_text.delta","delta":"responses"}\n\n')
+            res.write('data: {"type":"response.completed","response":{"usage":{"input_tokens":12,"output_tokens":4}}}\n\n')
+            res.end()
+            return
+          }
+          expect(body.max_output_tokens).toBeGreaterThanOrEqual(16)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({
+            id: 'resp_1',
+            output: [{ type: 'message', content: [{ type: 'output_text', text: 'pong-from-responses' }] }],
+            usage: { input_tokens: 9, output_tokens: 3 },
+          }))
+          return
+        }
+        res.writeHead(404)
+        res.end()
+      })
+    })
+    await new Promise<void>(resolve => relaySrv.listen(0, '127.0.0.1', () => { resolve() }))
+    const relayBase = `http://127.0.0.1:${String((relaySrv.address() as AddressInfo).port)}`
+
+    try {
+      const api = new XPeachApi({
+        baseURL: relayBase,
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-resp-test',
+        resolveAdmin: () => undefined,
+        resolveCookie: () => undefined,
+      })
+      const signal = AbortSignal.timeout(10_000)
+
+      const chat = await api.chat({ model: 'gemini-4-carbon', prompt: 'hi' }, signal)
+      expect(chat.content).toBe('pong-from-responses')
+      expect(chat.promptTokens).toBe(9)
+      expect(chat.completionTokens).toBe(3)
+
+      const deltas: string[] = []
+      const streamed = await api.chatStream({ model: 'gemini-4-carbon', prompt: 'hi' }, d => deltas.push(d), signal)
+      expect(deltas).toEqual(['hello ', 'responses'])
+      expect(streamed.content).toBe('hello responses')
+      expect(streamed.promptTokens).toBe(12)
+      expect(streamed.completionTokens).toBe(4)
+
+      const health = await api.probe('gemini-4-carbon', signal)
+      expect(health.ok).toBe(true)
+      expect(calledEndpoints).toContain('/v1/chat/completions|stream=false')
+      expect(calledEndpoints).toContain('/v1/responses|stream=false')
+      expect(calledEndpoints).toContain('/v1/responses|stream=true')
+    } finally {
+      await new Promise<void>(resolve => relaySrv.close(() => { resolve() }))
+    }
+  })
+
+  it('官方线路 GET 请求遇到 502/503 网关瞬态错误时自动故障转移到健康线路', async () => {
+    const attemptedHosts: string[] = []
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url)
+      attemptedHosts.push(url.hostname)
+      if (url.hostname === 'fast.xpeach.codes') {
+        return new Response('bad gateway', { status: 502 })
+      }
+      return new Response(JSON.stringify({
+        success: true,
+        data: { oidc_authorization_endpoint: 'https://sso.xpeach.codes/t/acme/auth' },
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    })
+
+    try {
+      const api = new XPeachApi({
+        baseURL: 'https://fast.xpeach.codes',
+        timeoutMs: 5000,
+        resolveKey: async () => 'sk-route-test',
+        resolveAdmin: () => undefined,
+        resolveCookie: () => undefined,
+      })
+      const issuer = await api.discoverSsoIssuer('https://sso.xpeach.codes', AbortSignal.timeout(5000))
+      expect(issuer).toBe('https://sso.xpeach.codes/t/acme')
+      expect(attemptedHosts[0]).toBe('fast.xpeach.codes')
+      expect(attemptedHosts[1]).toBe('xpeach.codes')
     } finally {
       fetchSpy.mockRestore()
     }

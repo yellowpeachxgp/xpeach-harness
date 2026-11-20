@@ -4,7 +4,7 @@
  * @module @xpeach/xph-client-ui/client/model-meta
  */
 
-import { useSyncExternalStore, type JSX } from 'react'
+import { memo, useCallback, useSyncExternalStore, type JSX } from 'react'
 import type {
   XPeachModelPerfSummary,
   XPeachPricingCatalog,
@@ -43,6 +43,14 @@ function compactTokenBadge(tokens: number): string {
   return `${String(Math.round(tokens / 1000))}K`
 }
 
+const MODEL_SPEC_CACHE_LIMIT = 2_048
+const modelSpecCache = new Map<string, ClientModelSpec>()
+const NON_VISION_REGEX = /(?:^|[-_./])(embedding|embeddings|text-embedding|rerank|reranker|bge|whisper|tts|moderation)(?:$|[-_./])/u
+const TEXT_ONLY_CHAT_REGEX = /(?:^|\/)(?:deepseek-(?:v3|r1|chat|reasoner|v4-pro|coder)|qwen3?-coder|qwq|kimi-k2)/u
+const REASONING_A_REGEX = /(?:^|\/)(?:swe-|claude-(?:opus-4|sonnet-4|3-7)|gpt-[56]|codex|o[134](?:$|[-_.])|gemini-(?:2\.5|3))/u
+const REASONING_B_REGEX =
+  /(?:^|\/)(?:deepseek-(?:r1|r2|reasoner|v4)|qwen3|qwq|glm-(?:5|4\.[567])|grok-(?:4|3-mini)|minimax-m2|kimi-k2-thinking)/u
+
 /**
  * Infer context window, max output tokens, compact badge, and image modality
  * support for a model identifier on the client.
@@ -57,14 +65,13 @@ export function inferClientModelSpec(
   explicitContextWindow?: number,
   explicitMaxTokens?: number,
 ): ClientModelSpec {
+  const cacheKey = `${id}\0${explicitContextWindow ?? ''}\0${explicitMaxTokens ?? ''}`
+  const cached = modelSpecCache.get(cacheKey)
+  if (cached !== undefined) return cached
+
   const lower = id.trim().toLowerCase()
-  const nonVisionRegex = /(?:^|[-_./])(embedding|embeddings|text-embedding|rerank|reranker|bge|whisper|tts|moderation)(?:$|[-_./])/u
-  const textOnlyChatRegex = /(?:^|\/)(?:deepseek-(?:v3|r1|chat|reasoner|v4-pro|coder)|qwen3?-coder|qwq|kimi-k2)/u
-  const reasoningA = /(?:^|\/)(?:swe-|claude-(?:opus-4|sonnet-4|3-7)|gpt-[56]|codex|o[134](?:$|[-_.])|gemini-(?:2\.5|3))/u
-  const reasoningB =
-    /(?:^|\/)(?:deepseek-(?:r1|r2|reasoner|v4)|qwen3|qwq|glm-(?:5|4\.[567])|grok-(?:4|3-mini)|minimax-m2|kimi-k2-thinking)/u
-  const supportsImage = !nonVisionRegex.test(lower) && !textOnlyChatRegex.test(lower)
-  const reasoning = reasoningA.test(lower) || reasoningB.test(lower)
+  const supportsImage = !NON_VISION_REGEX.test(lower) && !TEXT_ONLY_CHAT_REGEX.test(lower)
+  const reasoning = REASONING_A_REGEX.test(lower) || REASONING_B_REGEX.test(lower)
 
   let ctx = explicitContextWindow
   let maxOut = explicitMaxTokens
@@ -145,7 +152,7 @@ export function inferClientModelSpec(
     }
   }
 
-  return {
+  const resolved: ClientModelSpec = {
     contextWindow: ctx,
     maxTokens: maxOut ?? 64_000,
     badge: compactTokenBadge(ctx),
@@ -153,6 +160,12 @@ export function inferClientModelSpec(
     vision: supportsImage,
     reasoning,
   }
+  if (modelSpecCache.size >= MODEL_SPEC_CACHE_LIMIT) {
+    const oldest = modelSpecCache.keys().next().value
+    if (oldest !== undefined) modelSpecCache.delete(oldest)
+  }
+  modelSpecCache.set(cacheKey, resolved)
+  return resolved
 }
 
 /** Semantic availability grade for a model's 24-hour success rate. */
@@ -245,6 +258,21 @@ export function updateClientModelTelemetryCache(patch: {
     priceByModel: nextPrice,
     groupRatio: nextRatio,
     activeGroup: nextGroup,
+  }
+  for (const fn of telemetryListeners) {
+    fn()
+  }
+}
+
+/**
+ * Reset the client-side model performance and pricing cache on plugin disposal.
+ */
+export function resetClientModelTelemetryCache(): void {
+  telemetrySnapshot = {
+    perfByModel: new Map(),
+    priceByModel: new Map(),
+    groupRatio: {},
+    activeGroup: undefined,
   }
   for (const fn of telemetryListeners) {
     fn()
@@ -346,12 +374,23 @@ export function formatCompactModelPrice(
  * @param hours - number of hourly slots to emit (`default = 24`).
  * @returns ordered hourly bar slots from oldest to newest.
  */
+const hourlyBarsCache = new WeakMap<
+  readonly XPeachSuccessRatePoint[],
+  { readonly hourTs: number; readonly hours: number; readonly bars: readonly HourlySuccessBarSlot[] }
+>()
+
 export function buildHourlySuccessBars(
   series: readonly XPeachSuccessRatePoint[] | undefined,
   hours = 24,
 ): readonly HourlySuccessBarSlot[] {
   const safeHours = Math.max(1, Math.min(72, Math.floor(hours)))
   const currentHourTs = Math.floor(Date.now() / 1000 / 3600) * 3600
+  if (series !== undefined) {
+    const hit = hourlyBarsCache.get(series)
+    if (hit !== undefined && hit.hourTs === currentHourTs && hit.hours === safeHours) {
+      return hit.bars
+    }
+  }
   const startHourTs = currentHourTs - (safeHours - 1) * 3600
   const byHour = new Map<number, number>()
   for (const point of series ?? []) {
@@ -359,7 +398,7 @@ export function buildHourlySuccessBars(
     const normalizedTs = Math.floor(point.ts / 3600) * 3600
     byHour.set(normalizedTs, Math.max(0, Math.min(100, point.success_rate)))
   }
-  return Array.from({ length: safeHours }, (_, index) => {
+  const bars = Array.from({ length: safeHours }, (_, index) => {
     const hourTs = startHourTs + index * 3600
     const rate = byHour.get(hourTs) ?? null
     return {
@@ -368,6 +407,75 @@ export function buildHourlySuccessBars(
       grade: gradeSuccessRate(rate),
     }
   })
+  if (series !== undefined) {
+    hourlyBarsCache.set(series, { hourTs: currentHourTs, hours: safeHours, bars })
+  }
+  return bars
+}
+
+function readModelOptionTelemetryLine(modelId: string): string {
+  const perf = telemetrySnapshot.perfByModel.get(modelId)
+  const priceRow = telemetrySnapshot.priceByModel.get(modelId)
+  const activeRatio = telemetrySnapshot.activeGroup !== undefined
+    ? (telemetrySnapshot.groupRatio[telemetrySnapshot.activeGroup] ?? 1)
+    : 1
+  const priceTag = formatCompactModelPrice(priceRow, activeRatio) ?? ''
+  if (perf === undefined && priceTag === '') return ''
+  const grade = perf !== undefined ? gradeSuccessRate(perf.success_rate) : ''
+  const rateText = perf !== undefined ? formatSuccessRate(perf.success_rate) : ''
+  const tpsText = perf !== undefined && perf.avg_tps > 0 ? formatModelTps(perf.avg_tps) : ''
+  const latText = perf !== undefined && perf.avg_latency_ms > 0 ? formatModelLatency(perf.avg_latency_ms) : ''
+  return `${grade}\0${rateText}\0${tpsText}\0${latText}\0${priceTag}`
+}
+
+function XPeachModelOptionLabel({
+  modelId,
+  modelName,
+  badge,
+}: {
+  readonly modelId: string
+  readonly modelName: string
+  readonly badge: string
+}): JSX.Element {
+  const getLine = useCallback(() => readModelOptionTelemetryLine(modelId), [modelId])
+  const line = useSyncExternalStore(subscribeTelemetry, getLine, getLine)
+  const parts = line !== '' ? line.split('\0') : undefined
+  const grade = parts?.[0] ?? ''
+  const rateText = parts?.[1] ?? ''
+  const tpsText = parts?.[2] ?? ''
+  const latText = parts?.[3] ?? ''
+  const priceTag = parts?.[4] ?? ''
+  const hasTelemetry = line !== ''
+
+  return (
+    <span className={css.composerModelOptionRow}>
+      <span className={css.composerModelMain}>
+        <span className={css.composerModelName}>{modelName}</span>
+        <span className={css.composerCtxBadge}>{badge}</span>
+      </span>
+      {hasTelemetry && (
+        <span className={css.composerModelTelemetry}>
+          {rateText !== '' && (
+            <>
+              <span className={css.composerPerfChip} data-grade={grade}>
+                <span className={css.composerPerfDot} data-grade={grade} />
+                {rateText}
+              </span>
+              {tpsText !== '' && (
+                <span className={css.composerPerfMetric}>{tpsText}</span>
+              )}
+              {latText !== '' && (
+                <span className={css.composerPerfMetric}>{latText}</span>
+              )}
+            </>
+          )}
+          {priceTag !== '' && (
+            <span className={css.composerPriceChip}>{priceTag}</span>
+          )}
+        </span>
+      )}
+    </span>
+  )
 }
 
 /**
@@ -379,12 +487,11 @@ export function buildHourlySuccessBars(
  * @param props - slot owner props carrying the model catalog entry.
  * @returns inline model name, context-window badge, and telemetry pills.
  */
-export function XPeachModelLabel(props: {
+export const XPeachModelLabel = memo(function XPeachModelLabel(props: {
   readonly model: { readonly id: string; readonly name: string }
   readonly placement?: 'trigger' | 'menu' | 'option'
 }): JSX.Element {
   const spec = inferClientModelSpec(props.model.id)
-  const telemetry = useClientModelTelemetry()
   if (props.placement !== 'option') {
     return (
       <span className={css.composerModelLabel}>
@@ -393,40 +500,11 @@ export function XPeachModelLabel(props: {
       </span>
     )
   }
-  const perf = telemetry.perfByModel.get(props.model.id)
-  const priceRow = telemetry.priceByModel.get(props.model.id)
-  const activeRatio = telemetry.activeGroup !== undefined
-    ? (telemetry.groupRatio[telemetry.activeGroup] ?? 1)
-    : 1
-  const priceTag = formatCompactModelPrice(priceRow, activeRatio)
-  const grade = perf !== undefined ? gradeSuccessRate(perf.success_rate) : 'unknown'
   return (
-    <span className={css.composerModelOptionRow}>
-      <span className={css.composerModelMain}>
-        <span className={css.composerModelName}>{props.model.name}</span>
-        <span className={css.composerCtxBadge}>{spec.badge}</span>
-      </span>
-      {(perf !== undefined || priceTag !== undefined) && (
-        <span className={css.composerModelTelemetry}>
-          {perf !== undefined && (
-            <>
-              <span className={css.composerPerfChip} data-grade={grade}>
-                <span className={css.composerPerfDot} data-grade={grade} />
-                {formatSuccessRate(perf.success_rate)}
-              </span>
-              {perf.avg_tps > 0 && (
-                <span className={css.composerPerfMetric}>{formatModelTps(perf.avg_tps)}</span>
-              )}
-              {perf.avg_latency_ms > 0 && (
-                <span className={css.composerPerfMetric}>{formatModelLatency(perf.avg_latency_ms)}</span>
-              )}
-            </>
-          )}
-          {priceTag !== undefined && (
-            <span className={css.composerPriceChip}>{priceTag}</span>
-          )}
-        </span>
-      )}
-    </span>
+    <XPeachModelOptionLabel
+      modelId={props.model.id}
+      modelName={props.model.name}
+      badge={spec.badge}
+    />
   )
-}
+})

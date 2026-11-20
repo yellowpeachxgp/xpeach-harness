@@ -114,7 +114,7 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
       <div className={css.listPane}>
         <div className={css.pageScroll}>
           <div className={css.pageContent}>
-            <div className={css.pageHeading}>
+            <div className={css.pageHeading} data-window-drag>
               <h1 ref={headingRef} tabIndex={-1}>{t('title')}</h1>
               <div className={css.creationActions}>
                 <Button variant="primary" size="sm" className={css.newButton} icon={<IconPlusOutlineRegular size={13} />} onClick={onNewTask}>{t('new.action')}</Button>

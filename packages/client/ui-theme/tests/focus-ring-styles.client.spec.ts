@@ -62,7 +62,7 @@ describe('focus styles', () => {
   })
 
   it('uses the shared ring color throughout a non-empty client stylesheet corpus', () => {
-    const files = packageStylesheets().filter(file => file.includes('/packages/client/'))
+    const files = packageStylesheets().filter(file => !file.includes('/src/styles/'))
     expect(files.length).toBeGreaterThan(0)
     const failures = files.flatMap(file => ringColorViolations(readFileSync(file, 'utf8')).map(value => `${file}: ${value}`))
     expect(failures).toEqual([])

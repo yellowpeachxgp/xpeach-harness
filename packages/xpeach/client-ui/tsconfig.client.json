@@ -59,6 +59,9 @@
     },
     {
       "path": "../../client/ui-model-selection"
+    },
+    {
+      "path": "../../client/ui-settings-models"
     }
   ]
 }

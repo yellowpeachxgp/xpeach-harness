@@ -206,8 +206,8 @@ describe('client bundle dynamic imports', () => {
     if (config === undefined) throw new Error('client config missing')
 
     const output = await clientChunkOutput(root, config, 'client.js')
-    expect(output).toContain('require.async("./client.terminal.js")')
-    expect(output).not.toContain('Promise.resolve().then(() => require("./client.terminal.js"))')
+    expect(output).toMatch(/require\.async\(["'`]\.\/client\.terminal\.js["'`]\)/)
+    expect(output).not.toMatch(/Promise\.resolve\(\)\.then\(/)
   })
 })
 

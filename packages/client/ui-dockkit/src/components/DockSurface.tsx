@@ -190,7 +190,7 @@ function Surface({
       setFits(current => sameFits(current, next) ? current : next)
     })
   }, [withSurface, hideSplitWhenBlocked])
-  useLayoutEffect(() => { remeasure() })
+  useLayoutEffect(() => { remeasure() }, [remeasure, state, canSplit, chrome])
   useEffect(() => { onRoom?.(fits) }, [fits, onRoom])
   useEffect(() => {
     const root = surface.current

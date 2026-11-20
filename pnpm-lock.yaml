@@ -17318,6 +17318,9 @@ importers:
       '@xpeach/xph-client-ui-settings':
         specifier: workspace:*
         version: link:../../client/ui-settings
+      '@xpeach/xph-client-ui-settings-models':
+        specifier: workspace:*
+        version: link:../../client/ui-settings-models
       '@xpeach/xph-client-ui-sidebar':
         specifier: workspace:*
         version: link:../../client/ui-sidebar

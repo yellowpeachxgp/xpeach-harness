@@ -1,5 +1,5 @@
 /** XPeach client face: peach brand, quota pill, quota notice, settings section. */
-import type { JSX } from 'react'
+import { createElement, type JSX } from 'react'
 import type { Context } from '@xpeach/xph-cordis'
 // Type-only: ambient merges — ctx.slots, ctx.locale, ctx.theme, ctx.remote and
 // every SlotMap/LocaleNamespaceMap seat this plugin occupies.
@@ -10,6 +10,7 @@ import type {} from '@xpeach/xph-client-ui-sidebar/client'
 import type { MainPanelId } from '@xpeach/xph-client-ui-layout/client'
 import type {} from '@xpeach/xph-client-ui-layout/client'
 import type {} from '@xpeach/xph-client-ui-settings/client'
+import type {} from '@xpeach/xph-client-ui-settings-models/client'
 import type {} from '@xpeach/xph-client-ui-chat/client'
 import type {} from '@xpeach/xph-client-ui-conversation/client'
 import type {} from '@xpeach/xph-client-ui-sidebar-right/client'
@@ -18,22 +19,35 @@ import type { QuotaNoticeOwnerProps } from '@xpeach/xph-client-ui-chat/client'
 import xpeachRemote from '@xpeach/xph-account/remote'
 import type {
   XPeachData,
+  XPeachGatewayInspectorRequest,
+  XPeachGatewayInspectorSaveRequest,
+  XPeachGatewayInspectorSnapshot,
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachMcpBatchDeleteRequest,
+  XPeachMcpBatchToggleRequest,
   XPeachMcpDeleteRequest,
   XPeachMcpSaveRequest,
   XPeachMcpSnapshot,
   XPeachMcpToggleRequest,
   XPeachModelPerfDetail,
   XPeachModelPerfSummary,
+  XPeachModelPoolsSaveRequest,
+  XPeachModelPoolsSnapshot,
   XPeachOps,
   XPeachReleaseChannel,
   XPeachRulesSaveRequest,
+  XPeachSkillBatchDeleteRequest,
+  XPeachSkillBatchToggleRequest,
   XPeachSkillDeleteRequest,
   XPeachSkillSaveRequest,
   XPeachSkillsSnapshot,
   XPeachSkillToggleRequest,
+  XPeachSsoBrowserCancelRequest,
+  XPeachSsoBrowserPollRequest,
+  XPeachSsoBrowserStartRequest,
+  XPeachSsoBrowserStartResult,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
@@ -41,81 +55,64 @@ import type {
   XPeachUpdateChannelStatus,
   XPeachUpdateCheckResult,
 } from './ops.ts'
-import { XPeachMark, XPeachName } from './brand.tsx'
-import { XPeachStatusPill } from './StatusPill.tsx'
+import { XPeachMark, XPeachMcpIcon, XPeachName, XPeachPanelIcon, XPeachPromptIcon, XPeachSkillsIcon } from './brand.tsx'
 import { XPeachOnboarding } from './XPeachOnboarding.tsx'
 import { XPeachSettingsLauncher } from './XPeachSettingsLauncher.tsx'
 import { XPeachQuotaNotice } from './QuotaNotice.tsx'
-import { XPeachSection } from './XPeachSection.tsx'
 import { GeneralPreferencesRow } from './GeneralPreferencesRow.tsx'
-import { ModuleSettingsSection, ModuleSettingsTab } from './ModuleSettingsSection.tsx'
+import {
+  ModuleSettingsSection,
+  ModuleSettingsTab,
+  type ModuleSettingsSectionProps,
+  type ModuleSettingsTabProps,
+} from './ModuleSettingsSection.tsx'
+import { XPeachSection, type XPeachSectionProps } from './XPeachSection.tsx'
 import { XPeachTab, type XPeachTabProps } from './XPeachTab.tsx'
-import { XPeachSkillsIcon, XPeachSkillsPage } from './XPeachSkills.tsx'
-import { XPeachMcpIcon, XPeachMcpPage } from './XPeachMcp.tsx'
-import { footerBridge } from './FooterAction.tsx'
+import { XPeachSkillsPage, type XPeachSkillsProps } from './XPeachSkills.tsx'
+import { XPeachMcpPage, type XPeachMcpProps } from './XPeachMcp.tsx'
+import { XPeachPromptInspectorPage, type XPeachPromptInspectorProps } from './XPeachPromptInspector.tsx'
+import { XPeachModelPools, type XPeachModelPoolsProps } from './XPeachModelPools.tsx'
 import { XPeachCostPill } from './XPeachCostPill.tsx'
 import { en, es, fr, de, ru, pt, ja, NS, zh } from './locales.ts'
 import { readRecents, rememberModel } from './recents.ts'
 import { PALETTES, paletteTokens } from './palettes.ts'
 import { PaletteRow } from './PaletteRow.tsx'
 import { FontPackRow } from './FontPackRow.tsx'
-import { inferClientModelSpec, updateClientModelTelemetryCache, XPeachModelLabel } from './model-meta.tsx'
+import {
+  inferClientModelSpec,
+  resetClientModelTelemetryCache,
+  updateClientModelTelemetryCache,
+  XPeachModelLabel,
+} from './model-meta.tsx'
 import { XPeachNotificationOverlay } from './NotificationOverlay.tsx'
 import {
   installTaskNotificationMonitor,
   type NotificationMonitorContextLike,
 } from './notifications.ts'
 
-export {
-  clearSessionInteractionBanners,
-  dismissNotificationBanner,
-  dispatchTaskNotification,
-  formatApprovalNotification,
-  formatCompletionNotification,
-  formatErrorNotification,
-  formatNotificationDuration,
-  formatQuestionNotification,
-  formatToolDisplayName,
-  formatWorkspaceSessionSubtitle,
-  getActiveNotificationBanners,
-  installTaskNotificationMonitor,
-  openNotificationSession,
-  playNotificationChime,
-  readNotificationPreferences,
-  resetNotificationStateForTests,
-  subscribeNotificationBanners,
-  subscribeNotificationPreferences,
-  triggerTestSystemNotification,
-  writeNotificationPreferences,
-  type DispatchTaskNotificationOptions,
-  type FormatApprovalNotificationInput,
-  type FormatCompletionNotificationInput,
-  type FormatErrorNotificationInput,
-  type FormatQuestionNotificationInput,
-  type NotificationMonitorContextLike,
-  type NotificationQuestionItemLike,
-  type NotificationQuestionOptionLike,
-  type XPeachNotificationPreferences,
-  type XPeachTaskNotificationItem,
-  type XPeachTaskNotificationKind,
-  type XPeachTranslateFn,
+export type {
+  DispatchTaskNotificationOptions,
+  FormatApprovalNotificationInput,
+  FormatCompletionNotificationInput,
+  FormatErrorNotificationInput,
+  FormatQuestionNotificationInput,
+  NotificationMonitorContextLike,
+  NotificationQuestionItemLike,
+  NotificationQuestionOptionLike,
+  XPeachNotificationPreferences,
+  XPeachTaskNotificationItem,
+  XPeachTaskNotificationKind,
+  XPeachTranslateFn,
 } from './notifications.ts'
-export {
-  XPeachNotificationOverlay,
-  type XPeachNotificationOverlayProps,
-} from './NotificationOverlay.tsx'
-export {
-  CODE_FONT_PRESETS,
-  FontPackRow,
-  isFontPresetActive,
-  normalizeFontStack,
-  UI_FONT_PRESETS,
-  type FontPackRowProps,
-  type XPeachCodeFontPreset,
-  type XPeachFontFamiliesSnapshot,
-  type XPeachFontRole,
-  type XPeachUiFontPreset,
+export type { XPeachNotificationOverlayProps } from './NotificationOverlay.tsx'
+export type {
+  FontPackRowProps,
+  XPeachCodeFontPreset,
+  XPeachFontFamiliesSnapshot,
+  XPeachFontRole,
+  XPeachUiFontPreset,
 } from './FontPackRow.tsx'
+export type { XPeachModelPoolsOps, XPeachModelPoolsProps } from './XPeachModelPools.tsx'
 
 type RemoteOutcome<T> =
   | { readonly ok: true; readonly value: T }
@@ -124,15 +121,27 @@ type RemoteOutcome<T> =
 interface XPeachExtRemote {
   skillsList(req: Record<string, never>): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
   skillToggle(req: XPeachSkillToggleRequest): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
+  skillBatchToggle(req: XPeachSkillBatchToggleRequest): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
   skillSave(req: XPeachSkillSaveRequest): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
   skillDelete(req: XPeachSkillDeleteRequest): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
+  skillBatchDelete(req: XPeachSkillBatchDeleteRequest): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
   rulesSave(req: XPeachRulesSaveRequest): Promise<RemoteOutcome<XPeachSkillsSnapshot>>
   mcpList(req: Record<string, never>): Promise<RemoteOutcome<XPeachMcpSnapshot>>
   mcpToggle(req: XPeachMcpToggleRequest): Promise<RemoteOutcome<XPeachMcpSnapshot>>
+  mcpBatchToggle(req: XPeachMcpBatchToggleRequest): Promise<RemoteOutcome<XPeachMcpSnapshot>>
   mcpSave(req: XPeachMcpSaveRequest): Promise<RemoteOutcome<XPeachMcpSnapshot>>
   mcpDelete(req: XPeachMcpDeleteRequest): Promise<RemoteOutcome<XPeachMcpSnapshot>>
+  mcpBatchDelete(req: XPeachMcpBatchDeleteRequest): Promise<RemoteOutcome<XPeachMcpSnapshot>>
+  gatewayInspectorSnapshot(req: XPeachGatewayInspectorRequest): Promise<RemoteOutcome<XPeachGatewayInspectorSnapshot>>
+  gatewayInspectorSave(req: XPeachGatewayInspectorSaveRequest): Promise<RemoteOutcome<XPeachGatewayInspectorSnapshot>>
+  modelPoolsSnapshot(req: Record<string, never>): Promise<RemoteOutcome<XPeachModelPoolsSnapshot>>
+  modelPoolsSave(req: XPeachModelPoolsSaveRequest): Promise<RemoteOutcome<XPeachModelPoolsSnapshot>>
+  modelPoolsReset(req: Record<string, never>): Promise<RemoteOutcome<XPeachModelPoolsSnapshot>>
   macosInstallerStatus(request: Record<string, never>): Promise<RemoteOutcome<XPeachMacosInstallerStatus>>
   macosInstallerAction(request: XPeachMacosInstallerActionRequest): Promise<RemoteOutcome<XPeachMacosInstallerActionResult>>
+  ssoBrowserStart(request: XPeachSsoBrowserStartRequest): Promise<RemoteOutcome<XPeachSsoBrowserStartResult>>
+  ssoBrowserPoll(request: XPeachSsoBrowserPollRequest): Promise<RemoteOutcome<XPeachSsoDevicePollResult>>
+  ssoBrowserCancel(request: XPeachSsoBrowserCancelRequest): Promise<RemoteOutcome<{ readonly cancelled: boolean }>>
   ssoDeviceStart(request: XPeachSsoDeviceStartRequest): Promise<RemoteOutcome<XPeachSsoDeviceStartResult>>
   ssoDevicePoll(request: XPeachSsoDevicePollRequest): Promise<RemoteOutcome<XPeachSsoDevicePollResult>>
   ssoLogout(request: {
@@ -175,29 +184,82 @@ export const inject = ['remote', 'slots', 'locale', 'theme', 'layout']
  * @param ctx - child context carrying remote.xpeach.
  * @returns list of registration disposers.
  */
+function createCachedRead<T>(ttlMs: number, loader: () => Promise<T>): {
+  readonly read: () => Promise<T>
+  readonly invalidate: () => void
+} {
+  let inFlight: Promise<T> | undefined
+  let cachedValue: T | undefined
+  let expiresAt = 0
+  return {
+    read: () => {
+      const now = Date.now()
+      if (cachedValue !== undefined && now < expiresAt) {
+        return Promise.resolve(cachedValue)
+      }
+      if (inFlight !== undefined) return inFlight
+      const task = loader().then((res) => {
+        cachedValue = res
+        expiresAt = Date.now() + ttlMs
+        inFlight = undefined
+        return res
+      }).catch((err: unknown) => {
+        inFlight = undefined
+        throw err
+      })
+      inFlight = task
+      return task
+    },
+    invalidate: () => {
+      inFlight = undefined
+      cachedValue = undefined
+      expiresAt = 0
+    },
+  }
+}
+
 function registerUi(ctx: Context): Array<() => void> {
   const extRemote = ctx.remote.xpeach as typeof ctx.remote.xpeach & XPeachExtRemote
+  const settingsRead = createCachedRead(2_000, () => ctx.remote.settings.describe())
+  const tokenUsageRead = createCachedRead(4_000, () => ctx.remote.xpeach.tokenUsage({}))
+  const userSelfRead = createCachedRead(8_000, () => ctx.remote.xpeach.userSelf())
+  const siteCatalogRead = createCachedRead(15_000, () => ctx.remote.xpeach.siteCatalog({}))
+  const adminPricingRead = createCachedRead(30_000, () => ctx.remote.xpeach.adminPricing({}))
+  const perfSummaryRead = createCachedRead(30_000, () => extRemote.perfMetricsSummary({ hours: 24 }))
+  const billingRateCache = new Map<string, { expiresAt: number; promise: Promise<import('./ops.ts').XPeachBillingRate | { error: string } | undefined> }>()
+
+  const invalidateAccountCaches = (): void => {
+    tokenUsageRead.invalidate()
+    userSelfRead.invalidate()
+    siteCatalogRead.invalidate()
+    adminPricingRead.invalidate()
+    perfSummaryRead.invalidate()
+    billingRateCache.clear()
+  }
+
   const mutateAccountSetting = async (
     path: string[],
     value: boolean | string | string[],
   ): Promise<string | null> => {
-    const described = await ctx.remote.settings.describe()
+    settingsRead.invalidate()
+    const described = await settingsRead.read()
     if (!described.ok) return described.error.message
     const view = described.value.namespaces.find(ns => ns.ns === 'xpeach-account')
       ?? described.value.namespaces.find(ns => ns.ns === 'xpeach')
     const targetNs = view?.ns ?? 'xpeach-account'
     const written = await ctx.remote.settings.mutate(targetNs, [{ op: 'set', path, value }], view?.revision)
+    settingsRead.invalidate()
     return written.ok ? null : written.error.message
   }
   const ops: XPeachOps = {
     loadUsage: async (): Promise<XPeachData> => {
-      const usage = await ctx.remote.xpeach.tokenUsage({})
+      const usage = await tokenUsageRead.read()
       if (!usage.ok) return { error: usage.error.message }
       return { usage: usage.value }
     },
     load: async (): Promise<XPeachData> => {
       const [usage, logs] = await Promise.all([
-        ctx.remote.xpeach.tokenUsage({}),
+        tokenUsageRead.read(),
         ctx.remote.xpeach.tokenLogs({}),
       ])
       if (!usage.ok) return { error: usage.error.message }
@@ -220,15 +282,19 @@ function registerUi(ctx: Context): Array<() => void> {
     },
     bind: async (key: string) => {
       const result = await ctx.remote.xpeach.bindKey({ key })
+      invalidateAccountCaches()
       return result.ok ? null : result.error.message
     },
-    unbind: async () => { await ctx.remote.xpeach.unbindKey({}) },
+    unbind: async () => {
+      await ctx.remote.xpeach.unbindKey({})
+      invalidateAccountCaches()
+    },
     chat: async (model: string, prompt: string, callId?: string) => {
       const result = await ctx.remote.xpeach.chat({ model, prompt, callId })
       return result.ok ? result.value : { error: result.error.message }
     },
     mountedModels: async () => {
-      const described = await ctx.remote.settings.describe()
+      const described = await settingsRead.read()
       if (!described.ok) return []
       const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
       const providers = (view?.value as { providers?: Record<string, { models?: { id: string }[] }> } | undefined)?.providers ?? {}
@@ -240,7 +306,8 @@ function registerUi(ctx: Context): Array<() => void> {
       return [...new Set(ids)]
     },
     addModel: async (id: string) => {
-      const described = await ctx.remote.settings.describe()
+      settingsRead.invalidate()
+      const described = await settingsRead.read()
       if (!described.ok) return described.error.message
       const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
       type ProviderCfg = {
@@ -252,15 +319,19 @@ function registerUi(ctx: Context): Array<() => void> {
       }
       const providers = (view?.value as { providers?: Record<string, ProviderCfg> } | undefined)?.providers
       const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(id.trim()) || /^claude$/iu.test(id.trim())
-      const key = isClaude ? 'xpeach-anthropic' : 'xpeach'
+      const isResponses = !isClaude
+        && /(?:^|\/|[-_])swe(?:[-_0-9.]|$)|codex|(?:^|\/)gpt-[56](?:[-._a-z0-9]|$)|(?:^|\/)o[134](?:[-_a-z0-9]|$)/iu.test(id.trim())
+      const key = isClaude ? 'xpeach-anthropic' : isResponses ? 'xpeach-openai-responses' : 'xpeach'
       if (providers?.[key]?.models?.some(m => m.id === id) === true) {
         return null
       }
       type JsonV = null | boolean | number | string | JsonV[] | { [k: string]: JsonV }
       const opsList: { op: 'set'; path: string[]; value: JsonV }[] = []
-      if (isClaude && providers?.['xpeach']?.models?.some(m => m.id === id) === true) {
-        const filteredXpeach = (providers['xpeach'].models ?? []).filter(m => m.id !== id)
-        opsList.push({ op: 'set', path: ['providers', 'xpeach', 'models'], value: filteredXpeach })
+      for (const otherKey of ['xpeach', 'xpeach-openai-responses', 'xpeach-anthropic']) {
+        if (otherKey !== key && providers?.[otherKey]?.models?.some(m => m.id === id) === true) {
+          const filtered = (providers[otherKey].models ?? []).filter(m => m.id !== id)
+          opsList.push({ op: 'set', path: ['providers', otherKey, 'models'], value: filtered })
+        }
       }
       const existing = (providers?.[key]?.models ?? []).filter(m => m.id !== id)
       const spec = inferClientModelSpec(id)
@@ -272,27 +343,33 @@ function registerUi(ctx: Context): Array<() => void> {
         input: spec.supportsImage ? ['text', 'image'] : ['text'],
         reasoningEfforts: { off: null, low: 'low', medium: 'medium', high: 'high' },
       }
+      const rawBase = providers?.[key]?.baseURL
+        ?? providers?.['xpeach']?.baseURL
+        ?? 'https://fast.xpeach.codes'
+      const rootBase = rawBase.replace(/\/+$/u, '').replace(/\/v1$/u, '')
+      const apiKeyEnv = providers?.[key]?.apiKeyEnv
+        ?? providers?.['xpeach']?.apiKeyEnv
+        ?? 'XPEACH_RELAY_KEY'
       if (isClaude) {
-        const rawBase = providers?.['xpeach-anthropic']?.baseURL
-          ?? providers?.['xpeach']?.baseURL
-          ?? 'https://fast.xpeach.codes'
-        const anthropicBase = rawBase.replace(/\/+$/u, '').replace(/\/v1$/u, '')
-        const apiKeyEnv = providers?.['xpeach-anthropic']?.apiKeyEnv
-          ?? providers?.['xpeach']?.apiKeyEnv
-          ?? 'XPEACH_RELAY_KEY'
         opsList.push({ op: 'set', path: ['providers', key, 'displayName'], value: '🍑Code anthropic-messages' })
         opsList.push({ op: 'set', path: ['providers', key, 'api'], value: 'anthropic-messages' })
         opsList.push({ op: 'set', path: ['providers', key, 'apiKeyEnv'], value: apiKeyEnv })
-        opsList.push({ op: 'set', path: ['providers', key, 'baseURL'], value: anthropicBase })
+        opsList.push({ op: 'set', path: ['providers', key, 'baseURL'], value: rootBase })
+      } else if (isResponses) {
+        opsList.push({ op: 'set', path: ['providers', key, 'displayName'], value: '🍑Code openai-responses' })
+        opsList.push({ op: 'set', path: ['providers', key, 'api'], value: 'openai-responses' })
+        opsList.push({ op: 'set', path: ['providers', key, 'apiKeyEnv'], value: apiKeyEnv })
+        opsList.push({ op: 'set', path: ['providers', key, 'baseURL'], value: `${rootBase}/v1` })
       }
       opsList.push({ op: 'set', path: ['providers', key, 'reasoning'], value: 'high' })
       opsList.push({ op: 'set', path: ['providers', key, 'defaultInput'], value: ['text', 'image'] })
       opsList.push({ op: 'set', path: ['providers', key, 'models'], value: [...existing, entry] as JsonV })
       const written = await ctx.remote.settings.mutate('llm-pi-ai', opsList, view?.revision)
+      settingsRead.invalidate()
       return written.ok ? null : written.error.message
     },
     trackingState: async () => {
-      const described = await ctx.remote.settings.describe()
+      const described = await settingsRead.read()
       if (!described.ok) return true
       const accountView = described.value.namespaces.find(ns => ns.ns === 'xpeach-account')
         ?? described.value.namespaces.find(ns => ns.ns === 'xpeach')
@@ -305,7 +382,7 @@ function registerUi(ctx: Context): Array<() => void> {
     },
     setTracking: async (enabled: boolean) => {
       const accountErr = await mutateAccountSetting(['conversationTracking'], enabled)
-      const described = await ctx.remote.settings.describe()
+      const described = await settingsRead.read()
       if (!described.ok) return accountErr ?? described.error.message
       const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
       const providers = (view?.value as { providers?: Record<string, unknown> } | undefined)?.providers ?? {}
@@ -320,10 +397,11 @@ function registerUi(ctx: Context): Array<() => void> {
         value: enabled,
       }))
       const written = await ctx.remote.settings.mutate('llm-pi-ai', opsList, view?.revision)
+      settingsRead.invalidate()
       return written.ok ? accountErr : written.error.message
     },
     autoSyncModels: async () => {
-      const described = await ctx.remote.settings.describe()
+      const described = await settingsRead.read()
       if (!described.ok) return true
       const view = described.value.namespaces.find(ns => ns.ns === 'xpeach-account')
         ?? described.value.namespaces.find(ns => ns.ns === 'xpeach')
@@ -333,12 +411,12 @@ function registerUi(ctx: Context): Array<() => void> {
     setAutoSyncModels: async (enabled: boolean) => {
       const err = await mutateAccountSetting(['autoSyncModels'], enabled)
       if (err === null && enabled) {
-        void ctx.remote.xpeach.syncModels({})
+        void ctx.remote.xpeach.syncModels({}).then(() => { settingsRead.invalidate() })
       }
       return err
     },
     protocolPreference: async () => {
-      const described = await ctx.remote.settings.describe()
+      const described = await settingsRead.read()
       if (!described.ok) return 'compatible'
       const view = described.value.namespaces.find(ns => ns.ns === 'xpeach-account')
         ?? described.value.namespaces.find(ns => ns.ns === 'xpeach')
@@ -349,8 +427,10 @@ function registerUi(ctx: Context): Array<() => void> {
       return await mutateAccountSetting(['protocolPreference'], value)
     },
     families: async () => {
-      const described = await ctx.remote.settings.describe()
-      const catalogue = await ctx.remote.xpeach.models({})
+      const [described, catalogue] = await Promise.all([
+        settingsRead.read(),
+        ctx.remote.xpeach.models({}),
+      ])
       const all = catalogue.ok
         ? [...new Set(catalogue.value.flatMap(m => (m as { groups?: readonly string[] }).groups ?? []))].sort()
         : []
@@ -379,7 +459,7 @@ function registerUi(ctx: Context): Array<() => void> {
       return r.ok ? r.value : { error: r.error.message }
     },
     adminPricing: async () => {
-      const r = await ctx.remote.xpeach.adminPricing({})
+      const r = await adminPricingRead.read()
       return r.ok ? r.value : { error: r.error.message }
     },
     modelHealth: async () => {
@@ -387,14 +467,24 @@ function registerUi(ctx: Context): Array<() => void> {
       return r.ok ? r.value : { error: r.error.message }
     },
     billingRate: async (model: string, group?: string) => {
-      const r = await ctx.remote.xpeach.billingRate(group === undefined ? { model } : { model, group })
-      return r.ok ? r.value : { error: r.error.message }
+      const cacheKey = `${model}\0${group ?? ''}`
+      const now = Date.now()
+      const hit = billingRateCache.get(cacheKey)
+      if (hit !== undefined && now < hit.expiresAt) return await hit.promise
+      const promise = ctx.remote.xpeach.billingRate(group === undefined ? { model } : { model, group })
+        .then(r => (r.ok ? r.value : { error: r.error.message }))
+      billingRateCache.set(cacheKey, { expiresAt: now + 30_000, promise })
+      return await promise
     },
     groupCatalog: async () => {
       const r = await ctx.remote.xpeach.groups({})
       return r.ok ? r.value : { error: r.error.message }
     },
     priceSync: async (force?: boolean) => {
+      if (force === true) {
+        adminPricingRead.invalidate()
+        billingRateCache.clear()
+      }
       const r = await ctx.remote.xpeach.priceSync(force === true ? { force: true } : {})
       return r.ok ? r.value : { error: r.error.message }
     },
@@ -407,17 +497,21 @@ function registerUi(ctx: Context): Array<() => void> {
       return r.ok ? r.value : { error: r.error.message }
     },
     siteCatalog: async () => {
-      const result = await ctx.remote.xpeach.siteCatalog({})
+      const result = await siteCatalogRead.read()
       if (!result.ok) return { error: result.error.message }
       return result.value
     },
     setGroups: async (groups) => {
       const result = await ctx.remote.xpeach.setGroups({ groups })
+      invalidateAccountCaches()
+      settingsRead.invalidate()
       if (!result.ok) return { error: result.error.message }
       return result.value
     },
     syncModels: async () => {
       const result = await ctx.remote.xpeach.syncModels({})
+      settingsRead.invalidate()
+      siteCatalogRead.invalidate()
       if (!result.ok) return { error: result.error.message }
       return result.value
     },
@@ -428,13 +522,15 @@ function registerUi(ctx: Context): Array<() => void> {
     },
     bindSession: async (cookie: string) => {
       const r = await ctx.remote.xpeach.bindSession(cookie)
+      invalidateAccountCaches()
       return r.ok ? { ...(r.value.as !== undefined ? { as: r.value.as } : {}) } : { error: r.error.message }
     },
     unbindSession: async () => {
       await ctx.remote.xpeach.unbindSession()
+      invalidateAccountCaches()
     },
     userSelf: async () => {
-      const r = await ctx.remote.xpeach.userSelf()
+      const r = await userSelfRead.read()
       return r.ok ? r.value : { error: r.error.message }
     },
     userLogs: async (page, size) => {
@@ -483,6 +579,7 @@ function registerUi(ctx: Context): Array<() => void> {
       return r.ok ? r.value : { error: r.error.message }
     },
     openPlugins: () => { ctx.layout.selectPanel('plugins' as never) },
+    openConsole: () => { ctx.layout.selectPanel('xpeach' as MainPanelId) },
     recentSessions: async () => {
       const sessionsService = ctx.get('sessions') as {
         list?: {
@@ -661,6 +758,11 @@ function registerUi(ctx: Context): Array<() => void> {
       if (!r.ok) throw new Error(r.error.message)
       return r.value
     },
+    skillBatchToggle: async (req) => {
+      const r = await extRemote.skillBatchToggle(req)
+      if (!r.ok) throw new Error(r.error.message)
+      return r.value
+    },
     skillSave: async (req) => {
       const r = await extRemote.skillSave(req)
       if (!r.ok) throw new Error(r.error.message)
@@ -668,6 +770,11 @@ function registerUi(ctx: Context): Array<() => void> {
     },
     skillDelete: async (req) => {
       const r = await extRemote.skillDelete(req)
+      if (!r.ok) throw new Error(r.error.message)
+      return r.value
+    },
+    skillBatchDelete: async (req) => {
+      const r = await extRemote.skillBatchDelete(req)
       if (!r.ok) throw new Error(r.error.message)
       return r.value
     },
@@ -686,6 +793,11 @@ function registerUi(ctx: Context): Array<() => void> {
       if (!r.ok) throw new Error(r.error.message)
       return r.value
     },
+    mcpBatchToggle: async (req) => {
+      const r = await extRemote.mcpBatchToggle(req)
+      if (!r.ok) throw new Error(r.error.message)
+      return r.value
+    },
     mcpSave: async (req) => {
       const r = await extRemote.mcpSave(req)
       if (!r.ok) throw new Error(r.error.message)
@@ -696,6 +808,35 @@ function registerUi(ctx: Context): Array<() => void> {
       if (!r.ok) throw new Error(r.error.message)
       return r.value
     },
+    mcpBatchDelete: async (req) => {
+      const r = await extRemote.mcpBatchDelete(req)
+      if (!r.ok) throw new Error(r.error.message)
+      return r.value
+    },
+    gatewayInspectorSnapshot: async (req = {}) => {
+      const r = await extRemote.gatewayInspectorSnapshot(req)
+      if (!r.ok) throw new Error(r.error.message)
+      return r.value
+    },
+    gatewayInspectorSave: async (req) => {
+      const r = await extRemote.gatewayInspectorSave(req)
+      if (!r.ok) throw new Error(r.error.message)
+      return r.value
+    },
+    modelPoolsSnapshot: async () => {
+      const r = await extRemote.modelPoolsSnapshot({})
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    modelPoolsSave: async (req) => {
+      const r = await extRemote.modelPoolsSave(req)
+      settingsRead.invalidate()
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    modelPoolsReset: async () => {
+      const r = await extRemote.modelPoolsReset({})
+      settingsRead.invalidate()
+      return r.ok ? r.value : { error: r.error.message }
+    },
     macosInstallerStatus: async () => {
       const r = await extRemote.macosInstallerStatus({})
       return r.ok ? r.value : { error: r.error.message }
@@ -703,6 +844,20 @@ function registerUi(ctx: Context): Array<() => void> {
     macosInstallerAction: async (action) => {
       const r = await extRemote.macosInstallerAction({ action })
       return r.ok ? r.value : { error: r.error.message }
+    },
+    ssoBrowserStart: async (openBrowser = true) => {
+      const r = await extRemote.ssoBrowserStart({ openBrowser })
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    ssoBrowserPoll: async (attemptId: string, deviceCode?: string) => {
+      const r = await extRemote.ssoBrowserPoll({
+        attemptId,
+        ...(deviceCode !== undefined ? { deviceCode } : {}),
+      })
+      return r.ok ? r.value : { error: r.error.message }
+    },
+    ssoBrowserCancel: async (attemptId: string) => {
+      await extRemote.ssoBrowserCancel({ attemptId }).catch(() => undefined)
     },
     ssoDeviceStart: async (openBrowser = true) => {
       const r = await extRemote.ssoDeviceStart({ openBrowser })
@@ -714,9 +869,10 @@ function registerUi(ctx: Context): Array<() => void> {
     },
     ssoLogout: async (allDevices = false) => {
       await extRemote.ssoLogout({ allDevices, revokePeachcode: false })
+      invalidateAccountCaches()
     },
     describeSettings: async () => {
-      const described = await ctx.remote.settings.describe()
+      const described = await settingsRead.read()
       if (!described.ok) return { error: described.error.message }
       return described.value.namespaces.map(ns => ({
         ns: ns.ns,
@@ -734,6 +890,7 @@ function registerUi(ctx: Context): Array<() => void> {
           : { op: 'set' as const, path: [...op.path], value: op.value as JsonV }
       ))
       const written = await ctx.remote.settings.mutate(ns, wireOps, expectedRevision)
+      settingsRead.invalidate()
       if (!written.ok) return { error: written.error.message }
       const item = written.value
       return {
@@ -767,7 +924,7 @@ function registerUi(ctx: Context): Array<() => void> {
       return r.ok ? r.value : { delivered: false, platform: 'unknown', reason: r.error.message }
     },
     perfMetricsSummary: async (hours = 24) => {
-      const r = await extRemote.perfMetricsSummary({ hours })
+      const r = hours === 24 ? await perfSummaryRead.read() : await extRemote.perfMetricsSummary({ hours })
       return r.ok ? r.value : { error: r.error.message }
     },
     perfMetricsDetail: async (model, hours = 24) => {
@@ -790,8 +947,27 @@ function registerUi(ctx: Context): Array<() => void> {
       })
     }).catch(() => {})
   }
-  warmModelTelemetry()
-  const undo: Array<() => void> = [ops.subscribeCredentialChange(warmModelTelemetry)]
+  const idleGlobal = globalThis as {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+    cancelIdleCallback?: (id: number) => void
+  }
+  let cancelWarmup: () => void
+  if (typeof idleGlobal.requestIdleCallback === 'function') {
+    const handle = idleGlobal.requestIdleCallback(warmModelTelemetry, { timeout: 2_000 })
+    cancelWarmup = () => { idleGlobal.cancelIdleCallback?.(handle) }
+  } else {
+    const timer = setTimeout(warmModelTelemetry, 250)
+    cancelWarmup = () => { clearTimeout(timer) }
+  }
+  const undo: Array<() => void> = [
+    cancelWarmup,
+    () => { resetClientModelTelemetryCache() },
+    ops.subscribeCredentialChange(() => {
+      invalidateAccountCaches()
+      settingsRead.invalidate()
+      warmModelTelemetry()
+    }),
+  ]
   // Composer-dock session cost: live $ from the tokenUsage projection against
   // the rates our token actually pays (operator surface; needs the admin token).
   undo.push(ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
@@ -800,7 +976,6 @@ function registerUi(ctx: Context): Array<() => void> {
   undo.push(ctx.slots.inject('conversation.input.model.label', () => ctx.slots.register(
     { name: 'conversation.input.model.label', priority: -10 },
     XPeachModelLabel)))
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-xpeach: dictionaries')
   undo.push(ctx.slots.inject('sidebar.brand.mark', () => ctx.slots.register(
     { name: 'sidebar.brand.mark', priority: -10 }, XPeachMark)))
   undo.push(ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register(
@@ -811,59 +986,64 @@ function registerUi(ctx: Context): Array<() => void> {
   // (order -5 < plugins' 0) + keyed 'main' body.
   undo.push(ctx.slots.inject('sidebar.panellist', () => ctx.slots.register(
     { name: 'sidebar.panellist', id: 'xpeach', order: -5, label: () => ctx.locale.bind(NS)('tab.title'), locale: NS },
-    ({ size }: { size?: number }) => XPeachMark({ size: size ?? 18 }))))
+    XPeachPanelIcon)))
+  const selectModelImpl = async (sessionId: string | undefined, model: string): Promise<string | null> => {
+    const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(model.trim()) || /^claude$/iu.test(model.trim())
+    const isResponses = !isClaude
+      && /(?:^|\/|[-_])swe(?:[-_0-9.]|$)|codex|(?:^|\/)gpt-[56](?:[-._a-z0-9]|$)|(?:^|\/)o[134](?:[-_a-z0-9]|$)/iu.test(model.trim())
+    let provider = isClaude ? 'xpeach-anthropic' : isResponses ? 'xpeach-openai-responses' : 'xpeach'
+    const described = await settingsRead.read()
+    let defaultModelRevision: number | undefined
+    if (described.ok) {
+      defaultModelRevision = described.value.namespaces.find(ns => ns.ns === 'agent-default-model')?.revision
+      const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
+      const providers = (view?.value as { providers?: Record<string, { models?: { id: string }[] }> } | undefined)?.providers ?? {}
+      for (const candidateKey of ['xpeach-openai-responses', 'xpeach-anthropic', 'xpeach']) {
+        if (providers[candidateKey]?.models?.some(m => m.id === model) === true) {
+          provider = candidateKey
+          break
+        }
+      }
+    }
+    rememberModel(provider, model)
+    await ctx.remote.settings.mutate(
+      'agent-default-model',
+      [{ op: 'set', path: ['defaultModel'], value: { provider, model } }],
+      defaultModelRevision,
+    ).catch(() => undefined)
+    settingsRead.invalidate()
+    type SessionIdParam = Parameters<typeof ctx.remote.session.selectModel>[0]['sessionId']
+    if (sessionId !== undefined) {
+      const result = await ctx.remote.session.selectModel({
+        sessionId: sessionId as SessionIdParam,
+        provider,
+        model,
+      })
+      return result.ok ? null : result.error.message
+    }
+    const listed = await ctx.remote.session.list({})
+    if (!listed.ok) return null
+    const targets = listed.value.items.slice(0, 5)
+    if (targets.length === 0) return null
+    const results = await Promise.all(
+      targets.map(item =>
+        ctx.remote.session.selectModel({
+          sessionId: item.sessionId,
+          provider,
+          model,
+        }),
+      ),
+    )
+    const firstResult = results[0]
+    return firstResult === undefined || firstResult.ok ? null : firstResult.error.message
+  }
+
   undo.push(ctx.slots.inject('main', () => ctx.slots.register(
     {
       name: 'main', key: 'xpeach', locale: NS,
       inject: (): XPeachOps => ({
         ...ops,
-        selectModel: async (sessionId: string | undefined, model: string) => {
-          const isClaude = /(?:^|\/|[-_])claude[-_0-9]/iu.test(model.trim()) || /^claude$/iu.test(model.trim())
-          let provider = isClaude ? 'xpeach-anthropic' : 'xpeach'
-          const described = await ctx.remote.settings.describe()
-          let defaultModelRevision: number | undefined
-          if (described.ok) {
-            defaultModelRevision = described.value.namespaces.find(ns => ns.ns === 'agent-default-model')?.revision
-            const view = described.value.namespaces.find(ns => ns.ns === 'llm-pi-ai')
-            const providers = (view?.value as { providers?: Record<string, { models?: { id: string }[] }> } | undefined)?.providers ?? {}
-            if (isClaude && providers['xpeach-anthropic']?.models?.some(m => m.id === model) === true) {
-              provider = 'xpeach-anthropic'
-            } else {
-              const matched = Object.entries(providers).find(([k, p]) => k.startsWith('xpeach') && p.models?.some(m => m.id === model))?.[0]
-              if (matched !== undefined) provider = matched
-            }
-          }
-          rememberModel(provider, model)
-          await ctx.remote.settings.mutate(
-            'agent-default-model',
-            [{ op: 'set', path: ['defaultModel'], value: { provider, model } }],
-            defaultModelRevision,
-          ).catch(() => undefined)
-          type SessionIdParam = Parameters<typeof ctx.remote.session.selectModel>[0]['sessionId']
-          if (sessionId !== undefined) {
-            const result = await ctx.remote.session.selectModel({
-              sessionId: sessionId as SessionIdParam,
-              provider,
-              model,
-            })
-            return result.ok ? null : result.error.message
-          }
-          const listed = await ctx.remote.session.list({})
-          if (!listed.ok) return null
-          const targets = listed.value.items.slice(0, 5)
-          if (targets.length === 0) return null
-          const results = await Promise.all(
-            targets.map(item =>
-              ctx.remote.session.selectModel({
-                sessionId: item.sessionId,
-                provider,
-                model,
-              }),
-            ),
-          )
-          const firstResult = results[0]
-          return firstResult === undefined || firstResult.ok ? null : firstResult.error.message
-        },
+        selectModel: selectModelImpl,
       }),
     }, XPeachConsolePage)))
   // Skill & Global Rules Control Center (order 2: right below Plugins at 0 and above Schedules at 10)
@@ -872,18 +1052,21 @@ function registerUi(ctx: Context): Array<() => void> {
     XPeachSkillsIcon)))
   undo.push(ctx.slots.inject('main', () => ctx.slots.register(
     { name: 'main', key: 'xpeach-skills', locale: NS, inject: (): XPeachOps => ops },
-    XPeachSkillsPage)))
+    XPeachSkillsPageSeat)))
   // MCP Server Control Center (order 3: right below Skills at 2 and above Schedules at 10)
   undo.push(ctx.slots.inject('sidebar.panellist', () => ctx.slots.register(
     { name: 'sidebar.panellist', id: 'xpeach-mcp', order: 3, label: () => ctx.locale.bind(NS)('sidebarMcpLabel'), locale: NS },
     XPeachMcpIcon)))
   undo.push(ctx.slots.inject('main', () => ctx.slots.register(
     { name: 'main', key: 'xpeach-mcp', locale: NS, inject: (): XPeachOps => ops },
-    XPeachMcpPage)))
-  footerBridge.openConsole = () => { ctx.layout.selectPanel('xpeach' as MainPanelId) }
-  undo.push(() => { footerBridge.openConsole = () => {} })
-  undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
-    { name: 'shell.overlay', id: 'xpeach.status', locale: NS, inject: () => ops }, XPeachStatusPill)))
+    XPeachMcpPageSeat)))
+  // Prompt & Upstream Gateway Inspector (order 4: right below MCP at 3 and above Schedules at 10)
+  undo.push(ctx.slots.inject('sidebar.panellist', () => ctx.slots.register(
+    { name: 'sidebar.panellist', id: 'xpeach-prompts', order: 4, label: () => ctx.locale.bind(NS)('sidebarPromptsLabel'), locale: NS },
+    XPeachPromptIcon)))
+  undo.push(ctx.slots.inject('main', () => ctx.slots.register(
+    { name: 'main', key: 'xpeach-prompts', locale: NS, inject: (): XPeachOps => ops },
+    XPeachPromptInspectorSeat)))
   undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
     { name: 'shell.overlay', id: 'xpeach.bindgate', locale: NS, inject: () => ops }, XPeachOnboarding)))
   undo.push(ctx.slots.inject('shell.overlay', () => ctx.slots.register(
@@ -917,31 +1100,45 @@ function registerUi(ctx: Context): Array<() => void> {
     GeneralPreferencesRow)))
   undo.push(ctx.slots.inject('settings.section', () => ctx.slots.register(
     { name: 'settings.section', id: 'modules', order: 12, label: () => ctx.locale.bind(NS)('modules.nav'), locale: NS, inject: () => ops },
-    ModuleSettingsSection)))
+    ModuleSettingsSectionSeat)))
   undo.push(ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register(
     { name: 'settings.plugins.tab', id: 'module-configs', order: 5, label: () => ctx.locale.bind(NS)('modules.tabLabel'), locale: NS, inject: () => ops },
-    ModuleSettingsTab)))
+    ModuleSettingsTabSeat)))
+  undo.push(ctx.slots.inject('settings.models.header', () => ctx.slots.register(
+    {
+      name: 'settings.models.header',
+      id: 'xpeach-model-pools',
+      order: 0,
+      locale: NS,
+      inject: () => ({
+        ...ops,
+        selectModel: selectModelImpl,
+      }),
+    },
+    XPeachModelPoolsSeat)))
   undo.push(ctx.slots.inject('settings.section', () => ctx.slots.register(
     { name: 'settings.section', id: 'xpeach', order: 20, label: () => ctx.locale.bind(NS)('nav'), locale: NS, inject: () => ops },
-    XPeachSection)))
+    XPeachSectionSeat)))
   undo.push(ctx.slots.inject('settings.launcher', () => ctx.slots.register(
     { name: 'settings.launcher', priority: -10, locale: NS, inject: () => ops }, XPeachSettingsLauncher)))
   return undo
 }
 
 const PEACH_BRAND_OVERRIDES = {
-  '--dsw-alias-brand-primary': { light: '#E0653F', dark: '#FF9D7E' },
-  '--dsw-alias-brand-primary-invert': { light: '#FFF6F1', dark: '#2B1409' },
-  '--dsw-alias-brand-primary-new-colorprimary-new-color': { light: '#E0653F', dark: '#FF9D7E' },
+  '--dsw-alias-brand-primary': { light: '#C8502B', dark: '#FF9D7E' },
+  '--dsw-alias-brand-primary-invert': { light: '#FFF6F1', dark: '#240E06' },
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': { light: '#C8502B', dark: '#FF9D7E' },
+  '--dsw-alias-button-primary-hover': { light: '#AF4321', dark: '#FFB299' },
+  '--dsw-alias-label-primary-foreground': { light: '#FFFFFF', dark: '#240E06' },
   '--dsw-static-deepseek-50': { light: '#FDF1EA', dark: '#3A241B' },
   '--dsw-static-deepseek-100': { light: '#FBE4D7', dark: '#4A2E21' },
   '--dsw-static-deepseek-200': { light: '#F7CDB4', dark: '#633E2C' },
   '--dsw-static-deepseek-300': { light: '#F0AC85', dark: '#8A543A' },
   '--dsw-static-deepseek-400': { light: '#EF9163', dark: '#C97450' },
   '--dsw-static-deepseek-450': { light: '#E97E4E', dark: '#F08A60' },
-  '--dsw-static-deepseek-500': { light: '#E0653F', dark: '#FF9D7E' },
+  '--dsw-static-deepseek-500': { light: '#C8502B', dark: '#FF9D7E' },
   '--dsw-static-deepseek-600': { light: '#B04E30', dark: '#E0865F' },
-  '--dsw-static-deepseek-700': { light: '#8C3C24', dark: '#B96F4C' },
+  '--dsw-static-deepseek-700-delete': { light: '#8C3C24', dark: '#B96F4C' },
   '--dsw-static-deepseek-800': { light: '#6B2E1C', dark: '#8C5338' },
   '--dsw-static-deepseek-900': { light: '#522416', dark: '#6E422C' },
 } as const
@@ -953,10 +1150,14 @@ const PEACH_BRAND_OVERRIDES = {
  * @returns async disposer completing reverse-order cleanup.
  */
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
-  const earlyUndo: Array<() => void> = []
+  const earlyUndo: Array<() => void> = [
+    ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }),
+  ]
   ;(globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__ = true
+  ;(globalThis as { __XPH_MODEL_POOLS_OWNER__?: boolean }).__XPH_MODEL_POOLS_OWNER__ = true
   earlyUndo.push(() => {
     delete (globalThis as { __XPH_ONBOARDING_OWNER__?: boolean }).__XPH_ONBOARDING_OWNER__
+    delete (globalThis as { __XPH_MODEL_POOLS_OWNER__?: boolean }).__XPH_MODEL_POOLS_OWNER__
   })
   for (const definition of PALETTES) {
     for (const mode of ['light', 'dark'] as const) {
@@ -1052,5 +1253,33 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
  * @returns the console panel element.
  */
 function XPeachConsolePage(props: XPeachTabProps): JSX.Element {
-  return XPeachTab(props)
+  return createElement(XPeachTab, props)
+}
+
+function XPeachSkillsPageSeat(props: XPeachSkillsProps): JSX.Element {
+  return createElement(XPeachSkillsPage, props)
+}
+
+function XPeachMcpPageSeat(props: XPeachMcpProps): JSX.Element {
+  return createElement(XPeachMcpPage, props)
+}
+
+function XPeachPromptInspectorSeat(props: XPeachPromptInspectorProps): JSX.Element {
+  return createElement(XPeachPromptInspectorPage, props)
+}
+
+function ModuleSettingsSectionSeat(props: ModuleSettingsSectionProps): JSX.Element {
+  return createElement(ModuleSettingsSection, props)
+}
+
+function ModuleSettingsTabSeat(props: ModuleSettingsTabProps): JSX.Element {
+  return createElement(ModuleSettingsTab, props)
+}
+
+function XPeachSectionSeat(props: XPeachSectionProps): JSX.Element {
+  return createElement(XPeachSection, props)
+}
+
+function XPeachModelPoolsSeat(props: XPeachModelPoolsProps): JSX.Element {
+  return createElement(XPeachModelPools, props)
 }

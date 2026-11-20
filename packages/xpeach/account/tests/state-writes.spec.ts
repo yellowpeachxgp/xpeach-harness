@@ -1535,7 +1535,7 @@ describe('account state writes on a fresh install', () => {
     const runSyncModelCatalog = Reflect.get(XPeachAccount.prototype, 'runSyncModelCatalog') as (sig?: AbortSignal) => Promise<void>
     await runSyncModelCatalog.call(fakeAccount, new AbortController().signal)
 
-    expect(savedSelections).toContainEqual({ provider: 'xpeach', model: 'swe-2-max' })
+    expect(savedSelections).toContainEqual({ provider: 'xpeach-openai-responses', model: 'swe-2-max' })
 
     // Remove relay key and simulate an SSO bridge payload whose relay token is empty and cannot be minted
     const capture = Reflect.get(XPeachAccount.prototype, 'captureCredentialSnapshot') as () => object

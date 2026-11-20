@@ -40,12 +40,15 @@ describe('component radius scale', () => {
   it('keeps client component radii on the shared scale with exact package-owned exceptions', () => {
     const exceptions = JSON.parse(readFileSync(new URL('./expected/radius-exceptions.expected.json', import.meta.url), 'utf8')) as Record<string, string[]>
     const failures = Object.fromEntries(packageStylesheets()
-      .filter(file => file.includes('/packages/client/') && file.includes('/src/') && !file.includes('/src/styles/'))
+      .filter(file => file.includes('/src/') && !file.includes('/src/styles/'))
       .map((file): [string, string[]] => {
         const drawing = [...drawings].find(([suffix]) => file.endsWith(suffix))?.[1]
         const radii = unscaledRadii(readFileSync(file, 'utf8'))
           .filter(failure => drawing === undefined || !failure.startsWith(`${drawing}:`))
-        return [file.slice(file.indexOf('/packages/client/') + '/packages/client/'.length), radii]
+        const key = file.includes('/packages/client/')
+          ? file.slice(file.indexOf('/packages/client/') + '/packages/client/'.length)
+          : file.slice(file.indexOf('/packages/') + '/packages/'.length)
+        return [key, radii]
       }).filter(([, radii]) => radii.length > 0))
     expect(failures).toEqual(exceptions)
   })

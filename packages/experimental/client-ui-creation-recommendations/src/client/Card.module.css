@@ -24,5 +24,8 @@
 .locationOption > span + span { color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .customLocation { display: flex; flex-direction: column; gap: 6px; flex: 1 0 100%; min-width: 0; }
 .customLocation textarea { box-sizing: border-box; width: 100%; min-height: 72px; resize: vertical; padding: 8px 10px; border: 0.5px solid var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; line-height: 1.7; }
-.customLocation textarea:focus-visible { outline: 1px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
+.customLocation textarea:focus-visible { outline: none; border-color: var(--dsw-alias-state-business-primary); }
 .customLocation textarea::placeholder { color: var(--dsw-alias-label-secondary); }
+@media (pointer: coarse) {
+  .customLocation textarea { font-size: 16px; }
+}

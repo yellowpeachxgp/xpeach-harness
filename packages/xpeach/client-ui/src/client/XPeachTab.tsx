@@ -289,18 +289,37 @@ function Playground({ model, t, chat, subscribePlaygroundChunk }: {
   const [prompt, setPrompt] = useState(() => t('play.defaultPrompt'))
   const [play, setPlay] = useState<PlayState>({ status: 'idle' })
   const streamId = useRef('')
+  const frameRef = useRef<number | undefined>(undefined)
+  useEffect(() => () => {
+    if (frameRef.current !== undefined && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(frameRef.current)
+    }
+  }, [])
   const run = (): void => {
     if (!prompt.trim() || play.status === 'running') return
     const callId = 'pg-' + Math.random().toString(36).slice(2, 10)
     streamId.current = callId
     let buf = ''
     setPlay({ status: 'running', content: '' })
+    const flush = (): void => {
+      frameRef.current = undefined
+      if (streamId.current !== callId) return
+      setPlay(prev => prev.status === 'running' ? { status: 'running', content: buf } : prev)
+    }
     const unsub = subscribePlaygroundChunk === undefined ? undefined : subscribePlaygroundChunk((chunk) => {
       if (chunk.callId !== streamId.current) return
       buf += chunk.delta
-      setPlay(prev => prev.status === 'running' ? { status: 'running', content: buf } : prev)
+      if (typeof requestAnimationFrame === 'function') {
+        if (frameRef.current === undefined) frameRef.current = requestAnimationFrame(flush)
+      } else {
+        flush()
+      }
     })
     void chat(model, prompt, callId).then((reply) => {
+      if (frameRef.current !== undefined && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(frameRef.current)
+        frameRef.current = undefined
+      }
       if (unsub !== undefined) unsub()
       if ('error' in reply) { setPlay({ status: 'fail', message: reply.error }); return }
       setPlay({
@@ -764,6 +783,8 @@ export function XPeachTab({
     }
   }, [perfMap])
 
+  const catalogById = useMemo(() => new Map(catalog.map(model => [model.id, model])), [catalog])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const activeGroupSet = activeGroup === null
@@ -776,7 +797,7 @@ export function XPeachTab({
           || (mergedGroupIdx.get(id) ?? []).some(group => group.name === activeGroup),
       )
     const safe = pool.map((id): XPeachModel => {
-      const catEntry = catalog.find(model => model.id === id)
+      const catEntry = catalogById.get(id)
       const groupsFromIdx = (mergedGroupIdx.get(id) ?? [])
         .map(g => g.name)
         .filter(gName => gName !== 'default' && gName !== '管理员分组')
@@ -825,7 +846,7 @@ export function XPeachTab({
       return 0
     })
     return sorted
-  }, [allModelIds, catalog, activeGroup, mergedGroupMeta, mergedGroupIdx, query, speedSort, health, pins, sortMode, perfMap, priceMap])
+  }, [allModelIds, catalogById, activeGroup, mergedGroupMeta, mergedGroupIdx, query, speedSort, health, pins, sortMode, perfMap, priceMap])
 
   const mountedSet = useMemo(() => new Set(mounted), [mounted])
   const joinModel = (id: string): void => {
@@ -868,7 +889,7 @@ export function XPeachTab({
 
   return (
     <div className={css.tabRoot} data-seg={seg}>
-      <header className={css.tabHead}>
+      <header className={css.tabHead} data-window-drag>
         <div className={css.consoleBrand}>
           <span className={css.consoleBrandBadge} aria-hidden="true">
             <XPeachMark size={22} />
@@ -983,7 +1004,7 @@ export function XPeachTab({
               <div className={css.perfOverviewHead}>
                 <div className={css.perfOverviewTitleWrap}>
                   <h3 className={css.perfOverviewTitle}>
-                    <span className={css.perfStatusDot} style={{ color: '#10b981' }} />
+                    <span className={css.perfStatusDot} style={{ color: 'var(--dsw-alias-state-success-primary)' }} />
                     {t('market.perf.title')}
                   </h3>
                   <p className={css.perfOverviewSubtitle}>{t('market.perf.subtitle')}</p>

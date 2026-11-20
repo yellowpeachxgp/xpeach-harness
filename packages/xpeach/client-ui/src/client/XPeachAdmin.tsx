@@ -1,5 +1,6 @@
 /** Site-admin segment: the management-token surfaces (users/tokens/pricing/logs). */
 import { type JSX, useEffect, useMemo, useState } from 'react'
+import { Button, Modal } from '@xpeach/xph-client-ui-primitives'
 import css from './xpeach.module.css'
 import { EditDrawer, DrawerField } from './XPeachDrawer.tsx'
 import type { PropsLocale } from '@xpeach/xph-client-ui-slots'
@@ -84,6 +85,12 @@ export function XPeachAdmin({ t, ops }: { t: T; ops: XPeachOps }): JSX.Element {
   const [priceMsg, setPriceMsg] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [pQuery, setPQuery] = useState('')
+  const [confirmAction, setConfirmAction] = useState<{
+    readonly title: string
+    readonly description: string
+    readonly confirmLabel: string
+    readonly run: () => void
+  } | null>(null)
   const size = 15
 
   useEffect(() => {
@@ -253,10 +260,16 @@ export function XPeachAdmin({ t, ops }: { t: T; ops: XPeachOps }): JSX.Element {
                   {tk.unlimited_quota === true && <span className={css.epChip}>∞</span>}
                   <span className={css.adminActs}>
                     <button type="button" className={css.rowAct} onClick={() => {
-                      if (!window.confirm(t('admin.chDelConfirm', { name: tk.name ?? String(tk.id) }))) return
-                      void ops.adminTokenDelete(tk.id).then((err) => {
-                        setTokMsg(err ?? t('admin.delOk'))
-                        void ops.adminTokens(page, size).then(setTokens)
+                      setConfirmAction({
+                        title: t('admin.del'),
+                        description: t('admin.chDelConfirm', { name: tk.name ?? String(tk.id) }),
+                        confirmLabel: t('admin.del'),
+                        run: () => {
+                          void ops.adminTokenDelete(tk.id).then((err) => {
+                            setTokMsg(err ?? t('admin.delOk'))
+                            void ops.adminTokens(page, size).then(setTokens)
+                          })
+                        },
                       })
                     }}>{t('admin.del')}</button>
                   </span>
@@ -367,12 +380,18 @@ export function XPeachAdmin({ t, ops }: { t: T; ops: XPeachOps }): JSX.Element {
                         <button type="button" className={css.bindGhost} disabled={priceBusy || en === undefined}
                           onClick={() => {
                             if (en === undefined) return
-                            if (!window.confirm(t('admin.priceResetConfirm', { name: pr.model_name }))) return
-                            setPriceBusy(true); setPriceMsg(null)
-                            const patch = [{ model_name: pr.model_name, expected_version: en.version, reset: true }]
-                            void ops.adminModelPricingPatch(patch).then((err) => {
-                              setPriceBusy(false); setPriceMsg(err ?? pr.model_name + ' ' + t('admin.resetOk'))
-                              setPriceSnap(null)
+                            setConfirmAction({
+                              title: t('admin.priceReset'),
+                              description: t('admin.priceResetConfirm', { name: pr.model_name }),
+                              confirmLabel: t('admin.priceReset'),
+                              run: () => {
+                                setPriceBusy(true); setPriceMsg(null)
+                                const patch = [{ model_name: pr.model_name, expected_version: en.version, reset: true }]
+                                void ops.adminModelPricingPatch(patch).then((err) => {
+                                  setPriceBusy(false); setPriceMsg(err ?? pr.model_name + ' ' + t('admin.resetOk'))
+                                  setPriceSnap(null)
+                                })
+                              },
                             })
                           }}>{t('admin.priceReset')}</button>
                       </div>
@@ -459,10 +478,16 @@ export function XPeachAdmin({ t, ops }: { t: T; ops: XPeachOps }): JSX.Element {
                     }}>{ch.status === 1 ? t('admin.chOff') : t('admin.chEnable')}</button>
                     <button type="button" className={css.rowAct} onClick={(e) => {
                       e.stopPropagation()
-                      if (!window.confirm(t('admin.chDelConfirm', { name: ch.name }))) return
-                      void ops.adminChannelDelete(ch.id).then((err) => {
-                        setChMsg(err ?? t('admin.delOk'))
-                        void ops.adminChannels(page).then((r) => { setChannels(r) })
+                      setConfirmAction({
+                        title: t('admin.del'),
+                        description: t('admin.chDelConfirm', { name: ch.name }),
+                        confirmLabel: t('admin.del'),
+                        run: () => {
+                          void ops.adminChannelDelete(ch.id).then((err) => {
+                            setChMsg(err ?? t('admin.delOk'))
+                            void ops.adminChannels(page).then((r) => { setChannels(r) })
+                          })
+                        },
                       })
                     }}>{t('admin.del')}</button>
                   </span>
@@ -590,6 +615,34 @@ export function XPeachAdmin({ t, ops }: { t: T; ops: XPeachOps }): JSX.Element {
           )}
           <p className={css.bindHint}>{t('admin.noticeHint')}</p>
         </>
+      )}
+
+      {confirmAction !== null && (
+        <Modal
+          open
+          onClose={() => { setConfirmAction(null) }}
+          title={confirmAction.title}
+          description={confirmAction.description}
+          closeLabel={t('notice.dismiss')}
+          footer={(
+            <>
+              <Button variant="outline" onClick={() => { setConfirmAction(null) }}>
+                {t('skills.modal.cancel')}
+              </Button>
+              <Button
+                variant="outline"
+                className={css.btnDanger}
+                onClick={() => {
+                  const run = confirmAction.run
+                  setConfirmAction(null)
+                  run()
+                }}
+              >
+                {confirmAction.confirmLabel}
+              </Button>
+            </>
+          )}
+        />
       )}
     </>
   )

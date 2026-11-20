@@ -57,10 +57,14 @@ function concat(left: EventWindowNode, right: EventWindowNode): EventWindowConca
   return { kind: 'concat', left, right, length: left.length + right.length }
 }
 
-function materialize(node: EventWindowNode): readonly SessionEventLikeEntry[] {
-  if (node.kind === 'leaf') return node.entries
-  const entries = new Array<SessionEventLikeEntry>(node.length)
-  const pending: EventWindowNode[] = [node]
+function materialize(
+  base: EventWindowNode,
+  appended: readonly SessionEventLikeEntry[],
+  appendedLength: number,
+): readonly SessionEventLikeEntry[] {
+  if (appendedLength === 0 && base.kind === 'leaf') return base.entries
+  const entries = new Array<SessionEventLikeEntry>(base.length + appendedLength)
+  const pending: EventWindowNode[] = [base]
   let index = 0
   while (pending.length > 0) {
     const current = pending.pop() as EventWindowNode
@@ -73,11 +77,30 @@ function materialize(node: EventWindowNode): readonly SessionEventLikeEntry[] {
       index += 1
     }
   }
+  for (let i = 0; i < appendedLength; i += 1) {
+    entries[index] = appended[i] as SessionEventLikeEntry
+    index += 1
+  }
   return entries
 }
 
+function hasTransientEntries(entries: readonly SessionEventLikeEntry[]): boolean {
+  return entries.some(entry => entry.type === 'transient')
+}
+
+function insertOrderedSettlement(
+  entries: SessionEventLikeEntry[],
+  entry: SessionAssistantSettlementEntry,
+): void {
+  const index = entries.findIndex(candidate => candidate.event.seq > entry.event.seq)
+  if (index < 0) entries.push(entry)
+  else entries.splice(index, 0, entry)
+}
+
 function windowSnapshot(
-  node: EventWindowNode,
+  base: EventWindowNode,
+  appended: readonly SessionEventLikeEntry[],
+  appendedLength: number,
   hasMore: boolean,
   revision: number,
   change: SessionEventChange,
@@ -85,7 +108,7 @@ function windowSnapshot(
   let entries: readonly SessionEventLikeEntry[] | undefined
   return {
     get entries() {
-      entries ??= materialize(node)
+      entries ??= materialize(base, appended, appendedLength)
       return entries
     },
     hasMore,
@@ -119,9 +142,14 @@ export type SessionEventSource = ObservableSnapshot<SessionEventWindow>
 /** Session-owned event feed; every accepted window mutation publishes synchronously. */
 export class MutableSessionEventSource implements SessionEventSource {
   private readonly listeners = new Set<() => void>()
-  private window: EventWindowNode = leaf([])
+  private base: EventWindowNode = leaf([])
+  private baseHasTransients = false
+  private maxBaseSeq: number | undefined
+  private appended: SessionEventLikeEntry[] = []
   private snapshot: SessionEventWindow = windowSnapshot(
-    this.window,
+    this.base,
+    this.appended,
+    0,
     false,
     0,
     { kind: 'replace', entries: [] },
@@ -146,7 +174,10 @@ export class MutableSessionEventSource implements SessionEventSource {
    * @param hasMore - whether older history remains.
    */
   replace(entries: readonly SessionEventLikeEntry[], hasMore: boolean): void {
-    this.window = leaf(entries)
+    this.base = leaf(entries)
+    this.baseHasTransients = hasTransientEntries(entries)
+    this.maxBaseSeq = entries.at(-1)?.event.seq
+    this.appended = []
     this.publish(hasMore, { kind: 'replace', entries })
   }
 
@@ -156,7 +187,9 @@ export class MutableSessionEventSource implements SessionEventSource {
    * @param hasMore - whether still older history remains.
    */
   prepend(entries: readonly SessionEventLikeEntry[], hasMore: boolean): void {
-    this.window = concat(leaf(entries), this.window)
+    this.base = concat(leaf(entries), this.base)
+    if (hasTransientEntries(entries)) this.baseHasTransients = true
+    this.maxBaseSeq ??= entries.at(-1)?.event.seq
     this.publish(hasMore, { kind: 'prepend', entries })
   }
 
@@ -165,11 +198,10 @@ export class MutableSessionEventSource implements SessionEventSource {
    * @param entry - live tail entry.
    */
   append(entry: SessionEventLikeEntry): void {
-    const entries = [entry]
-    this.window = concat(this.window, leaf(entries))
+    this.appended.push(entry)
     this.publish(this.snapshot.hasMore, {
       kind: 'append',
-      entries,
+      entries: [entry],
     })
   }
 
@@ -179,15 +211,24 @@ export class MutableSessionEventSource implements SessionEventSource {
    * @param entry - durable settlement committed for that attempt.
    */
   settleAssistant(attemptId: LlmAttemptId, entry?: SessionAssistantSettlementEntry): void {
-    const entries = materialize(this.window).filter(candidate => (
-      candidate.type !== 'transient' || candidate.event.data.attemptId !== attemptId
-    ))
-    if (entry !== undefined) {
-      const index = entries.findIndex(candidate => candidate.event.seq > entry.event.seq)
-      if (index < 0) entries.push(entry)
-      else entries.splice(index, 0, entry)
+    const canSettleTailOnly = !this.baseHasTransients
+      && (entry === undefined || this.maxBaseSeq === undefined || entry.event.seq >= this.maxBaseSeq)
+    if (canSettleTailOnly) {
+      const nextTail = this.appended.filter(candidate => (
+        candidate.type !== 'transient' || candidate.event.data.attemptId !== attemptId
+      ))
+      if (entry !== undefined) insertOrderedSettlement(nextTail, entry)
+      this.appended = nextTail
+    } else {
+      const entries = materialize(this.base, this.appended, this.appended.length).filter(candidate => (
+        candidate.type !== 'transient' || candidate.event.data.attemptId !== attemptId
+      ))
+      if (entry !== undefined) insertOrderedSettlement(entries, entry)
+      this.base = leaf(entries)
+      this.baseHasTransients = hasTransientEntries(entries)
+      this.maxBaseSeq = entries.at(-1)?.event.seq
+      this.appended = []
     }
-    this.window = leaf(entries)
     this.publish(this.snapshot.hasMore, {
       kind: 'settle-assistant',
       attemptId,
@@ -199,7 +240,14 @@ export class MutableSessionEventSource implements SessionEventSource {
     hasMore: boolean,
     change: SessionEventChange,
   ): void {
-    this.snapshot = windowSnapshot(this.window, hasMore, this.snapshot.revision + 1, change)
+    this.snapshot = windowSnapshot(
+      this.base,
+      this.appended,
+      this.appended.length,
+      hasMore,
+      this.snapshot.revision + 1,
+      change,
+    )
     notifySubscribers(this.listeners, '[session-controller] event feed')
   }
 }

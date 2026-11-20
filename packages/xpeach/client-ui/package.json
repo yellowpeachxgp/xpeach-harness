@@ -51,7 +51,8 @@
     "@xpeach/xph-client-ui-chat": "workspace:*",
     "@xpeach/xph-client-ui-sidebar-right": "workspace:*",
     "@xpeach/xph-client-ui-conversation": "workspace:*",
-    "@xpeach/xph-client-ui-settings": "workspace:*"
+    "@xpeach/xph-client-ui-settings": "workspace:*",
+    "@xpeach/xph-client-ui-settings-models": "workspace:*"
   },
   "files": [
     "lib/index.js",
@@ -67,7 +68,11 @@
         "@xpeach/xph-client-ui-theme",
         "@xpeach/xph-client-ui-layout",
         "@xpeach/xph-client-ui-model-selection",
-        "@xpeach/xph-client-ui-sidebar-right"
+        "@xpeach/xph-client-ui-sidebar",
+        "@xpeach/xph-client-ui-sidebar-right",
+        "@xpeach/xph-client-ui-settings",
+        "@xpeach/xph-client-ui-chat",
+        "@xpeach/xph-client-ui-conversation"
       ],
       "platform": "web"
     }

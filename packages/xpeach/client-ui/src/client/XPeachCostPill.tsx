@@ -8,7 +8,7 @@
  */
 import { memo, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { IconDatabaseOutlineRegular, useAnchoredPosition, useDismissOnOutsidePointer } from '@xpeach/xph-client-ui-primitives'
+import { IconDatabaseOutlineRegular, MenuSurface, useAnchoredPosition, useDismissOnOutsidePointer } from '@xpeach/xph-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@xpeach/xph-client-ui-slots'
 import type { XPeachBillingRate } from './ops.ts'
 import css from './xpeach.module.css'
@@ -91,7 +91,7 @@ export const XPeachCostPill = memo(function XPeachCostPill({ t, useProjection, b
         <span className={css.costPillLabel}>{label}</span>
       </button>
       {open && createPortal(
-        <div ref={panelRef} className={css.costPop} role="dialog" aria-label={t('cost.title')}
+        <MenuSurface ref={panelRef} className={css.costPop} role="dialog" aria-label={t('cost.title')}
           style={pos ?? MEASURE_STYLE}>
           <div className={css.costPopHead}>
             <span className={css.costPopHeadLabel}>
@@ -115,7 +115,7 @@ export const XPeachCostPill = memo(function XPeachCostPill({ t, useProjection, b
               <dt>{t('cost.groupRatio')}</dt><dd>×{rate.groupRatio}</dd>
             </span>
           </dl>
-        </div>, document.body)}
+        </MenuSurface>, document.body)}
     </span>
   )
 })

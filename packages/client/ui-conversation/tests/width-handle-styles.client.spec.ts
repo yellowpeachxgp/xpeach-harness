@@ -29,7 +29,9 @@ describe('conversation width handle styles', () => {
     expect(indicator).toContain('var(--dsh-width-handle-pointer-y, 50%) + 36px')
   })
 
-  it('keeps the indicator above the composer after drag capture begins', () => {
-    expect(conversationCss).toMatch(/\.widthHandle\[data-dragging\]\s*\{[^}]*z-index:\s*8/s)
+  it('keeps the strip fixed beneath overflow content and the composer seat while dragging', () => {
+    const handle = rule(conversationCss, '.widthHandle')
+    expect(handle).toMatch(/z-index:\s*0/)
+    expect(conversationCss).toMatch(/\.widthHandle\[data-dragging\]::after\s*\{[^}]*opacity:\s*1/s)
   })
 })

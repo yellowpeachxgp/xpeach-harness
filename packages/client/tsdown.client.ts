@@ -524,6 +524,7 @@ function clientConfig(
     // must carry the TS/TSX mapping consumed by browser profiling tools.
     sourcemap: true,
     clean: false,
+    minify: (process.env.NODE_ENV ?? 'production') === 'development' ? false : { mangle: false },
     deps: {
       neverBundle: isRequested,
       // Anything NOT requested from the loader module table must inline

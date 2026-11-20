@@ -44,6 +44,8 @@ const SIDEBAR = 'client/ui-sidebar/src/client/SidebarRoot.module.css'
 const CONVERSATION = 'client/ui-conversation/src/client/skeleton/ConversationRoot.module.css'
 const DOCKKIT = 'client/ui-dockkit/src/components/dockkit.module.css'
 const PLUGIN_MANAGER = 'client/ui-plugin-manager/src/client/PluginManagerPage.module.css'
+const TASK_MANAGER = 'client/ui-schedule/src/client/TaskManagerPage.module.css'
+const XPEACH = 'xpeach/client-ui/src/client/xpeach.module.css'
 const PLATFORM_OVERLAY = 'client/ui-settings-account/src/client/PlatformOverlay.module.css'
 
 /**
@@ -117,6 +119,31 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     selector: '.header',
     markup: 'client/ui-settings-account/src/client/PlatformOverlay.tsx',
     height: ['height', '48px'],
+  },
+  {
+    file: TASK_MANAGER,
+    selector: '.pageHeading',
+    markup: 'client/ui-schedule/src/client/TaskManagerPage.tsx',
+  },
+  {
+    file: XPEACH,
+    selector: '.tabHead',
+    markup: 'xpeach/client-ui/src/client/XPeachTab.tsx',
+  },
+  {
+    file: XPEACH,
+    selector: '.tabHead',
+    markup: 'xpeach/client-ui/src/client/XPeachSkills.tsx',
+  },
+  {
+    file: XPEACH,
+    selector: '.tabHead',
+    markup: 'xpeach/client-ui/src/client/XPeachMcp.tsx',
+  },
+  {
+    file: XPEACH,
+    selector: '.tabHead',
+    markup: 'xpeach/client-ui/src/client/XPeachPromptInspector.tsx',
   },
 ]
 

@@ -197,11 +197,12 @@ export function reconcileManualOrder(
     else ordinary.push(id)
   }
   const result = [...pins, ...ordered, ...ordinary, ...archives]
+  const resultMembers = new Set(result)
   const pending = new Set(ordinary)
   const placeFork = (id: SessionId): void => {
     if (!pending.delete(id)) return
     const parentId = summaries[id]?.parentId
-    if (parentId === undefined || parentId === id || !result.includes(parentId)) return
+    if (parentId === undefined || parentId === id || !resultMembers.has(parentId)) return
     placeFork(parentId)
     result.splice(result.indexOf(id), 1)
     result.splice(result.indexOf(parentId), 0, id)

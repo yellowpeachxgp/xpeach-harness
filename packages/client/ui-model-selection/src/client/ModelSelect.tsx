@@ -29,7 +29,7 @@
  */
 import { MenuGroup, MenuSurface, observeStickyMenuGroups, useAnchoredPosition } from '@xpeach/xph-client-ui-primitives'
 import {
-  useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
+  memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
   type CSSProperties, type KeyboardEvent, type FocusEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -57,6 +57,66 @@ interface EffortChoice {
 /** Unplaced portal card: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real (Menu primitive's measure pass). */
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
+interface ModelOptionRowProps {
+  id: string
+  index: number
+  provider: ModelLabelOwner['provider']
+  model: ModelLabelOwner['model']
+  selected: boolean
+  highlighted: boolean
+  pendingThisModel: boolean
+  busy: boolean
+  showSearch: boolean
+  setItemRef: (index: number, node: HTMLButtonElement | null) => void
+  onHighlight: (index: number) => void
+  onHoverModel: (index: number) => void
+  onChooseModel: (providerId: string, modelId: string) => void
+  renderSlot: (Omit<PropsRenderSlots<'conversation.input.model.label'>, 'SessionProvider'>)['renderSlot']
+}
+
+const ModelOptionRow = memo(function ModelOptionRow({
+  id, index, provider, model, selected, highlighted, pendingThisModel,
+  busy, showSearch, setItemRef, onHighlight, onHoverModel, onChooseModel, renderSlot,
+}: ModelOptionRowProps) {
+  const ref = useCallback((node: HTMLButtonElement | null) => {
+    setItemRef(index, node)
+  }, [setItemRef, index])
+  return (
+    <button
+      ref={ref}
+      type="button"
+      role="menuitemradio"
+      aria-checked={selected}
+      id={id}
+      tabIndex={showSearch ? -1 : 0}
+      onFocus={() => { onHighlight(index) }}
+      data-highlighted={highlighted ? '' : undefined}
+      className={clsx(
+        css.option, css.modelOption, selected && css.selected, highlighted && css.optionActive,
+      )}
+      onMouseMove={busy || highlighted ? undefined : () => { onHoverModel(index) }}
+      title={model.name}
+      disabled={busy}
+      onClick={() => { onChooseModel(provider.id, model.id) }}
+    >
+      <span className={css.optionCopy}>
+        <span className={css.modelName}>
+          <span data-provider-id={provider.id} data-model-id={model.id}>
+            {renderSlot('conversation.input.model.label', {
+              provider, model, placement: 'option', selected,
+            }, { fallback: model.name })}
+          </span>
+        </span>
+      </span>
+      <span className={css.check}>
+        {pendingThisModel
+          ? <StateDot state="ongoing" />
+          : selected ? <IconCheckOutlineRegular /> : null}
+      </span>
+    </button>
+  )
+})
+
 /**
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
@@ -68,10 +128,9 @@ export function ModelSelect(
   ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'>
     & Omit<PropsRenderSlots<'conversation.input.model.label'>, 'SessionProvider'>,
 ) {
-  const state = useSyncExternalStore(
-    fn => directory.subscribe(fn),
-    () => directory.getSnapshot(),
-  )
+  const subscribeDirectory = useCallback((fn: () => void) => directory.subscribe(fn), [directory])
+  const getDirectorySnapshot = useCallback(() => directory.getSnapshot(), [directory])
+  const state = useSyncExternalStore(subscribeDirectory, getDirectorySnapshot)
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
   const [query, setQuery] = useState('')
@@ -159,6 +218,22 @@ export function ModelSelect(
     ], [reasoning, t])
   const { pending } = state
   const busy = pending !== null
+  const setModelItemRef = useCallback((index: number, node: HTMLButtonElement | null) => {
+    itemRefs.current[index] = node
+  }, [])
+  const onHighlightModel = useCallback((index: number) => {
+    setHighlightedIndex(index)
+  }, [])
+  const hoverStateRef = useRef({ showSearch })
+  hoverStateRef.current = { showSearch }
+  const onHoverModel = useCallback((index: number) => {
+    if (hoverStateRef.current.showSearch) setHighlightedIndex(index)
+    else itemRefs.current[index]?.focus()
+  }, [])
+  const chooseRef = useRef<(selection: ModelSelection) => void>(() => {})
+  const onChooseModel = useCallback((providerId: string, modelId: string) => {
+    chooseRef.current({ provider: providerId, model: modelId })
+  }, [])
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -383,6 +458,7 @@ export function ModelSelect(
     }
     submit(selection)
   }
+  chooseRef.current = choose
 
   const chooseEffort = (effort: string | undefined): void => {
     if (state.current === null) return
@@ -563,36 +639,23 @@ export function ModelSelect(
                         const index = modelIndex++
                         const selected = state.current?.provider === group.id && state.current.model === model.id
                         return (
-                          <button
-                            ref={itemRef()}
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={selected}
-                            id={`${id}-model-${index}`}
-                            tabIndex={showSearch ? -1 : 0}
-                            onFocus={() => { setHighlightedIndex(index) }}
-                            data-highlighted={index === activeModelIndex ? '' : undefined}
-                            className={clsx(
-                              css.option, css.modelOption, selected && css.selected, index === activeModelIndex && css.optionActive,
-                            )}
-                            onMouseMove={busy || index === activeModelIndex ? undefined : () => {
-                              if (showSearch) setHighlightedIndex(index)
-                              else itemRefs.current[index]?.focus()
-                            }}
+                          <ModelOptionRow
                             key={model.id}
-                            title={model.name}
-                            disabled={busy}
-                            onClick={() => { choose({ provider: group.id, model: model.id }) }}
-                          >
-                            <span className={css.optionCopy}>
-                              <span className={css.modelName}>{renderModelLabel(group.provider, model, 'option', selected)}</span>
-                            </span>
-                            <span className={css.check}>
-                              {pending?.provider === group.id && pending.model === model.id
-                                ? <StateDot state="ongoing" />
-                                : selected ? <IconCheckOutlineRegular /> : null}
-                            </span>
-                          </button>
+                            id={`${id}-model-${index}`}
+                            index={index}
+                            provider={group.provider}
+                            model={model}
+                            selected={selected}
+                            highlighted={index === activeModelIndex}
+                            pendingThisModel={pending?.provider === group.id && pending.model === model.id}
+                            busy={busy}
+                            showSearch={showSearch}
+                            setItemRef={setModelItemRef}
+                            onHighlight={onHighlightModel}
+                            onHoverModel={onHoverModel}
+                            onChooseModel={onChooseModel}
+                            renderSlot={renderSlot}
+                          />
                         )
                       })}
                     </MenuGroup>

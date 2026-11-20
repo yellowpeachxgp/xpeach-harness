@@ -412,8 +412,14 @@ function ensureGrammar(resolved: string): boolean {
 // boot) instead; the lazy path above stays as the correctness fallback for a
 // fence that renders before the timer fires. `unref` (Node-only) keeps a
 // non-browser import from pinning the event loop.
-const warmupTimer = setTimeout(() => { highlighter() }, 0)
-;(warmupTimer as { unref?: () => void }).unref?.()
+/* v8 ignore start -- browser idle warmup vs Node/jsdom timer fallback depends on host globals. */
+if (typeof requestIdleCallback === 'function') {
+  requestIdleCallback(() => { highlighter() }, { timeout: 1500 })
+} else {
+  const warmupTimer = setTimeout(() => { highlighter() }, 0)
+  ;(warmupTimer as { unref?: () => void }).unref?.()
+}
+/* v8 ignore stop */
 
 /**
  * Highlight `code` into shiki's HTML (a single `<pre class="shiki">` tree)

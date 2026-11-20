@@ -1109,5 +1109,7 @@ export function installTaskNotificationMonitor(
     for (const fn of undo.reverse()) {
       fn()
     }
+    sessionNavigator = null
+    resetNotificationStateForTests()
   }
 }

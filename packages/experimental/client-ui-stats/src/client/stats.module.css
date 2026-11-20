@@ -140,7 +140,7 @@
 }
 
 .rowToggle:focus-visible {
-  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
 
@@ -363,7 +363,7 @@
 }
 
 .imagePill:focus-visible {
-  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
@@ -404,7 +404,7 @@
 }
 
 .imageThumb:focus-visible {
-  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
@@ -730,7 +730,7 @@
 
 .chip:focus-visible,
 .chipOn:focus-visible {
-  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
@@ -750,7 +750,7 @@
   overflow: auto;
   max-height: 420px;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   word-break: break-word;
@@ -777,7 +777,7 @@
 .block {
   margin-bottom: 10px;
   border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-sm);
   overflow: hidden;
 }
 
@@ -837,7 +837,7 @@
 }
 
 .copy:focus-visible {
-  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
@@ -936,7 +936,7 @@
 .button {
   padding: 4px 10px;
   border: 0.5px solid var(--dsw-alias-border-l1);
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
@@ -950,14 +950,14 @@
 }
 
 .button:focus-visible {
-  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
 .buttonOff {
   padding: 4px 10px;
   border: 0.5px solid var(--dsw-alias-border-l1);
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: default;

@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import type { ConversationSessionSlotProps } from '../contract/slots.ts'
-import { conversationPhase } from '../contract/snapshot.ts'
 import { resolveActiveView } from '../view-selection.ts'
 import css from './ConversationRoot.module.css'
 
@@ -18,8 +17,8 @@ export function DefaultConversationViews({
   const inspectCall = useInspectCall(value => value)
   const selectedId = useStore(s => s.view)
   const active = resolveActiveView(tabs, selectedId)
-  const session = useSession(s => s)
-  const conversation = useConversation(s => s)
+  const isBlankHero = useSession(s => s.blank && !s.running && !s.promptAttempted)
+  const hasActiveTargets = useConversation(s => s.activeTargets.size > 0)
   const viewRequest = useStore(s => s.viewRequest ?? null)
 
   useEffect(() => {
@@ -29,7 +28,7 @@ export function DefaultConversationViews({
     // The Session input owns content before this persistence writer is attached.
   }, [inputActions])
 
-  if (session.blank && conversationPhase(session, conversation) === 'blank') return null
+  if (isBlankHero && !hasActiveTargets) return null
   const viewId = view ?? active?.id
   return (
     <div className={css.viewArea}>

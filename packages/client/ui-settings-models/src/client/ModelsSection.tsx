@@ -60,7 +60,7 @@ export interface ModelsSectionInjected {
 type AddMode = 'catalog' | 'custom'
 
 /** The child slots this section declares and dispatches (see ./slot-contract.ts). */
-type ModelsChildSlots = 'settings.models.provider-card' | 'settings.models.footer'
+type ModelsChildSlots = 'settings.models.header' | 'settings.models.provider-card' | 'settings.models.footer'
 
 /** The child-slot dispatch function the renderer binds for the section. */
 type ModelsRenderSlot = PropsRenderSlots<ModelsChildSlots>['renderSlot']
@@ -365,9 +365,16 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   // One fact decides both first-run postures on this page and the onboarding
   // step: whether the user already has a provider to talk to.
   const anyUsable = state.rows.some(providerUsable)
-  const configured = state.rows.filter(row => row.configured)
-  const configurable = state.rows.filter(row => state.namespaces.has(row.entry.settingsNs))
-  const addable: AddableRow[] = state.rows.flatMap((row) => {
+  const poolsOwner = (globalThis as { __XPH_MODEL_POOLS_OWNER__?: boolean }).__XPH_MODEL_POOLS_OWNER__ === true
+  const visibleRows = poolsOwner
+    ? state.rows.filter(row =>
+      row.entry.provider !== 'xpeach'
+      && row.entry.provider !== 'xpeach-openai-responses'
+      && row.entry.provider !== 'xpeach-anthropic')
+    : state.rows
+  const configured = visibleRows.filter(row => row.configured)
+  const configurable = visibleRows.filter(row => state.namespaces.has(row.entry.settingsNs))
+  const addable: AddableRow[] = visibleRows.flatMap((row) => {
     const namespace = state.namespaces.get(row.entry.settingsNs)
     return namespace === undefined || row.configured ? [] : [{ row, namespace }]
   })
@@ -422,7 +429,8 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
             {providerCopy(t('savedProvider'), savedIdentity)}
           </p>
         )}
-      <ul className={styles['rows']}>
+      {renderSlot('settings.models.header', {})}
+      {poolsOwner && configured.length === 0 ? null : <ul className={styles['rows']}>
         {configured.map((row) => {
           const target = targetOf(row)
           const namespace = state.namespaces.get(target.settingsNs)
@@ -564,7 +572,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
             </li>
           )
         })}
-      </ul>
+      </ul>}
       <div className={styles['addBlock']}>
         {addOpen
           ? (

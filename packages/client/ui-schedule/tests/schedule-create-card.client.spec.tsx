@@ -287,8 +287,8 @@ describe('ScheduleCreateCard', () => {
     const card = /\.card\s*\{([^}]*)\}/.exec(stylesheet)?.[1] ?? ''
     expect(card).toMatch(/padding:\s*8px 10px;/)
     expect(card).toMatch(/border-radius:\s*var\(--dsw-radius-lg\);/)
-    expect(card).toMatch(/background:\s*var\(--card-fill\);/)
-    expect(stylesheet).toMatch(/\.card:has\(\.cardOpen\):hover\s*\{[^}]*background:\s*var\(--card-hover\);/)
+    expect(card).toMatch(/background:\s*var\(--dsw-alias-artifact-card-fill\);/)
+    expect(stylesheet).toMatch(/\.card:has\(\.cardOpen\):hover\s*\{[^}]*background:\s*var\(--dsw-alias-artifact-card-hover\);/)
     expect(stylesheet).toMatch(/\.row\s*\{[^}]*min-height:\s*44px;/)
     expect(stylesheet).toMatch(/\.cardOpen\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/)
     expect(stylesheet).toMatch(/\.leading\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*border-radius:\s*10px;/)

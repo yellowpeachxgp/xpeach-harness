@@ -219,6 +219,9 @@ describe('scope tree', () => {
       },
     }
     const publications: string[][] = []
+    const sessionNotifications = vi.fn()
+    const stopSession = binding.session.subscribe(sessionNotifications)
+    const sessionBeforeStream = binding.session.getSnapshot()
     const dispose = binding.eventSource.subscribe(() => {
       publications.push(binding.eventSource.getSnapshot().entries.map(entry => entry.event.type))
     })
@@ -243,6 +246,8 @@ describe('scope tree', () => {
     await vi.waitFor(() => {
       expect(binding.eventSource.getSnapshot().entries).toHaveLength(1)
     })
+    expect(binding.session.getSnapshot()).toBe(sessionBeforeStream)
+    expect(sessionNotifications).not.toHaveBeenCalled()
     b.mock.streams.push(FOLLOW, durableMessage)
     await b.mock.streams.drained(FOLLOW)
     await Promise.resolve()
@@ -271,6 +276,9 @@ describe('scope tree', () => {
     expect(binding.eventSource.getSnapshot().entries.map(entry => entry.event.type))
       .toEqual(['assistant/message', 'step/end'])
     expect(binding.eventSource.getSnapshot().change).toEqual({ kind: 'settle-assistant', attemptId })
+    expect(binding.session.getSnapshot()).toBe(sessionBeforeStream)
+    expect(sessionNotifications).not.toHaveBeenCalled()
+    stopSession()
     dispose()
   })
 

@@ -462,6 +462,8 @@ export function checkExperimentalNameExceptions(manifests: readonly WorkspaceMan
 function isReleaseMemberDirectory(dir: string): boolean {
   // The SSH carrier is distributed as executable archives, never as an npm application.
   if (dir === 'packages/ssh/ssh-helper-runtime') return false
+  // Vendored prebuilt SSO SDK consumed locally by workspace packages, not published from this repo.
+  if (dir === 'vendor/ts-xpeach') return false
   return standardReleaseMemberDirectory.test(dir) || isPublicExperimentalPackageDirectory(dir)
 }
 

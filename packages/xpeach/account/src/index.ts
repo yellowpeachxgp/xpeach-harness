@@ -31,7 +31,7 @@ import { credentialRef, type CredentialRef } from '@xpeach/xph-credentials'
 import type {} from '@xpeach/xph-api-remotes/types'
 import { deepEqualJson, type JsonValue } from '@xpeach/xph-util-values'
 import { launchEnvironmentOf } from '@xpeach/xph-launch-environment'
-import { XPeachApi, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
+import { XPeachApi, parseSsoIssuer, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
 import {
   importAssets as importLocalAssets,
   importConversations as importThreads,
@@ -68,19 +68,44 @@ import {
   type XPeachUpdateChannelStatus,
   type XPeachUpdateCheckResult,
 } from './update-channel.ts'
+import {
+  DEFAULT_PROMPT_OVERRIDES,
+  normalizePromptOverridesConfig,
+  XPeachGatewayInspectorController,
+} from './gateway-inspector.ts'
+import {
+  buildModelPoolsAndProviders,
+  DEFAULT_MODEL_ROUTING_STATE,
+  ENDPOINT_POOLS,
+  extractModelsFromExistingProviders,
+  normalizeModelRoutingState,
+  providerKeyForEndpoint,
+  recommendedModelEndpoint,
+} from './model-routing.ts'
 import type {
   XPeachAssetImportResult,
   XPeachConversationImportResult,
+  XPeachGatewayInspectorRequest,
+  XPeachGatewayInspectorSaveRequest,
+  XPeachGatewayInspectorSnapshot,
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachMcpBatchDeleteRequest,
+  XPeachMcpBatchToggleRequest,
   XPeachMcpDeleteRequest,
   XPeachMcpItem,
   XPeachMcpSaveRequest,
   XPeachMcpSnapshot,
   XPeachMcpToggleRequest,
+  XPeachModelPoolsSaveRequest,
+  XPeachModelPoolsSnapshot,
+  XPeachModelRoutingState,
   XPeachOnboardingScan,
+  XPeachPromptOverridesConfig,
   XPeachRulesSaveRequest,
+  XPeachSkillBatchDeleteRequest,
+  XPeachSkillBatchToggleRequest,
   XPeachSkillDeleteRequest,
   XPeachSkillItem,
   XPeachSkillSaveRequest,
@@ -88,6 +113,10 @@ import type {
   XPeachSkillToggleRequest,
   XPeachSourceId,
   XPeachSsoBridgePayload,
+  XPeachSsoBrowserCancelRequest,
+  XPeachSsoBrowserPollRequest,
+  XPeachSsoBrowserStartRequest,
+  XPeachSsoBrowserStartResult,
   XPeachSsoCaptchaChallenge,
   XPeachSsoCaptchaChallengeRequest,
   XPeachSsoCaptchaPolicy,
@@ -139,7 +168,23 @@ export {
   type XPeachUpdateCheckResult,
   type XPeachUpdatePreference,
 } from './update-channel.ts'
-export { XPeachApi, candidateSsoBaseURLs, validateSsoBaseUrl, validateVerificationUrl } from './api.ts'
+export {
+  XPeachApi,
+  candidateSsoBaseURLs,
+  parseSsoIssuer,
+  validateSsoBaseUrl,
+  validateVerificationUrl,
+  type ParsedSsoIssuer,
+} from './api.ts'
+export {
+  DEFAULT_ENABLED_REASONING_EFFORTS,
+  DEFAULT_MODEL_ROUTING_STATE,
+  ENDPOINT_POOLS,
+  endpointForProviderKey,
+  normalizeModelRoutingState,
+  providerKeyForEndpoint,
+  recommendedModelEndpoint,
+} from './model-routing.ts'
 export {
   dispatchHostSystemNotification,
   resetHostSystemNotificationCache,
@@ -510,6 +555,8 @@ interface StoredSsoState {
   readonly refreshToken?: string | undefined
   readonly idToken?: string | undefined
   readonly expiresIn?: number | undefined
+  readonly issuer?: string | undefined
+  readonly clientId?: string | undefined
   readonly user?: {
     readonly id?: string | undefined
     readonly username?: string | null | undefined
@@ -1213,6 +1260,11 @@ export class XPeachAccount extends TypertRemoteService {
   private usageCache: { at: number; key: string; usage: XPeachTokenUsage } | undefined
   private usageInFlight: Promise<XPeachTokenUsage> | undefined
   private perfSummaryCache: { at: number; hours: number; items: readonly XPeachModelPerfSummary[] } | undefined
+  private promptOverridesCache: XPeachPromptOverridesConfig | undefined
+  private modelRoutingCache: XPeachModelRoutingState | undefined
+  private catalogModelsCache: readonly XPeachModel[] | undefined
+  private writingPiAiSettings: number | undefined
+  private readonly gatewayInspector: XPeachGatewayInspectorController | undefined
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'xpeachAccount', { namespace: 'xpeach' })
@@ -1255,6 +1307,22 @@ export class XPeachAccount extends TypertRemoteService {
       onAuthRejected: (status) => {
         void this.handleAuthRejected(status)
       },
+      onRefreshAuth: async (signal) => {
+        const status = await this.verifyAndSyncSsoSession(true, signal).catch(() => undefined)
+        return status?.valid === true && status.status === 'ok'
+      },
+      resolveModelEndpoint: (model) => {
+        const routing = this.readModelRouting()
+        const mapped = routing.endpointOverrides[model]
+        if (mapped !== undefined) return mapped
+        const catalogEntry = this.catalogModelsCache?.find(item => item.id === model)
+        return recommendedModelEndpoint({
+          id: model,
+          ...(catalogEntry?.supported_endpoint_types !== undefined
+            ? { supported_endpoint_types: catalogEntry.supported_endpoint_types }
+            : {}),
+        })
+      },
     })
 
     this.relayReady = this.initializeRelay()
@@ -1271,8 +1339,23 @@ export class XPeachAccount extends TypertRemoteService {
       }
     }
 
+    this.gatewayInspector = new XPeachGatewayInspectorController({
+      ctx: this.ctx,
+      readConfig: () => this.readPromptOverrides(),
+      getActiveBaseUrl: () => this.activeBaseURL,
+      getCustomBaseUrl: () => this.readModelRouting().customBaseUrl,
+      readModelCallSettings: modelId => this.readModelRouting().modelSettings[modelId],
+      readBoundKey: () => this.readKeyFile(),
+      listSkillsSnapshot: signal => this.skillsListOp({}, signal),
+    })
+    this.gatewayInspector.installHooks()
+
     const registerEvent = this.ctx.on.bind(this.ctx) as (name: string, listener: (...args: never[]) => unknown) => () => boolean
     registerEvent('settings/document-updated', (ns: string) => {
+      if (ns === 'llm-pi-ai' && (this.writingPiAiSettings ?? 0) === 0) {
+        void this.reconcileExternalPiAiEdits().catch(() => {})
+        return
+      }
       if (ns === 'xpeach-account' || ns === 'xpeach') {
         void (async () => {
           const settings = this.ctx.get('settings') as { describe?: () => unknown } | undefined
@@ -1749,20 +1832,65 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
-   * Extract normalized group names from a token record (`groups` array or
-   * comma-separated `group` string).
+   * Extract normalized group names from a token record (`auto_groups` array for
+   * PeachAPI multi-group `auto` tokens, legacy `groups` array, or comma-separated `group` string).
    */
-  private extractTokenGroups(detail: { readonly groups?: unknown; readonly group?: unknown }): string[] {
+  private extractTokenGroups(detail: {
+    readonly auto_groups?: unknown
+    readonly groups?: unknown
+    readonly group?: unknown
+  }): string[] {
+    if (Array.isArray(detail.auto_groups)) {
+      const fromAuto = detail.auto_groups
+        .filter((g): g is string => typeof g === 'string' && g.trim().length > 0 && g.trim() !== 'auto')
+        .map(g => g.trim())
+      if (fromAuto.length > 0) return fromAuto
+    }
     if (Array.isArray(detail.groups)) {
       const fromArray = detail.groups
-        .filter((g): g is string => typeof g === 'string' && g.trim().length > 0)
+        .filter((g): g is string => typeof g === 'string' && g.trim().length > 0 && g.trim() !== 'auto')
         .map(g => g.trim())
       if (fromArray.length > 0) return fromArray
     }
     if (typeof detail.group === 'string' && detail.group.trim().length > 0) {
-      return detail.group.split(',').map(g => g.trim()).filter(g => g.length > 0)
+      return detail.group
+        .split(',')
+        .map(g => g.trim())
+        .filter(g => g.length > 0 && g !== 'auto')
     }
     return []
+  }
+
+  /**
+   * Encode selected channel groups into PeachAPI's token schema (`group: "auto"` +
+   * `auto_groups` + `cross_group_retry: true` for multi-group tokens; single `group`
+   * otherwise) while preserving the `groups` array for backwards compatibility.
+   */
+  private buildTokenGroupFields(groups: readonly string[]): Record<string, JsonValue> {
+    const normalized = [...new Set(groups.map(g => g.trim()).filter(g => g.length > 0 && g !== 'auto'))]
+    if (normalized.length > 1) {
+      return {
+        group: 'auto',
+        auto_groups: normalized,
+        cross_group_retry: true,
+        groups: normalized,
+      }
+    }
+    const first = normalized[0]
+    if (normalized.length === 1 && first !== undefined) {
+      return {
+        group: first,
+        auto_groups: [],
+        cross_group_retry: false,
+        groups: normalized,
+      }
+    }
+    return {
+      group: '',
+      auto_groups: [],
+      cross_group_retry: false,
+      groups: [],
+    }
   }
 
   /**
@@ -2037,13 +2165,14 @@ export class XPeachAccount extends TypertRemoteService {
       .catch(() => undefined)
   }
 
-  private modelMetadataCacheFile(): string {
+  private modelMetadataCacheFile(): string | undefined {
+    if (typeof this.keyFile !== 'string' || this.keyFile.length === 0) return undefined
     return join(dirname(this.keyFile), 'xpeach-model-metadata.json')
   }
 
   private readModelMetadataCache(): ModelMetadataRegistry | undefined {
     const file = this.modelMetadataCacheFile()
-    if (!existsSync(file)) return undefined
+    if (file === undefined || !existsSync(file)) return undefined
     try {
       const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
       return parseModelMetadataRegistry(parsed)
@@ -2063,7 +2192,10 @@ export class XPeachAccount extends TypertRemoteService {
       const raw: unknown = await res.json()
       const registry = parseModelMetadataRegistry(raw)
       if (registry !== undefined) {
-        this.writeState(this.modelMetadataCacheFile(), JSON.stringify(registry, null, 2))
+        const file = this.modelMetadataCacheFile()
+        if (file !== undefined) {
+          this.writeState(file, JSON.stringify(registry, null, 2))
+        }
         return registry
       }
     } catch (_err) {
@@ -2075,7 +2207,7 @@ export class XPeachAccount extends TypertRemoteService {
   private async refreshModelMetadata(signal: AbortSignal): Promise<ModelMetadataRegistry | undefined> {
     const file = this.modelMetadataCacheFile()
     const cached = this.readModelMetadataCache()
-    if (cached !== undefined) {
+    if (cached !== undefined && file !== undefined) {
       let ageMs = Number.POSITIVE_INFINITY
       try {
         ageMs = Date.now() - statSync(file).mtimeMs
@@ -2094,104 +2226,53 @@ export class XPeachAccount extends TypertRemoteService {
       | {
         describe?: () => unknown
         update?: (ns: string, patch: object) => Promise<void>
+        mutate?: (ns: string, ops: unknown[]) => Promise<unknown>
       }
       | undefined
-    if (settings?.describe === undefined || settings.update === undefined) return
+    if (settings?.describe === undefined || (settings.update === undefined && settings.mutate === undefined)) return
     const described = await settings.describe()
     const existingProviders = readProviderMap(described)
+    const cachedModels = this.readModelsCache()
+    const fallbackModels = extractModelsFromExistingProviders(existingProviders)
+    const routing = this.readModelRouting()
+    if (cachedModels.length === 0 && fallbackModels.length === 0 && routing.customModels.length === 0) return
+
     const metadata = this.readModelMetadataCache()
-    const updatedProviders: Record<string, object> = {}
-    let changed = false
+    const built = this.buildPoolsFromState({
+      described,
+      existingProviders,
+      catalogModels: cachedModels.length > 0 ? cachedModels : fallbackModels,
+      routing,
+      metadata,
+    })
 
-    for (const [key, provider] of Object.entries(existingProviders)) {
-      if (!isAccountModelProvider(key)) continue
-      if (!Array.isArray(provider['models']) || provider['models'].length === 0) continue
-      let providerChanged = false
-      const nextProvider: Record<string, unknown> = { ...provider }
+    const providersChanged = Object.entries(built.providers).some(
+      ([k, v]) => !deepEqualJson(existingProviders[k] ?? null, v),
+    )
+    if (!providersChanged) return
 
-      if (nextProvider['reasoning'] !== 'high') {
-        nextProvider['reasoning'] = 'high'
-        providerChanged = true
-      }
-      const defaultInput = nextProvider['defaultInput']
-      if (!Array.isArray(defaultInput) || !defaultInput.includes('image')) {
-        nextProvider['defaultInput'] = ['text', 'image']
-        providerChanged = true
-      }
-
-      if (Array.isArray(nextProvider['models'])) {
-        const nextModels: unknown[] = []
-        for (const entry of nextProvider['models'] as unknown[]) {
-          if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
-            nextModels.push(entry)
-            continue
-          }
-          const modelObj = entry as Record<string, unknown>
-          const id = typeof modelObj['id'] === 'string' ? modelObj['id'] : ''
-          if (id.length === 0) {
-            nextModels.push(entry)
-            continue
-          }
-          const caps = modelCapabilities({ id }, metadata)
-          const targetMaxTokens = Math.min(caps.maxTokens, 32_768)
-          const currentInput = Array.isArray(modelObj['input']) ? modelObj['input'] : []
-          const needsInputUpgrade = currentInput.length !== caps.input.length
-            || caps.input.some((mod, idx) => currentInput[idx] !== mod)
-          const currentEfforts = modelObj['reasoningEfforts']
-          const needsEffortsUpgrade = typeof currentEfforts !== 'object' || currentEfforts === null
-          const currentCtx = typeof modelObj['contextWindow'] === 'number' ? modelObj['contextWindow'] : undefined
-          const needsCtxUpgrade = currentCtx === undefined || (currentCtx === 262144 && caps.contextWindow !== 262144)
-          const currentMax = typeof modelObj['maxTokens'] === 'number' ? modelObj['maxTokens'] : undefined
-          const needsMaxUpgrade = currentMax === undefined || currentMax > 32_768 || (currentMax === 32768 && targetMaxTokens !== 32768)
-
-          const upgradedEntry = (!needsInputUpgrade && !needsEffortsUpgrade && !needsCtxUpgrade && !needsMaxUpgrade)
-            ? modelObj
-            : {
-              ...modelObj,
-              contextWindow: needsCtxUpgrade ? caps.contextWindow : currentCtx,
-              maxTokens: needsMaxUpgrade ? targetMaxTokens : currentMax,
-              input: needsInputUpgrade ? caps.input : currentInput,
-              reasoningEfforts: needsEffortsUpgrade ? caps.reasoningEfforts : currentEfforts,
-            }
-          if (upgradedEntry !== modelObj) {
-            providerChanged = true
-          }
-
-          nextModels.push(upgradedEntry)
-        }
-        if (providerChanged) {
-          nextProvider['models'] = nextModels
-        }
-      }
-
-      if (providerChanged) {
-        updatedProviders[key] = nextProvider
-        changed = true
-      }
+    await this.writePiAiProviders(settings, existingProviders, built.providers)
+    const mergedProviders: Record<string, { models?: unknown }> = {
+      ...(existingProviders as Record<string, { models?: unknown }>),
+      ...(built.providers as Record<string, { models?: unknown }>),
     }
-
-    if (changed) {
-      await settings.update('llm-pi-ai', { providers: updatedProviders })
-      const mergedProviders: Record<string, { models?: unknown }> = {
-        ...(existingProviders as Record<string, { models?: unknown }>),
-        ...(updatedProviders as Record<string, { models?: unknown }>),
-      }
-      await this.reconcileDefaultModelSelection(mergedProviders)
-    }
+    await this.reconcileDefaultModelSelection(mergedProviders)
   }
 
   /**
    * Pick the relay token's initial groups: the user's own group when it carries
    * models, else the DSH-oriented SWE group, else the richest non-admin group.
    */
-  private async defaultGroups(signal: AbortSignal): Promise<string[]> {
-    const [counts, me] = await Promise.all([this.groupModelCounts(signal), this.api.adminSelf(signal)])
-    if (me.group !== undefined && (counts.get(me.group) ?? 0) > 0) return [me.group]
+  private async defaultGroups(signal: AbortSignal, apiClient: XPeachApi = this.api): Promise<string[]> {
+    const [counts, me] = await Promise.all([this.groupModelCounts(signal, apiClient), apiClient.adminSelf(signal)])
+    if (me.group !== undefined && me.group !== '管理员分组' && (counts.get(me.group) ?? 0) > 0) return [me.group]
     if ((counts.get('SWE') ?? 0) > 0) return ['SWE']
     const best = [...counts.entries()]
       .filter(([name]) => name !== '管理员分组' && name !== 'default')
       .sort((a, b) => b[1] - a[1])[0]
-    return best === undefined ? [] : [best[0]]
+    if (best !== undefined) return [best[0]]
+    if ((counts.get('default') ?? 0) > 0) return ['default']
+    return []
   }
 
   /**
@@ -2400,60 +2481,18 @@ export class XPeachAccount extends TypertRemoteService {
       const list = enabled.length === 0
         ? mergedCatalogue
         : mergedCatalogue.filter(model => (model.groups ?? []).some(group => enabled.includes(group)))
-      const models = list.map((m) => {
-        const caps = modelCapabilities(m, metadata)
-        return {
-          id: m.id,
-          name: m.id,
-          contextWindow: caps.contextWindow,
-          maxTokens: Math.min(caps.maxTokens, 32_768),
-          input: caps.input,
-          reasoningEfforts: caps.reasoningEfforts,
-        }
-      })
-      const siteRoot = this.api.siteBaseURL.replace(/\/+$/, '')
-      const openAIBase = siteRoot.endsWith('/v1') ? siteRoot : siteRoot + '/v1'
-      const anthropicBase = siteRoot.replace(/\/v1$/u, '')
-      const baseURLFor = (protocol: string): string =>
-        protocol === 'anthropic-messages' ? anthropicBase : openAIBase
+      this.writeModelsCache(list)
+
       const existingProviders = readProviderMap(described)
-      const providers: Record<string, object> = {}
-      // Every model mounts under each endpoint it advertises — chat
-      // completions, Responses, and Anthropic messages each get their own
-      // provider bucket so the picker selects an (endpoint, model) pair
-      // instead of pushing every model through one shared endpoint.
-      for (const model of models) {
-        const sourceEntry = list.find(m => m.id === model.id)
-        const endpoints = modelEndpoints({
-          id: model.id,
-          ...(sourceEntry?.supported_endpoint_types !== undefined
-            ? { supported_endpoint_types: sourceEntry.supported_endpoint_types }
-            : {}),
-        })
-        for (const endpoint of endpoints) {
-          const key = endpoint === 'openai-completions' ? 'xpeach' : 'xpeach-' + endpoint.replace(/-messages$/u, '')
-          const existingTracking = liveAccountSettings.conversationTracking
-            ?? (typeof existingProviders[key]?.['conversationTracking'] === 'boolean' ? existingProviders[key]['conversationTracking'] : undefined)
-            ?? (typeof existingProviders['xpeach']?.['conversationTracking'] === 'boolean' ? existingProviders['xpeach']['conversationTracking'] : undefined)
-            ?? unwrapConfigValue(this.liveConfig.conversationTracking)
-          providers[key] ??= {
-            displayName: endpoint === 'openai-completions' ? '🍑Code' : '🍑Code ' + endpoint,
-            apiKeyEnv: this.keyVar,
-            api: endpoint,
-            baseURL: baseURLFor(endpoint),
-            defaultInput: ['text', 'image'],
-            reasoning: 'high',
-            ...(existingTracking !== undefined ? { conversationTracking: existingTracking } : {}),
-            retryPolicy: { mode: 'normal', maxRetries: 2 },
-            models: [],
-          }
-          ;(providers[key] as { models: object[] }).models.push(model)
-        }
-      }
-      const live = Object.keys(existingProviders)
-      const stale = live.filter(key => isAccountModelProvider(key) && !(key in providers))
-      // unset 会恢复 profile 的继承目录；显式空列表才能停用已移除的账号模型。
-      for (const key of stale) providers[key] = { ...existingProviders[key], models: [] }
+      const routing = this.readModelRouting()
+      const built = this.buildPoolsFromState({
+        described,
+        existingProviders,
+        catalogModels: list,
+        routing,
+        metadata,
+      })
+      const providers = built.providers
       const providersChanged = Object.entries(providers).some(
         ([k, v]) => !deepEqualJson(existingProviders[k] ?? null, v),
       )
@@ -2467,13 +2506,18 @@ export class XPeachAccount extends TypertRemoteService {
         await this.publishCredentialUnderLock(snapshot.relay.key, snapshot)
         await this.assertPublishedCredential(snapshot)
         if (providersChanged) {
-          if (settings.mutate !== undefined) {
-            // 一次发布空列表与新目录，失败时保留原设置。
-            const ops = Object.entries(providers).map(([key, value]) => ({ op: 'set' as const, path: ['providers', key], value }))
-            await settings.mutate('llm-pi-ai', ops)
-          } else {
-            const merged = { ...existingProviders, ...providers }
-            await updateSettings('llm-pi-ai', { providers: merged })
+          this.writingPiAiSettings = (this.writingPiAiSettings ?? 0) + 1
+          try {
+            if (settings.mutate !== undefined) {
+              // 一次发布空列表与新目录，失败时保留原设置。
+              const ops = Object.entries(providers).map(([key, value]) => ({ op: 'set' as const, path: ['providers', key], value }))
+              await settings.mutate('llm-pi-ai', ops)
+            } else {
+              const merged = { ...existingProviders, ...providers }
+              await updateSettings('llm-pi-ai', { providers: merged })
+            }
+          } finally {
+            this.writingPiAiSettings = Math.max(0, this.writingPiAiSettings - 1)
           }
         }
         this.assertCredentialSnapshot(snapshot)
@@ -2483,7 +2527,7 @@ export class XPeachAccount extends TypertRemoteService {
           forceGroupSwitch: options?.forceGroupSwitch === true,
         })
       }, signal)
-      return { ok: true, count: models.length, groups: info.groups ?? [] }
+      return { ok: true, count: built.enabledCount, groups: info.groups ?? [] }
     } catch (e) {
       if (e instanceof RelayStateError) return { ok: false, count: 0, groups: info.groups ?? [], code: e.code, error: e.message }
       return { ok: false, count: 0, groups: info.groups ?? [], error: e instanceof Error ? e.message.slice(0, 160) : String(e) }
@@ -3438,8 +3482,36 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   private currentSsoClientId(): string {
-    const raw = unwrapConfigValue(this.liveConfig.ssoClientId) ?? 'xpeach-harness'
+    const raw = unwrapConfigValue(this.liveConfig.ssoClientId) ?? process.env.XPEACH_SSO_CLIENT_ID ?? 'xpeach-harness'
     return raw.trim() || 'xpeach-harness'
+  }
+
+  private hasExplicitCustomSsoClientId(): boolean {
+    if (process.env.XPEACH_SSO_STRICT_CLIENT_ID === '1') return true
+    const configured = this.currentSsoClientId()
+    return configured !== 'xpeach-harness'
+  }
+
+  private async resolveEffectiveSsoIssuer(signal: AbortSignal, preferredIssuer?: string): Promise<string> {
+    const configured = parseSsoIssuer(this.currentSsoBaseURL())
+    if (configured.tenantSlug !== undefined) {
+      return configured.issuer
+    }
+    if (typeof preferredIssuer === 'string' && preferredIssuer.trim().length > 0) {
+      try {
+        const preferred = parseSsoIssuer(preferredIssuer)
+        if (preferred.origin === configured.origin && preferred.tenantSlug !== undefined) {
+          return preferred.issuer
+        }
+      } catch (_err) {
+        /* ignore invalid stored issuer and fall back to discovery */
+      }
+    }
+    const discover = (this.api as { discoverSsoIssuer?: (base: string, sig: AbortSignal) => Promise<string> }).discoverSsoIssuer
+    if (typeof discover === 'function') {
+      return await discover.call(this.api, configured.issuer, signal)
+    }
+    return configured.issuer
   }
 
   /**
@@ -3817,16 +3889,19 @@ export class XPeachAccount extends TypertRemoteService {
         && sso?.accessToken !== undefined
         && sso.accessToken.length > 0
       ) {
+        const revokeSignal = AbortSignal.timeout(5_000)
+        const ssoIssuer = await this.resolveEffectiveSsoIssuer(revokeSignal, sso.issuer).catch(() => this.currentSsoBaseURL())
+        const ssoClientId = sso.clientId?.trim() || this.currentSsoClientId()
         await this.api.ssoRevokeToken(
-          this.currentSsoBaseURL(),
+          ssoIssuer,
           sso.accessToken,
           {
             allDevices: options.allDevices ?? false,
             revokePeachcode: options.revokePeachcode ?? false,
           },
-          AbortSignal.timeout(5_000),
+          revokeSignal,
           sso.refreshToken,
-          this.currentSsoClientId(),
+          ssoClientId,
         ).catch(() => false)
       }
 
@@ -3968,14 +4043,16 @@ export class XPeachAccount extends TypertRemoteService {
       if (sso?.accessToken !== undefined && sso.accessToken.length > 0) {
         const testedAccessToken = sso.accessToken
         const testedRefreshToken = sso.refreshToken
+        const ssoIssuer = await this.resolveEffectiveSsoIssuer(effectiveSignal, sso.issuer).catch(() => this.currentSsoBaseURL())
+        const ssoClientId = sso.clientId?.trim() || this.currentSsoClientId()
         let sync: XPeachSsoCredentialSyncResult
         try {
           sync = await this.api.ssoPeachcodeCredentials(
-            this.currentSsoBaseURL(),
+            ssoIssuer,
             testedAccessToken,
             effectiveSignal,
             testedRefreshToken,
-            this.currentSsoClientId(),
+            ssoClientId,
           )
         } catch (err) {
           this.assertCredentialSnapshot(snapshot)
@@ -4051,12 +4128,16 @@ export class XPeachAccount extends TypertRemoteService {
         const nextRefreshToken = refreshedSso?.refreshToken ?? testedRefreshToken
         const nextIdToken = refreshedSso?.idToken ?? sso.idToken
         const nextExpiresIn = refreshedSso?.expiresIn ?? sso.expiresIn
+        const nextIssuer = refreshedSso?.issuer ?? sso.issuer ?? ssoIssuer
+        const nextClientId = refreshedSso?.clientId ?? sso.clientId ?? ssoClientId
         const nextUser = refreshedSso?.user ?? sso.user
         const nextPeachcodeUserId = peach?.userId ?? sso.peachcodeUserId
         const ssoChanged = nextSsoToken !== testedAccessToken
           || nextRefreshToken !== testedRefreshToken
           || nextIdToken !== sso.idToken
           || nextExpiresIn !== sso.expiresIn
+          || nextIssuer !== sso.issuer
+          || nextClientId !== sso.clientId
           || nextPeachcodeUserId !== sso.peachcodeUserId
           || !deepEqualJson(nextUser ?? null, sso.user ?? null)
         if (nextSsoToken.length > 0 && ssoChanged) {
@@ -4066,6 +4147,8 @@ export class XPeachAccount extends TypertRemoteService {
             ...(nextRefreshToken ? { refreshToken: nextRefreshToken } : {}),
             ...(nextIdToken ? { idToken: nextIdToken } : {}),
             expiresIn: nextExpiresIn,
+            ...(nextIssuer ? { issuer: nextIssuer } : {}),
+            ...(nextClientId ? { clientId: nextClientId } : {}),
             user: nextUser,
             peachcodeUserId: nextPeachcodeUserId,
             boundAt: refreshedSso?.accessToken !== undefined && refreshedSso.accessToken !== testedAccessToken
@@ -4306,7 +4389,10 @@ export class XPeachAccount extends TypertRemoteService {
       }
       return
     }
-    for await (const chunk of next(options)) {
+    const effectiveOptions = this.gatewayInspector !== undefined
+      ? this.gatewayInspector.interceptAndCaptureStream(options)
+      : options
+    for await (const chunk of next(effectiveOptions)) {
       if (chunk['type'] === 'finish') {
         const reason = chunk['reason'] as
           | { kind?: string; failure?: { code?: string; message?: string } }
@@ -4452,10 +4538,13 @@ export class XPeachAccount extends TypertRemoteService {
       })
       const minted = await this.mintRelayToken(signal, 'admin', candidateApi, snapshot)
       if (!minted.ok) {
+        const detail = typeof minted.err === 'string' && minted.err.trim().length > 0
+          ? `（${minted.err.trim()}）`
+          : ''
         return {
           status: 'error',
           bound: false,
-          message: 'SSO 已授权，但未能获取或铸造可用的 API 密钥 (XPEACH_RELAY_KEY)，请重试。',
+          message: `SSO 已授权，但未能获取或铸造可用的 API 密钥 (XPEACH_RELAY_KEY)${detail}，请重试。`,
         }
       }
       preview = minted.preview
@@ -4483,6 +4572,8 @@ export class XPeachAccount extends TypertRemoteService {
           ...(sso.refreshToken ? { refreshToken: sso.refreshToken } : {}),
           ...(sso.idToken ? { idToken: sso.idToken } : {}),
           expiresIn: sso.expiresIn,
+          ...(sso.issuer ? { issuer: sso.issuer } : {}),
+          ...(sso.clientId ? { clientId: sso.clientId } : {}),
           user: sso.user,
           peachcodeUserId: peach?.userId,
           boundAt: Date.now(),
@@ -4539,14 +4630,15 @@ export class XPeachAccount extends TypertRemoteService {
     readonly waitForBound: () => Promise<XPeachSsoDevicePollResult>
   }> {
     signal.throwIfAborted()
-    const ssoBaseURL = this.currentSsoBaseURL()
+    const ssoBaseURL = await this.resolveEffectiveSsoIssuer(signal)
     const clientId = this.currentSsoClientId()
     const snapshot = this.captureCredentialSnapshot()
     const pkce = await this.api.ssoPkceLoopbackStart(
       ssoBaseURL,
       clientId,
       signal,
-      request.preferredPorts ?? [18920, 18921, 18922, 0],
+      request.preferredPorts,
+      { allowClientFallback: !this.hasExplicitCustomSsoClientId() },
     )
     const browserOpened = request.openBrowser !== false
       ? await this.openUrlInSystemBrowser(pkce.authorizationUrl, ssoBaseURL)
@@ -4563,6 +4655,152 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
+  private ssoBrowserAttempts?: Map<string, {
+    readonly controller: AbortController
+    readonly expiresAt: number
+    outcome?: XPeachSsoDevicePollResult | undefined
+  }>
+
+  /**
+   * Start a non-blocking 1-click XPeach SSO browser sign-in: prefers OAuth 2.0
+   * + PKCE S256 local loopback (`127.0.0.1`) so the user approves once in the
+   * browser with zero code or token copy-paste, falling back to RFC 8628 Device
+   * Authorization only when local loopback cannot bind.
+   *
+   * @param request - optional `openBrowser` and `clientName` options.
+   * @param signal - carrier cancellation.
+   * @returns non-blocking sign-in attempt descriptor for immediate UI feedback.
+   */
+  @Remote('ssoBrowserStart')
+  async ssoBrowserStartOp(
+    request: XPeachSsoBrowserStartRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoBrowserStartResult> {
+    signal.throwIfAborted()
+    const attempts = (this.ssoBrowserAttempts ??= new Map())
+    for (const [oldId, prev] of attempts.entries()) {
+      if (prev.outcome === undefined) prev.controller.abort()
+      attempts.delete(oldId)
+    }
+
+    const attemptId = randomUUID()
+    const attemptController = new AbortController()
+
+    if (process.env.XPEACH_SSO_LOGIN_MODE !== 'device') {
+      try {
+        const pkce = await this.ssoPkceLoopbackStartOp(
+          { openBrowser: request.openBrowser ?? true },
+          attemptController.signal,
+        )
+        const expiresIn = pkce.expiresIn || 300
+        const record: {
+          readonly controller: AbortController
+          readonly expiresAt: number
+          outcome?: XPeachSsoDevicePollResult | undefined
+        } = {
+          controller: attemptController,
+          expiresAt: Date.now() + expiresIn * 1000,
+        }
+        attempts.set(attemptId, record)
+        void pkce.waitForBound().then((outcome) => {
+          if (attemptController.signal.aborted) return
+          record.outcome = outcome
+        }).catch((err: unknown) => {
+          if (attemptController.signal.aborted) return
+          const msg = err instanceof Error ? err.message : String(err)
+          const isExpired = msg.includes('超时') || msg === 'expired_token'
+          record.outcome = {
+            status: isExpired ? 'expired' : 'error',
+            message: msg,
+          }
+        })
+        return {
+          attemptId,
+          mode: 'pkce',
+          authorizationUrl: pkce.authorizationUrl,
+          expiresIn,
+          interval: 1,
+          browserOpened: pkce.browserOpened,
+        }
+      } catch (_pkceFallbackErr) {
+        attemptController.abort()
+        if (signal.aborted) throw _pkceFallbackErr
+      }
+    }
+
+    const deviceStarted = await this.ssoDeviceStartOp(
+      {
+        openBrowser: request.openBrowser ?? true,
+        ...(request.clientName !== undefined ? { clientName: request.clientName } : {}),
+      },
+      signal,
+    )
+    return {
+      attemptId,
+      mode: 'device',
+      authorizationUrl: deviceStarted.verificationUriComplete,
+      expiresIn: deviceStarted.expiresIn,
+      interval: deviceStarted.interval,
+      browserOpened: deviceStarted.browserOpened,
+      deviceCode: deviceStarted.deviceCode,
+      userCode: deviceStarted.userCode,
+    }
+  }
+
+  /**
+   * Poll an active non-blocking XPeach SSO browser sign-in attempt started via
+   * `ssoBrowserStart`.
+   *
+   * @param request - attempt identifier and optional fallback device code.
+   * @param signal - carrier cancellation.
+   * @returns current authorization status and bound user summary.
+   */
+  @Remote('ssoBrowserPoll')
+  async ssoBrowserPollOp(
+    request: XPeachSsoBrowserPollRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachSsoDevicePollResult> {
+    signal.throwIfAborted()
+    if (typeof request.deviceCode === 'string' && request.deviceCode.trim().length > 0) {
+      return await this.ssoDevicePollOp({ deviceCode: request.deviceCode }, signal)
+    }
+    const attempts = this.ssoBrowserAttempts
+    const record = attempts?.get(request.attemptId)
+    if (record === undefined) {
+      return { status: 'expired', message: 'SSO 登录会话已结束或已取消' }
+    }
+    if (record.outcome !== undefined) {
+      return record.outcome
+    }
+    if (Date.now() >= record.expiresAt) {
+      record.controller.abort()
+      const expired: XPeachSsoDevicePollResult = { status: 'expired', message: 'SSO 浏览器授权已超时，请重新发起登录' }
+      record.outcome = expired
+      return expired
+    }
+    return { status: 'pending' }
+  }
+
+  /**
+   * Cancel an in-flight XPeach SSO browser sign-in attempt and close its local
+   * loopback callback listener immediately.
+   *
+   * @param request - attempt identifier to cancel.
+   * @returns confirmation flag.
+   */
+  @Remote('ssoBrowserCancel')
+  ssoBrowserCancelOp(request: XPeachSsoBrowserCancelRequest): { cancelled: boolean } {
+    const record = this.ssoBrowserAttempts?.get(request.attemptId)
+    if (record !== undefined) {
+      record.controller.abort()
+      this.ssoBrowserAttempts?.delete(request.attemptId)
+      return { cancelled: true }
+    }
+    return { cancelled: false }
+  }
+
+  private ssoDeviceSessionMeta?: Map<string, { readonly issuer: string; readonly clientId: string }>
+
   /**
    * Start an XPeach SSO Device Authorization session and optionally launch the
    * verification URL in the user's default system browser.
@@ -4577,14 +4815,28 @@ export class XPeachAccount extends TypertRemoteService {
     signal: AbortSignal,
   ): Promise<XPeachSsoDeviceStartResult> {
     signal.throwIfAborted()
-    const ssoBaseURL = this.currentSsoBaseURL()
+    const ssoBaseURL = await this.resolveEffectiveSsoIssuer(signal)
     const clientId = this.currentSsoClientId()
     const clientName = request.clientName?.trim() || `XPeach Harness (${process.platform})`
-    const started = await this.api.ssoDeviceAuthorize(ssoBaseURL, clientId, clientName, signal)
-    const verificationUri = validateVerificationUrl(started.verificationUri, ssoBaseURL)
-    const verificationUriComplete = validateVerificationUrl(started.verificationUriComplete, ssoBaseURL)
+    const started = await this.api.ssoDeviceAuthorize(
+      ssoBaseURL,
+      clientId,
+      clientName,
+      signal,
+      !this.hasExplicitCustomSsoClientId(),
+    )
+    const effectiveIssuer = started.issuer ?? ssoBaseURL
+    const effectiveClientId = started.clientId ?? clientId
+    const metaMap = (this.ssoDeviceSessionMeta ??= new Map())
+    if (metaMap.size >= 32) {
+      const oldest = metaMap.keys().next().value
+      if (oldest !== undefined) metaMap.delete(oldest)
+    }
+    metaMap.set(started.deviceCode, { issuer: effectiveIssuer, clientId: effectiveClientId })
+    const verificationUri = validateVerificationUrl(started.verificationUri, effectiveIssuer)
+    const verificationUriComplete = validateVerificationUrl(started.verificationUriComplete, effectiveIssuer)
     const browserOpened = request.openBrowser !== false
-      ? await this.openUrlInSystemBrowser(verificationUriComplete, ssoBaseURL)
+      ? await this.openUrlInSystemBrowser(verificationUriComplete, effectiveIssuer)
       : false
     return {
       ...started,
@@ -4632,9 +4884,12 @@ export class XPeachAccount extends TypertRemoteService {
     const effectiveSignal = internalTimeout.signal
     const run = (async (): Promise<XPeachSsoDevicePollResult> => {
       const snapshot = this.captureCredentialSnapshot()
+      const meta = this.ssoDeviceSessionMeta?.get(deviceCode)
+      const pollIssuer = meta?.issuer ?? await this.resolveEffectiveSsoIssuer(effectiveSignal)
+      const pollClientId = meta?.clientId ?? this.currentSsoClientId()
       const polled = await this.api.ssoDeviceToken(
-        this.currentSsoBaseURL(),
-        this.currentSsoClientId(),
+        pollIssuer,
+        pollClientId,
         deviceCode,
         effectiveSignal,
       )
@@ -4646,6 +4901,9 @@ export class XPeachAccount extends TypertRemoteService {
         }
       }
       if (polled.status !== 'approved' || polled.payload === undefined) {
+        if (polled.status === 'expired' || polled.status === 'denied') {
+          this.ssoDeviceSessionMeta?.delete(deviceCode)
+        }
         return {
           status: polled.status,
           ...(polled.message !== undefined ? { message: polled.message } : {}),
@@ -4653,6 +4911,7 @@ export class XPeachAccount extends TypertRemoteService {
       }
       const applied = await this.applySsoBridgePayload(polled.payload, effectiveSignal, snapshot)
       if (applied.status === 'approved' && applied.bound === true) {
+        this.ssoDeviceSessionMeta?.delete(deviceCode)
         if (approvedCache.size >= 32) {
           const oldestKey = approvedCache.keys().next().value
           if (oldestKey !== undefined) approvedCache.delete(oldestKey)
@@ -4834,7 +5093,7 @@ export class XPeachAccount extends TypertRemoteService {
           model_limits_enabled: false,
         }
         if (userOnly) await apiClient.userTokenCreate(payload, signal)
-        else await apiClient.adminTokenCreate({ ...payload, groups: [] }, signal)
+        else await apiClient.adminTokenCreate({ ...payload, ...this.buildTokenGroupFields(defaults) }, signal)
         this.assertCredentialSnapshot(snapshot)
         const after = await this.listTokenPages(signal, userOnly, snapshot, apiClient)
         const existingIds = new Set(page.items.map(token => token.id))
@@ -4865,7 +5124,7 @@ export class XPeachAccount extends TypertRemoteService {
           if (confirmed?.key === undefined || this.normalizeRelayKey(confirmed.key) !== this.normalizeRelayKey(key)) {
             throw new RemoteError('xpeach/identity-incomplete', '写入前无法确认令牌密钥，分组未修改。', { reason: 'identity-unknown' })
           }
-          await apiClient.adminTokenUpdate({ ...detail, id, groups: defaults, group: defaults[0] ?? '' }, signal)
+          await apiClient.adminTokenUpdate({ ...detail, id, ...this.buildTokenGroupFields(defaults) }, signal)
           this.assertCredentialSnapshot(snapshot)
         }, signal)
       }
@@ -5161,7 +5420,7 @@ export class XPeachAccount extends TypertRemoteService {
           if (confirmed?.key === undefined || this.normalizeRelayKey(confirmed.key) !== this.normalizeRelayKey(activeKey)) {
             throw new RemoteError('xpeach/identity-incomplete', '写入前未能确认当前令牌密钥，分组未修改。', { reason: 'identity-unknown' })
           }
-          await this.api.adminTokenUpdate({ ...detail, id: tokenId, groups, group: groups[0] ?? '' }, signal)
+          await this.api.adminTokenUpdate({ ...detail, id: tokenId, ...this.buildTokenGroupFields(groups) }, signal)
         } else {
           const page = await this.listTokenPages(signal, true, snapshot)
           const row = page.items.find(t => t.id === info.id)
@@ -5174,7 +5433,7 @@ export class XPeachAccount extends TypertRemoteService {
             throw new RemoteError('xpeach/identity-incomplete', '写入前未能确认当前令牌密钥，分组未修改。', { reason: 'identity-unknown' })
           }
           const { user_id: _userId, ...userRow } = row
-          await this.api.userTokenUpdate(tokenId, { ...userRow, groups, group: groups[0] ?? '' }, signal)
+          await this.api.userTokenUpdate(tokenId, { ...userRow, ...this.buildTokenGroupFields(groups) }, signal)
         }
         this.assertCredentialSnapshot(snapshot)
       }, signal)
@@ -5607,8 +5866,9 @@ export class XPeachAccount extends TypertRemoteService {
     void this.applyProviderBase().catch(() => {})
   }
 
-  /** Keep all active `xpeach*` llm-pi-ai provider baseURLs in sync with the active route. */
+  /** Keep all active `xpeach*` llm-pi-ai provider baseURLs in sync with the active route unless overridden by user routing. */
   private async applyProviderBase(): Promise<void> {
+    if (this.readModelRouting().customBaseUrl !== undefined) return
     const settings = this.ctx.get('settings') as
       | { describe?: () => unknown; update?: (ns: string, patch: object) => Promise<void> }
       | undefined
@@ -5634,7 +5894,12 @@ export class XPeachAccount extends TypertRemoteService {
       providers[key] = { ...currentProvider, baseURL: nextUrl }
     }
     if (!changed || Object.keys(providers).length === 0) return
-    await settings.update('llm-pi-ai', { providers })
+    this.writingPiAiSettings = (this.writingPiAiSettings ?? 0) + 1
+    try {
+      await settings.update('llm-pi-ai', { providers })
+    } finally {
+      this.writingPiAiSettings = Math.max(0, this.writingPiAiSettings - 1)
+    }
   }
 
   /** Current snapshot (possibly stale) for instant UI updates. */
@@ -6094,15 +6359,17 @@ export class XPeachAccount extends TypertRemoteService {
         const normalized = normalizeSkillMarkdown(raw, live.name || dirName)
         seenPaths.add(resolvedLoc)
         seenPaths.add(resolvedDir)
+        const resolvedName = live.name || normalized.name
+        const isLiveDisabled = disabledSet.has(dirName) || disabledSet.has(resolvedName)
         skills.push({
           id: `project:${dirName}`,
-          name: live.name || normalized.name,
+          name: resolvedName,
           dirName,
           description: live.description || normalized.description,
           ...(normalized.whenToUse !== undefined ? { whenToUse: normalized.whenToUse } : {}),
           path: loc,
           source: 'project',
-          enabled: true,
+          enabled: !isLiveDisabled,
           valid: normalized.valid,
           content: raw,
         })
@@ -6122,8 +6389,52 @@ export class XPeachAccount extends TypertRemoteService {
     }
   }
 
+  private applySkillToggleToSet(
+    item: { readonly dirName: string; readonly name: string; readonly enabled: boolean },
+    disabledSet: Set<string>,
+  ): boolean {
+    const skillsRoot = this.skillsRoot()
+    const disabledRoot = this.disabledSkillsRoot()
+    const rawKey = item.dirName || item.name
+    const folderName = this.findSkillFolderName(rawKey) ?? basename(rawKey.trim())
+    if (folderName.length === 0 || folderName === '.' || folderName === '..') return false
+    const activeDir = join(skillsRoot, folderName)
+    const legacyDisabledDir = join(disabledRoot, folderName)
+    if (existsSync(legacyDisabledDir) && !existsSync(activeDir)) {
+      mkdirSync(skillsRoot, { recursive: true })
+      moveDirectory(legacyDisabledDir, activeDir)
+    }
+    const activeMd = join(activeDir, 'SKILL.md')
+    const disabledMd = join(activeDir, 'SKILL.md.disabled')
+    if (item.enabled) {
+      disabledSet.delete(folderName)
+      disabledSet.delete(item.name)
+      if (existsSync(disabledMd)) {
+        try {
+          renameSync(disabledMd, activeMd)
+        } catch (_err) {
+          writeFileSync(activeMd, readFileSync(disabledMd, 'utf8'), 'utf8')
+          try { unlinkSync(disabledMd) } catch (_e) { /* ignore */ }
+        }
+      }
+    } else {
+      disabledSet.add(folderName)
+      if (item.name.trim().length > 0) disabledSet.add(item.name.trim())
+      if (existsSync(activeMd)) {
+        try {
+          renameSync(activeMd, disabledMd)
+        } catch (_err) {
+          writeFileSync(disabledMd, readFileSync(activeMd, 'utf8'), 'utf8')
+          try { unlinkSync(activeMd) } catch (_e) { /* ignore */ }
+        }
+      }
+    }
+    return true
+  }
+
   /**
-   * Enable or disable a user skill by toggling `SKILL.md` and `SKILL.md.disabled`.
+   * Enable or disable a skill by updating `xpeach.skills-disabled.json` and
+   * toggling `SKILL.md` / `SKILL.md.disabled` for user skills.
    *
    * @param request - skill directory name, skill name, and target enabled flag.
    * @param signal - carrier cancellation.
@@ -6132,46 +6443,70 @@ export class XPeachAccount extends TypertRemoteService {
   @Remote('skillToggle')
   skillToggleOp(request: XPeachSkillToggleRequest, signal: AbortSignal): XPeachSkillsSnapshot {
     signal.throwIfAborted()
-    const skillsRoot = this.skillsRoot()
-    const disabledRoot = this.disabledSkillsRoot()
-    const rawKey = request.dirName || request.name
-    const folderName = this.findSkillFolderName(rawKey) ?? basename(rawKey.trim())
     const disabledSet = this.readDisabledSkills()
-    if (folderName.length > 0 && folderName !== '.' && folderName !== '..') {
-      const activeDir = join(skillsRoot, folderName)
-      const legacyDisabledDir = join(disabledRoot, folderName)
-      if (existsSync(legacyDisabledDir) && !existsSync(activeDir)) {
-        mkdirSync(skillsRoot, { recursive: true })
-        moveDirectory(legacyDisabledDir, activeDir)
-      }
-      const activeMd = join(activeDir, 'SKILL.md')
-      const disabledMd = join(activeDir, 'SKILL.md.disabled')
-      if (request.enabled) {
-        disabledSet.delete(folderName)
-        disabledSet.delete(request.name)
-        if (existsSync(disabledMd)) {
-          try {
-            renameSync(disabledMd, activeMd)
-          } catch (_err) {
-            writeFileSync(activeMd, readFileSync(disabledMd, 'utf8'), 'utf8')
-            try { unlinkSync(disabledMd) } catch (_e) { /* ignore */ }
-          }
-        }
-        repairSkillsDirectory(skillsRoot)
-      } else {
-        disabledSet.add(folderName)
-        if (existsSync(activeMd)) {
-          try {
-            renameSync(activeMd, disabledMd)
-          } catch (_err) {
-            writeFileSync(disabledMd, readFileSync(activeMd, 'utf8'), 'utf8')
-            try { unlinkSync(activeMd) } catch (_e) { /* ignore */ }
-          }
-        }
-      }
+    if (this.applySkillToggleToSet(request, disabledSet)) {
+      if (request.enabled) repairSkillsDirectory(this.skillsRoot())
       this.writeDisabledSkills(disabledSet)
       this.notifySkillsChanged()
     }
+    return this.skillsListOp({}, signal)
+  }
+
+  /**
+   * Atomically enable or disable multiple skills in a single disk update.
+   *
+   * @param request - target skill entries and desired enabled state.
+   * @param signal - carrier cancellation.
+   * @returns updated skills and rules snapshot.
+   */
+  @Remote('skillBatchToggle')
+  skillBatchToggleOp(request: XPeachSkillBatchToggleRequest, signal: AbortSignal): XPeachSkillsSnapshot {
+    signal.throwIfAborted()
+    if (request.items.length === 0) return this.skillsListOp({}, signal)
+    const disabledSet = this.readDisabledSkills()
+    let touched = false
+    for (const entry of request.items) {
+      if (this.applySkillToggleToSet({ ...entry, enabled: request.enabled }, disabledSet)) {
+        touched = true
+      }
+    }
+    if (touched) {
+      if (request.enabled) repairSkillsDirectory(this.skillsRoot())
+      this.writeDisabledSkills(disabledSet)
+      this.notifySkillsChanged()
+    }
+    return this.skillsListOp({}, signal)
+  }
+
+  /**
+   * Atomically delete multiple user skill directories from `$XPH_HOME/skills`.
+   *
+   * @param request - skill directory names to delete.
+   * @param signal - carrier cancellation.
+   * @returns updated skills and rules snapshot.
+   */
+  @Remote('skillBatchDelete')
+  skillBatchDeleteOp(request: XPeachSkillBatchDeleteRequest, signal: AbortSignal): XPeachSkillsSnapshot {
+    signal.throwIfAborted()
+    if (request.dirNames.length === 0) return this.skillsListOp({}, signal)
+    const disabledSet = this.readDisabledSkills()
+    let disabledChanged = false
+    let deletedAny = false
+    for (const rawDir of request.dirNames) {
+      const folderName = this.findSkillFolderName(rawDir) ?? basename(rawDir.trim())
+      if (folderName.length === 0 || folderName === '.' || folderName === '..') continue
+      const activeDir = join(this.skillsRoot(), folderName)
+      const disabledDir = join(this.disabledSkillsRoot(), folderName)
+      if (existsSync(activeDir)) {
+        try { rmSync(activeDir, { recursive: true, force: true }); deletedAny = true } catch (_err) { /* ignore */ }
+      }
+      if (existsSync(disabledDir)) {
+        try { rmSync(disabledDir, { recursive: true, force: true }); deletedAny = true } catch (_err) { /* ignore */ }
+      }
+      if (disabledSet.delete(folderName)) disabledChanged = true
+    }
+    if (disabledChanged) this.writeDisabledSkills(disabledSet)
+    if (deletedAny || disabledChanged) this.notifySkillsChanged()
     return this.skillsListOp({}, signal)
   }
 
@@ -6446,6 +6781,192 @@ export class XPeachAccount extends TypertRemoteService {
   }
 
   /**
+   * Atomically enable or disable multiple MCP servers in `cordis.patch.yml`.
+   *
+   * @param request - MCP entry IDs and target enabled flag.
+   * @param signal - carrier cancellation.
+   * @returns updated MCP servers snapshot.
+   */
+  @Remote('mcpBatchToggle')
+  mcpBatchToggleOp(request: XPeachMcpBatchToggleRequest, signal: AbortSignal): XPeachMcpSnapshot {
+    signal.throwIfAborted()
+    if (request.ids.length === 0) return this.mcpListOp({}, signal)
+    const targetSet = new Set(request.ids)
+    const patchPath = this.mcpPatchPath()
+    const entries = readMcpPatchEntries(patchPath)
+    const next = entries.map(entry =>
+      targetSet.has(entry.id) || targetSet.has(entry.serverName)
+        ? { ...entry, disabled: !request.enabled }
+        : entry,
+    )
+    writeMcpPatchEntries(patchPath, next)
+    return this.mcpListOp({}, signal)
+  }
+
+  /**
+   * Atomically delete multiple MCP servers from `cordis.patch.yml`.
+   *
+   * @param request - MCP entry IDs to remove.
+   * @param signal - carrier cancellation.
+   * @returns updated MCP servers snapshot.
+   */
+  @Remote('mcpBatchDelete')
+  mcpBatchDeleteOp(request: XPeachMcpBatchDeleteRequest, signal: AbortSignal): XPeachMcpSnapshot {
+    signal.throwIfAborted()
+    if (request.ids.length === 0) return this.mcpListOp({}, signal)
+    const targetSet = new Set(request.ids)
+    const patchPath = this.mcpPatchPath()
+    const entries = readMcpPatchEntries(patchPath)
+    const next = entries.filter(e => !targetSet.has(e.id) && !targetSet.has(e.serverName))
+    writeMcpPatchEntries(patchPath, next)
+    return this.mcpListOp({}, signal)
+  }
+
+  private getGatewayInspector(): XPeachGatewayInspectorController {
+    if (this.gatewayInspector !== undefined) return this.gatewayInspector
+    return new XPeachGatewayInspectorController({
+      ctx: this.ctx,
+      readConfig: () => this.readPromptOverrides(),
+      getActiveBaseUrl: () => this.activeBaseURL,
+      getCustomBaseUrl: () => this.readModelRouting().customBaseUrl,
+      readModelCallSettings: modelId => this.readModelRouting().modelSettings[modelId],
+      readBoundKey: () => this.readKeyFile(),
+      listSkillsSnapshot: s => this.skillsListOp({}, s),
+    })
+  }
+
+  /**
+   * Assemble a full snapshot of prompts, implicit injections, tools, headers,
+   * and serialized upstream gateway request body.
+   *
+   * @param request - optional protocol, model, session id, and sample prompt.
+   * @param signal - carrier cancellation.
+   * @returns complete gateway inspector snapshot.
+   */
+  @Remote('gatewayInspectorSnapshot')
+  async gatewayInspectorSnapshotOp(
+    request: XPeachGatewayInspectorRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachGatewayInspectorSnapshot> {
+    return await this.getGatewayInspector().buildSnapshot(request, signal)
+  }
+
+  /**
+   * Persist user adjustments to system prompts, implicit injections, tool
+   * schemas, upstream headers, and request parameters, then sync `llm-pi-ai`
+   * provider profiles and return the refreshed inspector snapshot.
+   *
+   * @param request - updated prompt/gateway overrides and optional preview parameters.
+   * @param signal - carrier cancellation.
+   * @returns refreshed gateway inspector snapshot.
+   */
+  @Remote('gatewayInspectorSave')
+  async gatewayInspectorSaveOp(
+    request: XPeachGatewayInspectorSaveRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachGatewayInspectorSnapshot> {
+    signal.throwIfAborted()
+    const normalized = normalizePromptOverridesConfig(request.config)
+    this.promptOverridesCache = normalized
+    const promptFile = this.promptOverridesFile()
+    if (promptFile !== undefined) {
+      this.writeState(promptFile, JSON.stringify(normalized, null, 2))
+    }
+    await this.syncGatewayOverridesToProviders(normalized).catch(() => {})
+    return await this.getGatewayInspector().buildSnapshot(request.preview ?? {}, signal)
+  }
+
+  /**
+   * Read the three XPeach wire-protocol endpoint pools, per-model call settings,
+   * and gateway configuration for the `Settings → Models` Pool Studio.
+   *
+   * @param _request - empty request payload.
+   * @param signal - carrier cancellation.
+   * @returns complete endpoint pools snapshot.
+   */
+  @Remote('modelPoolsSnapshot')
+  async modelPoolsSnapshotOp(
+    _request: XPeachSelfRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachModelPoolsSnapshot> {
+    signal.throwIfAborted()
+    if (this.readModelsCache().length === 0 && this.isBound()) {
+      await this.syncModelCatalog(signal).catch(() => undefined)
+    }
+    return await this.computeModelPoolsSnapshot()
+  }
+
+  /**
+   * Persist user drag-and-drop endpoint pool assignments, pool ordering,
+   * per-model call settings, and gateway options into `xpeach.model-routing.json`,
+   * synchronize `llm-pi-ai` provider profiles immediately, and relocate active
+   * default/session model selections when a model moves between pools.
+   *
+   * @param request - updated routing ledger and optional auto-sync preference.
+   * @param signal - carrier cancellation.
+   * @returns updated endpoint pools snapshot.
+   */
+  @Remote('modelPoolsSave')
+  async modelPoolsSaveOp(
+    request: XPeachModelPoolsSaveRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachModelPoolsSnapshot> {
+    signal.throwIfAborted()
+    const normalized = normalizeModelRoutingState(request.routing)
+    this.writeModelRouting(normalized)
+
+    if (normalized.conversationTracking !== undefined) {
+      const currentPrompts = this.readPromptOverrides()
+      if (currentPrompts.conversationTracking !== normalized.conversationTracking) {
+        const nextPrompts = { ...currentPrompts, conversationTracking: normalized.conversationTracking }
+        this.promptOverridesCache = nextPrompts
+        const pf = this.promptOverridesFile()
+        if (pf !== undefined) {
+          this.writeState(pf, JSON.stringify(nextPrompts, null, 2))
+        }
+      }
+    }
+
+    const settings = this.ctx.get('settings') as
+      | {
+        describe?: () => unknown
+        update?: (ns: string, patch: object) => Promise<void>
+        mutate?: (ns: string, ops: unknown[]) => Promise<unknown>
+      }
+      | undefined
+
+    if (settings?.update !== undefined && (request.autoSyncModels !== undefined || normalized.conversationTracking !== undefined)) {
+      const accountPatch: Record<string, unknown> = {}
+      if (request.autoSyncModels !== undefined) accountPatch['autoSyncModels'] = request.autoSyncModels
+      if (normalized.conversationTracking !== undefined) accountPatch['conversationTracking'] = normalized.conversationTracking
+      await settings.update('xpeach-account', accountPatch).catch(() => undefined)
+    }
+
+    return await this.applyModelRoutingAndSnapshot(normalized)
+  }
+
+  /**
+   * Reset all endpoint pool overrides and per-model call settings back to smart
+   * diversified defaults, re-sync `llm-pi-ai`, and return the fresh pool snapshot.
+   *
+   * @param _request - empty request payload.
+   * @param signal - carrier cancellation.
+   * @returns reset endpoint pools snapshot.
+   */
+  @Remote('modelPoolsReset')
+  async modelPoolsResetOp(
+    _request: XPeachSelfRequest,
+    signal: AbortSignal,
+  ): Promise<XPeachModelPoolsSnapshot> {
+    signal.throwIfAborted()
+    this.writeModelRouting(DEFAULT_MODEL_ROUTING_STATE)
+    if (this.isBound()) {
+      await this.syncModelCatalog(signal, true, { forceGroupSwitch: true }).catch(() => undefined)
+    }
+    return await this.applyModelRoutingAndSnapshot(DEFAULT_MODEL_ROUTING_STATE)
+  }
+
+  /**
    * Inspect the current macOS `.pkg` guided installer artifact and installed
    * `XPeach Harness.app` / `xph` CLI binary.
    *
@@ -6667,6 +7188,370 @@ export class XPeachAccount extends TypertRemoteService {
     try {
       this.writeState(this.disabledSkillsFile(), JSON.stringify([...disabled]))
     } catch (_err) { /* ignore */ }
+  }
+
+  private promptOverridesFile(): string | undefined {
+    if (typeof this.keyFile !== 'string' || this.keyFile.length === 0) return undefined
+    return join(dirname(this.keyFile), 'xpeach.gateway-inspector.json')
+  }
+
+  private readPromptOverrides(): XPeachPromptOverridesConfig {
+    if (this.promptOverridesCache !== undefined) return this.promptOverridesCache
+    const file = this.promptOverridesFile()
+    if (file === undefined || !existsSync(file)) {
+      this.promptOverridesCache = DEFAULT_PROMPT_OVERRIDES
+      return DEFAULT_PROMPT_OVERRIDES
+    }
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      const normalized = normalizePromptOverridesConfig(parsed)
+      this.promptOverridesCache = normalized
+      return normalized
+    } catch (_err) {
+      this.promptOverridesCache = DEFAULT_PROMPT_OVERRIDES
+      return DEFAULT_PROMPT_OVERRIDES
+    }
+  }
+
+  private modelRoutingFile(): string | undefined {
+    if (typeof this.keyFile !== 'string' || this.keyFile.length === 0) return undefined
+    return join(dirname(this.keyFile), 'xpeach.model-routing.json')
+  }
+
+  private readModelRouting(): XPeachModelRoutingState {
+    if (this.modelRoutingCache !== undefined) return this.modelRoutingCache
+    const file = this.modelRoutingFile()
+    if (file === undefined || !existsSync(file)) {
+      this.modelRoutingCache = DEFAULT_MODEL_ROUTING_STATE
+      return DEFAULT_MODEL_ROUTING_STATE
+    }
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      const normalized = normalizeModelRoutingState(parsed)
+      this.modelRoutingCache = normalized
+      return normalized
+    } catch (_err) {
+      this.modelRoutingCache = DEFAULT_MODEL_ROUTING_STATE
+      return DEFAULT_MODEL_ROUTING_STATE
+    }
+  }
+
+  private writeModelRouting(next: XPeachModelRoutingState): void {
+    const normalized = normalizeModelRoutingState(next)
+    this.modelRoutingCache = normalized
+    const file = this.modelRoutingFile()
+    if (file !== undefined) {
+      this.writeState(file, JSON.stringify(normalized, null, 2))
+    }
+  }
+
+  private modelsCacheFile(): string | undefined {
+    if (typeof this.keyFile !== 'string' || this.keyFile.length === 0) return undefined
+    return join(dirname(this.keyFile), 'xpeach.models-cache.json')
+  }
+
+  private readModelsCache(): readonly XPeachModel[] {
+    if (this.catalogModelsCache !== undefined) return this.catalogModelsCache
+    const file = this.modelsCacheFile()
+    if (file === undefined || !existsSync(file)) return []
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      if (!Array.isArray(parsed)) return []
+      const models: XPeachModel[] = []
+      for (const item of parsed) {
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) continue
+        const obj = item as Record<string, unknown>
+        const id = typeof obj['id'] === 'string' ? obj['id'].trim() : ''
+        if (id.length === 0) continue
+        const groups = Array.isArray(obj['groups'])
+          ? obj['groups'].filter((g): g is string => typeof g === 'string' && g.length > 0)
+          : undefined
+        const endpoints = Array.isArray(obj['supported_endpoint_types'])
+          ? obj['supported_endpoint_types'].filter((e): e is string => typeof e === 'string' && e.length > 0)
+          : undefined
+        models.push({
+          id,
+          ...(groups !== undefined && groups.length > 0 ? { groups } : {}),
+          ...(endpoints !== undefined && endpoints.length > 0 ? { supported_endpoint_types: endpoints } : {}),
+        })
+      }
+      this.catalogModelsCache = models
+      return models
+    } catch (_err) {
+      return []
+    }
+  }
+
+  private writeModelsCache(models: readonly XPeachModel[]): void {
+    this.catalogModelsCache = [...models]
+    const file = this.modelsCacheFile()
+    if (file !== undefined) {
+      try {
+        this.writeState(file, JSON.stringify(models, null, 2))
+      } catch (_err) { /* best-effort catalog cache */ }
+    }
+  }
+
+  private async writePiAiProviders(
+    settings: {
+      update?: (ns: string, patch: object) => Promise<void>
+      mutate?: (ns: string, ops: unknown[]) => Promise<unknown>
+    },
+    existingProviders: Readonly<Record<string, Record<string, unknown>>>,
+    providers: Readonly<Record<string, Record<string, unknown>>>,
+  ): Promise<void> {
+    this.writingPiAiSettings = (this.writingPiAiSettings ?? 0) + 1
+    try {
+      if (settings.mutate !== undefined) {
+        const ops = Object.entries(providers).map(([key, value]) => ({
+          op: 'set' as const,
+          path: ['providers', key],
+          value,
+        }))
+        await settings.mutate('llm-pi-ai', ops)
+      } else if (settings.update !== undefined) {
+        await settings.update('llm-pi-ai', { providers: { ...existingProviders, ...providers } })
+      }
+    } finally {
+      this.writingPiAiSettings = Math.max(0, this.writingPiAiSettings - 1)
+    }
+  }
+
+  private buildPoolsFromState(params: {
+    readonly described: unknown
+    readonly existingProviders: Readonly<Record<string, Record<string, unknown>>>
+    readonly catalogModels: readonly XPeachModel[]
+    readonly routing: XPeachModelRoutingState
+    readonly metadata: ModelMetadataRegistry | undefined
+  }): ReturnType<typeof buildModelPoolsAndProviders> {
+    const { described, existingProviders, catalogModels, routing, metadata } = params
+    const liveAccountSettings = readAccountSettings(described)
+    const inspectorCfg = this.readPromptOverrides()
+    const customHeaders: Record<string, string> = {}
+    for (const h of inspectorCfg.customHeaders) {
+      if (h.enabled && h.key.trim().length > 0 && h.key.toLowerCase() !== 'user-agent') {
+        customHeaders[h.key.trim()] = h.value
+      }
+    }
+    const globalReasoning = inspectorCfg.reasoningEffort === 'default'
+      ? 'high'
+      : (inspectorCfg.reasoningEffort === 'off' ? undefined : inspectorCfg.reasoningEffort)
+    const cacheRetention = inspectorCfg.cacheRetention === 'default'
+      ? undefined
+      : inspectorCfg.cacheRetention
+    const fallbackTracking = inspectorCfg.conversationTracking
+      && (liveAccountSettings.conversationTracking
+        ?? (typeof existingProviders['xpeach']?.['conversationTracking'] === 'boolean' ? existingProviders['xpeach']['conversationTracking'] : undefined)
+        ?? unwrapConfigValue(this.liveConfig.conversationTracking)
+        ?? true)
+    const autoSyncModels = liveAccountSettings.autoSyncModels
+      ?? unwrapConfigValue(this.liveConfig.autoSyncModels)
+      ?? true
+    const defaultModelSvc = this.getOptionalService('agentDefaultModel')
+    const currentSel = defaultModelSvc?.currentSelection()
+    const activeDefaultModel = currentSel !== undefined
+      ? { provider: currentSel.provider, model: currentSel.model }
+      : undefined
+    const siteBase = (this.activeBaseURL || this.api.siteBaseURL || 'https://fast.xpeach.codes').replace(/\/+$/u, '')
+    const defaultBase = (this.baseURL || siteBase).replace(/\/+$/u, '')
+    const keyVar = this.keyVar || 'XPEACH_RELAY_KEY'
+
+    return buildModelPoolsAndProviders({
+      catalogModels,
+      routing,
+      resolveCapabilities: m => modelCapabilities(m, metadata),
+      activeBaseUrl: siteBase,
+      defaultBaseUrl: defaultBase,
+      keyVar,
+      existingProviders,
+      customHeaders,
+      globalReasoning,
+      cacheRetention,
+      fallbackTracking,
+      autoSyncModels,
+      activeDefaultModel,
+    })
+  }
+
+  private async computeModelPoolsSnapshot(): Promise<XPeachModelPoolsSnapshot> {
+    const settings = this.ctx.get('settings') as { describe?: () => unknown } | undefined
+    const described = await settings?.describe?.()
+    const existingProviders = readProviderMap(described)
+    const cachedModels = this.readModelsCache()
+    const fallbackModels = extractModelsFromExistingProviders(existingProviders)
+    const catalogModels = cachedModels.length > 0 ? cachedModels : fallbackModels
+    const routing = this.readModelRouting()
+    const metadata = this.readModelMetadataCache()
+    return this.buildPoolsFromState({
+      described,
+      existingProviders,
+      catalogModels,
+      routing,
+      metadata,
+    }).snapshot
+  }
+
+  private async applyModelRoutingAndSnapshot(
+    routing: XPeachModelRoutingState,
+  ): Promise<XPeachModelPoolsSnapshot> {
+    const settings = this.ctx.get('settings') as
+      | {
+        describe?: () => unknown
+        update?: (ns: string, patch: object) => Promise<void>
+        mutate?: (ns: string, ops: unknown[]) => Promise<unknown>
+      }
+      | undefined
+    const described = await settings?.describe?.()
+    const existingProviders = readProviderMap(described)
+    const cachedModels = this.readModelsCache()
+    const fallbackModels = extractModelsFromExistingProviders(existingProviders)
+    const catalogModels = cachedModels.length > 0 ? cachedModels : fallbackModels
+    const metadata = this.readModelMetadataCache()
+    const built = this.buildPoolsFromState({
+      described,
+      existingProviders,
+      catalogModels,
+      routing,
+      metadata,
+    })
+    const providersChanged = Object.entries(built.providers).some(
+      ([k, v]) => !deepEqualJson(existingProviders[k] ?? null, v),
+    )
+    if (providersChanged && settings !== undefined) {
+      await this.writePiAiProviders(settings, existingProviders, built.providers)
+    }
+    const mergedProviders: Record<string, { models?: unknown }> = {
+      ...(existingProviders as Record<string, { models?: unknown }>),
+      ...(built.providers as Record<string, { models?: unknown }>),
+    }
+    await this.reconcileDefaultModelSelection(mergedProviders, { forceGroupSwitch: true })
+    return await this.computeModelPoolsSnapshot()
+  }
+
+  private async reconcileExternalPiAiEdits(): Promise<void> {
+    if ((this.writingPiAiSettings ?? 0) > 0) return
+    if (this.modelRoutingFile() === undefined) return
+    const settings = this.ctx.get('settings') as { describe?: () => unknown } | undefined
+    if (settings?.describe === undefined) return
+    const described = await settings.describe()
+    const existingProviders = readProviderMap(described)
+    const current = this.readModelRouting()
+
+    const poolsByModel = new Map<string, XPeachEndpoint[]>()
+    type XPeachEndpoint = (typeof ENDPOINT_POOLS)[number]
+    for (const pool of ENDPOINT_POOLS) {
+      const key = providerKeyForEndpoint(pool)
+      const list = existingProviders[key]?.['models']
+      if (!Array.isArray(list)) continue
+      for (const raw of list) {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue
+        const id = typeof (raw as { id?: unknown }).id === 'string' ? (raw as { id: string }).id.trim() : ''
+        if (id.length === 0) continue
+        const seen = poolsByModel.get(id) ?? []
+        if (!seen.includes(pool)) seen.push(pool)
+        poolsByModel.set(id, seen)
+      }
+    }
+    if (poolsByModel.size === 0) return
+
+    const knownCatalogIds = new Set(this.readModelsCache().map(m => m.id))
+    const overrideMap = new Map<string, XPeachEndpoint>(Object.entries(current.endpointOverrides))
+    const nextCustomModels = new Set(current.customModels)
+    let dirty = false
+
+    for (const [id, pools] of poolsByModel.entries()) {
+      if (pools.length === 1 && pools[0] !== undefined) {
+        const externalPool = pools[0]
+        const recommended = recommendedModelEndpoint({ id })
+        const effectiveCurrent = overrideMap.get(id) ?? recommended
+        if (externalPool !== effectiveCurrent) {
+          if (externalPool === recommended) {
+            overrideMap.delete(id)
+          } else {
+            overrideMap.set(id, externalPool)
+          }
+          dirty = true
+        }
+      }
+      if (knownCatalogIds.size > 0 && !knownCatalogIds.has(id) && !nextCustomModels.has(id)) {
+        nextCustomModels.add(id)
+        dirty = true
+      }
+    }
+
+    const xpeachTracking = existingProviders['xpeach']?.['conversationTracking']
+    let nextTracking = current.conversationTracking
+    if (typeof xpeachTracking === 'boolean' && xpeachTracking !== (current.conversationTracking ?? true)) {
+      nextTracking = xpeachTracking
+      dirty = true
+    }
+
+    if (dirty) {
+      this.writeModelRouting({
+        ...current,
+        endpointOverrides: Object.fromEntries(overrideMap.entries()),
+        customModels: [...nextCustomModels],
+        ...(nextTracking !== undefined ? { conversationTracking: nextTracking } : {}),
+      })
+    }
+  }
+
+  private async syncGatewayOverridesToProviders(cfg: XPeachPromptOverridesConfig): Promise<void> {
+    if (this.modelRoutingFile() !== undefined) {
+      const currentRouting = this.readModelRouting()
+      if (currentRouting.conversationTracking !== undefined && currentRouting.conversationTracking !== cfg.conversationTracking) {
+        this.writeModelRouting({ ...currentRouting, conversationTracking: cfg.conversationTracking })
+      }
+    }
+    const settings = this.ctx.get('settings') as
+      | {
+        describe?: () => unknown
+        update?: (ns: string, patch: object) => Promise<void>
+      }
+      | undefined
+    if (settings?.describe === undefined || settings.update === undefined) return
+    const described = await settings.describe()
+    const existingProviders = readProviderMap(described)
+    const customHeaderMap: Record<string, string> = {}
+    for (const h of cfg.customHeaders) {
+      if (h.enabled && h.key.trim().length > 0 && h.key.toLowerCase() !== 'user-agent') {
+        customHeaderMap[h.key.trim()] = h.value
+      }
+    }
+    const updated: Record<string, object> = {}
+    let changed = false
+    for (const [key, provider] of Object.entries(existingProviders)) {
+      if (!isAccountModelProvider(key)) continue
+      const next: Record<string, unknown> = { ...provider }
+      next['conversationTracking'] = cfg.conversationTracking
+      if (Object.keys(customHeaderMap).length > 0) {
+        next['headers'] = customHeaderMap
+      } else {
+        delete next['headers']
+      }
+      if (cfg.reasoningEffort === 'off') {
+        delete next['reasoning']
+      } else if (cfg.reasoningEffort !== 'default') {
+        next['reasoning'] = cfg.reasoningEffort
+      } else {
+        next['reasoning'] = 'high'
+      }
+      if (cfg.cacheRetention === 'default') {
+        delete next['cacheRetention']
+      } else {
+        next['cacheRetention'] = cfg.cacheRetention
+      }
+      updated[key] = next
+      changed = true
+    }
+    if (changed) {
+      this.writingPiAiSettings = (this.writingPiAiSettings ?? 0) + 1
+      try {
+        await settings.update('llm-pi-ai', { providers: updated })
+      } finally {
+        this.writingPiAiSettings = Math.max(0, this.writingPiAiSettings - 1)
+      }
+    }
   }
 
   private mcpPatchPath(): string {

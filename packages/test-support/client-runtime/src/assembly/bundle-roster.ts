@@ -28,6 +28,7 @@ export const WEB_PROFILE_BUNDLES: readonly string[] = ['@xpeach/xph-base', '@xpe
 
 interface PackageManifest {
   name?: unknown
+  exports?: unknown
   dsh?: { bundle?: { patch?: unknown }; client?: unknown }
 }
 
@@ -130,8 +131,13 @@ function readManifest(path: string): PackageManifest {
   return JSON.parse(readFileSync(path, 'utf8')) as PackageManifest
 }
 
-/** Resolve package manifests to real paths so linked bundles use their own dependency directories. */
+/** Resolve package manifests to real paths so linked bundles use their own dependency directories and self-references. */
 function locateManifest(anchors: readonly string[], name: string): string | undefined {
+  for (const anchor of anchors) {
+    if (!anchor.endsWith('package.json') || !existsSync(anchor)) continue
+    const manifest = readManifest(anchor)
+    if (manifest.name === name && manifest.exports != null) return realpathSync(anchor)
+  }
   const paths = anchors.map(anchor => createRequire(anchor).resolve.paths(name) ?? [])
   for (let depth = 0; depth < Math.max(...paths.map(search => search.length)); depth++) {
     for (const search of paths) {

@@ -3,7 +3,7 @@ import { useRef } from 'react'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
-import { useAnchoredPosition, useDismissOnOutsidePointer } from '@xpeach/xph-client-ui-primitives'
+import { MenuSurface, useAnchoredPosition, useDismissOnOutsidePointer } from '@xpeach/xph-client-ui-primitives'
 import css from './PickerPopover.module.css'
 
 /** Unplaced portal frame: laid out at the viewport origin but unpainted until measured. */
@@ -40,9 +40,9 @@ export function PickerPopover({ open, anchorRef, label, className, onClose, chil
   const position = useAnchoredPosition({ open, anchorRef, panelRef, gap: 4, margin: 12 })
   if (!open) return null
   return createPortal(
-    <div
+    <MenuSurface
       ref={panelRef}
-      className={clsx(css.panel, className)}
+      className={css.panel}
       style={position ?? MEASURE_STYLE}
       // The rows that open a picker declare `aria-haspopup="dialog"`, so the
       // panel is the dialog they announce, named by the row's own label.
@@ -52,8 +52,10 @@ export function PickerPopover({ open, anchorRef, label, className, onClose, chil
       // opened it: React bubbles portal events through the React tree.
       onClick={(event) => { event.stopPropagation() }}
     >
-      {children}
-    </div>,
+      <div className={clsx(css.viewport, className)}>
+        {children}
+      </div>
+    </MenuSurface>,
     document.body,
   )
 }

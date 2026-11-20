@@ -13,21 +13,46 @@ function firstLine(text: string): string {
   return newline === -1 ? text : text.slice(0, newline)
 }
 
+function isBlankLineBetweenNewlines(text: string, start: number, newlineIndex: number): boolean {
+  const end = newlineIndex > start && text.charCodeAt(newlineIndex - 1) === 13 ? newlineIndex - 1 : newlineIndex
+  for (let index = start; index < end; index += 1) {
+    const code = text.charCodeAt(index)
+    if (code !== 9 && code !== 32) return false
+  }
+  return true
+}
+
 function latestCompletedParagraphFirstLine(text: string): string {
-  let summary = ''
-  let paragraphStart = 0
-  const separator = /\r?\n(?:[\t ]*\r?\n)+/g
+  let cursor = text.length
   while (true) {
-    const nextParagraph = separator.exec(text)
-    const paragraphEnd = nextParagraph === null ? text.length
-      : nextParagraph.index + nextParagraph[0].indexOf('\n')
-    const newline = text.indexOf('\n', paragraphStart)
-    if (newline !== -1 && newline <= paragraphEnd) {
-      const candidate = text.slice(paragraphStart, newline).trim()
-      if (candidate !== '') summary = candidate
+    let scan = cursor
+    let paragraphStart = 0
+    const paragraphEnd = cursor
+    let foundSeparator = false
+    while (scan > 0) {
+      const nl = text.lastIndexOf('\n', scan - 1)
+      if (nl <= 0) break
+      const prevNl = text.lastIndexOf('\n', nl - 1)
+      if (prevNl !== -1 && isBlankLineBetweenNewlines(text, prevNl + 1, nl)) {
+        let sepFirstNl = prevNl
+        while (sepFirstNl > 0) {
+          const earlierNl = text.lastIndexOf('\n', sepFirstNl - 1)
+          if (earlierNl === -1 || !isBlankLineBetweenNewlines(text, earlierNl + 1, sepFirstNl)) break
+          sepFirstNl = earlierNl
+        }
+        paragraphStart = nl + 1
+        cursor = sepFirstNl
+        foundSeparator = true
+        break
+      }
+      scan = nl
     }
-    if (nextParagraph === null) return summary
-    paragraphStart = nextParagraph.index + nextParagraph[0].length
+    const firstNl = text.indexOf('\n', paragraphStart)
+    if (firstNl !== -1 && firstNl <= paragraphEnd) {
+      const candidate = text.slice(paragraphStart, firstNl).trim()
+      if (candidate !== '') return candidate
+    }
+    if (!foundSeparator) return ''
   }
 }
 

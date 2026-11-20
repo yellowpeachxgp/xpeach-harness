@@ -578,6 +578,10 @@
   border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
+:global([data-platform='darwin']) .page .detailTabsBar {
+  padding-top: var(--dsh-frame-top-clearance, 0px);
+}
+
 .detailTabs {
   display: flex;
   flex: 1 1 auto;

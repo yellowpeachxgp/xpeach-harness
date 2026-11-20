@@ -25,7 +25,7 @@
   margin: 0 -2px;
   padding: 0 10px 0 8px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   color: var(--dsw-alias-label-primary);
   font-family: inherit;
@@ -94,7 +94,7 @@
   max-height: 60vh;
   overflow: hidden;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-lg);
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
   box-shadow: var(--dsw-elevation-prominent);
   /* Only `.body` scrolls; the header remains fixed above it. */
@@ -175,7 +175,7 @@
   gap: 8px;
   padding: 14px 12px 10px;
   border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-md);
 }
 
 .row[data-cordis-awaiting] {
@@ -191,7 +191,7 @@
 .rowId {
   flex: none;
   color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsh-font-mono, monospace);
+  font-family: var(--ds-font-family-code);
   font-size: 11px;
   line-height: 20px;
 }
@@ -241,7 +241,7 @@
   height: 26px;
   padding: 0 8px;
   border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: 7px;
+  border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;

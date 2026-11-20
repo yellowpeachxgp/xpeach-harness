@@ -155,6 +155,28 @@ function freezeRetainedBy(counts: Partial<Record<SessionReferenceSource, number>
 
 const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({ referenceCount: 0, retainedBy: freezeRetainedBy({}) })
 
+const SUMMARY_KEYS: readonly (keyof SessionSummary)[] = [
+  'id',
+  'title',
+  'displayTitle',
+  'cwd',
+  'parentId',
+  'origin',
+  'formatStatus',
+  'running',
+  'retainedBy',
+  'blank',
+  'updatedAt',
+  'projectionValues',
+]
+
+function reuseSummary(previous: SessionSummary | undefined, next: SessionSummary): SessionSummary {
+  if (previous !== undefined && SUMMARY_KEYS.every(key => Object.is(previous[key], next[key]))) {
+    return previous
+  }
+  return next
+}
+
 interface ScopeRecord {
   fiber: Fiber
   ctx: AgentContext
@@ -691,6 +713,10 @@ export class ClientSessions implements ISessions {
         ...(projectionValues === undefined ? {} : { projectionValues }),
         ...(title === undefined ? {} : { title, displayTitle: title }),
       }
+    }
+    for (const id of Object.keys(byId) as SessionId[]) {
+      const next = byId[id] as SessionSummary
+      byId[id] = reuseSummary(previousById[id], next)
     }
     this.list.set({ ids, byId, phase, projectionsBySession })
   }

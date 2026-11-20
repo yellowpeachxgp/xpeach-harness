@@ -32,7 +32,7 @@
 
 .toolbar button:disabled { color: var(--dsw-alias-label-tertiary); cursor: default; }
 .scroller { flex: 1; min-height: 0; overflow: auto; overflow-anchor: none; }
-.table { width: 100%; min-width: 660px; table-layout: fixed; border-collapse: collapse; font-family: monospace; }
+.table { width: 100%; min-width: 660px; table-layout: fixed; border-collapse: collapse; font-family: var(--ds-font-family-code); }
 .table th { position: sticky; top: 0; z-index: 10; background: var(--dsw-alias-bg-module-platform); text-align: left; }
 .table th, .table td { box-sizing: border-box; height: 30px; padding: 4px 8px; border-bottom: 0.5px solid var(--dsw-alias-border-l1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .idColumn { width: 64px; }
@@ -90,9 +90,9 @@
 .pickNotice { flex: none; padding: 4px 8px; color: var(--dsw-alias-label-secondary); border-bottom: 0.5px solid var(--dsw-alias-border-l1); }
 .chatPick { position: fixed; z-index: 1201; pointer-events: none; background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 15%, transparent); outline: 1px solid var(--dsw-alias-state-business-primary); border-radius: 4px; }
 .chatPickMask { position: fixed; z-index: 1200; pointer-events: auto; background: transparent; cursor: crosshair; touch-action: none; }
-.chatReveal { position: fixed; z-index: 1200; pointer-events: none; border-radius: 6px; background: var(--dsw-specific-bubble-highlight); outline: 1px solid var(--dsw-alias-state-business-primary); }
+.chatReveal { position: fixed; z-index: 1200; pointer-events: none; border-radius: var(--dsw-radius-sm); background: var(--dsw-specific-bubble-highlight); outline: 1px solid var(--dsw-alias-state-business-primary); }
 .objectDetails { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
-.objectTree, .objectTree ul { margin: 0; padding-inline-start: 16px; list-style: none; font-family: monospace; }
+.objectTree, .objectTree ul { margin: 0; padding-inline-start: 16px; list-style: none; font-family: var(--ds-font-family-code); }
 .objectTree li { padding: 2px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .objectTree summary { cursor: pointer; }
 .objectField { color: var(--dsw-alias-label-primary); }

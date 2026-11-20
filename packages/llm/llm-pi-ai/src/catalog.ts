@@ -913,9 +913,10 @@ export function resolveRouteModels(
     if (seen.has(entry.id)) invalid(provider, `lists model "${entry.id}" more than once`)
     seen.add(entry.id)
     const base = defaults.get(entry.id)
-    const isXpeachClaude = provider.startsWith('xpeach')
-      && (/(?:^|\/|[-_])claude[-_0-9]/iu.test(entry.id.trim()) || /^claude$/iu.test(entry.id.trim()))
-    const api = isXpeachClaude
+    const isClaudeId = /(?:^|\/|[-_])claude[-_0-9]/iu.test(entry.id.trim()) || /^claude$/iu.test(entry.id.trim())
+    const isXpeachAnthropic = provider === 'xpeach-anthropic'
+      || (provider.startsWith('xpeach') && request.api === undefined && isClaudeId)
+    const api = isXpeachAnthropic
       ? 'anthropic-messages'
       : (request.api ?? base?.api ?? routeApi)
     if (api === undefined) {
@@ -923,7 +924,7 @@ export function resolveRouteModels(
         + ' route\'s api to the wire protocol its endpoint speaks')
     }
     const rawBaseUrl = request.baseURL ?? base?.baseUrl ?? providerBaseUrl
-    const baseUrl = rawBaseUrl !== undefined && isXpeachClaude
+    const baseUrl = rawBaseUrl !== undefined && (isXpeachAnthropic || (provider.startsWith('xpeach') && api === 'anthropic-messages'))
       ? rawBaseUrl.replace(/\/v1\/?$/u, '')
       : rawBaseUrl
     if (baseUrl === undefined) {

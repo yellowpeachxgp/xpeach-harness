@@ -442,15 +442,17 @@ describe('token identity binding (issue #65)', () => {
       api: {
         siteBaseURL: 'https://fast.xpeach.codes',
         models: vi.fn(async () => [
+          { id: 'deepseek-v4.1-flash', groups: ['SWE'], supported_endpoint_types: ['openai'] },
           { id: 'swe-2-max', groups: ['SWE'], supported_endpoint_types: ['openai', 'openai-response'] },
           { id: 'claude-sonnet-4-6', groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
         ]),
         groups: vi.fn(async () => ({
-          SWE: { models: ['swe-2-max'], ratio: 0.22 },
+          SWE: { models: ['deepseek-v4.1-flash', 'swe-2-max'], ratio: 0.22 },
           'Claude 渠道': { models: ['claude-sonnet-4-6'], ratio: 0.8 },
         })),
         adminPricing: vi.fn(async () => ({
           entries: [
+            { model_name: 'deepseek-v4.1-flash', enable_groups: ['SWE'], supported_endpoint_types: ['openai'] },
             { model_name: 'swe-2-max', enable_groups: ['SWE'], supported_endpoint_types: ['openai', 'openai-response'] },
             { model_name: 'claude-sonnet-4-6', enable_groups: ['Claude 渠道'], supported_endpoint_types: ['anthropic', 'openai'] },
           ],
@@ -468,7 +470,7 @@ describe('token identity binding (issue #65)', () => {
     const res = await run.call(fakeAccount, new AbortController().signal)
     expect(res.ok).toBe(true)
     const ids = (p?: { models?: { id: string }[] }) => (p?.models ?? []).map(m => m.id).sort()
-    expect(ids(savedProviders['xpeach'])).toEqual(['claude-sonnet-4-6', 'swe-2-max'])
+    expect(ids(savedProviders['xpeach'])).toEqual(['deepseek-v4.1-flash'])
     expect(ids(savedProviders['xpeach-openai-responses'])).toEqual(['swe-2-max'])
     expect(ids(savedProviders['xpeach-anthropic'])).toEqual(['claude-sonnet-4-6'])
     expect(savedProviders['xpeach-openai-responses']?.api).toBe('openai-responses')

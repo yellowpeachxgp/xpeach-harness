@@ -227,26 +227,40 @@ interface ProfileCacheSnapshot {
 }
 
 const PROFILE_CACHE_KEY = 'xpeach.profile.cache.v1'
+let memoryProfileCache: ProfileCacheSnapshot | null = null
+let profileCacheTimer: ReturnType<typeof setTimeout> | undefined
 
 function readProfileCache(): ProfileCacheSnapshot {
+  if (memoryProfileCache !== null) return memoryProfileCache
+  let raw: string | null = null
   try {
-    const raw = localStorage.getItem(PROFILE_CACHE_KEY)
-    if (raw !== null) {
-      return JSON.parse(raw) as ProfileCacheSnapshot
-    }
-  } catch (_err) {
-    // Ignore invalid cache
+    raw = localStorage.getItem(PROFILE_CACHE_KEY)
+  } catch (_storageErr) {
+    // Storage access is unavailable in restricted webviews.
   }
-  return {}
+  if (raw !== null) {
+    try {
+      memoryProfileCache = JSON.parse(raw) as ProfileCacheSnapshot
+      return memoryProfileCache
+    } catch (_jsonErr) {
+      // Ignore malformed cached payload.
+    }
+  }
+  memoryProfileCache = {}
+  return memoryProfileCache
 }
 
 function writeProfileCache(patch: Partial<ProfileCacheSnapshot>): void {
-  try {
-    const prev = readProfileCache()
-    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ ...prev, ...patch }))
-  } catch (_err) {
-    // Ignore storage quota errors
-  }
+  const next = { ...readProfileCache(), ...patch }
+  memoryProfileCache = next
+  clearTimeout(profileCacheTimer)
+  profileCacheTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(next))
+    } catch (_quotaErr) {
+      // Ignore storage quota errors.
+    }
+  }, 150)
 }
 
 /**
@@ -379,16 +393,18 @@ export function XPeachProfile({
   }, [totalTokens, stats.tokens, stats.maxDay, stats.days.size])
 
   // 52 weeks × 7 days ending today, column-major.
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const rawCells = Array.from({ length: CELLS }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - (CELLS - 1 - i))
-    const key = dayKey(d.getTime() / 1000)
-    const value = stats.perDay.get(key) ?? 0
-    return { key, value, weekIdx: Math.floor(i / 7) }
-  })
+  const { currentMonth, rawCells } = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const entries = Array.from({ length: CELLS }, (_, i) => {
+      const d = new Date(today)
+      d.setDate(d.getDate() - (CELLS - 1 - i))
+      const key = dayKey(d.getTime() / 1000)
+      const value = stats.perDay.get(key) ?? 0
+      return { key, value, weekIdx: Math.floor(i / 7) }
+    })
+    return { currentMonth: today.getMonth(), rawCells: entries }
+  }, [stats.perDay])
 
   const cells = useMemo(() => {
     if (activityMode === 'weekly') {
@@ -424,13 +440,12 @@ export function XPeachProfile({
   }, [rawCells, activityMode, stats.maxDay])
 
   const monthLabels = useMemo(() => {
-    const currentMonth = today.getMonth()
     return Array.from({ length: 12 }, (_, idx) => {
       const m = ((currentMonth + 1 + idx) % 12) + 1
       const key = `profile.month.${m as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12}` as const
       return { id: `${idx}-${m}`, label: t(key) }
     })
-  }, [t, today])
+  }, [t, currentMonth])
 
   const displayName = meRow?.display_name !== undefined && meRow.display_name !== ''
     ? meRow.display_name
@@ -562,7 +577,27 @@ export function XPeachProfile({
         <section className={css.codexSection}>
           <div className={css.codexSectionHead}>
             <span className={css.codexSectionTitle}>{t('profile.activity')}</span>
-            <div className={css.codexModeTabs} role="tablist">
+            <div
+              className={css.codexModeTabs}
+              role="tablist"
+              aria-label={t('profile.activity')}
+              onKeyDown={(event) => {
+                const modes: readonly ActivityMode[] = ['daily', 'weekly', 'cumulative']
+                const idx = modes.indexOf(activityMode)
+                let nextIdx = -1
+                if (event.key === 'ArrowRight') nextIdx = (idx + 1) % modes.length
+                else if (event.key === 'ArrowLeft') nextIdx = (idx - 1 + modes.length) % modes.length
+                else if (event.key === 'Home') nextIdx = 0
+                else if (event.key === 'End') nextIdx = modes.length - 1
+                if (nextIdx >= 0) {
+                  event.preventDefault()
+                  const next = modes[nextIdx]
+                  if (next !== undefined) setActivityMode(next)
+                  const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="tab"]')
+                  buttons[nextIdx]?.focus()
+                }
+              }}
+            >
               {([
                 ['daily', 'profile.mode.daily'],
                 ['weekly', 'profile.mode.weekly'],
@@ -572,6 +607,7 @@ export function XPeachProfile({
                   key={mode}
                   type="button"
                   role="tab"
+                  tabIndex={activityMode === mode ? 0 : -1}
                   aria-selected={activityMode === mode}
                   className={activityMode === mode ? css.codexModeOn : css.codexModeOff}
                   onClick={() => { setActivityMode(mode) }}

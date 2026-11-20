@@ -1,15 +1,28 @@
-/** XPeach Skill library and global AGENTS.md rules control center. */
+/** XPeach Skill library and global AGENTS.md rules control center with multi-select batch operations. */
 import { type JSX, useCallback, useEffect, useMemo, useState } from 'react'
+import { Button, Modal } from '@xpeach/xph-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@xpeach/xph-client-ui-slots'
 import type { XPeachOps, XPeachSkillItem, XPeachSkillsSnapshot } from './ops.ts'
-import { XPeachMark } from './brand.tsx'
+import { XPeachMark, XPeachSkillsIcon } from './brand.tsx'
 import css from './xpeach.module.css'
 
+export { XPeachSkillsIcon }
+
 /** Props injected into the XPeach Skills main panel. */
-export type XPeachSkillsProps = PropsLocale<'xpeach.account'> & InjectFace<XPeachOps>
+export type XPeachSkillsProps = PropsLocale<'xpeach.account'> & InjectFace<Pick<
+  XPeachOps,
+  | 'skillsList'
+  | 'skillToggle'
+  | 'skillBatchToggle'
+  | 'skillSave'
+  | 'skillDelete'
+  | 'skillBatchDelete'
+  | 'rulesSave'
+  | 'importAssets'
+>>
 
 type Mode = 'library' | 'rules'
-type FilterId = 'all' | 'user' | 'agents' | 'enabled'
+type FilterId = 'all' | 'user' | 'agents' | 'project' | 'enabled' | 'disabled'
 
 interface SkillDraft {
   readonly dirName?: string
@@ -19,16 +32,14 @@ interface SkillDraft {
   readonly body: string
 }
 
-const FILTER_IDS: readonly FilterId[] = ['all', 'user', 'agents', 'enabled']
+const FILTER_IDS: readonly FilterId[] = ['all', 'user', 'agents', 'project', 'enabled', 'disabled']
 
-/** Strip YAML frontmatter from SKILL.md so the editor shows the clean Markdown body. */
-function extractMarkdownBody(raw: string) {
+function extractMarkdownBody(raw: string): string {
   const match = /^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/u.exec(raw)
   return match !== null ? (match[1] ?? '').trim() : raw
 }
 
-/** Normalize a skill name into lowercase kebab-case directory/identifier format. */
-function normalizeSkillSlug(raw: string) {
+function normalizeSkillSlug(raw: string): string {
   return raw
     .trim()
     .toLowerCase()
@@ -37,33 +48,22 @@ function normalizeSkillSlug(raw: string) {
     .replace(/^-|-$/gu, '')
 }
 
-/**
- * Decorative sidebar icon for the XPeach Skills panel.
- * @param props - sidebar icon size.
- * @returns SVG element.
- */
-export function XPeachSkillsIcon({ size = 18 }: { readonly size?: number }): JSX.Element {
-  return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path
-        d="M3.25 4.25A1.75 1.75 0 0 1 5 2.5h5.25a1.5 1.5 0 0 1 1.5 1.5v10.25a.75.75 0 0 1-.75.75H5a1.75 1.75 0 0 1-1.75-1.75V4.25Z"
-        stroke="currentColor"
-        strokeWidth="1.35"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6 6h3.5M6 8.75h2.5"
-        stroke="currentColor"
-        strokeWidth="1.35"
-        strokeLinecap="round"
-      />
-      <path
-        d="M14 5.5l.65 1.6 1.6.65-1.6.65L14 10l-.65-1.6-1.6-.65 1.6-.65L14 5.5Z"
-        fill="currentColor"
-      />
-    </svg>
-  )
+function shortenPath(raw: string): string {
+  return raw.replace(/^\/Users\/[^/]+/u, '~').replace(/^\/home\/[^/]+/u, '~')
 }
+
+const CheckSvg = (): JSX.Element => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    <path d="M2.2 6.2L4.8 8.8L9.8 3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const SearchSvg = (): JSX.Element => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="7" cy="7" r="4.8" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M10.6 10.6L13.8 13.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+)
 
 /**
  * Render the XPeach Skills & Global Rules management page.
@@ -71,18 +71,21 @@ export function XPeachSkillsIcon({ size = 18 }: { readonly size?: number }): JSX
  * @returns the skills control center element.
  */
 export function XPeachSkillsPage({
-  t, skillsList, skillToggle, skillSave, skillDelete, rulesSave, importAssets,
+  t, skillsList, skillToggle, skillBatchToggle, skillSave, skillDelete, skillBatchDelete, rulesSave, importAssets,
 }: XPeachSkillsProps): JSX.Element {
   const [snapshot, setSnapshot] = useState<XPeachSkillsSnapshot | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<Mode>('library')
   const [filter, setFilter] = useState<FilterId>('all')
   const [query, setQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [rulesDraft, setRulesDraft] = useState('')
   const [modalDraft, setModalDraft] = useState<SkillDraft | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<XPeachSkillItem | null>(null)
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false)
 
   const reload = useCallback((): void => {
     setLoading(true)
@@ -109,7 +112,9 @@ export function XPeachSkillsPage({
     return skills.filter((item) => {
       if (filter === 'user' && item.source !== 'user') return false
       if (filter === 'agents' && item.source !== 'agents') return false
+      if (filter === 'project' && item.source !== 'project') return false
       if (filter === 'enabled' && !item.enabled) return false
+      if (filter === 'disabled' && item.enabled) return false
       if (q === '') return true
       return (
         item.name.toLowerCase().includes(q)
@@ -119,6 +124,52 @@ export function XPeachSkillsPage({
       )
     })
   }, [skills, filter, query])
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(item => selectedIds.has(item.id))
+  const selectedItems = useMemo(
+    () => skills.filter(item => selectedIds.has(item.id)),
+    [skills, selectedIds],
+  )
+  const selectedUserItems = useMemo(
+    () => selectedItems.filter(item => item.source === 'user'),
+    [selectedItems],
+  )
+
+  const toggleSelectOne = (id: string): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAllFiltered = (): void => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const item of filtered) next.delete(item.id)
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const item of filtered) next.add(item.id)
+        return next
+      })
+    }
+  }
+
+  const invertFilteredSelection = (): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const item of filtered) {
+        if (next.has(item.id)) next.delete(item.id)
+        else next.add(item.id)
+      }
+      return next
+    })
+  }
 
   const doImportLocal = async (): Promise<void> => {
     setBusy(true); setBanner(null); setErr(null)
@@ -153,12 +204,65 @@ export function XPeachSkillsPage({
     }
   }
 
+  const doBatchToggle = async (enabled: boolean): Promise<void> => {
+    if (selectedItems.length === 0) return
+    setBusy(true); setErr(null); setBanner(null)
+    try {
+      if (skillBatchToggle !== undefined) {
+        const snap = await skillBatchToggle({
+          items: selectedItems.map(item => ({ dirName: item.dirName, name: item.name })),
+          enabled,
+        })
+        setSnapshot(snap)
+      } else {
+        let latest: XPeachSkillsSnapshot | undefined
+        for (const item of selectedItems) {
+          latest = await skillToggle({ dirName: item.dirName, name: item.name, enabled })
+        }
+        if (latest !== undefined) setSnapshot(latest)
+      }
+    } catch (cause) {
+      setErr(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doBatchDelete = async (): Promise<void> => {
+    setConfirmBatchDelete(false)
+    if (selectedUserItems.length === 0) return
+    setBusy(true); setErr(null); setBanner(null)
+    try {
+      if (skillBatchDelete !== undefined) {
+        const snap = await skillBatchDelete({ dirNames: selectedUserItems.map(i => i.dirName) })
+        setSnapshot(snap)
+      } else {
+        let latest: XPeachSkillsSnapshot | undefined
+        for (const item of selectedUserItems) {
+          latest = await skillDelete({ dirName: item.dirName })
+        }
+        if (latest !== undefined) setSnapshot(latest)
+      }
+      setSelectedIds(new Set())
+    } catch (cause) {
+      setErr(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const doDelete = async (item: XPeachSkillItem): Promise<void> => {
-    if (!window.confirm(t('skills.card.deleteConfirm', { name: item.name }))) return
+    setConfirmDelete(null)
     setBusy(true); setErr(null); setBanner(null)
     try {
       const snap = await skillDelete({ dirName: item.dirName })
       setSnapshot(snap)
+      setSelectedIds((prev) => {
+        if (!prev.has(item.id)) return prev
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
+      })
     } catch (cause) {
       setErr(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -219,7 +323,7 @@ export function XPeachSkillsPage({
 
   return (
     <div className={css.tabRoot}>
-      <header className={css.tabHead}>
+      <header className={css.tabHead} data-window-drag>
         <div className={css.pageHeadText}>
           <h2 className={css.pageTitle}>{t('skills.title')}</h2>
           <p className={css.pageIntro}>{t('skills.subtitle')}</p>
@@ -309,12 +413,95 @@ export function XPeachSkillsPage({
 
       {mode === 'library' && (
         <>
-          <input
-            className={css.marketSearch}
-            value={query}
-            placeholder={t('skills.searchPh')}
-            onChange={(e) => { setQuery(e.target.value) }}
-          />
+          <div className={css.ctrlSearchRow}>
+            <div className={css.ctrlSearchBox}>
+              <span className={css.ctrlSearchIcon}><SearchSvg /></span>
+              <input
+                className={css.ctrlSearchInput}
+                value={query}
+                placeholder={t('skills.searchPh')}
+                onChange={(e) => { setQuery(e.target.value) }}
+              />
+              {query.length > 0 && (
+                <button
+                  type="button"
+                  className={css.ctrlSearchClear}
+                  aria-label={t('ctrl.searchClear')}
+                  onClick={() => { setQuery('') }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {filtered.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className={allFilteredSelected ? css.groupChipOn : css.groupPickChip}
+                  disabled={busy}
+                  onClick={toggleSelectAllFiltered}
+                >
+                  {allFilteredSelected
+                    ? t('ctrl.unselectAll')
+                    : t('ctrl.selectAll', { n: String(filtered.length) })}
+                </button>
+                <button
+                  type="button"
+                  className={css.groupPickChip}
+                  disabled={busy}
+                  onClick={invertFilteredSelection}
+                >
+                  {t('ctrl.invertSelect')}
+                </button>
+              </>
+            )}
+          </div>
+
+          {selectedItems.length > 0 && (
+            <div className={css.ctrlBatchBar}>
+              <div className={css.ctrlBatchLeft}>
+                <span className={css.ctrlBatchCount}>
+                  {t('ctrl.selectedCount', { n: String(selectedItems.length) })}
+                </span>
+                <button
+                  type="button"
+                  className={css.marketBtn}
+                  disabled={busy}
+                  onClick={() => { setSelectedIds(new Set()) }}
+                >
+                  {t('ctrl.unselectAll')}
+                </button>
+              </div>
+              <div className={css.ctrlBatchRight}>
+                <button
+                  type="button"
+                  className={css.bindGhost}
+                  disabled={busy}
+                  onClick={() => { void doBatchToggle(true) }}
+                >
+                  {t('ctrl.batchEnable')}
+                </button>
+                <button
+                  type="button"
+                  className={css.bindGhost}
+                  disabled={busy}
+                  onClick={() => { void doBatchToggle(false) }}
+                >
+                  {t('ctrl.batchDisable')}
+                </button>
+                {selectedUserItems.length > 0 && (
+                  <button
+                    type="button"
+                    className={css.ctrlBtnDanger}
+                    disabled={busy}
+                    onClick={() => { setConfirmBatchDelete(true) }}
+                  >
+                    {t('ctrl.batchDelete')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className={css.skelWrap} aria-busy="true" aria-label={t('status.loading')}>
@@ -338,9 +525,26 @@ export function XPeachSkillsPage({
             <div className={css.ctrlCardGrid}>
               {filtered.map((item) => {
                 const srcKey = ('skills.src.' + item.source) as 'skills.src.user'
+                const isSelected = selectedIds.has(item.id)
                 return (
-                  <article key={item.id} className={css.ctrlCard} data-disabled={!item.enabled}>
+                  <article
+                    key={item.id}
+                    className={css.ctrlCard}
+                    data-disabled={!item.enabled}
+                    data-selected={isSelected}
+                  >
                     <div className={css.ctrlCardHead}>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        aria-label={t('ctrl.selectItem', { name: item.name })}
+                        className={css.ctrlCheckBtn}
+                        data-checked={isSelected}
+                        onClick={() => { toggleSelectOne(item.id) }}
+                      >
+                        {isSelected && <CheckSvg />}
+                      </button>
                       <code className={css.ctrlCardTitle}>{item.name}</code>
                       <span className={css.ctrlBadge}>{t(srcKey)}</span>
                       {!item.valid && (
@@ -348,9 +552,18 @@ export function XPeachSkillsPage({
                           {t('skills.state.invalid')}
                         </span>
                       )}
-                      <span className={item.enabled ? css.ctrlStatusOn : css.ctrlStatusOff}>
-                        {item.enabled ? t('skills.state.enabled') : t('skills.state.disabled')}
-                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={item.enabled}
+                        aria-label={item.enabled ? t('skills.card.disable') : t('skills.card.enable')}
+                        className={css.ctrlToggleSwitch}
+                        data-on={item.enabled}
+                        disabled={busy}
+                        onClick={() => { void doToggle(item) }}
+                      >
+                        <span className={css.ctrlToggleThumb} />
+                      </button>
                     </div>
 
                     <p className={css.ctrlCardDesc}>{item.description || '—'}</p>
@@ -363,11 +576,12 @@ export function XPeachSkillsPage({
                     )}
 
                     <div className={css.ctrlCardFoot}>
-                      <code className={css.ctrlPath} title={item.path}>{item.path}</code>
+                      <code className={css.ctrlPath} title={item.path}>{shortenPath(item.path)}</code>
                       <div className={css.ctrlCardActs}>
                         <button
                           type="button"
                           className={css.marketBtn}
+                          disabled={busy}
                           onClick={() => { void doToggle(item) }}
                         >
                           {item.enabled ? t('skills.card.disable') : t('skills.card.enable')}
@@ -383,7 +597,8 @@ export function XPeachSkillsPage({
                           <button
                             type="button"
                             className={css.ctrlBtnDanger}
-                            onClick={() => { void doDelete(item) }}
+                            disabled={busy}
+                            onClick={() => { setConfirmDelete(item) }}
                           >
                             {t('skills.card.delete')}
                           </button>
@@ -406,7 +621,7 @@ export function XPeachSkillsPage({
               <p className={css.bindHint}>{t('skills.rules.hint')}</p>
             </div>
             {snapshot?.rulesPath !== undefined && snapshot.rulesPath !== '' && (
-              <code className={css.keyMask}>{snapshot.rulesPath}</code>
+              <code className={css.keyMask} title={snapshot.rulesPath}>{shortenPath(snapshot.rulesPath)}</code>
             )}
           </div>
           <textarea
@@ -429,36 +644,38 @@ export function XPeachSkillsPage({
         </section>
       )}
 
-      {modalDraft !== null && (
-        <div
-          className={css.ctrlModalBackdrop}
-          role="dialog"
-          aria-modal="true"
-          aria-label={modalDraft.dirName !== undefined
-            ? t('skills.modal.editTitle', { name: modalDraft.name })
-            : t('skills.modal.newTitle')}
-          onClick={() => { if (!busy) setModalDraft(null) }}
-        >
-          <div className={css.ctrlModalCard} onClick={(e) => { e.stopPropagation() }}>
-            <header className={css.ctrlModalHead}>
-              <h3>
-                {modalDraft.dirName !== undefined
-                  ? t('skills.modal.editTitle', { name: modalDraft.name })
-                  : t('skills.modal.newTitle')}
-              </h3>
-              <button
-                type="button"
-                className={css.iconButton}
-                onClick={() => { setModalDraft(null) }}
-                aria-label={t('notice.dismiss')}
-              >
-                ✕
-              </button>
-            </header>
-
+      <Modal
+        open={modalDraft !== null}
+        onClose={() => { if (!busy) setModalDraft(null) }}
+        title={modalDraft?.dirName !== undefined
+          ? t('skills.modal.editTitle', { name: modalDraft.name })
+          : t('skills.modal.newTitle')}
+        closeLabel={t('notice.dismiss')}
+        footer={modalDraft !== null ? (
+          <>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => { setModalDraft(null) }}
+            >
+              {t('skills.modal.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={busy || normalizeSkillSlug(modalDraft.name) === '' || modalDraft.desc.trim() === ''}
+              onClick={() => { void doSaveSkill() }}
+            >
+              {busy ? t('skills.modal.saving') : t('skills.modal.save')}
+            </Button>
+          </>
+        ) : undefined}
+      >
+        {modalDraft !== null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <label className={css.chField}>
               <span>{t('skills.modal.name')}</span>
               <input
+                data-modal-autofocus
                 className={css.bindInput}
                 value={modalDraft.name}
                 placeholder={t('skills.modal.namePh')}
@@ -501,27 +718,58 @@ export function XPeachSkillsPage({
                 onChange={(e) => { setModalDraft({ ...modalDraft, body: e.target.value }) }}
               />
             </label>
-
-            <footer className={css.ctrlModalFoot}>
-              <button
-                type="button"
-                className={css.bindGhost}
-                disabled={busy}
-                onClick={() => { setModalDraft(null) }}
-              >
-                {t('skills.modal.cancel')}
-              </button>
-              <button
-                type="button"
-                className={css.bindButton}
-                disabled={busy || normalizeSkillSlug(modalDraft.name) === '' || modalDraft.desc.trim() === ''}
-                onClick={() => { void doSaveSkill() }}
-              >
-                {busy ? t('skills.modal.saving') : t('skills.modal.save')}
-              </button>
-            </footer>
           </div>
-        </div>
+        )}
+      </Modal>
+
+      {confirmDelete !== null && (
+        <Modal
+          open
+          onClose={() => { if (!busy) setConfirmDelete(null) }}
+          title={t('skills.card.delete')}
+          description={t('skills.card.deleteConfirm', { name: confirmDelete.name })}
+          closeLabel={t('notice.dismiss')}
+          footer={(
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => { setConfirmDelete(null) }}>
+                {t('skills.modal.cancel')}
+              </Button>
+              <Button
+                variant="outline"
+                className={css.btnDanger}
+                disabled={busy}
+                onClick={() => { void doDelete(confirmDelete) }}
+              >
+                {t('skills.card.delete')}
+              </Button>
+            </>
+          )}
+        />
+      )}
+
+      {confirmBatchDelete && (
+        <Modal
+          open
+          onClose={() => { if (!busy) setConfirmBatchDelete(false) }}
+          title={t('ctrl.batchDelete')}
+          description={t('ctrl.batchDeleteConfirm', { n: String(selectedUserItems.length) })}
+          closeLabel={t('notice.dismiss')}
+          footer={(
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => { setConfirmBatchDelete(false) }}>
+                {t('skills.modal.cancel')}
+              </Button>
+              <Button
+                variant="outline"
+                className={css.btnDanger}
+                disabled={busy}
+                onClick={() => { void doBatchDelete() }}
+              >
+                {t('ctrl.batchDelete')}
+              </Button>
+            </>
+          )}
+        />
       )}
     </div>
   )

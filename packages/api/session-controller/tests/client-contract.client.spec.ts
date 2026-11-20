@@ -180,6 +180,23 @@ describe('Client Session contracts', () => {
       kind: 'settle-assistant',
       attemptId: 'attempt-two',
     })
+
+    const empty = new MutableSessionEventSource()
+    empty.append(transient('attempt-empty', 0.5))
+    const firstSettlement = assistantSettlement(SessionSeq(1))
+    empty.settleAssistant(LlmAttemptId('attempt-empty'), firstSettlement)
+    expect(empty.getSnapshot().entries).toEqual([firstSettlement])
+
+    const tailSettled = assistantSettlement(SessionSeq(4))
+    feed.append(transient('attempt-three', 3.5))
+    feed.append(entry(SessionSeq(5)))
+    feed.settleAssistant(LlmAttemptId('attempt-three'), tailSettled)
+    expect(feed.getSnapshot().entries).toEqual([opening, settlement, later, tailSettled, entry(SessionSeq(5))])
+
+    const prependedTransient = transient('attempt-prepended', 0.5)
+    feed.prepend([prependedTransient], false)
+    feed.settleAssistant(LlmAttemptId('attempt-prepended'))
+    expect(feed.getSnapshot().entries).toEqual([opening, settlement, later, tailSettled, entry(SessionSeq(5))])
   })
 
 })

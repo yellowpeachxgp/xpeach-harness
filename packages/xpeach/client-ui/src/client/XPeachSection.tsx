@@ -2,10 +2,9 @@
 import { type JSX, useEffect, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@xpeach/xph-client-ui-slots'
 import type { XPeachModel } from '@xpeach/xph-account/types'
-import type { XPeachOps, XPeachSiteCatalog, XPeachSsoDeviceStartResult } from './ops.ts'
+import type { XPeachOps, XPeachSiteCatalog } from './ops.ts'
 import { Button, Switch } from '@xpeach/xph-client-ui-primitives'
 import { XPeachMark } from './brand.tsx'
-import { footerBridge } from './FooterAction.tsx'
 import { UpdateChannelPreferenceRow } from './GeneralPreferencesRow.tsx'
 import { rel, useTime, SITE } from './fmt.ts'
 import css from './xpeach.module.css'
@@ -25,12 +24,14 @@ type LoadState =
 export function XPeachSection({
   t, load, models, modelMatch, keyState, unbind, subscribeCredentialChange,
   sessionBound, sessionUser, unbindSession,
+  ssoBrowserStart, ssoBrowserPoll, ssoBrowserCancel,
   ssoDeviceStart, ssoDevicePoll, ssoLogout,
   trackingState, setTracking, autoSyncModels, setAutoSyncModels, syncModels,
   protocolPreference, setProtocolPreference,
   families, setFamilies, recents,
   siteCatalog, setGroups,
   updateChannelStatus, setUpdateChannel, checkUpdate,
+  openConsole,
 }: XPeachSectionProps): JSX.Element {
   const [tracking, setTrackingOn] = useState<boolean | null>(null)
   const [autoSync, setAutoSync] = useState(true)
@@ -54,7 +55,15 @@ export function XPeachSection({
   const [sessAs, setSessAs] = useState<string | null>(null)
   const [bindBusy, setBindBusy] = useState(false)
   const [bindError, setBindError] = useState<string | null>(null)
-  const [ssoSession, setSsoSession] = useState<XPeachSsoDeviceStartResult | null>(null)
+  const [ssoPending, setSsoPending] = useState<{
+    readonly attemptId: string
+    readonly mode: 'pkce' | 'device'
+    readonly authorizationUrl: string
+    readonly interval: number
+    readonly deviceCode?: string | undefined
+    readonly userCode?: string | undefined
+  } | null>(null)
+  const [ssoLinkCopied, setSsoLinkCopied] = useState(false)
   const [ssoCodeCopied, setSsoCodeCopied] = useState(false)
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [modelList, setModelList] = useState<readonly XPeachModel[] | { error: string }>([])
@@ -103,50 +112,95 @@ export function XPeachSection({
     })
   }), [subscribeCredentialChange])
 
-  const doSsoDevice = async (): Promise<void> => {
-    if (ssoDeviceStart === undefined) return
+  const startUnifiedSso = async (): Promise<void> => {
     setBindBusy(true); setBindError(null)
-    const r = await ssoDeviceStart(true)
-    setBindBusy(false)
-    if ('error' in r) {
-      setBindError(r.error)
+    if (ssoBrowserStart !== undefined) {
+      const r = await ssoBrowserStart(true)
+      setBindBusy(false)
+      if ('error' in r) {
+        setBindError(r.error)
+        return
+      }
+      setSsoPending({
+        attemptId: r.attemptId,
+        mode: r.mode,
+        authorizationUrl: r.authorizationUrl,
+        interval: r.interval,
+        ...(r.deviceCode !== undefined ? { deviceCode: r.deviceCode } : {}),
+        ...(r.userCode !== undefined ? { userCode: r.userCode } : {}),
+      })
+      if (!r.browserOpened && typeof window !== 'undefined') {
+        window.open(r.authorizationUrl, '_blank', 'noopener,noreferrer')
+      }
       return
     }
-    setSsoSession(r)
-    if (!r.browserOpened && typeof window !== 'undefined') {
-      window.open(r.verificationUriComplete, '_blank', 'noopener,noreferrer')
+    if (ssoDeviceStart !== undefined) {
+      const r = await ssoDeviceStart(true)
+      setBindBusy(false)
+      if ('error' in r) {
+        setBindError(r.error)
+        return
+      }
+      setSsoPending({
+        attemptId: r.deviceCode,
+        mode: 'device',
+        authorizationUrl: r.verificationUriComplete,
+        interval: r.interval,
+        deviceCode: r.deviceCode,
+        userCode: r.userCode,
+      })
+      if (!r.browserOpened && typeof window !== 'undefined') {
+        window.open(r.verificationUriComplete, '_blank', 'noopener,noreferrer')
+      }
+      return
     }
+    setBindBusy(false)
   }
+
+  const cancelSsoPending = (): void => {
+    if (ssoPending !== null && ssoPending.mode === 'pkce') {
+      void ssoBrowserCancel?.(ssoPending.attemptId)
+    }
+    setSsoPending(null)
+  }
+
   useEffect(() => {
-    if (ssoSession === null || ssoDevicePoll === undefined) return
+    if (ssoPending === null) return
+    const runPoll = ssoBrowserPoll !== undefined
+      ? () => ssoBrowserPoll(ssoPending.attemptId, ssoPending.deviceCode)
+      : ssoPending.deviceCode !== undefined && ssoDevicePoll !== undefined
+        ? () => ssoDevicePoll(ssoPending.deviceCode ?? '')
+        : undefined
+    if (runPoll === undefined) return
+
     let active = true
     let inFlight = false
-    const intervalMs = Math.max(1500, (ssoSession.interval || 2) * 1000)
+    const intervalMs = Math.max(1200, (ssoPending.interval || 1) * 1000)
     const timer = setInterval(() => {
       if (inFlight) return
       inFlight = true
-      void ssoDevicePoll(ssoSession.deviceCode).then((res) => {
+      void runPoll().then((res) => {
         inFlight = false
         if (!active) return
         if ('error' in res) {
           setBindError(res.error)
-          setSsoSession(null)
+          setSsoPending(null)
           return
         }
         if (res.status === 'approved') {
-          setSsoSession(null)
+          setSsoPending(null)
           setBindError(null)
           setBound('bound')
           refresh()
         } else if (res.status === 'expired') {
           setBindError(res.message ?? t('sso.expired'))
-          setSsoSession(null)
+          setSsoPending(null)
         } else if (res.status === 'denied') {
           setBindError(res.message ?? t('sso.denied'))
-          setSsoSession(null)
+          setSsoPending(null)
         } else if (res.status === 'error') {
           setBindError(res.message ?? t('sso.failed'))
-          setSsoSession(null)
+          setSsoPending(null)
         }
       }).catch(() => {
         inFlight = false
@@ -156,7 +210,7 @@ export function XPeachSection({
       active = false
       clearInterval(timer)
     }
-  }, [ssoSession, ssoDevicePoll, t])
+  }, [ssoPending, ssoBrowserPoll, ssoDevicePoll, t])
   const doUnbind = async (): Promise<void> => {
     if (ssoLogout !== undefined) {
       await ssoLogout(false)
@@ -186,39 +240,56 @@ export function XPeachSection({
         {bound === 'unknown' && <p>{t('status.loading')}</p>}
         {bound === 'unbound' && (
           <>
-            {ssoDeviceStart !== undefined && ssoSession === null && (
-              <div className={css.bindRow}>
-                <Button variant="primary" className={css.bindButton} disabled={bindBusy} onClick={() => { void doSsoDevice() }}>
+            <p className={css.cardDesc}>{t('bind.hint')}</p>
+            {(ssoBrowserStart !== undefined || ssoDeviceStart !== undefined) && ssoPending === null && (
+              <div className={css.bindRow} style={{ marginTop: '8px' }}>
+                <Button variant="primary" disabled={bindBusy} onClick={() => { void startUnifiedSso() }}>
                   {bindBusy ? t('sso.starting') : t('sso.loginBtn')}
                 </Button>
               </div>
             )}
-            {ssoSession !== null && (
+            {ssoPending !== null && (
               <div className={css.ssoCodeCard}>
-                <p className={css.ssoCodeHint}>{t('sso.waitingTitle')} · {t('sso.userCodeLabel')}</p>
+                <div className={css.ssoWaitingTitleRow}>
+                  <span className={css.ssoPulseDot} aria-hidden="true" />
+                  <span>{t('sso.waitingTitle')}</span>
+                </div>
+                {ssoPending.mode === 'device' && ssoPending.userCode !== undefined && (
+                  <div className={css.ssoCodeActions}>
+                    <code className={css.ssoCodeValue}>
+                      {ssoPending.userCode}
+                    </code>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(ssoPending.userCode ?? '')
+                        setSsoCodeCopied(true)
+                        setTimeout(() => { setSsoCodeCopied(false) }, 2000)
+                      }}
+                    >
+                      {ssoCodeCopied ? t('sso.codeCopied') : t('sso.copyCode')}
+                    </Button>
+                  </div>
+                )}
+                <p className={css.ssoCodeHint}>{t('sso.pollingHint')}</p>
                 <div className={css.ssoCodeActions}>
-                  <code className={css.ssoCodeValue}>
-                    {ssoSession.userCode}
-                  </code>
-                  <Button
-                    variant="outline"
-                    className={css.bindGhost}
-                    onClick={() => {
-                      void navigator.clipboard.writeText(ssoSession.userCode)
-                      setSsoCodeCopied(true)
-                      setTimeout(() => { setSsoCodeCopied(false) }, 2000)
-                    }}
-                  >
-                    {ssoCodeCopied ? t('sso.codeCopied') : t('sso.copyCode')}
-                  </Button>
-                  <a href={ssoSession.verificationUriComplete} target="_blank" rel="noreferrer" className={`${css.bindGhost} ${css.ssoLinkBtn}`}>
+                  <a href={ssoPending.authorizationUrl} target="_blank" rel="noreferrer" className={`${css.bindGhost} ${css.ssoLinkBtn}`}>
                     {t('sso.openBrowserAgain')}
                   </a>
-                  <Button variant="outline" className={css.bindGhost} onClick={() => { setSsoSession(null) }}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(ssoPending.authorizationUrl)
+                      setSsoLinkCopied(true)
+                      setTimeout(() => { setSsoLinkCopied(false) }, 2000)
+                    }}
+                  >
+                    {ssoLinkCopied ? t('sso.linkCopied') : t('sso.copyLink')}
+                  </Button>
+                  <Button variant="outline" onClick={cancelSsoPending}>
                     {t('sso.cancel')}
                   </Button>
                 </div>
-                <p className={css.ssoCodeHint}>{t('sso.pollingHint')}</p>
               </div>
             )}
             {bindError !== null && <p className={css.bindError}>{bindError}</p>}
@@ -228,7 +299,7 @@ export function XPeachSection({
           <>
             <div className={css.bindRow}>
               <span className={css.bindOk}>● {t('bind.bound')}{sessAs !== null && <span className={css.adminDim}> @{sessAs}</span>}</span>
-              <Button variant="outline" className={css.bindGhost} onClick={() => { void doUnbind() }}>{t('launch.signOut')}</Button>
+              <Button variant="outline" onClick={() => { void doUnbind() }}>{t('launch.signOut')}</Button>
             </div>
             {siteCat !== undefined && siteCat.groups.some(g => g.models > 0) && (
               <div className={css.groupBar}>
@@ -465,7 +536,7 @@ export function XPeachSection({
               )}
           </div>
           <nav className={css.siteLinks}>
-            <button type="button" className={css.siteLinkBtn} onClick={() => { footerBridge.openConsole() }}>{t('pill.openConsole')}</button>
+            <button type="button" className={css.siteLinkBtn} onClick={() => { openConsole?.() }}>{t('pill.openConsole')}</button>
             <a href={SITE.console} target="_blank" rel="noreferrer">{t('pill.openSite')}</a>
             <a href={SITE.topup} target="_blank" rel="noreferrer">{t('pill.topup')}</a>
           </nav>

@@ -42,7 +42,7 @@
 }
 
 .tool:disabled {
-  color: var(--dsw-alias-label-quaternary);
+  color: var(--dsw-alias-label-dimmed);
   cursor: default;
 }
 
@@ -246,4 +246,10 @@
 .titleIcon {
   flex: 0 0 auto;
   margin-right: 4px;
+}
+
+@media (pointer: coarse) {
+  .address {
+    font-size: 16px;
+  }
 }

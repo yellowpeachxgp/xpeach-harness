@@ -4,19 +4,21 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 760px;
+  max-width: 720px;
   color: var(--dsw-alias-label-primary);
 }
 
 .heading {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
 }
 
 .intro {
   margin: 0;
   font-size: 13px;
+  line-height: 20px;
   color: var(--dsw-alias-label-tertiary);
 }
 
@@ -109,5 +111,5 @@
   margin: 0;
   font-size: 15px;
   line-height: 22px;
-  font-weight: 600;
+  font-weight: 500;
 }

@@ -1,13 +1,43 @@
 /** Shared operations face injected into the XPeach UI components. */
 import type {
+  XPeachCapturedOutboundRequest,
+  XPeachCustomContextBlock,
+  XPeachCustomGatewayHeader,
+  XPeachCustomPreStepInjection,
+  XPeachCustomPromptSection,
+  XPeachEndpointPoolId,
+  XPeachGatewayHeaderItem,
+  XPeachGatewayInspectorRequest,
+  XPeachGatewayInspectorSaveRequest,
+  XPeachGatewayInspectorSnapshot,
+  XPeachInspectedContextBlock,
+  XPeachInspectedImplicitItem,
+  XPeachInspectedPromptSection,
+  XPeachInspectedToolItem,
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachMcpBatchDeleteRequest,
+  XPeachMcpBatchToggleRequest,
   XPeachModel,
+  XPeachModelCallSettings,
+  XPeachModelCompatSettings,
   XPeachModelPerfDetail,
   XPeachModelPerfSummary,
+  XPeachModelPoolEntry,
+  XPeachModelPoolsSaveRequest,
+  XPeachModelPoolsSnapshot,
+  XPeachModelReasoningLevel,
+  XPeachModelRoutingState,
   XPeachPerfGroupRow,
   XPeachPerfSeriesPoint,
+  XPeachPromptOverridesConfig,
+  XPeachSkillBatchDeleteRequest,
+  XPeachSkillBatchToggleRequest,
+  XPeachSsoBrowserCancelRequest,
+  XPeachSsoBrowserPollRequest,
+  XPeachSsoBrowserStartRequest,
+  XPeachSsoBrowserStartResult,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
@@ -15,21 +45,53 @@ import type {
   XPeachSuccessRatePoint,
   XPeachTokenLogEntry,
   XPeachTokenUsage,
+  XPeachWireProtocol,
 } from '@xpeach/xph-account/types'
 
 export type {
+  XPeachCapturedOutboundRequest,
+  XPeachCustomContextBlock,
+  XPeachCustomGatewayHeader,
+  XPeachCustomPreStepInjection,
+  XPeachCustomPromptSection,
+  XPeachEndpointPoolId,
+  XPeachGatewayHeaderItem,
+  XPeachGatewayInspectorRequest,
+  XPeachGatewayInspectorSaveRequest,
+  XPeachGatewayInspectorSnapshot,
+  XPeachInspectedContextBlock,
+  XPeachInspectedImplicitItem,
+  XPeachInspectedPromptSection,
+  XPeachInspectedToolItem,
   XPeachMacosInstallerActionRequest,
   XPeachMacosInstallerActionResult,
   XPeachMacosInstallerStatus,
+  XPeachMcpBatchDeleteRequest,
+  XPeachMcpBatchToggleRequest,
+  XPeachModelCallSettings,
+  XPeachModelCompatSettings,
   XPeachModelPerfDetail,
   XPeachModelPerfSummary,
+  XPeachModelPoolEntry,
+  XPeachModelPoolsSaveRequest,
+  XPeachModelPoolsSnapshot,
+  XPeachModelReasoningLevel,
+  XPeachModelRoutingState,
   XPeachPerfGroupRow,
   XPeachPerfSeriesPoint,
+  XPeachPromptOverridesConfig,
+  XPeachSkillBatchDeleteRequest,
+  XPeachSkillBatchToggleRequest,
+  XPeachSsoBrowserCancelRequest,
+  XPeachSsoBrowserPollRequest,
+  XPeachSsoBrowserStartRequest,
+  XPeachSsoBrowserStartResult,
   XPeachSsoDevicePollRequest,
   XPeachSsoDevicePollResult,
   XPeachSsoDeviceStartRequest,
   XPeachSsoDeviceStartResult,
   XPeachSuccessRatePoint,
+  XPeachWireProtocol,
 }
 
 /** One combined usage/log read outcome. */
@@ -505,6 +567,8 @@ export interface XPeachOps {
   readonly networkRoute: (url: string) => Promise<XPeachNetworkSnapshot | { error: string }>
   /** Open the plugin manager panel. */
   readonly openPlugins: () => void
+  /** Open the XPeach console panel. */
+  readonly openConsole?: () => void
   /** Recent local sessions for the profile's "recent works" row. */
   readonly recentSessions: () => Promise<readonly { id: string; cwd?: string; updatedAt: number }[] | { error: string }>
   /** Redeem a top-up code. */
@@ -588,6 +652,12 @@ export interface XPeachOps {
   readonly macosInstallerAction: (
     action: 'build' | 'open' | 'reveal' | 'install-direct',
   ) => Promise<XPeachMacosInstallerActionResult | { error: string }>
+  /** Start a unified 1-click XPeach SSO browser sign-in (PKCE S256 loopback with Device fallback). */
+  readonly ssoBrowserStart?: (openBrowser?: boolean) => Promise<XPeachSsoBrowserStartResult | { error: string }>
+  /** Poll an active XPeach SSO browser sign-in attempt. */
+  readonly ssoBrowserPoll?: (attemptId: string, deviceCode?: string) => Promise<XPeachSsoDevicePollResult | { error: string }>
+  /** Cancel an in-flight XPeach SSO browser sign-in attempt. */
+  readonly ssoBrowserCancel?: (attemptId: string) => Promise<void>
   /** Start an XPeach SSO Device Authorization session and optionally open the browser. */
   readonly ssoDeviceStart?: (openBrowser?: boolean) => Promise<XPeachSsoDeviceStartResult | { error: string }>
   /** Poll an XPeach SSO Device Authorization session once and bind credentials on approval. */
@@ -632,6 +702,24 @@ export interface XPeachOps {
   readonly perfMetricsSummary?: (hours?: number) => Promise<readonly XPeachModelPerfSummary[] | { error: string }>
   /** Fetch per-group 24-hour performance telemetry and hourly time series for one model from PeachAPI. */
   readonly perfMetricsDetail?: (model: string, hours?: number) => Promise<XPeachModelPerfDetail | { error: string }>
+  /** Batch enable or disable multiple skills in a single atomic write. */
+  readonly skillBatchToggle?: (req: XPeachSkillBatchToggleRequest) => Promise<XPeachSkillsSnapshot>
+  /** Batch delete multiple user skill directories. */
+  readonly skillBatchDelete?: (req: XPeachSkillBatchDeleteRequest) => Promise<XPeachSkillsSnapshot>
+  /** Batch enable or disable multiple MCP servers in `cordis.patch.yml`. */
+  readonly mcpBatchToggle?: (req: XPeachMcpBatchToggleRequest) => Promise<XPeachMcpSnapshot>
+  /** Batch delete multiple MCP servers from `cordis.patch.yml`. */
+  readonly mcpBatchDelete?: (req: XPeachMcpBatchDeleteRequest) => Promise<XPeachMcpSnapshot>
+  /** Assemble a complete snapshot of prompts, implicit injections, tools, headers, and upstream request body. */
+  readonly gatewayInspectorSnapshot?: (req?: XPeachGatewayInspectorRequest) => Promise<XPeachGatewayInspectorSnapshot>
+  /** Persist user prompt/tool/header/gateway overrides and return the refreshed inspector snapshot. */
+  readonly gatewayInspectorSave?: (req: XPeachGatewayInspectorSaveRequest) => Promise<XPeachGatewayInspectorSnapshot>
+  /** Read the three XPeach wire-protocol endpoint pools and per-model call settings. */
+  readonly modelPoolsSnapshot?: () => Promise<XPeachModelPoolsSnapshot | { error: string }>
+  /** Persist updated XPeach endpoint pool assignments and per-model call settings. */
+  readonly modelPoolsSave?: (req: XPeachModelPoolsSaveRequest) => Promise<XPeachModelPoolsSnapshot | { error: string }>
+  /** Reset all XPeach endpoint pool assignments and per-model call settings to smart defaults. */
+  readonly modelPoolsReset?: () => Promise<XPeachModelPoolsSnapshot | { error: string }>
 }
 
 /** Admin-facing row aliases kept client-side (mirrors host types). */

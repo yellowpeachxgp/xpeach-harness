@@ -17,7 +17,7 @@
 ## `@xpeach/xph-account`
 
 - `inject`: `typert` · `credentials` · `settings`
-- `source`: [`packages/xpeach/account/src/index.ts:168`](../packages/xpeach/account/src/index.ts)
+- `source`: [`packages/xpeach/account/src/index.ts:217`](../packages/xpeach/account/src/index.ts)
 
 ```ts config-catalog
 /** Deployment knobs for the XPeach site route. */

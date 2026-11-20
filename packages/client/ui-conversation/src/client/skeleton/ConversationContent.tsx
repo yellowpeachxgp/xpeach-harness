@@ -14,6 +14,21 @@ function NoConversationWidthControls() {
   return null
 }
 
+function ConversationInputDock({
+  session,
+  useInput,
+  renderSlot,
+}: {
+  session: InputZone['session'] | undefined
+  useInput: ConversationContentProps['useInput']
+  renderSlot: ConversationContentProps['renderSlot']
+}) {
+  const inputState = useInput(s => s)
+  if (session === undefined || inputState === undefined) return null
+  const zone: InputZone = { session, input: inputState }
+  return renderSlot('conversation.input.dock', zone)
+}
+
 /**
  * Render the shared Conversation body and its occurrence-selected local Components.
  * @param props - Factory input, standard Session sources, and Conversation seats.
@@ -31,7 +46,6 @@ export function ConversationContent(props: ConversationContentProps) {
   const [body, setBody] = useState<HTMLDivElement | null>(null)
   const pendingInteraction = useSessionStatus(snapshot =>
     sessionId === undefined ? undefined : snapshot.get(sessionId)?.pendingInteraction)
-  const inputState = useInput(s => s)
   const cwd = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.cwd)
   const workspaces = useWorkspaces(s => s)
   // A plugin this package cannot import (ui-model-selection) says this session cannot
@@ -82,9 +96,6 @@ export function ConversationContent(props: ConversationContentProps) {
       setPendingWorkspaceId(undefined)
     }
   }, [pendingWorkspaceId, sessionWorkspace?.workspaceId, workspaces.phase, pendingWorkspace])
-
-  const zone: InputZone | undefined =
-    session === undefined || inputState === undefined ? undefined : { session, input: inputState }
 
   // The chip is a selector; label resolution walks the flow top-down:
   //   1. a just-picked workspace (pending) → its title;
@@ -165,7 +176,7 @@ export function ConversationContent(props: ConversationContentProps) {
     <div className={clsx(css.composerStack, hero && css.composerHero)}>
       {hero && <HeroShell t={t} renderSlot={renderSlot} />}
       {hero && heroWorkspaceRow}
-      {zone !== undefined && renderSlot('conversation.input.dock', zone)}
+      <ConversationInputDock session={session} useInput={useInput} renderSlot={renderSlot} />
       {inputBar}
     </div>
   )

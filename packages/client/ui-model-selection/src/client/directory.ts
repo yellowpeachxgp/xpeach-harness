@@ -164,7 +164,7 @@ export class ModelDirectory {
     const retainedEffort = effort === undefined ? undefined
       : reasoning?.efforts.find(level => level.id === effort)?.name ?? effort
     if (catalog.status !== 'ready' || catalog.value === null || projected === undefined) {
-      this.store.set({
+      this.publishIfChanged({
         current: catalog.value === null ? null : this.store.getSnapshot().current,
         ...retainedEffort === undefined ? {} : { retainedEffort },
         routable: null,
@@ -179,7 +179,7 @@ export class ModelDirectory {
     const selection = projected.next ?? catalog.value.default
     const routable = catalog.value.groups.some(group => group.id === selection.provider
       && group.models.some(model => model.id === selection.model))
-    this.store.set({
+    this.publishIfChanged({
       current: selection,
       ...retainedEffort === undefined ? {} : { retainedEffort },
       routable,
@@ -192,7 +192,24 @@ export class ModelDirectory {
       error: null,
     })
   }
+
+  private publishIfChanged(next: ModelDirectoryState): void {
+    const prev = this.store.getSnapshot()
+    if (DIRECTORY_KEYS.every(key => Object.is(prev[key], next[key]))) return
+    this.store.set(next)
+  }
 }
+
+const DIRECTORY_KEYS: readonly (keyof ModelDirectoryState)[] = [
+  'current',
+  'retainedEffort',
+  'routable',
+  'groups',
+  'failures',
+  'status',
+  'pending',
+  'error',
+]
 
 function modelSelectionProjection(value: unknown): ModelSelectionProjection | undefined {
   return value === undefined ? undefined : value as ModelSelectionProjection

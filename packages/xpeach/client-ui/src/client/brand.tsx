@@ -51,3 +51,71 @@ export function XPeachName({ t }: PropsLocale<'xpeach.account'>): JSX.Element {
     </span>
   )
 }
+
+/**
+ * Sidebar panel icon for the XPeach console.
+ * @param props - sidebar icon size.
+ * @returns mark element.
+ */
+export function XPeachPanelIcon({ size = 18 }: { readonly size?: number }): JSX.Element {
+  return <XPeachMark size={size} />
+}
+
+/**
+ * Decorative sidebar icon for the XPeach Skills panel.
+ * @param props - sidebar icon size.
+ * @returns SVG element.
+ */
+export function XPeachSkillsIcon({ size = 18 }: { readonly size?: number }): JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path
+        d="M3.25 4.25A1.75 1.75 0 0 1 5 2.5h5.25a1.5 1.5 0 0 1 1.5 1.5v10.25a.75.75 0 0 1-.75.75H5a1.75 1.75 0 0 1-1.75-1.75V4.25Z"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 6h3.5M6 8.75h2.5"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14 5.5l.65 1.6 1.6.65-1.6.65L14 10l-.65-1.6-1.6-.65 1.6-.65L14 5.5Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Decorative sidebar icon for the XPeach MCP panel.
+ * @param props - sidebar icon size.
+ * @returns SVG element.
+ */
+export function XPeachMcpIcon({ size = 18 }: { readonly size?: number }): JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <rect x="2.25" y="2.75" width="13.5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.35" />
+      <rect x="2.25" y="10.25" width="13.5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.35" />
+      <circle cx="5.25" cy="5.25" r="0.9" fill="currentColor" />
+      <circle cx="5.25" cy="12.75" r="0.9" fill="currentColor" />
+      <path d="M8.5 5.25h4.25M8.5 12.75h4.25" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/**
+ * Decorative sidebar icon for the XPeach Prompt & Gateway Inspector panel.
+ * @param props - sidebar icon size.
+ * @returns SVG element.
+ */
+export function XPeachPromptIcon({ size = 18 }: { readonly size?: number }): JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <rect x="2.25" y="2.75" width="13.5" height="12.5" rx="2" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M5.25 6.75L7.5 9l-2.25 2.25M9.25 11.25h3.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

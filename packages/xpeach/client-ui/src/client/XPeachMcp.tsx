@@ -1,14 +1,26 @@
-/** XPeach MCP Server control center: STDIO and Streamable HTTP servers, live tools, and JSON import. */
+/** XPeach MCP Server control center: STDIO and Streamable HTTP servers, multi-select batch ops, and JSON import. */
 import { type JSX, useCallback, useEffect, useMemo, useState } from 'react'
+import { Button, Modal } from '@xpeach/xph-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@xpeach/xph-client-ui-slots'
 import type { XPeachMcpItem, XPeachMcpSaveRequest, XPeachMcpSnapshot, XPeachOps } from './ops.ts'
-import { XPeachMark } from './brand.tsx'
+import { XPeachMark, XPeachMcpIcon } from './brand.tsx'
 import css from './xpeach.module.css'
 
-/** Props injected into the XPeach MCP main panel. */
-export type XPeachMcpProps = PropsLocale<'xpeach.account'> & InjectFace<XPeachOps>
+export { XPeachMcpIcon }
 
-type FilterId = 'all' | 'stdio' | 'http' | 'enabled'
+/** Props injected into the XPeach MCP main panel. */
+export type XPeachMcpProps = PropsLocale<'xpeach.account'> & InjectFace<Pick<
+  XPeachOps,
+  | 'mcpList'
+  | 'mcpToggle'
+  | 'mcpBatchToggle'
+  | 'mcpSave'
+  | 'mcpDelete'
+  | 'mcpBatchDelete'
+  | 'importAssets'
+>>
+
+type FilterId = 'all' | 'stdio' | 'http' | 'enabled' | 'disabled'
 type ModalMode = 'form' | 'json'
 
 interface McpDraft {
@@ -23,9 +35,12 @@ interface McpDraft {
   readonly disabled: boolean
 }
 
-const FILTER_IDS: readonly FilterId[] = ['all', 'stdio', 'http', 'enabled']
+const FILTER_IDS: readonly FilterId[] = ['all', 'stdio', 'http', 'enabled', 'disabled']
 
-/** Parse a newline/space separated args string into an array of tokens. */
+function shortenPath(raw: string): string {
+  return raw.replace(/^\/Users\/[^/]+/u, '~').replace(/^\/home\/[^/]+/u, '~')
+}
+
 function parseArgsInput(raw: string): string[] {
   const trimmed = raw.trim()
   if (trimmed === '') return []
@@ -35,7 +50,6 @@ function parseArgsInput(raw: string): string[] {
   return trimmed.split(/\s+/u).filter(Boolean)
 }
 
-/** Parse KEY=VALUE lines into a string record. */
 function parseKeyValLines(raw: string, separator: '=' | ':'): Record<string, string> {
   const out: Record<string, string> = {}
   for (const line of raw.split(/\r?\n/u)) {
@@ -50,13 +64,11 @@ function parseKeyValLines(raw: string, separator: '=' | ':'): Record<string, str
   return out
 }
 
-/** Format a string record into KEY=VALUE or Key: Value lines. */
-function formatKeyValLines(rec: Readonly<Record<string, string>> | undefined, sep: '=' | ': ') {
+function formatKeyValLines(rec: Readonly<Record<string, string>> | undefined, sep: '=' | ': '): string {
   if (rec === undefined) return ''
   return Object.entries(rec).map(([k, v]) => `${k}${sep}${v}`).join('\n')
 }
 
-/** Parse a pasted MCP JSON snippet (Claude/Cursor/Codex/Gemini format) into a draft. */
 function parseMcpJsonSnippet(raw: string, fallbackName: string): McpDraft | null {
   try {
     const parsedValue: unknown = JSON.parse(raw)
@@ -132,22 +144,18 @@ function parseMcpJsonSnippet(raw: string, fallbackName: string): McpDraft | null
   }
 }
 
-/**
- * Decorative sidebar icon for the XPeach MCP panel.
- * @param props - sidebar icon size.
- * @returns SVG element.
- */
-export function XPeachMcpIcon({ size = 18 }: { readonly size?: number }): JSX.Element {
-  return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <rect x="2.25" y="2.75" width="13.5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.35" />
-      <rect x="2.25" y="10.25" width="13.5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.35" />
-      <circle cx="5.25" cy="5.25" r="0.9" fill="currentColor" />
-      <circle cx="5.25" cy="12.75" r="0.9" fill="currentColor" />
-      <path d="M8.5 5.25h4.25M8.5 12.75h4.25" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
-    </svg>
-  )
-}
+const CheckSvg = (): JSX.Element => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    <path d="M2.2 6.2L4.8 8.8L9.8 3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const SearchSvg = (): JSX.Element => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="7" cy="7" r="4.8" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M10.6 10.6L13.8 13.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+)
 
 /**
  * Render the XPeach MCP Server management page.
@@ -155,12 +163,13 @@ export function XPeachMcpIcon({ size = 18 }: { readonly size?: number }): JSX.El
  * @returns the MCP control center element.
  */
 export function XPeachMcpPage({
-  t, mcpList, mcpToggle, mcpSave, mcpDelete, importAssets,
+  t, mcpList, mcpToggle, mcpBatchToggle, mcpSave, mcpDelete, mcpBatchDelete, importAssets,
 }: XPeachMcpProps): JSX.Element {
   const [snapshot, setSnapshot] = useState<XPeachMcpSnapshot | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterId>('all')
   const [query, setQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set())
   const [expandedTools, setExpandedTools] = useState<ReadonlySet<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
@@ -169,6 +178,8 @@ export function XPeachMcpPage({
   const [modalMode, setModalMode] = useState<ModalMode>('form')
   const [jsonInput, setJsonInput] = useState('')
   const [jsonErr, setJsonErr] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<XPeachMcpItem | null>(null)
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false)
 
   const reload = useCallback((): void => {
     setLoading(true)
@@ -195,6 +206,7 @@ export function XPeachMcpPage({
       if (filter === 'stdio' && item.transportType !== 'stdio') return false
       if (filter === 'http' && item.transportType !== 'streamable-http') return false
       if (filter === 'enabled' && item.disabled) return false
+      if (filter === 'disabled' && !item.disabled) return false
       if (q === '') return true
       return (
         item.serverName.toLowerCase().includes(q)
@@ -204,6 +216,48 @@ export function XPeachMcpPage({
       )
     })
   }, [servers, filter, query])
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(item => selectedIds.has(item.id))
+  const selectedItems = useMemo(
+    () => servers.filter(item => selectedIds.has(item.id)),
+    [servers, selectedIds],
+  )
+
+  const toggleSelectOne = (id: string): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAllFiltered = (): void => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const item of filtered) next.delete(item.id)
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const item of filtered) next.add(item.id)
+        return next
+      })
+    }
+  }
+
+  const invertFilteredSelection = (): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const item of filtered) {
+        if (next.has(item.id)) next.delete(item.id)
+        else next.add(item.id)
+      }
+      return next
+    })
+  }
 
   const toggleExpandTools = (id: string): void => {
     setExpandedTools((prev) => {
@@ -242,12 +296,62 @@ export function XPeachMcpPage({
     }
   }
 
+  const doBatchToggle = async (enabled: boolean): Promise<void> => {
+    if (selectedItems.length === 0) return
+    setBusy(true); setErr(null); setBanner(null)
+    try {
+      if (mcpBatchToggle !== undefined) {
+        const snap = await mcpBatchToggle({ ids: selectedItems.map(i => i.id), enabled })
+        setSnapshot(snap)
+      } else {
+        let latest: XPeachMcpSnapshot | undefined
+        for (const item of selectedItems) {
+          latest = await mcpToggle({ id: item.id, enabled })
+        }
+        if (latest !== undefined) setSnapshot(latest)
+      }
+    } catch (cause) {
+      setErr(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doBatchDelete = async (): Promise<void> => {
+    setConfirmBatchDelete(false)
+    if (selectedItems.length === 0) return
+    setBusy(true); setErr(null); setBanner(null)
+    try {
+      if (mcpBatchDelete !== undefined) {
+        const snap = await mcpBatchDelete({ ids: selectedItems.map(i => i.id) })
+        setSnapshot(snap)
+      } else {
+        let latest: XPeachMcpSnapshot | undefined
+        for (const item of selectedItems) {
+          latest = await mcpDelete({ id: item.id })
+        }
+        if (latest !== undefined) setSnapshot(latest)
+      }
+      setSelectedIds(new Set())
+    } catch (cause) {
+      setErr(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const doDelete = async (item: XPeachMcpItem): Promise<void> => {
-    if (!window.confirm(t('mcp.card.deleteConfirm', { name: item.serverName }))) return
+    setConfirmDelete(null)
     setBusy(true); setErr(null); setBanner(null)
     try {
       const snap = await mcpDelete({ id: item.id })
       setSnapshot(snap)
+      setSelectedIds((prev) => {
+        if (!prev.has(item.id)) return prev
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
+      })
     } catch (cause) {
       setErr(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -358,10 +462,15 @@ export function XPeachMcpPage({
 
   return (
     <div className={css.tabRoot}>
-      <header className={css.tabHead}>
+      <header className={css.tabHead} data-window-drag>
         <div className={css.pageHeadText}>
           <h2 className={css.pageTitle}>{t('mcp.title')}</h2>
-          <p className={css.pageIntro}>{t('mcp.subtitle')}</p>
+          <p className={css.pageIntro}>
+            <span>{t('mcp.subtitle')}</span>
+            {snapshot?.patchPath !== undefined && snapshot.patchPath !== '' && (
+              <code className={css.keyMask} title={snapshot.patchPath}>{shortenPath(snapshot.patchPath)}</code>
+            )}
+          </p>
         </div>
         <div className={css.ctrlHeadActions}>
           <button
@@ -425,17 +534,95 @@ export function XPeachMcpPage({
             </button>
           ))}
         </div>
-        {snapshot?.patchPath !== undefined && snapshot.patchPath !== '' && (
-          <code className={css.keyMask}>{snapshot.patchPath}</code>
-        )}
+
+        <div className={css.ctrlSearchRow} style={{ flex: '1 1 320px' }}>
+          <div className={css.ctrlSearchBox}>
+            <span className={css.ctrlSearchIcon}><SearchSvg /></span>
+            <input
+              className={css.ctrlSearchInput}
+              value={query}
+              placeholder={t('mcp.searchPh')}
+              onChange={(e) => { setQuery(e.target.value) }}
+            />
+            {query.length > 0 && (
+              <button
+                type="button"
+                className={css.ctrlSearchClear}
+                aria-label={t('ctrl.searchClear')}
+                onClick={() => { setQuery('') }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          {filtered.length > 0 && (
+            <>
+              <button
+                type="button"
+                className={allFilteredSelected ? css.groupChipOn : css.groupPickChip}
+                disabled={busy}
+                onClick={toggleSelectAllFiltered}
+              >
+                {allFilteredSelected
+                  ? t('ctrl.unselectAll')
+                  : t('ctrl.selectAll', { n: String(filtered.length) })}
+              </button>
+              <button
+                type="button"
+                className={css.groupPickChip}
+                disabled={busy}
+                onClick={invertFilteredSelection}
+              >
+                {t('ctrl.invertSelect')}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      <input
-        className={css.marketSearch}
-        value={query}
-        placeholder={t('mcp.searchPh')}
-        onChange={(e) => { setQuery(e.target.value) }}
-      />
+      {selectedItems.length > 0 && (
+        <div className={css.ctrlBatchBar}>
+          <div className={css.ctrlBatchLeft}>
+            <span className={css.ctrlBatchCount}>
+              {t('ctrl.selectedCount', { n: String(selectedItems.length) })}
+            </span>
+            <button
+              type="button"
+              className={css.marketBtn}
+              disabled={busy}
+              onClick={() => { setSelectedIds(new Set()) }}
+            >
+              {t('ctrl.unselectAll')}
+            </button>
+          </div>
+          <div className={css.ctrlBatchRight}>
+            <button
+              type="button"
+              className={css.bindGhost}
+              disabled={busy}
+              onClick={() => { void doBatchToggle(true) }}
+            >
+              {t('ctrl.batchEnable')}
+            </button>
+            <button
+              type="button"
+              className={css.bindGhost}
+              disabled={busy}
+              onClick={() => { void doBatchToggle(false) }}
+            >
+              {t('ctrl.batchDisable')}
+            </button>
+            <button
+              type="button"
+              className={css.ctrlBtnDanger}
+              disabled={busy}
+              onClick={() => { setConfirmBatchDelete(true) }}
+            >
+              {t('ctrl.batchDelete')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className={css.skelWrap} aria-busy="true" aria-label={t('status.loading')}>
@@ -459,6 +646,7 @@ export function XPeachMcpPage({
         <div className={css.ctrlCardGrid}>
           {filtered.map((item) => {
             const isOpen = expandedTools.has(item.id)
+            const isSelected = selectedIds.has(item.id)
             const cmdPreview = item.transportType === 'streamable-http'
               ? (item.url ?? '—')
               : [item.command ?? '', ...(item.args ?? [])].filter(Boolean).join(' ')
@@ -466,26 +654,54 @@ export function XPeachMcpPage({
             const headerKeys = Object.keys(item.headers ?? {})
 
             return (
-              <article key={item.id} className={css.ctrlCard} data-disabled={item.disabled}>
+              <article
+                key={item.id}
+                className={css.ctrlCard}
+                data-disabled={item.disabled}
+                data-selected={isSelected}
+              >
                 <div className={css.ctrlCardHead}>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    aria-label={t('ctrl.selectItem', { name: item.serverName })}
+                    className={css.ctrlCheckBtn}
+                    data-checked={isSelected}
+                    onClick={() => { toggleSelectOne(item.id) }}
+                  >
+                    {isSelected && <CheckSvg />}
+                  </button>
                   <code className={css.ctrlCardTitle}>{item.serverName}</code>
                   <span className={css.ctrlBadge}>
                     {item.transportType === 'streamable-http' ? t('mcp.transport.http') : t('mcp.transport.stdio')}
                   </span>
-                  <span className={item.disabled ? css.ctrlStatusOff : css.ctrlStatusOn}>
+                  <span className={item.disabled ? css.ctrlStatusOff : css.ctrlStatusOn} style={{ marginLeft: 0 }}>
                     {item.status === 'active'
                       ? t('mcp.status.active', { n: String(item.toolCount) })
                       : item.status === 'disabled'
                         ? t('mcp.status.disabled')
                         : t('mcp.status.configured')}
                   </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!item.disabled}
+                    aria-label={item.disabled ? t('mcp.card.enable') : t('mcp.card.disable')}
+                    className={css.ctrlToggleSwitch}
+                    data-on={!item.disabled}
+                    disabled={busy}
+                    onClick={() => { void doToggle(item) }}
+                  >
+                    <span className={css.ctrlToggleThumb} />
+                  </button>
                 </div>
 
                 <div className={css.ctrlCodeBlock}>
                   <span className={css.ctrlCodeLabel}>
                     {item.transportType === 'streamable-http' ? t('mcp.card.url') : t('mcp.card.command')}
                   </span>
-                  <code className={css.ctrlCodeText}>{cmdPreview || '—'}</code>
+                  <code className={css.ctrlCodeText} title={cmdPreview}>{cmdPreview || '—'}</code>
                 </div>
 
                 {envKeys.length > 0 && (
@@ -538,6 +754,7 @@ export function XPeachMcpPage({
                     <button
                       type="button"
                       className={css.marketBtn}
+                      disabled={busy}
                       onClick={() => { void doToggle(item) }}
                     >
                       {item.disabled ? t('mcp.card.enable') : t('mcp.card.disable')}
@@ -552,7 +769,8 @@ export function XPeachMcpPage({
                     <button
                       type="button"
                       className={css.ctrlBtnDanger}
-                      onClick={() => { void doDelete(item) }}
+                      disabled={busy}
+                      onClick={() => { setConfirmDelete(item) }}
                     >
                       {t('mcp.card.delete')}
                     </button>
@@ -564,33 +782,34 @@ export function XPeachMcpPage({
         </div>
       )}
 
-      {modalDraft !== null && (
-        <div
-          className={css.ctrlModalBackdrop}
-          role="dialog"
-          aria-modal="true"
-          aria-label={modalDraft.id !== undefined
-            ? t('mcp.modal.editTitle', { name: modalDraft.serverName })
-            : t('mcp.modal.addTitle')}
-          onClick={() => { if (!busy) setModalDraft(null) }}
-        >
-          <div className={css.ctrlModalCard} onClick={(e) => { e.stopPropagation() }}>
-            <header className={css.ctrlModalHead}>
-              <h3>
-                {modalDraft.id !== undefined
-                  ? t('mcp.modal.editTitle', { name: modalDraft.serverName })
-                  : t('mcp.modal.addTitle')}
-              </h3>
-              <button
-                type="button"
-                className={css.iconButton}
-                onClick={() => { setModalDraft(null) }}
-                aria-label={t('notice.dismiss')}
-              >
-                ✕
-              </button>
-            </header>
-
+      <Modal
+        open={modalDraft !== null}
+        onClose={() => { if (!busy) setModalDraft(null) }}
+        title={modalDraft?.id !== undefined
+          ? t('mcp.modal.editTitle', { name: modalDraft.serverName })
+          : t('mcp.modal.addTitle')}
+        closeLabel={t('notice.dismiss')}
+        footer={modalDraft !== null ? (
+          <>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => { setModalDraft(null) }}
+            >
+              {t('mcp.modal.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={busy || !canSaveModal}
+              onClick={() => { void doSaveServer() }}
+            >
+              {busy ? t('mcp.modal.saving') : t('mcp.modal.save')}
+            </Button>
+          </>
+        ) : undefined}
+      >
+        {modalDraft !== null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <nav className={css.segRow}>
               <button
                 type="button"
@@ -614,6 +833,7 @@ export function XPeachMcpPage({
                   <span>{t('mcp.modal.jsonLabel')}</span>
                   <span className={css.onbHint}>{t('mcp.modal.jsonHint')}</span>
                   <textarea
+                    data-modal-autofocus
                     className={css.ctrlModalTextarea}
                     rows={10}
                     value={jsonInput}
@@ -623,14 +843,13 @@ export function XPeachMcpPage({
                 </label>
                 {jsonErr !== null && <p className={css.bindError}>{jsonErr}</p>}
                 <div className={css.bindRow}>
-                  <button
-                    type="button"
-                    className={css.bindGhost}
+                  <Button
+                    variant="outline"
                     disabled={jsonInput.trim() === ''}
                     onClick={() => { applyJsonToDraft() }}
                   >
                     {t('mcp.modal.jsonParseBtn')}
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
@@ -638,6 +857,7 @@ export function XPeachMcpPage({
                 <label className={css.chField}>
                   <span>{t('mcp.modal.name')}</span>
                   <input
+                    data-modal-autofocus
                     className={css.bindInput}
                     value={modalDraft.serverName}
                     placeholder={t('mcp.modal.namePh')}
@@ -717,27 +937,58 @@ export function XPeachMcpPage({
                 )}
               </>
             )}
-
-            <footer className={css.ctrlModalFoot}>
-              <button
-                type="button"
-                className={css.bindGhost}
-                disabled={busy}
-                onClick={() => { setModalDraft(null) }}
-              >
-                {t('mcp.modal.cancel')}
-              </button>
-              <button
-                type="button"
-                className={css.bindButton}
-                disabled={busy || !canSaveModal}
-                onClick={() => { void doSaveServer() }}
-              >
-                {busy ? t('mcp.modal.saving') : t('mcp.modal.save')}
-              </button>
-            </footer>
           </div>
-        </div>
+        )}
+      </Modal>
+
+      {confirmDelete !== null && (
+        <Modal
+          open
+          onClose={() => { if (!busy) setConfirmDelete(null) }}
+          title={t('mcp.card.delete')}
+          description={t('mcp.card.deleteConfirm', { name: confirmDelete.serverName })}
+          closeLabel={t('notice.dismiss')}
+          footer={(
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => { setConfirmDelete(null) }}>
+                {t('mcp.modal.cancel')}
+              </Button>
+              <Button
+                variant="outline"
+                className={css.btnDanger}
+                disabled={busy}
+                onClick={() => { void doDelete(confirmDelete) }}
+              >
+                {t('mcp.card.delete')}
+              </Button>
+            </>
+          )}
+        />
+      )}
+
+      {confirmBatchDelete && (
+        <Modal
+          open
+          onClose={() => { if (!busy) setConfirmBatchDelete(false) }}
+          title={t('ctrl.batchDelete')}
+          description={t('ctrl.batchDeleteConfirm', { n: String(selectedItems.length) })}
+          closeLabel={t('notice.dismiss')}
+          footer={(
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => { setConfirmBatchDelete(false) }}>
+                {t('mcp.modal.cancel')}
+              </Button>
+              <Button
+                variant="outline"
+                className={css.btnDanger}
+                disabled={busy}
+                onClick={() => { void doBatchDelete() }}
+              >
+                {t('ctrl.batchDelete')}
+              </Button>
+            </>
+          )}
+        />
       )}
     </div>
   )

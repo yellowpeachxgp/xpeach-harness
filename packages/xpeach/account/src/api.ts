@@ -10,6 +10,7 @@ import {
   CaptchaClient,
   OAuthProtocolError,
   OidcClient,
+  ResponseFormatError,
   XpeachClient,
   isDefinitiveTokenRejection,
   type OidcTokenSet,
@@ -22,7 +23,8 @@ import type { JsonValue } from '@xpeach/xph-util-values'
 import { dirname } from 'node:path'
 import type {
   XPeachAdminLogEntry, XPeachAdminOverview, XPeachAdminPage, XPeachAdminToken,
-  XPeachAdminUser, XPeachBillingRate, XPeachChannel, XPeachChatReply, XPeachChatRequest, XPeachHealthRow, XPeachModel,
+  XPeachAdminUser, XPeachBillingRate, XPeachChannel, XPeachChatReply, XPeachChatRequest, XPeachEndpointPoolId,
+  XPeachHealthRow, XPeachModel,
   XPeachModelPerfDetail, XPeachModelPerfSummary, XPeachModelPricingChange, XPeachModelPricingSnapshot,
   XPeachPerfGroupRow, XPeachPricingCatalog, XPeachPricingEntry, XPeachRedemption,
   XPeachTokenLogEntry, XPeachTokenPage, XPeachTokenUsage, XPeachWriteResult,
@@ -31,15 +33,31 @@ import type {
   XPeachSsoCredentialSyncResult, XPeachSsoDeviceStartResult, XPeachSsoRevokeRequest,
 } from './types.ts'
 
+/** Parsed XPeach SSO issuer descriptor separating origin and optional `/t/<slug>` tenant segment. */
+export interface ParsedSsoIssuer {
+  readonly origin: string
+  readonly tenantSlug?: string | undefined
+  readonly issuer: string
+}
+
+const TENANT_PATH_RE = /^\/t\/([A-Za-z0-9._-]+)\/?$/u
+const SSO_REQUIRED_SCOPES = 'openid profile email offline_access api'
+const FALLBACK_SSO_CLIENT_ID = 'peachcode-cli'
+
+function hasGrantedScope(scopeStr: string | undefined, required: string): boolean {
+  if (typeof scopeStr !== 'string') return false
+  return scopeStr.trim().split(/\s+/u).includes(required)
+}
+
 /**
- * Validate and normalize an XPeach SSO base URL.
- * Only `https:` origins or loopback `http:` origins (`localhost`, `127.0.0.1`, `[::1]`)
- * without embedded credentials are permitted.
+ * Parse and validate an XPeach SSO base URL or tenant issuer (`https://sso.xpeach.codes`
+ * or `https://sso.xpeach.codes/t/<slug>`). Only `https:` origins or loopback `http:`
+ * origins (`localhost`, `127.0.0.1`, `[::1]`) without embedded credentials are permitted.
  *
- * @param rawUrl - candidate SSO base URL string.
- * @returns normalized origin URL without a trailing slash.
+ * @param rawUrl - candidate SSO base URL or tenant issuer string.
+ * @returns validated origin, optional tenant slug, and normalized issuer URL.
  */
-export function validateSsoBaseUrl(rawUrl: string): string {
+export function parseSsoIssuer(rawUrl: string): ParsedSsoIssuer {
   let parsed: URL
   try {
     parsed = new URL(rawUrl.trim())
@@ -59,7 +77,28 @@ export function validateSsoBaseUrl(rawUrl: string): string {
   if (!isHttps && !isLoopbackHttp) {
     throw new RemoteError('xpeach/invalid-sso-url', `xpeach: SSO base URL must use HTTPS or loopback HTTP (${parsed.origin})`, {})
   }
-  return parsed.origin
+  const tenantMatch = TENANT_PATH_RE.exec(parsed.pathname)
+  const slug = tenantMatch?.[1]
+  if (slug !== undefined && slug !== '.' && slug !== '..') {
+    return {
+      origin: parsed.origin,
+      tenantSlug: slug,
+      issuer: `${parsed.origin}/t/${slug}`,
+    }
+  }
+  return { origin: parsed.origin, issuer: parsed.origin }
+}
+
+/**
+ * Validate and normalize an XPeach SSO base URL or tenant issuer.
+ * Preserves a valid single-segment `/t/<slug>` tenant issuer path while stripping
+ * other non-issuer paths and trailing slashes.
+ *
+ * @param rawUrl - candidate SSO base URL string.
+ * @returns normalized SSO origin or `/t/<slug>` issuer URL without a trailing slash.
+ */
+export function validateSsoBaseUrl(rawUrl: string): string {
+  return parseSsoIssuer(rawUrl).issuer
 }
 
 /**
@@ -136,6 +175,10 @@ export interface XPeachApiOptions {
   readonly priceCacheFile?: string
   /** Optional callback invoked when an authenticated endpoint rejects credentials with HTTP 401 or 403. */
   readonly onAuthRejected?: ((status: 401 | 403, path: string, message: string) => void) | undefined
+  /** Optional single-flight SSO token refresh hook invoked once before surfacing an HTTP 401 failure. */
+  readonly onRefreshAuth?: ((signal: AbortSignal) => Promise<boolean>) | undefined
+  /** Optional model-to-endpoint pool resolver used by console playground and health probes. */
+  readonly resolveModelEndpoint?: ((model: string) => XPeachEndpointPoolId) | undefined
 }
 
 type GroupCatalog = Record<string, { desc?: string; models?: readonly string[]; ratio?: string | number }>
@@ -177,6 +220,10 @@ function isRedirectResponse(response: Response): boolean {
   return response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
 }
 
+function isTransientGatewayStatus(status: number): boolean {
+  return status === 502 || status === 503 || status === 504 || (status >= 520 && status <= 526)
+}
+
 /** HTTP adapter for XPeach relay, session, and site-administration endpoints. */
 export class XPeachApi {
   private baseURL: string
@@ -185,8 +232,11 @@ export class XPeachApi {
   private readonly resolveAdmin: () => string | undefined
   private readonly resolveCookie: () => string | undefined
   private readonly onAuthRejected: ((status: 401 | 403, path: string, message: string) => void) | undefined
+  private readonly onRefreshAuth: ((signal: AbortSignal) => Promise<boolean>) | undefined
+  private readonly resolveModelEndpoint: ((model: string) => XPeachEndpointPoolId) | undefined
   private adminKeyOverride: string | undefined
   private sessionKeyOverride: string | undefined
+  private readonly discoveredSsoIssuers = new Map<string, { readonly at: number; readonly issuer: string }>()
   /**
    * Price sync table — the joined pricing catalog + group ratios, persisted at
    * the profile so every consumer (cost pill, market cells, estimates) reads
@@ -227,6 +277,8 @@ export class XPeachApi {
     this.resolveAdmin = options.resolveAdmin
     this.resolveCookie = options.resolveCookie
     this.onAuthRejected = options.onAuthRejected
+    this.onRefreshAuth = options.onRefreshAuth
+    this.resolveModelEndpoint = options.resolveModelEndpoint
   }
 
   private currentAdmin(): string | undefined {
@@ -235,6 +287,46 @@ export class XPeachApi {
 
   private currentCookie(): string | undefined {
     return this.sessionKeyOverride ?? this.resolveCookie()
+  }
+
+  private canRefreshStoredAdmin(): boolean {
+    return this.onRefreshAuth !== undefined && this.adminKeyOverride === undefined && this.currentAdmin() !== undefined
+  }
+
+  private async tryRefreshAdminToken(previousToken: string, signal: AbortSignal): Promise<boolean> {
+    if (!this.canRefreshStoredAdmin() || this.onRefreshAuth === undefined) return false
+    const ok = await this.onRefreshAuth(signal).catch(() => false)
+    if (!ok) return false
+    const nextToken = this.currentAdmin()
+    return nextToken !== undefined && nextToken !== previousToken
+  }
+
+  private async fetchJsonWithAdminRefresh<T>(
+    path: string,
+    buildInit: (token: string) => RequestInit,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const initialToken = this.currentAdmin()
+    if (initialToken === undefined) {
+      throw new RemoteError('xpeach/missing-credential', 'xpeach: no site-management token; drop it at the profile xpeach.admin file', { ref: 'admin' })
+    }
+    const canRetry = this.canRefreshStoredAdmin()
+    try {
+      return await this.fetchJson<T>(this.baseURL + path, buildInit(initialToken), this.timeoutMs, signal, canRetry)
+    } catch (cause) {
+      const status = cause instanceof RemoteError ? (cause.details as { status?: number } | undefined)?.status : undefined
+      if (status === 401 && canRetry && !signal.aborted) {
+        const refreshed = await this.tryRefreshAdminToken(initialToken, signal)
+        const nextToken = this.currentAdmin()
+        if (refreshed && nextToken !== undefined) {
+          return await this.fetchJson<T>(this.baseURL + path, buildInit(nextToken), this.timeoutMs, signal, false)
+        }
+        if (this.onAuthRejected !== undefined && (path === '/api/user/self' || path.startsWith('/api/usage/token'))) {
+          this.onAuthRejected(401, path, cause instanceof Error ? cause.message : String(cause))
+        }
+      }
+      throw cause
+    }
   }
 
   /* ---------- shared fetch seams ---------- */
@@ -247,28 +339,11 @@ export class XPeachApi {
     }, this.timeoutMs, signal)
   }
 
-  /** Bearer-key POST (JSON). */
-  private async keyPost<T>(path: string, payload: unknown, timeoutScale: number, signal: AbortSignal): Promise<T> {
-    const key = await this.resolveKey()
-    return await this.fetchJson(this.baseURL + path, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + key, Accept: 'application/json', 'Content-Type': 'application/json',
-        'X-Conversation-ID': 'xpeach-console-playground',
-      },
-      body: JSON.stringify(payload),
-    }, this.timeoutMs * timeoutScale, signal)
-  }
-
   /** Admin-token GET (raw Authorization header, New API system-token style). */
   private async adminGet<T>(path: string, signal: AbortSignal): Promise<T> {
-    const key = this.currentAdmin()
-    if (key === undefined) {
-      throw new RemoteError('xpeach/missing-credential', 'xpeach: no site-management token; drop it at the profile xpeach.admin file', { ref: 'admin' })
-    }
-    return await this.fetchJson(this.baseURL + path, {
-      headers: { Authorization: key, Accept: 'application/json' },
-    }, this.timeoutMs, signal)
+    return await this.fetchJsonWithAdminRefresh<T>(path, token => ({
+      headers: { Authorization: token, Accept: 'application/json' },
+    }), signal)
   }
 
   private requireCookie(): string {
@@ -304,57 +379,50 @@ export class XPeachApi {
 
   /** User-scope GET over the login channel: Access Token first, session fallback. */
   private async authedGet<T>(path: string, signal: AbortSignal): Promise<T> {
-    const token = this.currentAdmin()
-    if (token !== undefined) {
-      return await this.fetchJson(this.baseURL + path, {
+    if (this.currentAdmin() !== undefined) {
+      return await this.fetchJsonWithAdminRefresh<T>(path, token => ({
         headers: { Authorization: token, Accept: 'application/json' },
-      }, this.timeoutMs, signal)
+      }), signal)
     }
     return await this.sessionGet<T>(path, signal)
   }
 
   /** User-scope POST over the login channel. */
   private async authedPost<T>(path: string, payload: unknown, signal: AbortSignal): Promise<T> {
-    const token = this.currentAdmin()
-    if (token !== undefined) {
-      return await this.fetchJson(this.baseURL + path, {
+    if (this.currentAdmin() !== undefined) {
+      return await this.fetchJsonWithAdminRefresh<T>(path, token => ({
         method: 'POST',
         headers: { Authorization: token, Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify(payload ?? {}),
-      }, this.timeoutMs, signal)
+      }), signal)
     }
     return await this.sessionPost<T>(path, payload, signal)
   }
 
   /** User-scope write verbs over the login channel. */
   private async authedWrite<T>(method: 'PUT' | 'DELETE', path: string, payload: unknown, signal: AbortSignal): Promise<T> {
-    const token = this.currentAdmin()
-    if (token !== undefined) {
-      return await this.fetchJson(this.baseURL + path, {
+    if (this.currentAdmin() !== undefined) {
+      return await this.fetchJsonWithAdminRefresh<T>(path, token => ({
         method,
         headers: { Authorization: token, Accept: 'application/json', 'Content-Type': 'application/json' },
         ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
-      }, this.timeoutMs, signal)
+      }), signal)
     }
     return await this.sessionWrite<T>(method, path, payload, signal)
   }
 
   /** Admin-token write verbs (POST/PUT/DELETE — same raw-Authorization channel). */
   private async adminWrite<T>(method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, payload: unknown, signal: AbortSignal): Promise<T> {
-    const key = this.currentAdmin()
-    if (key === undefined) {
-      throw new RemoteError('xpeach/missing-credential', 'xpeach: no site-management token; drop it at the profile xpeach.admin file', { ref: 'admin' })
-    }
-    return await this.fetchJson(this.baseURL + path, {
+    return await this.fetchJsonWithAdminRefresh<T>(path, token => ({
       method,
-      headers: { Authorization: key, Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: { Authorization: token, Accept: 'application/json', 'Content-Type': 'application/json' },
       ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
-    }, this.timeoutMs, signal)
+    }), signal)
   }
 
   /**
    * Send one request, failing over to the other relay routes when the transport
-   * itself fails.
+   * itself fails or an idempotent GET hits a transient edge/gateway error.
    *
    * A dropped connection is a property of the route, not of the request, so the
    * same call is retried against the remaining routes before it is reported.
@@ -377,6 +445,7 @@ export class XPeachApi {
         attempts.push(route.url + parsed.pathname + parsed.search)
       }
     }
+    const isIdempotentGet = (init.method ?? 'GET').toUpperCase() === 'GET'
     let last: unknown
     for (const [index, target] of attempts.entries()) {
       try {
@@ -393,6 +462,10 @@ export class XPeachApi {
             { status: response.status, message: 'redirect-blocked' },
           )
         }
+        if (isIdempotentGet && isTransientGatewayStatus(response.status) && index < attempts.length - 1) {
+          await response.body?.cancel().catch(() => {})
+          continue
+        }
         if (index > 0) this.setBaseURL(new URL(target).origin)
         return response
       } catch (cause) {
@@ -403,7 +476,13 @@ export class XPeachApi {
     throw last
   }
 
-  private async fetchJson<T>(url: string, init: RequestInit, timeoutMs: number, signal: AbortSignal): Promise<T> {
+  private async fetchJson<T>(
+    url: string,
+    init: RequestInit,
+    timeoutMs: number,
+    signal: AbortSignal,
+    suppressAuthRejected = false,
+  ): Promise<T> {
     let response: Response
     try {
       response = await this.send(url, init, timeoutMs, signal)
@@ -412,11 +491,17 @@ export class XPeachApi {
       throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body: unknown = await response.json().catch(() => undefined)
-    const envelope = body as { success?: boolean; message?: string; data?: unknown; error?: { message?: string } } | undefined
+    const envelope = body as
+      | { success?: boolean; code?: string; message?: string; data?: unknown; error?: { message?: string } }
+      | undefined
     if (!response.ok || envelope?.success === false) {
       const message = envelope?.message ?? envelope?.error?.message ?? response.statusText
+      const isRouteScopeForbidden = response.status === 403
+        && (envelope?.code === 'SSO_BEARER_ADMIN_DENIED' || envelope?.code === 'SSO_BEARER_ROUTE_DENIED')
       if (
-        (response.status === 401 || response.status === 403)
+        !suppressAuthRejected
+        && !isRouteScopeForbidden
+        && (response.status === 401 || response.status === 403)
         && this.onAuthRejected !== undefined
         && this.adminKeyOverride === undefined
         && (this.sessionKeyOverride === undefined || this.sessionKeyOverride === this.resolveCookie())
@@ -464,12 +549,39 @@ export class XPeachApi {
 
   /**
    * Fetch recent usage log entries for the calling relay API token.
+   * Falls back to `/api/log/usage` when `/api/log/token` returns HTTP 403 for
+   * standard (non-admin) users on newer `xpeach-api` deployments.
    *
    * @param signal - request cancellation signal.
    * @returns token log rows.
    */
-  tokenLogs(signal: AbortSignal): Promise<readonly XPeachTokenLogEntry[]> {
-    return this.keyGet('/api/log/token', signal)
+  async tokenLogs(signal: AbortSignal): Promise<readonly XPeachTokenLogEntry[]> {
+    try {
+      return await this.keyGet('/api/log/token', signal)
+    } catch (err) {
+      const status = err instanceof RemoteError ? (err.details as { status?: number } | undefined)?.status : undefined
+      if (status === 403 && (this.currentAdmin() !== undefined || this.currentCookie() !== undefined)) {
+        const page = await this.userLogs(0, 50, signal)
+        return page.items.map(row => ({
+          id: row.id,
+          user_id: row.user_id ?? 0,
+          created_at: row.created_at,
+          username: row.username ?? '',
+          token_name: row.token_name ?? '',
+          model_name: row.model_name ?? '',
+          quota: row.quota,
+          prompt_tokens: row.prompt_tokens,
+          completion_tokens: row.completion_tokens,
+          use_time: row.use_time,
+          is_stream: row.is_stream ?? false,
+          channel: row.channel ?? 0,
+          ...(row.group !== undefined ? { group: row.group } : {}),
+          ...(row.request_id !== undefined ? { request_id: row.request_id } : {}),
+          ...(row.other !== undefined ? { other: row.other } : {}),
+        }))
+      }
+      throw err
+    }
   }
 
   private async fetchRawGroupCatalog(signal: AbortSignal): Promise<GroupCatalog> {
@@ -623,6 +735,121 @@ export class XPeachApi {
     return /(?:^|\/|[-_])claude[-_0-9]/iu.test(trimmed) || /^claude$/iu.test(trimmed)
   }
 
+  private resolveChatEndpoint(model: string): XPeachEndpointPoolId {
+    if (this.resolveModelEndpoint !== undefined) {
+      return this.resolveModelEndpoint(model)
+    }
+    return this.isAnthropicModel(model) ? 'anthropic-messages' : 'openai-completions'
+  }
+
+  private static shouldFallbackOpenAiEndpoint(status: number, bodyText: string): boolean {
+    if (status === 404 || status === 405 || status === 501) return true
+    if (status === 400 || status === 422 || status === 500 || status === 502) {
+      return /get_channel_failed|not_found|unsupported|endpoint|responses|chat\/completions|no available channel/iu.test(bodyText)
+    }
+    return false
+  }
+
+  private static extractResponsesText(body: {
+    readonly output_text?: string
+    readonly output?: readonly {
+      readonly type?: string
+      readonly content?: readonly { readonly type?: string; readonly text?: string }[]
+    }[]
+  }): string {
+    if (typeof body.output_text === 'string' && body.output_text.length > 0) {
+      return body.output_text
+    }
+    const items = body.output
+    if (items === undefined) return ''
+    const parts: string[] = []
+    for (const item of items) {
+      const blocks = item.content
+      if (blocks === undefined) continue
+      for (const block of blocks) {
+        if (typeof block.text === 'string' && block.text.length > 0) {
+          parts.push(block.text)
+        }
+      }
+    }
+    return parts.join('')
+  }
+
+  private async postRelayCompletion(
+    endpoint: XPeachEndpointPoolId,
+    payload: Record<string, unknown>,
+    key: string,
+    stream: boolean,
+    timeoutMs: number,
+    conversationId: string,
+    signal: AbortSignal,
+  ): Promise<{ readonly path: string; readonly response: Response }> {
+    const path = endpoint === 'anthropic-messages'
+      ? '/v1/messages'
+      : endpoint === 'openai-responses'
+        ? '/v1/responses'
+        : '/v1/chat/completions'
+    const url = this.baseURL + path
+    let response: Response
+    try {
+      response = await this.send(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + key,
+          ...(endpoint === 'anthropic-messages' ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
+          Accept: stream ? 'text/event-stream' : 'application/json',
+          'X-Conversation-ID': conversationId,
+        },
+        body: JSON.stringify(payload),
+      }, timeoutMs, signal)
+    } catch (cause) {
+      if (signal.aborted || cause instanceof RemoteError) throw cause
+      throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
+    }
+    if (isRedirectResponse(response)) {
+      await response.body?.cancel().catch(() => {})
+      throw new RemoteError(
+        'xpeach/request-failed',
+        `xpeach: ${path} unexpected redirect (${String(response.status)})`,
+        { status: response.status, message: 'redirect-blocked' },
+      )
+    }
+    return { path, response }
+  }
+
+  private buildCompletionPayload(
+    endpoint: XPeachEndpointPoolId,
+    model: string,
+    prompt: string,
+    maxTokens: number,
+    stream: boolean,
+  ): Record<string, unknown> {
+    if (endpoint === 'openai-responses') {
+      return {
+        model,
+        input: prompt,
+        stream,
+        max_output_tokens: maxTokens,
+      }
+    }
+    if (endpoint === 'anthropic-messages') {
+      return {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        stream,
+        max_tokens: maxTokens,
+      }
+    }
+    return {
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      stream,
+      ...(stream ? { stream_options: { include_usage: true } } : {}),
+      max_tokens: maxTokens,
+    }
+  }
+
   /**
    * Execute a non-streamed chat completion against the relay.
    *
@@ -632,79 +859,63 @@ export class XPeachApi {
    */
   async chat(request: XPeachChatRequest, signal: AbortSignal): Promise<XPeachChatReply> {
     const started = Date.now()
-    if (this.isAnthropicModel(request.model)) {
-      const key = await this.resolveKey()
-      const url = this.baseURL + '/v1/messages'
-      let response: Response
-      try {
-        response = await fetch(url, {
-          method: 'POST',
-          redirect: 'manual',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + key,
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
-            'X-Conversation-ID': 'xpeach-console-playground',
-          },
-          body: JSON.stringify({
-            model: request.model,
-            messages: [{ role: 'user', content: request.prompt }],
-            stream: false,
-            max_tokens: request.maxTokens ?? 4096,
-          }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs * 3)]),
-        })
-      } catch (cause) {
-        if (signal.aborted) throw cause
-        throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
-      }
-      if (isRedirectResponse(response)) {
-        await response.body?.cancel().catch(() => {})
-        throw new RemoteError(
-          'xpeach/request-failed',
-          `xpeach: /v1/messages unexpected redirect (${String(response.status)})`,
-          { status: response.status, message: 'redirect-blocked' },
-        )
-      }
+    const key = await this.resolveKey()
+    const maxTokens = request.maxTokens ?? 4096
+    const primary = this.resolveChatEndpoint(request.model)
+    const candidates: readonly XPeachEndpointPoolId[] = primary === 'anthropic-messages'
+      ? ['anthropic-messages']
+      : primary === 'openai-responses'
+        ? ['openai-responses', 'openai-completions']
+        : ['openai-completions', 'openai-responses']
+
+    let lastFailure: RemoteError | undefined
+    for (let i = 0; i < candidates.length; i += 1) {
+      const endpoint = candidates[i]
+      if (endpoint === undefined) continue
+      const { path, response } = await this.postRelayCompletion(
+        endpoint,
+        this.buildCompletionPayload(endpoint, request.model, request.prompt, maxTokens, false),
+        key,
+        false,
+        this.timeoutMs * 3,
+        'xpeach-console-playground',
+        signal,
+      )
       if (!response.ok) {
         const text = await response.text().catch(() => '')
         const snippet = text.slice(0, 200)
-        throw new RemoteError(
+        lastFailure = new RemoteError(
           'xpeach/request-failed',
-          `xpeach: /v1/messages rejected: ${String(response.status)} ${snippet}`,
+          `xpeach: ${path} rejected: ${String(response.status)} ${snippet}`,
           { status: response.status, message: snippet },
         )
+        if (i + 1 < candidates.length && XPeachApi.shouldFallbackOpenAiEndpoint(response.status, text)) {
+          continue
+        }
+        throw lastFailure
       }
       const body = await response.json() as {
         content?: { type?: string; text?: string }[]
         choices?: { message?: { content?: string } }[]
+        output_text?: string
+        output?: { type?: string; content?: { type?: string; text?: string }[] }[]
         usage?: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number }
       }
-      const textContent = Array.isArray(body.content)
-        ? body.content.filter(b => b.type === 'text' && typeof b.text === 'string').map(b => b.text).join('')
-        : (body.choices?.[0]?.message?.content ?? '')
+      const content = endpoint === 'anthropic-messages'
+        ? (Array.isArray(body.content)
+          ? body.content.filter(b => b.type === 'text' && typeof b.text === 'string').map(b => b.text).join('')
+          : (body.choices?.[0]?.message?.content ?? ''))
+        : endpoint === 'openai-responses'
+          ? XPeachApi.extractResponsesText(body)
+          : (body.choices?.[0]?.message?.content ?? '')
       return {
-        content: textContent,
+        content,
         promptTokens: body.usage?.input_tokens ?? body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.output_tokens ?? body.usage?.completion_tokens ?? 0,
         latencyMs: Date.now() - started,
       }
     }
-    const body = await this.keyPost<{
-      choices?: { message?: { content?: string } }[]
-      usage?: { prompt_tokens?: number; completion_tokens?: number }
-    }>(
-      '/v1/chat/completions',
-      { model: request.model, messages: [{ role: 'user', content: request.prompt }], stream: false, max_tokens: request.maxTokens ?? 4096 },
-      3, signal,
-    )
-    return {
-      content: body.choices?.[0]?.message?.content ?? '',
-      promptTokens: body.usage?.prompt_tokens ?? 0,
-      completionTokens: body.usage?.completion_tokens ?? 0,
-      latencyMs: Date.now() - started,
-    }
+    throw lastFailure ?? new RemoteError('xpeach/request-failed', 'xpeach: completion failed', { status: 0, message: 'failed' })
   }
 
   /**
@@ -719,59 +930,46 @@ export class XPeachApi {
   async chatStream(request: XPeachChatRequest, onDelta: (delta: string) => void, signal: AbortSignal): Promise<XPeachChatReply> {
     const started = Date.now()
     const key = await this.resolveKey()
-    const useAnthropic = this.isAnthropicModel(request.model)
-    const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
-    const url = this.baseURL + endpointPath
-    let response: Response
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        redirect: 'manual',
-        headers: {
-          Authorization: 'Bearer ' + key,
-          ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
-          Accept: 'text/event-stream',
-          'Content-Type': 'application/json',
-          'X-Conversation-ID': 'xpeach-console-playground',
-        },
-        body: JSON.stringify(
-          useAnthropic
-            ? {
-              model: request.model,
-              messages: [{ role: 'user', content: request.prompt }],
-              stream: true,
-              max_tokens: request.maxTokens ?? 4096,
-            }
-            : {
-              model: request.model,
-              messages: [{ role: 'user', content: request.prompt }],
-              stream: true,
-              stream_options: { include_usage: true },
-              max_tokens: request.maxTokens ?? 4096,
-            },
-        ),
-        signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs * 3)]),
-      })
-    } catch (cause) {
-      if (signal.aborted) throw cause
-      throw new RemoteError('xpeach/request-failed', 'xpeach: request to ' + url + ' failed: ' + String(cause), { status: 0, message: String(cause) })
-    }
-    if (isRedirectResponse(response)) {
-      await response.body?.cancel().catch(() => {})
-      throw new RemoteError(
-        'xpeach/request-failed',
-        `xpeach: ${endpointPath} unexpected redirect (${String(response.status)})`,
-        { status: response.status, message: 'redirect-blocked' },
+    const maxTokens = request.maxTokens ?? 4096
+    const primary = this.resolveChatEndpoint(request.model)
+    const candidates: readonly XPeachEndpointPoolId[] = primary === 'anthropic-messages'
+      ? ['anthropic-messages']
+      : primary === 'openai-responses'
+        ? ['openai-responses', 'openai-completions']
+        : ['openai-completions', 'openai-responses']
+
+    let response: Response | undefined
+    let lastFailure: RemoteError | undefined
+    for (let i = 0; i < candidates.length; i += 1) {
+      const endpoint = candidates[i]
+      if (endpoint === undefined) continue
+      const attempt = await this.postRelayCompletion(
+        endpoint,
+        this.buildCompletionPayload(endpoint, request.model, request.prompt, maxTokens, true),
+        key,
+        true,
+        this.timeoutMs * 3,
+        'xpeach-console-playground',
+        signal,
       )
+      if (!attempt.response.ok || attempt.response.body === null) {
+        const text = await attempt.response.text().catch(() => '')
+        const snippet = text.slice(0, 200)
+        lastFailure = new RemoteError(
+          'xpeach/request-failed',
+          `xpeach: ${attempt.path} rejected: ${String(attempt.response.status)} ${snippet}`,
+          { status: attempt.response.status, message: snippet },
+        )
+        if (i + 1 < candidates.length && XPeachApi.shouldFallbackOpenAiEndpoint(attempt.response.status, text)) {
+          continue
+        }
+        throw lastFailure
+      }
+      response = attempt.response
+      break
     }
-    if (!response.ok || response.body === null) {
-      const text = await response.text().catch(() => '')
-      const snippet = text.slice(0, 200)
-      throw new RemoteError(
-        'xpeach/request-failed',
-        `xpeach: ${endpointPath} rejected: ${String(response.status)} ${snippet}`,
-        { status: response.status, message: snippet },
-      )
+    if (response === undefined || response.body === null) {
+      throw lastFailure ?? new RemoteError('xpeach/request-failed', 'xpeach: stream failed', { status: 0, message: 'failed' })
     }
     let content = ''
     let promptTokens = 0
@@ -797,8 +995,13 @@ export class XPeachApi {
           if (data === '[DONE]') continue
           let parsed: {
             type?: string
-            delta?: { type?: string; text?: string }
+            delta?: string | { type?: string; text?: string }
             message?: { usage?: { input_tokens?: number; output_tokens?: number } }
+            response?: {
+              output_text?: string
+              output?: { type?: string; content?: { type?: string; text?: string }[] }[]
+              usage?: { input_tokens?: number; output_tokens?: number }
+            }
             choices?: { delta?: { content?: string } }[]
             usage?: { prompt_tokens?: number; completion_tokens?: number; input_tokens?: number; output_tokens?: number }
           }
@@ -806,10 +1009,28 @@ export class XPeachApi {
             parsed = JSON.parse(data) as typeof parsed
           } catch (_err) { continue }
           const delta = parsed.choices?.[0]?.delta?.content
-            ?? (parsed.type === 'content_block_delta' ? parsed.delta?.text : undefined)
+            ?? (parsed.type === 'content_block_delta' && typeof parsed.delta === 'object'
+              ? parsed.delta.text
+              : undefined)
+            ?? (parsed.type === 'response.output_text.delta' && typeof parsed.delta === 'string'
+              ? parsed.delta
+              : undefined)
           if (typeof delta === 'string' && delta.length > 0) {
             content += delta
             onDelta(delta)
+          }
+          if (parsed.type === 'response.completed' && parsed.response !== undefined) {
+            if (content.length === 0) {
+              const fallbackText = XPeachApi.extractResponsesText(parsed.response)
+              if (fallbackText.length > 0) {
+                content += fallbackText
+                onDelta(fallbackText)
+              }
+            }
+            if (parsed.response.usage !== undefined) {
+              promptTokens = parsed.response.usage.input_tokens ?? promptTokens
+              completionTokens = parsed.response.usage.output_tokens ?? completionTokens
+            }
           }
           if (parsed.message?.usage) {
             promptTokens = parsed.message.usage.input_tokens ?? promptTokens
@@ -831,7 +1052,7 @@ export class XPeachApi {
   }
 
   /**
-   * One cheap health ping per model: a 1-token non-streamed completion against
+   * One cheap health ping per model: a minimal non-streamed completion against
    * the relay.
    *
    * @param model - catalog model identifier to probe.
@@ -842,33 +1063,42 @@ export class XPeachApi {
     const started = Date.now()
     try {
       const key = await this.resolveKey()
-      const useAnthropic = this.isAnthropicModel(model)
-      const endpointPath = useAnthropic ? '/v1/messages' : '/v1/chat/completions'
-      const response = await fetch(this.baseURL + endpointPath, {
-        method: 'POST',
-        redirect: 'manual',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + key,
-          ...(useAnthropic ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : {}),
-          // A real tracking header keeps the probe out of the site's
-          // probe-classifier path — bare requests 400 on missing tracking.
-          'X-Conversation-ID': 'xpeach-health-probe',
-        },
-        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'ok' }], stream: false, max_tokens: 1 }),
-        signal: AbortSignal.any([signal, AbortSignal.timeout(this.timeoutMs)]),
-      })
-      const latencyMs = Date.now() - started
-      if (isRedirectResponse(response)) {
-        await response.body?.cancel().catch(() => {})
-        return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: redirect blocked` }
+      const primary = this.resolveChatEndpoint(model)
+      const candidates: readonly XPeachEndpointPoolId[] = primary === 'anthropic-messages'
+        ? ['anthropic-messages']
+        : primary === 'openai-responses'
+          ? ['openai-responses', 'openai-completions']
+          : ['openai-completions', 'openai-responses']
+      for (let i = 0; i < candidates.length; i += 1) {
+        const endpoint = candidates[i]
+        if (endpoint === undefined) continue
+        // Responses API upstreams often enforce max_output_tokens >= 16.
+        const maxTokens = endpoint === 'openai-responses' ? 16 : 1
+        // A real tracking header keeps the probe out of the site's
+        // probe-classifier path — bare requests 400 on missing tracking.
+        const { response } = await this.postRelayCompletion(
+          endpoint,
+          this.buildCompletionPayload(endpoint, model, 'ok', maxTokens, false),
+          key,
+          false,
+          this.timeoutMs,
+          'xpeach-health-probe',
+          signal,
+        )
+        const latencyMs = Date.now() - started
+        const text = await response.text()
+        if (!response.ok) {
+          if (i + 1 < candidates.length && XPeachApi.shouldFallbackOpenAiEndpoint(response.status, text)) {
+            continue
+          }
+          return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: ${text.slice(0, 120)}` }
+        }
+        // A 200 can still be a mock channel answering "[Mock]本分组禁探针" —
+        // that is a probe-verdict, not a healthy reply; surface it separately.
+        const mocked = /\[Mock\]|禁探针/.test(text)
+        return { id: model, ok: !mocked, mocked, latencyMs, error: mocked ? 'mock channel (probe-classified)' : undefined }
       }
-      const text = await response.text()
-      if (!response.ok) return { id: model, ok: false, latencyMs, error: `HTTP ${String(response.status)}: ${text.slice(0, 120)}` }
-      // A 200 can still be a mock channel answering "[Mock]本分组禁探针" —
-      // that is a probe-verdict, not a healthy reply; surface it separately.
-      const mocked = /\[Mock\]|禁探针/.test(text)
-      return { id: model, ok: !mocked, mocked, latencyMs, error: mocked ? 'mock channel (probe-classified)' : undefined }
+      return { id: model, ok: false, mocked: false, latencyMs: Date.now() - started, error: 'probe failed' }
     } catch (error) {
       return { id: model, ok: false, mocked: false, latencyMs: undefined, error: error instanceof Error ? error.message : String(error) }
     }
@@ -989,6 +1219,27 @@ export class XPeachApi {
     return this.adminGet('/api/group/', signal)
   }
 
+  private async sendOptionalAuthedGet(path: string, signal: AbortSignal): Promise<Response> {
+    const initialKey = this.currentAdmin()
+    const cookie = this.currentCookie()
+    const buildHeaders = (adminKey: string | undefined): Record<string, string> => {
+      const headers: Record<string, string> = { Accept: 'application/json' }
+      if (adminKey !== undefined) headers['Authorization'] = adminKey
+      else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
+      return headers
+    }
+    const response = await this.send(this.baseURL + path, { headers: buildHeaders(initialKey) }, this.timeoutMs, signal)
+    if (response.status === 401 && initialKey !== undefined && !signal.aborted && this.canRefreshStoredAdmin()) {
+      const refreshed = await this.tryRefreshAdminToken(initialKey, signal)
+      const nextKey = this.currentAdmin()
+      if (refreshed && nextKey !== undefined) {
+        await response.body?.cancel().catch(() => {})
+        return await this.send(this.baseURL + path, { headers: buildHeaders(nextKey) }, this.timeoutMs, signal)
+      }
+    }
+    return response
+  }
+
   /**
    * Full pricing catalog. The flat entry list is inside the envelope while the
    * per-group ratio table sits beside it on the raw body, so this call reads
@@ -998,18 +1249,11 @@ export class XPeachApi {
    * @returns pricing entries and group ratio map.
    */
   async adminPricing(signal: AbortSignal): Promise<XPeachPricingCatalog> {
-    const key = this.currentAdmin()
-    const cookie = this.currentCookie()
-    const headers: Record<string, string> = { Accept: 'application/json' }
-    if (key !== undefined) headers['Authorization'] = key
-    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
     let response: Response
     try {
-      response = await this.send(this.baseURL + '/api/pricing', {
-        headers,
-      }, this.timeoutMs, signal)
+      response = await this.sendOptionalAuthedGet('/api/pricing', signal)
     } catch (cause) {
-      if (signal.aborted) throw cause
+      if (signal.aborted || cause instanceof RemoteError) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: pricing fetch failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body = await response.json().catch(() => undefined) as
@@ -1048,21 +1292,11 @@ export class XPeachApi {
    */
   async perfMetricsSummary(hours: number, signal: AbortSignal): Promise<readonly XPeachModelPerfSummary[]> {
     const safeHours = Math.max(1, Math.min(168, Math.floor(Number.isFinite(hours) ? hours : 24)))
-    const key = this.currentAdmin()
-    const cookie = this.currentCookie()
-    const headers: Record<string, string> = { Accept: 'application/json' }
-    if (key !== undefined) headers['Authorization'] = key
-    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
     let response: Response
     try {
-      response = await this.send(
-        `${this.baseURL}/api/perf-metrics/summary?hours=${String(safeHours)}`,
-        { headers },
-        this.timeoutMs,
-        signal,
-      )
+      response = await this.sendOptionalAuthedGet(`/api/perf-metrics/summary?hours=${String(safeHours)}`, signal)
     } catch (cause) {
-      if (signal.aborted) throw cause
+      if (signal.aborted || cause instanceof RemoteError) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: perf summary fetch failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body = await response.json().catch(() => undefined) as
@@ -1098,21 +1332,14 @@ export class XPeachApi {
    */
   async perfMetricsDetail(model: string, hours: number, signal: AbortSignal): Promise<XPeachModelPerfDetail> {
     const safeHours = Math.max(1, Math.min(168, Math.floor(Number.isFinite(hours) ? hours : 24)))
-    const key = this.currentAdmin()
-    const cookie = this.currentCookie()
-    const headers: Record<string, string> = { Accept: 'application/json' }
-    if (key !== undefined) headers['Authorization'] = key
-    else if (cookie !== undefined) headers['Cookie'] = 'session=' + cookie
     let response: Response
     try {
-      response = await this.send(
-        `${this.baseURL}/api/perf-metrics?model=${encodeURIComponent(model)}&hours=${String(safeHours)}`,
-        { headers },
-        this.timeoutMs,
+      response = await this.sendOptionalAuthedGet(
+        `/api/perf-metrics?model=${encodeURIComponent(model)}&hours=${String(safeHours)}`,
         signal,
       )
     } catch (cause) {
-      if (signal.aborted) throw cause
+      if (signal.aborted || cause instanceof RemoteError) throw cause
       throw new RemoteError('xpeach/request-failed', 'xpeach: perf detail fetch failed: ' + String(cause), { status: 0, message: String(cause) })
     }
     const body = await response.json().catch(() => undefined) as
@@ -1224,13 +1451,13 @@ export class XPeachApi {
   }
 
   /**
-   * Fetch own-usage statistics via the admin access token.
+   * Fetch own-usage statistics via the active management/SSO access token.
    *
    * @param signal - request cancellation signal.
    * @returns quota, RPM, and TPM statistics.
    */
   adminSelfStat(signal: AbortSignal): Promise<{ quota?: number; rpm?: number; tpm?: number }> {
-    return this.adminGet('/api/log/self/stat', signal)
+    return this.adminGet('/api/log/usage/stat', signal)
   }
 
   /**
@@ -1287,11 +1514,15 @@ export class XPeachApi {
    *
    * @param page - zero-based page index.
    * @param signal - request cancellation signal.
+   * @param size - optional explicit page size.
    * @returns paged list of user tokens.
    */
-  userTokens(page: number, signal: AbortSignal): Promise<XPeachTokenPage> {
+  userTokens(page: number, signal: AbortSignal, size?: number): Promise<XPeachTokenPage> {
     const p = Math.max(1, Math.floor(page) + 1)
-    return this.authedGet(`/api/token/?p=${String(p)}`, signal)
+    const sizeQuery = typeof size === 'number' && Number.isFinite(size) && size > 0
+      ? `&page_size=${String(Math.floor(size))}`
+      : ''
+    return this.authedGet(`/api/token/?p=${String(p)}${sizeQuery}`, signal)
   }
 
   /**
@@ -1376,7 +1607,7 @@ export class XPeachApi {
    */
   userLogs(page: number, size: number, signal: AbortSignal): Promise<XPeachSelfLogPage> {
     const p = Math.max(1, Math.floor(page) + 1)
-    return this.authedGet(`/api/log/self?p=${String(p)}&page_size=${String(size)}`, signal)
+    return this.authedGet(`/api/log/usage?p=${String(p)}&page_size=${String(size)}`, signal)
   }
 
   /**
@@ -1386,7 +1617,7 @@ export class XPeachApi {
    * @returns own usage statistics.
    */
   userLogStat(signal: AbortSignal): Promise<XPeachSelfLogStat> {
-    return this.authedGet('/api/log/self/stat', signal)
+    return this.authedGet('/api/log/usage/stat', signal)
   }
 
   /**
@@ -1673,26 +1904,98 @@ export class XPeachApi {
 
   /* ---------- XPeach SSO Official SDK (@xpeach/ts-xpeach) surfaces ---------- */
 
+  private static readonly SSO_ISSUER_DISCOVERY_TTL_MS = 5 * 60 * 1000
+
   /**
-   * Resolve the validated candidate SSO origin list for a configured SSO base URL.
+   * Resolve the validated candidate SSO origin/issuer list for a configured SSO base URL.
    *
-   * @param ssoBaseURL - configured SSO base URL.
-   * @returns single-element array containing the normalized SSO origin.
+   * @param ssoBaseURL - configured SSO base URL or tenant issuer.
+   * @returns single-element array containing the normalized SSO issuer.
    */
   candidateSsoBaseURLs(ssoBaseURL: string): string[] {
     return candidateSsoBaseURLs(ssoBaseURL)
   }
 
-  private createSsoOidcClient(ssoBaseURL: string, clientId = 'xpeach-harness'): { activeBase: string; oidc: OidcClient } {
-    const activeBase = this.candidateSsoBaseURLs(ssoBaseURL)[0] ?? validateSsoBaseUrl(ssoBaseURL)
+  /**
+   * Discover the tenant-scoped SSO issuer (e.g. `https://sso.xpeach.codes/t/acme`)
+   * from the active PeachAPI site's `/api/status` (`oidc_authorization_endpoint`).
+   * Adopts a discovered tenant path ONLY when its origin matches the configured
+   * SSO origin; falls back to the configured issuer when `/api/status` is unavailable.
+   *
+   * @param configuredSsoBaseURL - configured SSO origin or explicit tenant issuer.
+   * @param signal - request cancellation signal.
+   * @returns normalized effective SSO issuer URL.
+   */
+  async discoverSsoIssuer(configuredSsoBaseURL: string, signal: AbortSignal): Promise<string> {
+    const configured = parseSsoIssuer(configuredSsoBaseURL)
+    if (configured.tenantSlug !== undefined) {
+      return configured.issuer
+    }
+    const cacheKey = `${this.baseURL}|${configured.origin}`
+    const cached = this.discoveredSsoIssuers.get(cacheKey)
+    if (cached !== undefined && Date.now() - cached.at < XPeachApi.SSO_ISSUER_DISCOVERY_TTL_MS) {
+      return cached.issuer
+    }
+    try {
+      const response = await this.send(
+        `${this.baseURL}/api/status`,
+        { headers: { Accept: 'application/json' } },
+        Math.min(this.timeoutMs, 5000),
+        signal,
+      )
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => {})
+        return configured.issuer
+      }
+      const raw = await response.json().catch(() => undefined) as
+        | {
+          readonly data?: { readonly oidc_authorization_endpoint?: unknown }
+          readonly oidc_authorization_endpoint?: unknown
+        }
+        | undefined
+      const authEndpoint = typeof raw?.data?.oidc_authorization_endpoint === 'string'
+        ? raw.data.oidc_authorization_endpoint.trim()
+        : typeof raw?.oidc_authorization_endpoint === 'string'
+          ? raw.oidc_authorization_endpoint.trim()
+          : ''
+      let resolvedIssuer = configured.issuer
+      if (authEndpoint.length > 0) {
+        try {
+          const parsedAuth = new URL(authEndpoint)
+          const strippedPath = parsedAuth.pathname.replace(/\/auth\/?$/u, '')
+          const candidateUrl = `${parsedAuth.origin}${strippedPath}`
+          const discovered = parseSsoIssuer(candidateUrl)
+          if (discovered.origin === configured.origin) {
+            resolvedIssuer = discovered.issuer
+          }
+        } catch (_err) {
+          /* ignore malformed site-advertised OIDC endpoint and keep configured origin */
+        }
+      }
+      this.discoveredSsoIssuers.set(cacheKey, { at: Date.now(), issuer: resolvedIssuer })
+      return resolvedIssuer
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      return configured.issuer
+    }
+  }
+
+  private createSsoOidcClient(ssoBaseURL: string, clientId = 'xpeach-harness'): {
+    readonly activeBase: string
+    readonly origin: string
+    readonly tenantSlug?: string | undefined
+    readonly oidc: OidcClient
+  } {
+    const parsed = parseSsoIssuer(this.candidateSsoBaseURLs(ssoBaseURL)[0] ?? ssoBaseURL)
     const effectiveClientId = clientId.trim() || 'xpeach-harness'
     const oidc = new OidcClient({
-      baseUrl: activeBase,
+      baseUrl: parsed.origin,
+      ...(parsed.tenantSlug !== undefined ? { tenantSlug: parsed.tenantSlug } : {}),
       clientId: effectiveClientId,
       timeoutMs: Math.min(this.timeoutMs, 8000),
       retry: { maxAttempts: 1 },
     })
-    return { activeBase, oidc }
+    return { activeBase: parsed.issuer, origin: parsed.origin, tenantSlug: parsed.tenantSlug, oidc }
   }
 
   private buildBridgePayloadFromVerifiedIdentity(
@@ -1701,15 +2004,21 @@ export class XPeachApi {
       readonly idToken?: string | undefined
     },
     identity: VerifiedAccessIdentity,
+    issuer?: string,
+    clientId?: string,
   ): XPeachSsoBridgePayload {
     const cleanRelayBase = this.baseURL.trim().replace(/\/+$/u, '')
     const fallbackName = identity.username ?? identity.name ?? identity.sub
+    const effectiveIssuer = identity.issuer?.trim() || issuer?.trim() || undefined
+    const effectiveClientId = identity.clientId.trim() || clientId?.trim() || undefined
     return {
       sso: {
         accessToken: tokenSet.accessToken,
         ...(tokenSet.refreshToken ? { refreshToken: tokenSet.refreshToken } : {}),
         ...(tokenSet.idToken ? { idToken: tokenSet.idToken } : {}),
         expiresIn: tokenSet.expiresIn,
+        ...(effectiveIssuer ? { issuer: effectiveIssuer } : {}),
+        ...(effectiveClientId ? { clientId: effectiveClientId } : {}),
         user: {
           id: identity.sub,
           username: identity.username,
@@ -1726,96 +2035,226 @@ export class XPeachApi {
     }
   }
 
+  private async preflightPkceAuthorizationUrl(
+    authorizationUrl: string,
+    signal: AbortSignal,
+  ): Promise<
+    | { readonly ok: true }
+    | { readonly ok: false; readonly error: string; readonly errorDescription?: string | undefined }
+  > {
+    let response: Response
+    try {
+      response = await fetch(authorizationUrl, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: { Accept: 'application/json, text/html' },
+        signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(this.timeoutMs, 5000))]),
+      })
+    } catch (cause) {
+      if (signal.aborted) throw cause
+      return { ok: true }
+    }
+    if (response.status === 400 || response.status === 401) {
+      const body = await response.json().catch(() => undefined) as
+        | { readonly error?: unknown; readonly error_description?: unknown }
+        | undefined
+      if (typeof body?.error === 'string' && body.error.trim().length > 0) {
+        return {
+          ok: false,
+          error: body.error.trim(),
+          errorDescription: typeof body.error_description === 'string' && body.error_description.trim().length > 0
+            ? body.error_description.trim()
+            : undefined,
+        }
+      }
+      return { ok: true }
+    }
+    await response.body?.cancel().catch(() => {})
+    return { ok: true }
+  }
+
   /**
    * Start a 1-click OIDC Authorization Code + PKCE S256 loopback login listener
    * via `@xpeach/ts-xpeach/oidc-node` so local Desktop/Web/CLI sessions complete
    * immediately upon browser approval without device-code polling.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * Preflights the authorization URL without following redirects so `invalid_client`
+   * and `invalid_redirect_uri` rejections trigger automatic callback/client fallback
+   * instead of opening a raw OAuth error JSON page in the user's browser.
+   *
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param clientId - registered OAuth public client identifier.
    * @param signal - request cancellation signal.
-   * @param preferredPorts - candidate loopback ports (defaults to `[18920, 18921, 18922, 0]`).
-   * @returns authorization URL, redirect URI, expiry, and completion handle.
+   * @param preferredPorts - optional explicit candidate loopback ports.
+   * @param options - optional fallback policy flags.
+   * @returns authorization URL, redirect URI, expiry, resolved client/issuer, and completion handle.
    */
   async ssoPkceLoopbackStart(
     ssoBaseURL: string,
     clientId: string,
     signal: AbortSignal,
-    preferredPorts: readonly number[] = [18920, 18921, 18922, 0],
+    preferredPorts?: readonly number[],
+    options?: { readonly allowClientFallback?: boolean | undefined },
   ): Promise<{
     readonly authorizationUrl: string
     readonly redirectUri: string
     readonly expiresIn: number
+    readonly clientId: string
+    readonly issuer: string
     readonly waitForApproval: () => Promise<XPeachSsoBridgePayload>
     readonly close: () => Promise<void>
   }> {
-    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
-    const listener = await startPkceLoopbackListener({
-      oidc,
-      preferredPorts,
-      scope: 'openid profile email offline_access api',
-      timeoutMs: 300_000,
-      signal,
-    })
-    const safeAuthorizationUrl = validateVerificationUrl(listener.authorizationUrl, activeBase)
-    return {
-      authorizationUrl: safeAuthorizationUrl,
-      redirectUri: listener.redirectUri,
-      expiresIn: 300,
-      waitForApproval: async (): Promise<XPeachSsoBridgePayload> => {
-        const tokenSet = await listener.waitForTokens()
-        const identity = await oidc.verifyAccessToken(tokenSet.accessToken, { signal })
-        return this.buildBridgePayloadFromVerifiedIdentity(tokenSet, identity)
-      },
-      close: () => listener.close(),
+    const primaryClientId = clientId.trim() || 'xpeach-harness'
+    const candidateClients = options?.allowClientFallback === true && primaryClientId !== FALLBACK_SSO_CLIENT_ID
+      ? [primaryClientId, FALLBACK_SSO_CLIENT_ID]
+      : [primaryClientId]
+
+    let lastErrorMessage = 'PKCE loopback authorization preflight failed'
+    for (const candidateClientId of candidateClients) {
+      const { activeBase, origin, oidc } = this.createSsoOidcClient(ssoBaseURL, candidateClientId)
+      const profiles: readonly { readonly callbackPath: string; readonly ports: readonly number[] }[] =
+        preferredPorts !== undefined && preferredPorts.length > 0
+          ? [
+            { callbackPath: '/oauth/callback', ports: preferredPorts },
+            { callbackPath: '/callback', ports: [14555, ...preferredPorts] },
+          ]
+          : candidateClientId === FALLBACK_SSO_CLIENT_ID
+            ? [
+              { callbackPath: '/callback', ports: [14555] },
+              { callbackPath: '/oauth/callback', ports: [18920, 18921, 18922, 0] },
+            ]
+            : [
+              { callbackPath: '/oauth/callback', ports: [18920, 18921, 18922, 0] },
+              { callbackPath: '/callback', ports: [14555] },
+            ]
+
+      for (const profile of profiles) {
+        let listener: Awaited<ReturnType<typeof startPkceLoopbackListener>>
+        try {
+          listener = await startPkceLoopbackListener({
+            oidc,
+            callbackPath: profile.callbackPath,
+            preferredPorts: profile.ports,
+            scope: SSO_REQUIRED_SCOPES,
+            timeoutMs: 300_000,
+            signal,
+          })
+        } catch (listenErr) {
+          if (signal.aborted) throw listenErr
+          lastErrorMessage = listenErr instanceof Error ? listenErr.message : String(listenErr)
+          continue
+        }
+        let safeAuthorizationUrl: string
+        try {
+          safeAuthorizationUrl = validateVerificationUrl(listener.authorizationUrl, origin)
+        } catch (urlErr) {
+          await listener.close().catch(() => {})
+          throw urlErr
+        }
+        const preflight = await this.preflightPkceAuthorizationUrl(safeAuthorizationUrl, signal)
+        if (preflight.ok) {
+          return {
+            authorizationUrl: safeAuthorizationUrl,
+            redirectUri: listener.redirectUri,
+            expiresIn: 300,
+            clientId: oidc.clientId,
+            issuer: activeBase,
+            waitForApproval: async (): Promise<XPeachSsoBridgePayload> => {
+              const tokenSet = await listener.waitForTokens()
+              const identity = await oidc.verifyAccessToken(tokenSet.accessToken, { signal })
+              return this.buildBridgePayloadFromVerifiedIdentity(tokenSet, identity, activeBase, oidc.clientId)
+            },
+            close: () => listener.close(),
+          }
+        }
+        await listener.close().catch(() => {})
+        lastErrorMessage = preflight.errorDescription
+          ? `${preflight.error}: ${preflight.errorDescription}`
+          : preflight.error
+        if (preflight.error === 'invalid_client' || preflight.error === 'unauthorized_client') {
+          break
+        }
+        if (preflight.error === 'invalid_redirect_uri') {
+          continue
+        }
+        break
+      }
     }
+    throw new RemoteError('xpeach/request-failed', `xpeach: SSO PKCE authorize rejected: ${lastErrorMessage}`, {
+      status: 400,
+      message: lastErrorMessage,
+    })
   }
 
   /**
-   * Initiate an XPeach SSO RFC 8628 Device Authorization session (`POST /device/auth`)
-   * exclusively through the official `@xpeach/ts-xpeach` SDK.
+   * Initiate an XPeach SSO RFC 8628 Device Authorization session (`POST /device/auth`
+   * or `POST /t/<slug>/device/auth`) exclusively through the official `@xpeach/ts-xpeach` SDK.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param clientId - registered client identifier.
    * @param _clientName - human-readable device/client label.
    * @param signal - request cancellation signal.
-   * @returns device code, user code, verification URLs, and polling parameters.
+   * @param allowClientFallback - whether to fall back to `peachcode-cli` on `invalid_client`.
+   * @returns device code, user code, verification URLs, polling parameters, and effective client/issuer.
    */
   async ssoDeviceAuthorize(
     ssoBaseURL: string,
     clientId: string,
     _clientName: string,
     signal: AbortSignal,
+    allowClientFallback = false,
   ): Promise<Omit<XPeachSsoDeviceStartResult, 'browserOpened'>> {
-    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
-    try {
-      const started = await oidc.startDeviceAuthorization(
-        { scope: 'openid profile email offline_access api' },
-        { signal },
-      )
-      const verificationUri = validateVerificationUrl(started.verificationUri, activeBase)
-      const rawComplete = started.verificationUriComplete ?? `${verificationUri}?user_code=${encodeURIComponent(started.userCode)}`
-      const verificationUriComplete = validateVerificationUrl(rawComplete, activeBase)
-      return {
-        deviceCode: started.deviceCode,
-        userCode: started.userCode,
-        verificationUri,
-        verificationUriComplete,
-        expiresIn: started.expiresIn,
-        interval: started.intervalSeconds,
+    const primaryClientId = clientId.trim() || 'xpeach-harness'
+    const candidateClients = allowClientFallback && primaryClientId !== FALLBACK_SSO_CLIENT_ID
+      ? [primaryClientId, FALLBACK_SSO_CLIENT_ID]
+      : [primaryClientId]
+
+    let lastCause: unknown
+    for (let i = 0; i < candidateClients.length; i += 1) {
+      const candidateClientId = candidateClients[i]
+      if (candidateClientId === undefined) continue
+      const { activeBase, origin, oidc } = this.createSsoOidcClient(ssoBaseURL, candidateClientId)
+      try {
+        const started = await oidc.startDeviceAuthorization(
+          { scope: SSO_REQUIRED_SCOPES },
+          { signal },
+        )
+        const verificationUri = validateVerificationUrl(started.verificationUri, origin)
+        const rawComplete = started.verificationUriComplete ?? `${verificationUri}?user_code=${encodeURIComponent(started.userCode)}`
+        const verificationUriComplete = validateVerificationUrl(rawComplete, origin)
+        return {
+          deviceCode: started.deviceCode,
+          userCode: started.userCode,
+          verificationUri,
+          verificationUriComplete,
+          expiresIn: started.expiresIn,
+          interval: started.intervalSeconds,
+          clientId: oidc.clientId,
+          issuer: activeBase,
+        }
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        lastCause = cause
+        if (
+          i + 1 < candidateClients.length
+          && cause instanceof OAuthProtocolError
+          && (cause.error === 'invalid_client' || cause.error === 'unauthorized_client')
+        ) {
+          continue
+        }
+        break
       }
-    } catch (cause) {
-      if (signal.aborted) throw cause
-      const msg = cause instanceof Error ? cause.message : String(cause)
-      throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${msg}`, { status: 0, message: msg })
     }
+    const msg = lastCause instanceof Error ? lastCause.message : String(lastCause)
+    throw new RemoteError('xpeach/request-failed', `xpeach: SSO device authorize failed: ${msg}`, { status: 0, message: msg })
   }
 
   /**
-   * Poll the XPeach SSO OIDC Token endpoint (`POST /token` with RFC 8628 `device_code` grant)
-   * via `@xpeach/ts-xpeach` and resolve authoritative identity via `verifyAccessToken`.
+   * Poll the XPeach SSO OIDC Token endpoint (`POST /token` or `POST /t/<slug>/token`
+   * with RFC 8628 `device_code` grant) via `@xpeach/ts-xpeach` and resolve authoritative
+   * identity via `verifyAccessToken`.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param clientId - registered client identifier.
    * @param deviceCode - opaque device code from `ssoDeviceAuthorize`.
    * @param signal - request cancellation signal.
@@ -1831,23 +2270,21 @@ export class XPeachApi {
     readonly message?: string | undefined
     readonly payload?: XPeachSsoBridgePayload | undefined
   }> {
-    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const { activeBase, origin, tenantSlug, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
     const rawSdk = new XpeachClient({
-      baseUrl: activeBase,
+      baseUrl: origin,
       timeoutMs: Math.min(this.timeoutMs, 8000),
       retry: { maxAttempts: 1 },
     })
     try {
-      const rawToken = await rawSdk.oidcToken(
-        {
-          body: {
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-            client_id: oidc.clientId,
-            device_code: deviceCode,
-          },
-        },
-        { signal },
-      )
+      const formBody = {
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code' as const,
+        client_id: oidc.clientId,
+        device_code: deviceCode,
+      }
+      const rawToken = tenantSlug !== undefined
+        ? await rawSdk.oidcTenantToken({ slug: tenantSlug, body: formBody }, { signal })
+        : await rawSdk.oidcToken({ body: formBody }, { signal })
       const accessToken = rawToken.access_token?.trim() ?? ''
       if (accessToken.length === 0) {
         return { status: 'error', message: 'OIDC token response missing access_token' }
@@ -1872,6 +2309,8 @@ export class XPeachApi {
             ...(idToken !== undefined ? { idToken } : {}),
           },
           identity,
+          activeBase,
+          oidc.clientId,
         ),
       }
     } catch (cause) {
@@ -1898,10 +2337,11 @@ export class XPeachApi {
   /**
    * Verify and proactively rotate the active SSO session via `@xpeach/ts-xpeach`
    * (`GET /api/internal/verify` + automatic `POST /token` `refresh_token` rotation).
-   * Distinguishes definitive revocation/ban (`status: 'revoked'`) from transient
-   * network or 5xx failures (`status: 'transient_error'`).
+   * Enforces the `api` scope required by PeachAPI SSO Bearer authentication, rotates
+   * tokens with <= 60 seconds remaining, and distinguishes definitive revocation/ban
+   * (`status: 'revoked'`) from transient network or 5xx failures (`status: 'transient_error'`).
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param ssoAccessToken - active SSO Bearer access token (`at+jwt` or `xph_at_...`).
    * @param signal - request cancellation signal.
    * @param refreshToken - optional OIDC refresh token used for automatic silent rotation.
@@ -1915,42 +2355,116 @@ export class XPeachApi {
     refreshToken?: string,
     clientId = 'xpeach-harness',
   ): Promise<XPeachSsoCredentialSyncResult> {
-    const { oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const trimmedRefresh = refreshToken?.trim() ?? ''
+    const hasScopeMismatch = (identity: VerifiedAccessIdentity): boolean =>
+      typeof identity.scope === 'string' && identity.scope.trim().length > 0 && !hasGrantedScope(identity.scope, 'api')
+
+    const rotateWithRefresh = async (requestApiScope: boolean): Promise<XPeachSsoCredentialSyncResult> => {
+      const rotated = await oidc.refreshToken(
+        {
+          refreshToken: trimmedRefresh,
+          ...(requestApiScope ? { scope: SSO_REQUIRED_SCOPES } : {}),
+        },
+        { signal },
+      )
+      const rotatedIdentity = await oidc.verifyAccessToken(rotated.accessToken, { signal })
+      if (hasScopeMismatch(rotatedIdentity)) {
+        return {
+          status: 'revoked',
+          revoked: true,
+          code: 401,
+          message: 'SSO 凭证缺少新版 API 访问权限，请重新通过 SSO 登录授权。',
+        }
+      }
+      return {
+        status: 'ok',
+        payload: this.buildBridgePayloadFromVerifiedIdentity(rotated, rotatedIdentity, activeBase, oidc.clientId),
+      }
+    }
+
     try {
       const identity = await oidc.verifyAccessToken(ssoAccessToken, { signal })
       const nowSec = Math.floor(Date.now() / 1000)
-      const remainingSec = Math.max(60, identity.exp - nowSec)
+      const secondsLeft = identity.exp - nowSec
+
+      if (hasScopeMismatch(identity)) {
+        if (trimmedRefresh.length > 0) {
+          try {
+            return await rotateWithRefresh(true)
+          } catch (refreshErr) {
+            signal.throwIfAborted()
+            if (!isDefinitiveTokenRejection(refreshErr)) {
+              return {
+                status: 'transient_error',
+                transient: true,
+                message: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
+              }
+            }
+          }
+        }
+        return {
+          status: 'revoked',
+          revoked: true,
+          code: 401,
+          message: 'SSO 凭证缺少新版 API 访问权限，请重新通过 SSO 登录授权。',
+        }
+      }
+
+      if (secondsLeft <= 60 && trimmedRefresh.length > 0) {
+        try {
+          return await rotateWithRefresh(false)
+        } catch (refreshErr) {
+          signal.throwIfAborted()
+          if (isDefinitiveTokenRejection(refreshErr)) {
+            return {
+              status: 'revoked',
+              revoked: true,
+              code: 401,
+              message: 'SSO session expired or revoked',
+            }
+          }
+          if (secondsLeft <= 0) {
+            return {
+              status: 'transient_error',
+              transient: true,
+              message: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
+            }
+          }
+        }
+      }
+
+      const remainingSec = Math.max(60, secondsLeft)
       return {
         status: 'ok',
         payload: this.buildBridgePayloadFromVerifiedIdentity(
           {
             accessToken: ssoAccessToken,
             expiresIn: remainingSec,
-            ...(refreshToken ? { refreshToken } : {}),
+            ...(trimmedRefresh.length > 0 ? { refreshToken: trimmedRefresh } : {}),
           },
           identity,
+          activeBase,
+          oidc.clientId,
         ),
       }
     } catch (verifyErr) {
       if (signal.aborted) throw verifyErr
-      if (!isDefinitiveTokenRejection(verifyErr)) {
+      const isIssuerMismatch = verifyErr instanceof ResponseFormatError
+        && (verifyErr.message.includes('issuer') || verifyErr.message.includes('tenant_slug'))
+      if (!isDefinitiveTokenRejection(verifyErr) && !isIssuerMismatch) {
         return {
           status: 'transient_error',
           transient: true,
           message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
         }
       }
-      if (refreshToken !== undefined && refreshToken.trim().length > 0) {
+      if (trimmedRefresh.length > 0) {
         try {
-          const rotated = await oidc.refreshToken({ refreshToken: refreshToken.trim() }, { signal })
-          const identity = await oidc.verifyAccessToken(rotated.accessToken, { signal })
-          return {
-            status: 'ok',
-            payload: this.buildBridgePayloadFromVerifiedIdentity(rotated, identity),
-          }
+          return await rotateWithRefresh(isIssuerMismatch)
         } catch (refreshErr) {
           signal.throwIfAborted()
-          if (!isDefinitiveTokenRejection(refreshErr)) {
+          if (!isDefinitiveTokenRejection(refreshErr) && !(refreshErr instanceof ResponseFormatError)) {
             return {
               status: 'transient_error',
               transient: true,
@@ -1963,7 +2477,9 @@ export class XPeachApi {
         status: 'revoked',
         revoked: true,
         code: 401,
-        message: 'SSO session expired or revoked',
+        message: isIssuerMismatch
+          ? 'SSO 签发租户已变更，请重新通过 SSO 登录授权。'
+          : 'SSO session expired or revoked',
       }
     }
   }
@@ -1971,7 +2487,7 @@ export class XPeachApi {
   /**
    * Alias of `ssoPeachcodeCredentials` for callers expecting `fetchPeachcodeCredentialsFromSso`.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param ssoAccessToken - active SSO access token.
    * @param signal - request cancellation signal.
    * @returns credential sync status and payload when valid.
@@ -1985,13 +2501,13 @@ export class XPeachApi {
   }
 
   /**
-   * Revoke the active SSO refresh/access tokens via RFC 7009 (`POST /token/revocation`)
-   * through the official `@xpeach/ts-xpeach` SDK. When `options.allDevices` or
-   * `options.revokePeachcode` is enabled, also calls `POST /api/v1/peachcode/revoke`
-   * before revoking the calling access token so multi-device / downstream PeachCode
-   * revocation is enforced server-side.
+   * Revoke the active SSO refresh/access tokens via RFC 7009 (`POST /token/revocation`
+   * or `POST /t/<slug>/token/revocation`) through the official `@xpeach/ts-xpeach` SDK.
+   * When `options.allDevices` or `options.revokePeachcode` is enabled, also calls
+   * `POST /api/v1/peachcode/revoke` before revoking the calling access token so
+   * multi-device / downstream PeachCode revocation is enforced server-side.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param ssoAccessToken - active SSO Bearer access token.
    * @param options - revocation scope flags.
    * @param signal - request cancellation signal.
@@ -2007,7 +2523,7 @@ export class XPeachApi {
     refreshToken?: string,
     clientId = 'xpeach-harness',
   ): Promise<boolean> {
-    const { activeBase, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
+    const { origin, oidc } = this.createSsoOidcClient(ssoBaseURL, clientId)
     let acknowledged = false
     const trimmedAccess = ssoAccessToken.trim()
     if ((options.allDevices === true || options.revokePeachcode === true) && trimmedAccess.length > 0) {
@@ -2016,7 +2532,7 @@ export class XPeachApi {
         revokePeachcode: options.revokePeachcode === true,
       }
       const sdk = new XpeachClient({
-        baseUrl: activeBase,
+        baseUrl: origin,
         accessToken: trimmedAccess,
         timeoutMs: Math.min(this.timeoutMs, 8000),
         retry: { maxAttempts: 1 },
@@ -2026,7 +2542,7 @@ export class XPeachApi {
           await sdk.v1PeachcodeRevoke({ body: revokeBody }, { signal })
           acknowledged = true
         } else {
-          const response = await fetch(`${activeBase}/api/v1/peachcode/revoke`, {
+          const response = await fetch(`${origin}/api/v1/peachcode/revoke`, {
             method: 'POST',
             redirect: 'manual',
             headers: {
@@ -2068,13 +2584,13 @@ export class XPeachApi {
   /**
    * Fetch the unified human-verification policy from XPeach SSO via `@xpeach/ts-xpeach`.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param signal - request cancellation signal.
    * @returns normalized SSO captcha policy (including self-hosted Cap origin and per-scene keys).
    */
   async ssoCaptchaPolicy(ssoBaseURL: string, signal: AbortSignal): Promise<XPeachSsoCaptchaPolicy> {
-    const base = validateSsoBaseUrl(ssoBaseURL)
-    const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
+    const { origin } = parseSsoIssuer(ssoBaseURL)
+    const captcha = new CaptchaClient({ baseUrl: origin, timeoutMs: this.timeoutMs })
     const raw = await captcha.getPolicy({ signal })
     return {
       provider: raw.provider,
@@ -2101,7 +2617,7 @@ export class XPeachApi {
   /**
    * Fetch a scene-scoped human-verification challenge from XPeach SSO via `@xpeach/ts-xpeach`.
    *
-   * @param ssoBaseURL - root URL of the XPeach SSO service.
+   * @param ssoBaseURL - root URL or tenant issuer of the XPeach SSO service.
    * @param scene - target scene governed by SSO.
    * @param signal - request cancellation signal.
    * @returns scene-scoped challenge configuration (Cap origin/siteKey, Turnstile key, or builtin puzzle).
@@ -2111,8 +2627,8 @@ export class XPeachApi {
     scene: XPeachSsoCaptchaScene,
     signal: AbortSignal,
   ): Promise<XPeachSsoCaptchaChallenge> {
-    const base = validateSsoBaseUrl(ssoBaseURL)
-    const captcha = new CaptchaClient({ baseUrl: base, timeoutMs: this.timeoutMs })
+    const { origin } = parseSsoIssuer(ssoBaseURL)
+    const captcha = new CaptchaClient({ baseUrl: origin, timeoutMs: this.timeoutMs })
     const raw = await captcha.getChallenge(scene, { signal })
     return {
       provider: raw.provider,

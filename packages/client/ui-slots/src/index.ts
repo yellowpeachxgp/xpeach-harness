@@ -908,6 +908,7 @@ interface SlotRecord {
   /** Monotonic declaration lifetime, distinct from ordinary entry mutations. */
   declarationEpoch: number
   entries: readonly StoredEntry[]
+  winners: readonly StoredEntry[] | undefined
   version: number
   listeners: Set<() => void>
   declarationListeners: Set<() => void>
@@ -1356,8 +1357,12 @@ export class SlotCore {
   entriesOfSlot(key: string): readonly StoredEntry[] {
     const rec = this.records.get(key)
     if (!rec?.spec) return NO_ENTRIES
+    if (rec.winners !== undefined) return rec.winners
     const kind = rec.spec.kind
-    if (kind === 'chain') return rec.entries
+    if (kind === 'chain') {
+      rec.winners = rec.entries
+      return rec.entries
+    }
     const heads: StoredEntry[] = []
     const seenCells = new Set<string | undefined>()
     for (const entry of rec.entries) {
@@ -1368,6 +1373,7 @@ export class SlotCore {
       seenCells.add(cell)
       heads.push(entry)
     }
+    rec.winners = heads
     return heads
   }
 
@@ -1622,6 +1628,7 @@ export class SlotCore {
         parent: undefined,
         declarationEpoch: 0,
         entries: NO_ENTRIES,
+        winners: undefined,
         version: 0,
         listeners: new Set(),
         declarationListeners: new Set(),
@@ -1648,6 +1655,7 @@ export class SlotCore {
   }
 
   private markDirty(key: string, rec: SlotRecord): void {
+    rec.winners = undefined
     rec.version += 1
     for (const fn of [...this.mutateListeners]) fn(key)
     this.dirty.add(rec)

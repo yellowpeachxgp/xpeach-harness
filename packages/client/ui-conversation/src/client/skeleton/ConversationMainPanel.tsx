@@ -1,5 +1,4 @@
 import type { ConversationSlotProps } from '../contract/slots.ts'
-import { conversationPhase } from '../contract/snapshot.ts'
 import { ConversationWidthControls } from './ConversationWidthControls.tsx'
 import css from './ConversationRoot.module.css'
 
@@ -12,12 +11,17 @@ const CONTENT_SLOTS = { widthControls: ConversationWidthControls }
  */
 export function ConversationMainPanel(props: ConversationSlotProps) {
   const { sessionId, useSession, useSessions, useConversation, renderSlot, renderFactorySlot } = props
-  const session = useSession(s => s)
-  const conversation = useConversation(s => s)
-  const shellPhase = session === undefined || conversation === undefined
-    ? 'blank'
-    : conversationPhase(session, conversation)
-  const openState = session?.openState
+  const hasActiveTargets = useConversation(s => s.activeTargets.size > 0)
+  const openState = useSession(s => s.openState)
+  const parentAvailabilityPending = useSession(
+    s => s.subagent?.address.mode === 'continuable' && s.subagent.parentAvailable === undefined,
+  ) === true
+  const sessionBlankPhase = useSession(
+    s => (s.blank || s.awaitingFirstTurn) && !s.running && !s.promptAttempted,
+  )
+  const shellBlank = sessionBlankPhase === undefined || hasActiveTargets === undefined
+    ? true
+    : sessionBlankPhase && !hasActiveTargets
   const summaryBlank = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.blank)
 
   // While a session is still replaying (loading + blank) the hero/docked
@@ -32,14 +36,12 @@ export function ConversationMainPanel(props: ConversationSlotProps) {
   // A restored continuable subagent waits for a Host summary to establish
   // parent availability. This keeps the composer
   // hidden instead of briefly rendering the parent-offline takeover.
-  const parentAvailabilityPending = session?.subagent?.address.mode === 'continuable'
-    && session.subagent.parentAvailable === undefined
   const settling = sessionId !== undefined && (
-    (shellPhase === 'blank' && openState === 'loading' && summaryBlank !== true)
+    (shellBlank && openState === 'loading' && summaryBlank !== true)
     || parentAvailabilityPending
   )
   const hero = sessionId === undefined
-    || (shellPhase === 'blank' && (openState === 'open' || summaryBlank === true))
+    || (shellBlank && (openState === 'open' || summaryBlank === true))
   const phase = settling ? 'settling' : hero ? 'hero' : 'active'
 
   return (

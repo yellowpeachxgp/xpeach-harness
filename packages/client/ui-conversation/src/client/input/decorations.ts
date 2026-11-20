@@ -55,6 +55,18 @@ function folderEnd(draft: string, start: number, token: string): number | undefi
  */
 const SLASH_TOKEN_END_RE = /^(?:\s|$)/
 
+const lexiconSets = new WeakMap<readonly string[], ReadonlySet<string>>()
+
+function lexiconSetOf(names: readonly string[] | undefined): ReadonlySet<string> | undefined {
+  if (names === undefined) return undefined
+  let cached = lexiconSets.get(names)
+  if (cached === undefined) {
+    cached = new Set(names)
+    lexiconSets.set(names, cached)
+  }
+  return cached
+}
+
 /**
  * Scan the draft for plain-text reference tokens against the hot lexicons.
  * Word-boundary discipline: the trigger must sit at the draft
@@ -76,7 +88,7 @@ export function scanTextRefs(
     const trigger = m[2] as '/' | '@'
     const name = m[3] ?? ''
     if (trigger === '/' && !SLASH_TOKEN_END_RE.test(draft.slice(m.index + m[0].length))) continue
-    if (lexicon.get(trigger)?.includes(name)) {
+    if (lexiconSetOf(lexicon.get(trigger))?.has(name)) {
       const start = m.index + (m[1]?.length ?? 0)
       out.push({ start, end: start + 1 + name.length, trigger })
     }

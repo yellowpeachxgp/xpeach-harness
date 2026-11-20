@@ -1056,3 +1056,30 @@ it('restores the account model name after login without changing the saved route
   expect(screen.getByRole('button', { name: /选择模型，当前/ }).textContent).toBe('DeepSeek FlashHigh')
   expect(directory.getSnapshot().current).toEqual(selected)
 })
+
+it('re-renders only the two affected option rows when keyboard highlight moves across a large catalog', () => {
+  const models = Array.from({ length: 100 }, (_, i) => ({ id: `model-${i}`, name: `Model ${i}` }))
+  const groups = [{ id: 'custom', name: 'Custom', models }]
+  const directory = createSnapshotStore(state({ current: null, groups }))
+  const optionRenderSpy = vi.fn((modelName: string) => modelName)
+  const trackedRenderSlot = ((_key: string, owner: { placement: string; model: { name: string } }) => (
+    owner.placement === 'option' ? optionRenderSpy(owner.model.name) : owner.model.name
+  )) as typeof renderLabel
+  render(
+    <ModelSelect
+      renderSlot={trackedRenderSlot}
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={vi.fn()}
+      t={t}
+    />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
+  const search = screen.getByRole('searchbox')
+  optionRenderSpy.mockClear()
+
+  fireEvent.keyDown(search, { key: 'ArrowDown' })
+  expect(optionRenderSpy).toHaveBeenCalledTimes(2)
+})
