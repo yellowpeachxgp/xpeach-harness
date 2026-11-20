@@ -608,4 +608,49 @@ describe('adversarial and malformed inputs', () => {
     expect(alphaRes.releaseUrl).toBe('https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.25-alpha')
     expect(alphaRes.releaseNotes).toBe('Alpha 25 notes')
   })
+
+  it('falls back to releases.atom on GitHub REST API 403 rate limit and throws when both sources fail', async () => {
+    const home = makeTempHome()
+    vi.stubEnv('XPH_HOME', home)
+    vi.stubEnv('XPEACH_VERSION', '0.0.36-alpha')
+
+    const account = Object.create(XPeachAccount.prototype) as XPeachAccount
+    // Without persisted preference or explicit config, alpha builds default to alpha (not beta).
+    expect(account.updateChannelStatus({}).subscribedChannel).toBe('alpha')
+
+    const atomXml = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <id>tag:github.com,2008:Repository/1/v0.0.37-beta</id>
+    <updated>2026-11-20T06:57:12Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/yellowpeachxgp/xpeach-harness/releases/tag/v0.0.37-beta"/>
+    <title>XPeach Harness v0.0.37-beta</title>
+    <content type="html">&lt;p&gt;Beta 37 notes&lt;/p&gt;</content>
+  </entry>
+</feed>`
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (url.includes('api.github.com')) {
+        return new Response('API rate limit exceeded', { status: 403 })
+      }
+      if (url.endsWith('/releases.atom')) {
+        return new Response(atomXml, { status: 200 })
+      }
+      return new Response('not found', { status: 404 })
+    })
+
+    const checked = await account.checkUpdate({ force: true })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(checked.updateAvailable).toBe(true)
+    expect(checked.targetVersion).toBe('0.0.37-beta')
+    expect(checked.targetChannel).toBe('beta')
+    expect(checked.releaseNotes).toBe('Beta 37 notes')
+
+    // When both REST API (rate-limited) and Atom fail, force check must throw instead of falsely claiming up-to-date.
+    fetchSpy.mockImplementation(async () => {
+      throw new Error('connect ETIMEDOUT')
+    })
+    await expect(account.checkUpdate({ force: true })).rejects.toThrow(/无法获取 GitHub 更新列表/u)
+  })
 })

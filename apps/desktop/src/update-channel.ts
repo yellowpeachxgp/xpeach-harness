@@ -513,22 +513,61 @@ export function buildAtomFeedFromGitHubReleases(
 }
 
 /**
+ * Typed sentinel thrown when a GitHub feed is fetched successfully but contains
+ * zero releases eligible for the user's subscribed update channel (for example
+ * `least` before the first stable release is published).
+ */
+export class XPeachNoEligibleReleaseError extends Error {
+  readonly code = 'ERR_XPEACH_NO_ELIGIBLE_RELEASE' as const
+
+  /**
+   * @param channel - Subscribed XPeach release channel with no eligible releases.
+   */
+  constructor(readonly channel: XPeachReleaseChannel) {
+    super(`desktop update: no published releases match the ${channel} channel`)
+    this.name = 'XPeachNoEligibleReleaseError'
+  }
+}
+
+/**
+ * Check whether an Atom XML feed contains at least one `<entry>` element.
+ * @param xml - Raw or filtered Atom XML document.
+ * @returns `true` when at least one `<entry>` element is present.
+ */
+export function hasAtomEntries(xml: string): boolean {
+  return typeof xml === 'string' && /<entry\b/iu.test(xml)
+}
+
+function matchesTargetArch(assetName: string, targetArch: string): boolean {
+  const lower = assetName.toLowerCase()
+  if (targetArch === 'arm64') {
+    return lower.includes('arm64') || lower.includes('aarch64')
+  }
+  if (targetArch === 'x64') {
+    return lower.includes('x64') || lower.includes('x86_64') || lower.includes('amd64')
+  }
+  return lower.includes(targetArch.toLowerCase())
+}
+
+/**
  * Synthesize an `electron-updater` update descriptor YAML directly from a GitHub
- * Releases REST API record and its asset SHA-256 digests (`sha2`), eliminating
- * the need to upload static `latest*.yml` / `beta*.yml` / `alpha*.yml` files.
+ * Releases REST API record and its asset SHA-256 digests (`sha2`), used as a
+ * fallback when a release has no uploaded `latest*.yml` / `<channel>*.yml` files.
  * @param release Parsed GitHub Release record containing `assets`.
  * @param channelFile Requested descriptor filename (for example `'latest-mac.yml'`, `'beta-linux.yml'`, `'latest.yml'`).
+ * @param targetArch Target CPU architecture (`process.arch` by default) used to prefer matching installer assets.
  * @returns Synthesized YAML string, or `null` when the release has no matching installer asset with a SHA-256 digest.
  */
 export function synthesizeUpdateYamlFromRelease(
   release: XPeachGitHubRelease,
   channelFile: string,
+  targetArch: string = process.arch,
 ): string | null {
   const lowerChannelFile = channelFile.toLowerCase()
   const isMac = lowerChannelFile.endsWith('-mac.yml')
   const isLinux = lowerChannelFile.includes('-linux')
 
-  const candidates = release.assets.filter((asset) => {
+  const matchedPlatform = release.assets.filter((asset) => {
     if (asset.sha256 === undefined) return false
     const lower = asset.name.toLowerCase()
     if (lower.endsWith('.blockmap') || lower.endsWith('.yml')) return false
@@ -537,7 +576,10 @@ export function synthesizeUpdateYamlFromRelease(
     return lower.endsWith('.exe')
   })
 
-  if (candidates.length === 0) return null
+  if (matchedPlatform.length === 0) return null
+
+  const archMatched = matchedPlatform.filter(asset => matchesTargetArch(asset.name, targetArch))
+  const candidates = archMatched.length > 0 ? archMatched : matchedPlatform
 
   if (isMac) {
     candidates.sort((a, b) => {

@@ -666,6 +666,17 @@ export function parseGitHubReleasesJson(
   return candidates
 }
 
+function matchesTargetArch(assetName: string, targetArch: string): boolean {
+  const lower = assetName.toLowerCase()
+  if (targetArch === 'arm64') {
+    return lower.includes('arm64') || lower.includes('aarch64')
+  }
+  if (targetArch === 'x64') {
+    return lower.includes('x64') || lower.includes('x86_64') || lower.includes('amd64')
+  }
+  return lower.includes(targetArch.toLowerCase())
+}
+
 /**
  * Synthesize an `electron-updater` update descriptor YAML directly from a parsed
  * GitHub Release candidate and its asset SHA-256 digests (`sha2`).
@@ -675,11 +686,13 @@ export function parseGitHubReleasesJson(
  *
  * @param release - Parsed GitHub Release candidate containing `assets`.
  * @param channelFile - Requested descriptor filename (for example `'latest-mac.yml'`, `'beta-linux.yml'`, `'latest.yml'`).
+ * @param targetArch - Target CPU architecture (`process.arch` by default) used to prefer matching installer assets.
  * @returns Synthesized YAML string, or `null` when the release has no matching installer asset with a SHA-256 digest.
  */
 export function synthesizeUpdateYamlFromRelease(
   release: XPeachReleaseCandidate,
   channelFile: string,
+  targetArch: string = process.arch,
 ): string | null {
   const assets = release.assets
   if (assets === undefined || assets.length === 0) return null
@@ -687,7 +700,7 @@ export function synthesizeUpdateYamlFromRelease(
   const isMac = lowerChannelFile.endsWith('-mac.yml')
   const isLinux = lowerChannelFile.includes('-linux')
 
-  const candidates = assets.filter((asset) => {
+  const matchedPlatform = assets.filter((asset) => {
     if (asset.sha256 === undefined) return false
     const lower = asset.name.toLowerCase()
     if (lower.endsWith('.blockmap') || lower.endsWith('.yml')) return false
@@ -696,7 +709,10 @@ export function synthesizeUpdateYamlFromRelease(
     return lower.endsWith('.exe')
   })
 
-  if (candidates.length === 0) return null
+  if (matchedPlatform.length === 0) return null
+
+  const archMatched = matchedPlatform.filter(asset => matchesTargetArch(asset.name, targetArch))
+  const candidates = archMatched.length > 0 ? archMatched : matchedPlatform
 
   if (isMac) {
     candidates.sort((a, b) => {

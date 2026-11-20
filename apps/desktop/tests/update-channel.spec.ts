@@ -21,6 +21,7 @@ import {
   readXpeachUpdateChannel,
   resolveTopAtomEntryUpdaterChannel,
   synthesizeUpdateYamlFromRelease,
+  XPeachNoEligibleReleaseError,
 } from '../src/update-channel.ts'
 
 vi.mock('electron', () => ({ app: { isPackaged: false } }))
@@ -612,4 +613,128 @@ it('reads autoCheckUpdate preference and supports all cross-channel transitions 
     const latest = await provider.getLatestVersion()
     expect(latest.version).toBe(scenario.expectedVersion)
   }
+})
+
+it('prefers uploaded .yml descriptors with sha512, falls back to latest*.yml, and handles rate limits and empty channels cleanly', async () => {
+  process.env.XPEACH_SILENT_UPDATE = '0'
+  let activeChannel: 'least' | 'beta' | 'alpha' = 'beta'
+  let syncedChannel: string | null = null
+  const executor = new DesktopUpdateHttpExecutor(
+    60_000,
+    undefined,
+    () => activeChannel,
+    (ch) => { syncedChannel = ch },
+  )
+
+  const uploadedMacYml = [
+    'version: 0.0.37-beta',
+    'files:',
+    '  - url: xpeach-harness-0.0.37-beta-arm64-unsigned.zip',
+    '    sha512: RwdUEcOQeGSTGpU5LhbAN31qddiTLfNxOzzTo6ZUehRo6tawFnDaHs3ThZdvjkHLvA8g5MgprdXeM8de8A2Ehg==',
+    '    size: 372112721',
+    'path: xpeach-harness-0.0.37-beta-arm64-unsigned.zip',
+    'sha512: RwdUEcOQeGSTGpU5LhbAN31qddiTLfNxOzzTo6ZUehRo6tawFnDaHs3ThZdvjkHLvA8g5MgprdXeM8de8A2Ehg==',
+    '',
+  ].join('\n')
+
+  const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(executor)) as {
+    request: (opts: { hostname?: string; path?: string }) => Promise<string | null>
+    download: (url: URL, dest: string, opts: { cancellationToken: { cancelled: boolean } }) => Promise<string>
+  }
+  const requestSpy = vi.spyOn(baseProto, 'request').mockImplementation(async (opts) => {
+    if (opts.hostname === 'api.github.com') {
+      throw Object.assign(new Error('403 rate limit exceeded'), { statusCode: 403 })
+    }
+    if (opts.path?.startsWith('/yellowpeachxgp/xpeach-harness/releases.atom')) {
+      return buildAtomFeed(['v0.0.38-alpha', 'v0.0.37-beta'])
+    }
+    if (opts.path?.endsWith('/beta-mac.yml')) {
+      throw Object.assign(new Error('404 Not Found'), { statusCode: 404 })
+    }
+    if (opts.path?.endsWith('/latest-mac.yml')) {
+      return uploadedMacYml
+    }
+    return null
+  })
+
+  // 1. Rate-limited api.github.com falls back to releases.atom (including with query params)
+  const atomXml = await executor.request({
+    hostname: 'github.com',
+    path: '/yellowpeachxgp/xpeach-harness/releases.atom?noCache=1',
+  })
+  expect(atomXml).toContain('v0.0.37-beta')
+  expect(atomXml).not.toContain('v0.0.38-alpha')
+  expect(syncedChannel).toBe('beta')
+
+  // 2. Uploaded YAML (via latest-mac.yml fallback) preserves real sha512 and normalizes macos- prefix
+  const yml = await executor.request({
+    hostname: 'github.com',
+    path: '/yellowpeachxgp/xpeach-harness/releases/download/v0.0.37-beta/beta-mac.yml',
+  })
+  expect(yml).toContain('sha512: RwdUEcOQeGSTGpU5LhbAN31qddiTLfNxOzzTo6ZUehRo6tawFnDaHs3ThZdvjkHLvA8g5MgprdXeM8de8A2Ehg==')
+  expect(yml).toContain('url: macos-xpeach-harness-0.0.37-beta-arm64-unsigned.zip')
+
+  // 3. Subsequent check skips api.github.com while rate-limit cooldown is active
+  // and throws XPeachNoEligibleReleaseError when channel has 0 releases
+  const apiCallsBefore = requestSpy.mock.calls.filter(([o]) => o.hostname === 'api.github.com').length
+  activeChannel = 'least'
+  await expect(executor.request({
+    hostname: 'github.com',
+    path: '/yellowpeachxgp/xpeach-harness/releases.atom',
+  })).rejects.toThrow(XPeachNoEligibleReleaseError)
+  const apiCallsAfter = requestSpy.mock.calls.filter(([o]) => o.hostname === 'api.github.com').length
+  expect(apiCallsAfter).toBe(apiCallsBefore)
+
+  // 4. DesktopUpdateCoordinator treats XPeachNoEligibleReleaseError as clean idle ('up to date'), not an error
+  const updater = makeMockUpdater(() => '0.0.37-beta')
+  vi.spyOn(updater, 'checkForUpdates').mockRejectedValueOnce(new XPeachNoEligibleReleaseError('least'))
+  const coordinator = new DesktopUpdateCoordinator(state => state, async () => true, updater, () => true, () => '0.0.37-beta')
+  try {
+    expect(await coordinator.check(true)).toEqual({ phase: 'idle' })
+  } finally {
+    coordinator.dispose()
+  }
+
+  // 5. download() retries transient network errors and never retries checksum mismatches
+  const downloadSpy = vi.spyOn(baseProto, 'download')
+    .mockRejectedValueOnce(Object.assign(new Error('net::ERR_CONNECTION_RESET'), { code: 'ERR_CONNECTION_RESET' }))
+    .mockResolvedValueOnce('/tmp/update.zip')
+  await expect(executor.download(
+    new URL('https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.37-beta/macos-xpeach-harness-0.0.37-beta-arm64-unsigned.zip'),
+    '/tmp/update.zip',
+    { cancellationToken: { cancelled: false } } as Parameters<DesktopUpdateHttpExecutor['download']>[2],
+  )).resolves.toBe('/tmp/update.zip')
+  expect(downloadSpy).toHaveBeenCalledTimes(2)
+
+  downloadSpy.mockClear()
+  downloadSpy.mockRejectedValueOnce(Object.assign(new Error('sha512 checksum mismatch'), { code: 'ERR_CHECKSUM_MISMATCH' }))
+  await expect(executor.download(
+    new URL('https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.37-beta/macos-xpeach-harness-0.0.37-beta-arm64-unsigned.zip'),
+    '/tmp/update.zip',
+    { cancellationToken: { cancelled: false } } as Parameters<DesktopUpdateHttpExecutor['download']>[2],
+  )).rejects.toThrow(/checksum mismatch/u)
+  expect(downloadSpy).toHaveBeenCalledTimes(1)
+
+  // 6. synthesizeUpdateYamlFromRelease prefers assets matching the target CPU architecture
+  const multiArchRelease = parseGitHubReleasesApiJson([{
+    tag_name: 'v0.0.37-beta',
+    draft: false,
+    published_at: '2026-11-20T06:52:03Z',
+    assets: [
+      {
+        name: 'macos-xpeach-harness-0.0.37-beta-x64-unsigned.zip',
+        size: 100,
+        digest: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.37-beta/macos-xpeach-harness-0.0.37-beta-x64-unsigned.zip',
+      },
+      {
+        name: 'macos-xpeach-harness-0.0.37-beta-arm64-unsigned.zip',
+        size: 200,
+        digest: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        browser_download_url: 'https://github.com/yellowpeachxgp/xpeach-harness/releases/download/v0.0.37-beta/macos-xpeach-harness-0.0.37-beta-arm64-unsigned.zip',
+      },
+    ],
+  }])[0]!
+  expect(synthesizeUpdateYamlFromRelease(multiArchRelease, 'beta-mac.yml', 'arm64')).toContain('arm64-unsigned.zip')
+  expect(synthesizeUpdateYamlFromRelease(multiArchRelease, 'beta-mac.yml', 'x64')).toContain('x64-unsigned.zip')
 })

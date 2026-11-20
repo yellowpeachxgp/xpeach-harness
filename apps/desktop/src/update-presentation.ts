@@ -2,7 +2,28 @@
 import type { DesktopUpdateFailureKind, DesktopUpdatePresentation, DesktopUpdateState } from './ipc.ts'
 import type { DesktopMessages } from './locale.ts'
 
-const NETWORK_FAILURE = /\b(?:ERR_CONNECTION_CLOSED|ERR_CONNECTION_RESET|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ETIMEDOUT)\b/u
+const NETWORK_FAILURE = new RegExp(
+  `\\b(?:${[
+    'ERR_CONNECTION_CLOSED',
+    'ERR_CONNECTION_RESET',
+    'ERR_CONNECTION_TIMED_OUT',
+    'ERR_CONNECTION_REFUSED',
+    'ERR_INTERNET_DISCONNECTED',
+    'ERR_NAME_NOT_RESOLVED',
+    'ERR_TIMED_OUT',
+    'ERR_PROXY_CONNECTION_FAILED',
+    'ERR_TUNNEL_CONNECTION_FAILED',
+    'ERR_SSL_PROTOCOL_ERROR',
+    'ERR_NETWORK_CHANGED',
+    'ETIMEDOUT',
+    'ECONNRESET',
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'UND_ERR_CONNECT_TIMEOUT',
+  ].join('|')})\\b|fetch failed`,
+  'iu',
+)
 
 /**
  * Classify one updater failure for both native and Web-localized summaries.

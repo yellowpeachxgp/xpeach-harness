@@ -1,7 +1,7 @@
 /** Stage and atomically replace ad-hoc signed macOS application bundles after SHA-512 verification. */
 
 import { execFile, spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { app } from 'electron'
@@ -107,6 +107,27 @@ async function defaultExtractArchive(zipPath: string, destinationDir: string): P
 }
 
 /**
+ * Verify that the running macOS `.app` bundle is located in a writable directory
+ * and is not running from macOS App Translocation or a read-only disk image.
+ * @param targetAppPath - Outer `.app` bundle path to replace.
+ */
+export function assertMacosBundleWritable(targetAppPath: string): void {
+  if (targetAppPath.includes('/AppTranslocation/')) {
+    throw new Error(
+      'desktop update: XPeach Harness is running from macOS App Translocation (read-only). Move XPeach Harness.app into /Applications and try again.',
+    )
+  }
+  const parentDir = dirname(targetAppPath)
+  try {
+    accessSync(parentDir, constants.W_OK)
+  } catch (_error) {
+    throw new Error(
+      `desktop update: cannot write to ${parentDir} to install update. Move XPeach Harness.app into /Applications or check folder permissions.`,
+    )
+  }
+}
+
+/**
  * Spawn a detached shell process that waits for the current process to exit,
  * atomically swaps the `.app` bundle, and optionally relaunches it.
  * @param options - Target bundle, staged bundle, process ID to wait on, and whether to relaunch after replacement.
@@ -119,7 +140,9 @@ export function spawnMacosBundleReplacement(options: {
   relaunch: boolean
 }): void {
   const pid = options.waitPid ?? process.pid
-  const scriptPath = join(dirname(options.stagingDir), `apply-macos-update-${String(pid)}.sh`)
+  const baseDir = dirname(options.stagingDir)
+  const scriptPath = join(baseDir, `apply-macos-update-${String(pid)}.sh`)
+  const logPath = join(baseDir, 'macos-update.log')
   const script = [
     '#!/bin/sh',
     'set -eu',
@@ -128,28 +151,34 @@ export function spawnMacosBundleReplacement(options: {
     'STAGED_APP="$3"',
     'STAGING_DIR="$4"',
     'RELAUNCH="$5"',
+    'LOG_FILE="$6"',
+    'exec >>"$LOG_FILE" 2>&1',
+    'echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] applying macOS update to $TARGET_APP (pid=$PID relaunch=$RELAUNCH)"',
     'ATTEMPTS=0',
     'while kill -0 "$PID" 2>/dev/null; do',
     '  ATTEMPTS=$((ATTEMPTS + 1))',
     '  if [ "$ATTEMPTS" -ge 300 ]; then',
+    '    echo "timed out waiting for pid $PID to exit"',
     '    exit 1',
     '  fi',
     '  sleep 0.2',
     'done',
     'BACKUP_APP="${TARGET_APP}.previous-$$"',
-    'rm -rf "$BACKUP_APP"',
+    'rm -rf "$BACKUP_APP" >/dev/null 2>&1 || true',
     'if [ -d "$TARGET_APP" ]; then',
     '  mv "$TARGET_APP" "$BACKUP_APP"',
     'fi',
-    'if mv "$STAGED_APP" "$TARGET_APP"; then',
-    '  rm -rf "$BACKUP_APP" "$STAGING_DIR"',
+    'if mv "$STAGED_APP" "$TARGET_APP" 2>/dev/null || (/usr/bin/ditto "$STAGED_APP" "$TARGET_APP" && rm -rf "$STAGED_APP"); then',
+    '  rm -rf "$BACKUP_APP" "$STAGING_DIR" >/dev/null 2>&1 || true',
     '  /usr/bin/xattr -cr "$TARGET_APP" >/dev/null 2>&1 || true',
+    '  echo "replacement succeeded"',
     '  if [ "$RELAUNCH" = "1" ]; then',
-    '    /usr/bin/open -n "$TARGET_APP" >/dev/null 2>&1 || true',
+    '    /usr/bin/open -n "$TARGET_APP" >/dev/null 2>&1 || /usr/bin/open "$TARGET_APP" >/dev/null 2>&1 || true',
     '  fi',
     'else',
+    '  echo "replacement failed; restoring backup"',
     '  if [ -d "$BACKUP_APP" ]; then',
-    '    mv "$BACKUP_APP" "$TARGET_APP" || true',
+    '    mv "$BACKUP_APP" "$TARGET_APP" >/dev/null 2>&1 || true',
     '  fi',
     '  exit 1',
     'fi',
@@ -166,6 +195,7 @@ export function spawnMacosBundleReplacement(options: {
       options.stagedAppPath,
       options.stagingDir,
       options.relaunch ? '1' : '0',
+      logPath,
     ],
     {
       detached: true,
@@ -223,6 +253,7 @@ export function configureMacosAdhocUpdater(
       return
     }
     try {
+      assertMacosBundleWritable(targetAppPath)
       replacementScheduled = true
       applyReplacement({
         targetAppPath,
@@ -242,6 +273,7 @@ export function configureMacosAdhocUpdater(
     maybeApp.on('will-quit', () => {
       if (replacementScheduled || staged === undefined || !updater.autoInstallOnAppQuit) return
       try {
+        assertMacosBundleWritable(targetAppPath)
         replacementScheduled = true
         applyReplacement({
           targetAppPath,

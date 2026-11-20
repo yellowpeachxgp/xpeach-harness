@@ -822,8 +822,12 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.updatesStatus, (event) => {
     assertProductSender(event)
-    if (!quitting && updates.state.phase === 'idle' && readXpeachAutoCheckUpdate()) {
-      void updateSchedule.check(false).catch((error: unknown) => { console.error(error) })
+    if (!quitting) {
+      if (updates.hasSubscribedChannelChanged()) {
+        void updateSchedule.check(false, true).catch((error: unknown) => { console.error(error) })
+      } else if (updates.state.phase === 'idle' && readXpeachAutoCheckUpdate()) {
+        void updateSchedule.check(false).catch((error: unknown) => { console.error(error) })
+      }
     }
     return presentDesktopUpdate(updates.state)
   })
@@ -871,10 +875,14 @@ async function main(): Promise<void> {
       let progress: Promise<unknown> | undefined
       try {
         let state = updates.state
-        const shouldCheck = manual
-          || updates.hasSubscribedChannelChanged()
+        const channelChanged = updates.hasSubscribedChannelChanged()
+        const downloadInFlight = (state.phase === 'downloading' || state.phase === 'verifying') && !channelChanged
+        const shouldCheck = !downloadInFlight && (
+          manual
+          || channelChanged
           || state.phase === 'idle'
           || (state.phase === 'error' && state.failedOperation === 'check')
+        )
         if (shouldCheck) {
           controller = new AbortController()
           ordinaryDialogs.add(controller)
@@ -901,8 +909,12 @@ async function main(): Promise<void> {
           }
           return
         }
-        if (state.phase !== 'available' && !(state.phase === 'error' && state.failedOperation === 'download')) return
-        if (manual) {
+        const canJoinOrStartDownload = state.phase === 'available'
+          || state.phase === 'downloading'
+          || state.phase === 'verifying'
+          || (state.phase === 'error' && state.failedOperation === 'download')
+        if (!canJoinOrStartDownload) return
+        if (manual && state.phase !== 'downloading' && state.phase !== 'verifying') {
           const result = await ordinaryMessageBox({ title: locale.messages.updateCheckTitle,
             message: formatDesktopMessage(locale.messages.updateAvailable, { version: state.version ?? '' }),
             detail: locale.messages.updateDetail,

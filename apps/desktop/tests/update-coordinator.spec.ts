@@ -7,7 +7,7 @@ import type { AppUpdater, UpdateDownloadedEvent } from 'electron-updater'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import { parseDesktopRelease } from '../src/release.ts'
 import type { DesktopUpdateState } from '../src/ipc.ts'
-import { configureMacosAdhocUpdater, resolveMacAppBundle, stageMacosUpdateArchive } from '../src/macos-adhoc-updater.ts'
+import { assertMacosBundleWritable, configureMacosAdhocUpdater, resolveMacAppBundle, stageMacosUpdateArchive } from '../src/macos-adhoc-updater.ts'
 import { DesktopUpdatePreparationError } from '../src/update-error.ts'
 import { zh } from '../src/locale.ts'
 
@@ -139,6 +139,29 @@ describe('desktop update coordinator', () => {
       .toMatchObject({ autoDownload: false, autoInstallOnAppQuit: true })
     expect(fixture().updater).toMatchObject({ autoDownload: false, autoInstallOnAppQuit: false })
     delete process.env.XPEACH_SILENT_UPDATE
+  })
+
+  it('reverts to available instead of error when a silent background download fails, and surfaces error on manual download', async () => {
+    const f = fixture('nightly', '1.1.0-alpha.1', true)
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      f.downloadUpdate.mockRejectedValueOnce(new Error('net::ERR_CONNECTION_RESET'))
+      await f.coordinator.check(false)
+      await vi.waitFor(() => {
+        expect(f.downloadUpdate).toHaveBeenCalledTimes(1)
+        expect(f.coordinator.state).toEqual({ phase: 'available', version: '1.1.0-rc.2' })
+      })
+      expect(f.states.some(s => s.phase === 'error')).toBe(false)
+
+      f.downloadUpdate.mockRejectedValueOnce(new Error('net::ERR_CONNECTION_RESET'))
+      expect(await f.coordinator.download('1.1.0-rc.2')).toMatchObject({
+        phase: 'error',
+        failedOperation: 'download',
+      })
+    } finally {
+      warnSpy.mockRestore()
+      delete process.env.XPEACH_SILENT_UPDATE
+    }
   })
 
   it('consumes late updater errors until an in-flight check settles after disposal', async () => {
@@ -396,5 +419,11 @@ describe('macOS ad-hoc bundle updater', () => {
     } finally {
       rmSync(workDir, { recursive: true, force: true })
     }
+  })
+
+  it('rejects App Translocation paths before quitting for a macOS bundle swap', () => {
+    expect(() => {
+      assertMacosBundleWritable('/private/var/folders/xx/AppTranslocation/ABC/d/XPeach Harness.app')
+    }).toThrow(/App Translocation/u)
   })
 })

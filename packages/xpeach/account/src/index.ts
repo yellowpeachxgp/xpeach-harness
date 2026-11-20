@@ -56,6 +56,7 @@ import {
 import {
   compatibleReleaseChannels,
   normalizeXpeachChannel,
+  parseGitHubReleasesAtom,
   parseGitHubReleasesJson,
   parseXpeachVersion,
   readXpeachUpdatePreference,
@@ -289,7 +290,7 @@ export interface Config {
   readonly ssoClientId?: string
   /** Profile-local file storing bound SSO identity metadata (`xpeach.sso.json`). */
   readonly ssoStateFile?: string
-  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`, default `'beta'`). */
+  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`); inferred from the current version when unset. */
   readonly updateChannel?: XPeachReleaseChannel
   /** Whether automatic update checks are enabled (default `true`). */
   readonly autoCheckUpdate?: boolean
@@ -1215,7 +1216,7 @@ export class XPeachAccount extends TypertRemoteService {
     ssoBaseURL: z.string().default(process.env.XPEACH_SSO_URL ?? 'https://sso.xpeach.codes').volatile(),
     ssoClientId: z.string().default('xpeach-harness').volatile(),
     ssoStateFile: z.string().default(join(INITIAL_PROFILE_HOME, 'xpeach.sso.json')),
-    updateChannel: z.union(['least', 'beta', 'alpha']).default('beta').volatile(),
+    updateChannel: z.union(['least', 'beta', 'alpha']).volatile(),
     autoCheckUpdate: z.boolean().default(true).volatile(),
   })
 
@@ -1223,6 +1224,7 @@ export class XPeachAccount extends TypertRemoteService {
   private autoCheckUpdateEnabled: boolean | undefined
   private releasesCache: { at: number; items: readonly XPeachReleaseCandidate[] } | undefined
   private updateCheckInFlight: Promise<readonly XPeachReleaseCandidate[]> | undefined
+  private githubApiRateLimitedUntil: number | undefined
 
   private readonly liveConfig: Config
   private readonly baseURL: string
@@ -7126,34 +7128,85 @@ export class XPeachAccount extends TypertRemoteService {
     if (this.updateCheckInFlight !== undefined) {
       return await raceWithAbortSignal(this.updateCheckInFlight, signal)
     }
-    const internalTimeout = createInternalTimeoutController(
-      this.timeoutMs > 0 ? this.timeoutMs : 15_000,
-      'Release update check timed out',
-    )
+    const baseTimeoutMs = this.timeoutMs > 0 ? this.timeoutMs : 15_000
     const run = (async (): Promise<readonly XPeachReleaseCandidate[]> => {
       const repoSlug = 'yellowpeachxgp/xpeach-harness'
+      let lastFailure = 'unable to reach GitHub Releases'
+      let lastStatus = 0
+
+      if (Date.now() >= (this.githubApiRateLimitedUntil ?? 0)) {
+        const apiTimeout = createInternalTimeoutController(
+          Math.min(baseTimeoutMs, 10_000),
+          'GitHub Releases API timed out',
+        )
+        try {
+          const res = await fetch(`https://api.github.com/repos/${repoSlug}/releases?per_page=30`, {
+            headers: {
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'XPeach-Harness-Updater',
+            },
+            signal: apiTimeout.signal,
+          })
+          if (res.ok) {
+            const json: unknown = await res.json()
+            const parsed = parseGitHubReleasesJson(json, repoSlug)
+            if (parsed.length > 0) {
+              this.releasesCache = { at: Date.now(), items: parsed }
+              return parsed
+            }
+            lastFailure = 'GitHub Releases API returned no parseable releases'
+          } else {
+            lastStatus = res.status
+            lastFailure = `GitHub Releases API HTTP ${String(res.status)}`
+            if (res.status === 403 || res.status === 429) {
+              this.githubApiRateLimitedUntil = Date.now() + 5 * 60_000
+            }
+          }
+        } catch (err) {
+          lastFailure = err instanceof Error ? err.message : String(err)
+        } finally {
+          apiTimeout.clear()
+        }
+      }
+
+      // Rate-limit-free fallback via GitHub's public Atom feed when REST API fails or is throttled.
+      const atomTimeout = createInternalTimeoutController(
+        baseTimeoutMs,
+        'GitHub Releases Atom feed timed out',
+      )
       try {
-        const res = await fetch(`https://api.github.com/repos/${repoSlug}/releases?per_page=30`, {
+        const atomRes = await fetch(`https://github.com/${repoSlug}/releases.atom`, {
           headers: {
-            Accept: 'application/vnd.github+json',
+            Accept: 'application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
             'User-Agent': 'XPeach-Harness-Updater',
           },
-          signal: internalTimeout.signal,
+          signal: atomTimeout.signal,
         })
-        if (res.ok) {
-          const json: unknown = await res.json()
-          const parsed = parseGitHubReleasesJson(json, repoSlug)
+        if (atomRes.ok) {
+          const xml = await atomRes.text()
+          const parsed = parseGitHubReleasesAtom(xml, repoSlug)
           if (parsed.length > 0) {
             this.releasesCache = { at: Date.now(), items: parsed }
             return parsed
           }
+          lastFailure = 'GitHub Releases Atom feed returned no parseable releases'
+        } else {
+          lastStatus = atomRes.status
+          lastFailure = `GitHub Releases Atom HTTP ${String(atomRes.status)}`
         }
-      } catch (_err) {
-        // Fall back to cached items on network failure or internal timeout.
+      } catch (err) {
+        lastFailure = err instanceof Error ? err.message : String(err)
+      } finally {
+        atomTimeout.clear()
       }
-      return cached?.items ?? []
+
+      if (!force && cached !== undefined) return cached.items
+      throw new RemoteError(
+        'xpeach/request-failed',
+        `无法获取 GitHub 更新列表（${lastFailure}），请检查网络连接或代理设置后重试。`,
+        { status: lastStatus, message: lastFailure },
+      )
     })().finally(() => {
-      internalTimeout.clear()
       if (this.updateCheckInFlight === run) this.updateCheckInFlight = undefined
     })
     this.updateCheckInFlight = run

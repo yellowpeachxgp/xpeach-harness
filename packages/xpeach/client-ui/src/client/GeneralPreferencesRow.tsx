@@ -17,6 +17,25 @@ import css from './xpeach.module.css'
 
 const RELEASE_CHANNELS: readonly XPeachReleaseChannel[] = ['least', 'beta', 'alpha']
 
+interface DesktopUpdatePresentation {
+  readonly phase: 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'installing' | 'ready' | 'error'
+  readonly version?: string
+  readonly percent?: number
+  readonly failure?: string
+}
+
+interface DesktopUpdatesBridge {
+  readonly status?: () => Promise<DesktopUpdatePresentation>
+  readonly open?: () => Promise<void>
+  readonly subscribe?: (listener: (state: DesktopUpdatePresentation) => void) => () => void
+}
+
+function getDesktopUpdatesBridge(): DesktopUpdatesBridge | undefined {
+  return (globalThis as typeof globalThis & {
+    dshDesktop?: { updates?: DesktopUpdatesBridge }
+  }).dshDesktop?.updates
+}
+
 /** Props for the reusable {@link UpdateChannelPreferenceRow} control. */
 export interface UpdateChannelPreferenceRowProps {
   readonly t: PropsLocale<'xpeach.account'>['t']
@@ -27,7 +46,7 @@ export interface UpdateChannelPreferenceRowProps {
 
 /**
  * Render the 3-way release update channel selector (`least`, `beta`, `alpha`),
- * compatibility hint, auto-check switch, check-for-updates trigger, and result banner.
+ * compatibility hint, auto-check switch, check-for-updates trigger, and live Desktop update status banner.
  * @param props - locale translator and optional update-channel operations.
  * @returns the release update channel row and status banner.
  */
@@ -37,13 +56,14 @@ export function UpdateChannelPreferenceRow({
   setUpdateChannel,
   checkUpdate,
 }: UpdateChannelPreferenceRowProps): JSX.Element {
-  const [channel, setChannel] = useState<XPeachReleaseChannel>('least')
+  const [channel, setChannel] = useState<XPeachReleaseChannel>('beta')
   const [currentVersion, setCurrentVersion] = useState('')
   const [autoCheck, setAutoCheck] = useState(true)
   const [channelBusy, setChannelBusy] = useState(false)
   const [checkBusy, setCheckBusy] = useState(false)
   const [checkResult, setCheckResult] = useState<XPeachUpdateCheckResult | null>(null)
   const [checkError, setCheckError] = useState<string | null>(null)
+  const [desktopUpdate, setDesktopUpdate] = useState<DesktopUpdatePresentation | null>(null)
 
   useEffect(() => {
     if (updateChannelStatus === undefined) return
@@ -57,9 +77,40 @@ export function UpdateChannelPreferenceRow({
     return () => { live = false }
   }, [updateChannelStatus])
 
+  useEffect(() => {
+    const bridge = getDesktopUpdatesBridge()
+    if (bridge === undefined) return
+    let live = true
+    if (typeof bridge.status === 'function') {
+      void bridge.status().then((state) => {
+        if (live) setDesktopUpdate(state)
+      }).catch(() => {})
+    }
+    const unsubscribe = typeof bridge.subscribe === 'function'
+      ? bridge.subscribe((state) => { if (live) setDesktopUpdate(state) })
+      : undefined
+    return () => {
+      live = false
+      unsubscribe?.()
+    }
+  }, [])
+
+  const syncDesktopUpdater = (): void => {
+    const bridge = getDesktopUpdatesBridge()
+    if (typeof bridge?.status !== 'function') return
+    void bridge.status().then((state) => {
+      setDesktopUpdate(state)
+    }).catch(() => {})
+  }
+
   const runCheck = async (targetChannel: XPeachReleaseChannel): Promise<void> => {
     setCheckError(null)
-    if (checkUpdate === undefined) return
+    syncDesktopUpdater()
+    if (checkUpdate === undefined) {
+      const desktopOpen = getDesktopUpdatesBridge()?.open
+      if (typeof desktopOpen === 'function') void desktopOpen()
+      return
+    }
     setCheckBusy(true)
     try {
       const res = await checkUpdate({ channel: targetChannel, force: true })
@@ -96,6 +147,7 @@ export function UpdateChannelPreferenceRow({
           setChannelBusy(false)
         }
       }
+      syncDesktopUpdater()
       await runCheck(choice)
     })()
   }
@@ -110,17 +162,21 @@ export function UpdateChannelPreferenceRow({
     } catch (_storageError) {
       // Ignore private-mode or sandboxed storage restrictions.
     }
-    if (setUpdateChannel === undefined) return
+    if (setUpdateChannel === undefined) {
+      syncDesktopUpdater()
+      return
+    }
     setChannelBusy(true)
     void setUpdateChannel({ autoCheckUpdate: next })
-      .then((res) => { if ('error' in res) setCheckError(res.error) })
+      .then((res) => {
+        if ('error' in res) setCheckError(res.error)
+        else syncDesktopUpdater()
+      })
       .finally(() => { setChannelBusy(false) })
   }
 
   const openDownload = (): void => {
-    const desktopOpen = (globalThis as typeof globalThis & {
-      dshDesktop?: { updates?: { open?: () => Promise<void> } }
-    }).dshDesktop?.updates?.open
+    const desktopOpen = getDesktopUpdatesBridge()?.open
     if (typeof desktopOpen === 'function') {
       void desktopOpen()
       return
@@ -132,6 +188,95 @@ export function UpdateChannelPreferenceRow({
     ) {
       window.open(checkResult.releaseUrl, '_blank', 'noopener,noreferrer')
     }
+  }
+
+  const desktopBridge = getDesktopUpdatesBridge()
+  const desktopPhase = desktopUpdate?.phase
+  const desktopActive = desktopPhase !== undefined && desktopPhase !== 'idle'
+  const desktopBusy = desktopPhase === 'downloading' || desktopPhase === 'verifying' || desktopPhase === 'installing' || desktopPhase === 'checking'
+  const effectiveAvailable = (checkResult?.updateAvailable === true)
+    || (desktopPhase === 'available' || desktopPhase === 'downloading' || desktopPhase === 'verifying' || desktopPhase === 'ready' || desktopPhase === 'installing')
+  const effectiveVersion = desktopUpdate?.version ?? checkResult?.targetVersion ?? currentVersion
+  const effectiveChannel = checkResult?.targetChannel ?? checkResult?.subscribedChannel ?? channel
+  const showBanner = checkResult !== null || desktopActive
+
+  const renderBannerContent = (): JSX.Element => {
+    if (desktopPhase === 'downloading') {
+      return (
+        <>
+          <span className={css.updateBannerAvailable}>
+            {t('prefs.updateChannel.downloading', {
+              version: effectiveVersion,
+              percent: String(desktopUpdate?.percent ?? 0),
+            })}
+          </span>
+          <Button variant="primary" disabled>
+            {`${String(desktopUpdate?.percent ?? 0)}%`}
+          </Button>
+        </>
+      )
+    }
+    if (desktopPhase === 'verifying') {
+      return (
+        <span className={css.updateBannerAvailable}>
+          {t('prefs.updateChannel.verifying')}
+        </span>
+      )
+    }
+    if (desktopPhase === 'installing') {
+      return (
+        <span className={css.updateBannerAvailable}>
+          {t('prefs.updateChannel.installing')}
+        </span>
+      )
+    }
+    if (desktopPhase === 'ready') {
+      return (
+        <>
+          <span className={css.updateBannerAvailable}>
+            {t('prefs.updateChannel.ready', { version: effectiveVersion })}
+          </span>
+          <Button variant="primary" onClick={openDownload}>
+            {t('prefs.updateChannel.installBtn')}
+          </Button>
+        </>
+      )
+    }
+    if (desktopPhase === 'error' && checkResult?.updateAvailable !== true) {
+      return (
+        <>
+          <span className={css.updateBannerAvailable}>
+            {t('prefs.updateChannel.available', {
+              version: effectiveVersion,
+              channel: effectiveChannel,
+            })}
+          </span>
+          <Button variant="primary" onClick={openDownload}>
+            {t('prefs.updateChannel.retryBtn')}
+          </Button>
+        </>
+      )
+    }
+    if (effectiveAvailable) {
+      return (
+        <>
+          <span className={css.updateBannerAvailable}>
+            {t('prefs.updateChannel.available', {
+              version: effectiveVersion,
+              channel: effectiveChannel,
+            })}
+          </span>
+          <Button variant="primary" onClick={openDownload}>
+            {t('prefs.updateChannel.downloadBtn')}
+          </Button>
+        </>
+      )
+    }
+    return (
+      <span className={css.updateBannerOk}>
+        ✓ {t('prefs.updateChannel.upToDate')} · {t('prefs.updateChannel.currentBadge', { version: checkResult?.currentVersion ?? currentVersion })}
+      </span>
+    )
   }
 
   return (
@@ -147,7 +292,7 @@ export function UpdateChannelPreferenceRow({
         </div>
         <Button
           variant="outline"
-          disabled={checkBusy}
+          disabled={checkBusy || desktopBusy}
           onClick={() => { void runCheck(channel) }}
         >
           {checkBusy ? t('prefs.updateChannel.checking') : t('prefs.updateChannel.checkBtn')}
@@ -185,36 +330,25 @@ export function UpdateChannelPreferenceRow({
       </div>
 
       {checkError !== null && (
-        <p className={css.bindError}>{checkError}</p>
+        <div className={css.updateBannerHead}>
+          <p className={css.bindError}>{checkError}</p>
+          {typeof desktopBridge?.open === 'function' && (
+            <Button variant="outline" onClick={openDownload}>
+              {t('prefs.updateChannel.desktopCheckBtn')}
+            </Button>
+          )}
+        </div>
       )}
 
-      {checkResult !== null && (
+      {showBanner && (
         <div
-          className={checkResult.updateAvailable ? css.updateStatusBannerAvailable : css.updateStatusBanner}
-          data-available={checkResult.updateAvailable ? 'true' : 'false'}
+          className={effectiveAvailable ? css.updateStatusBannerAvailable : css.updateStatusBanner}
+          data-available={effectiveAvailable ? 'true' : 'false'}
         >
           <div className={css.updateBannerHead}>
-            {checkResult.updateAvailable
-              ? (
-                <>
-                  <span className={css.updateBannerAvailable}>
-                    {t('prefs.updateChannel.available', {
-                      version: checkResult.targetVersion ?? checkResult.currentVersion,
-                      channel: checkResult.targetChannel ?? checkResult.subscribedChannel,
-                    })}
-                  </span>
-                  <Button variant="primary" onClick={openDownload}>
-                    {t('prefs.updateChannel.downloadBtn')}
-                  </Button>
-                </>
-              )
-              : (
-                <span className={css.updateBannerOk}>
-                  ✓ {t('prefs.updateChannel.upToDate')} · {t('prefs.updateChannel.currentBadge', { version: checkResult.currentVersion })}
-                </span>
-              )}
+            {renderBannerContent()}
           </div>
-          {checkResult.updateAvailable
+          {checkResult?.updateAvailable === true
             && checkResult.releaseNotes !== undefined
             && checkResult.releaseNotes.trim() !== '' && (
             <details className={css.updateReleaseNotes} open>

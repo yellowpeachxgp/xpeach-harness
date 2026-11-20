@@ -15,7 +15,7 @@ Each package entry labels its data with three identifiers: `inject` lists the se
 ## `@xpeach/xph-account`
 
 - `inject`: `typert` · `credentials` · `settings`
-- `source`: [`packages/xpeach/account/src/index.ts:217`](../packages/xpeach/account/src/index.ts)
+- `source`: [`packages/xpeach/account/src/index.ts:218`](../packages/xpeach/account/src/index.ts)
 
 ```ts config-catalog
 /** Deployment knobs for the XPeach site route. */
@@ -94,7 +94,7 @@ export interface Config {
   readonly ssoClientId?: string
   /** Profile-local file storing bound SSO identity metadata (`xpeach.sso.json`). */
   readonly ssoStateFile?: string
-  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`, default `'beta'`). */
+  /** Subscribed release update channel (`'least' | 'beta' | 'alpha'`); inferred from the current version when unset. */
   readonly updateChannel?: XPeachReleaseChannel
   /** Whether automatic update checks are enabled (default `true`). */
   readonly autoCheckUpdate?: boolean

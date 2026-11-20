@@ -11,12 +11,22 @@ import {
   compareXpeachVersions,
   isVersionEligibleForChannel,
   readXpeachUpdateChannel,
+  XPeachNoEligibleReleaseError,
   type XPeachReleaseChannel,
 } from './update-channel.ts'
 import { DesktopUpdateHttpExecutor } from './update-http-executor.ts'
 import { DesktopUpdatePreparationError } from './update-error.ts'
 
 const { autoUpdater } = electronUpdater
+const SILENT_DOWNLOAD_RETRY_COOLDOWN_MS = 30 * 60_000
+
+function isNoEligibleReleaseError(error: unknown): boolean {
+  if (error instanceof XPeachNoEligibleReleaseError) return true
+  if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ERR_XPEACH_NO_ELIGIBLE_RELEASE') {
+    return true
+  }
+  return error instanceof Error && error.message.includes('no published releases match the ')
+}
 
 /** Owns one updater target until its download and installation settle. */
 
@@ -52,6 +62,10 @@ export class DesktopUpdateCoordinator {
   private installOperation: Promise<DesktopUpdateState> | undefined
   private xpeachChannelOverride: XPeachReleaseChannel | undefined
   private lastCheckedXpeachChannel: XPeachReleaseChannel | undefined
+  private readonly httpExecutor: DesktopUpdateHttpExecutor | undefined
+  private silentDownloadActive = false
+  private lastSilentDownloadFailed: { readonly version: string; readonly at: number } | undefined
+  private lastAvailableChangelog: { readonly releaseName?: string; readonly releaseNotes?: string } = {}
 
   private readonly onProgress = (progress: ProgressInfo): void => {
     if (this.downloadOperation === undefined || this.downloaded) return
@@ -93,7 +107,7 @@ export class DesktopUpdateCoordinator {
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
       const transportOwner = updater as AppUpdater & { httpExecutor: DesktopUpdateHttpExecutor }
-      transportOwner.httpExecutor = new DesktopUpdateHttpExecutor(
+      const executor = new DesktopUpdateHttpExecutor(
         Number(process.env.DSH_DESKTOP_UPDATE_HTTP_IDLE_TIMEOUT_MS ?? 60_000),
         (authInfo, callback) => { updater.emit('login', authInfo, callback) },
         () => this.resolveActiveXpeachChannel(this.currentVersion()),
@@ -103,6 +117,8 @@ export class DesktopUpdateCoordinator {
           this.updater.allowDowngrade = allowDowngrade
         },
       )
+      transportOwner.httpExecutor = executor
+      this.httpExecutor = executor
       configureMacosAdhocUpdater(updater)
     }
     // XPeach ships with silent updates: download in the background and install on
@@ -185,31 +201,53 @@ export class DesktopUpdateCoordinator {
     const silent = process.env.XPEACH_SILENT_UPDATE !== '0' && !manual
     this.assertLive()
     if (this.downloadOperation !== undefined || this.installOperation !== undefined) return this.current
-    if (this.hasSubscribedChannelChanged()) {
+    const channelChanged = this.hasSubscribedChannelChanged()
+    if (channelChanged) {
       this.downloaded = false
       this.candidate = undefined
+      this.lastAvailableChangelog = {}
+      this.lastSilentDownloadFailed = undefined
+      this.httpExecutor?.clearReleasesCache()
+    } else if (manual) {
+      this.httpExecutor?.clearReleasesCache()
     }
     if (this.downloaded) return this.current
-    if (!manual && this.current.phase === 'error' && this.current.failedOperation === 'download') return this.current
+    if (!manual && !channelChanged && this.current.phase === 'error' && this.current.failedOperation === 'download') {
+      return this.current
+    }
     this.checkOperation ??= Promise.resolve().then(() => this.doCheck())
       .finally(() => { this.checkOperation = undefined })
     const result = await this.checkOperation
     if (manual && result.phase === 'error') this.setState(result)
     // Silent mode: fetch the installer in the background so the next quit applies it.
     if (silent && result.phase === 'available' && result.version !== undefined) {
-      void this.download(result.version).catch(() => {})
+      const recentlyFailedSameVersion = this.lastSilentDownloadFailed !== undefined
+        && this.lastSilentDownloadFailed.version === result.version
+        && Date.now() - this.lastSilentDownloadFailed.at < SILENT_DOWNLOAD_RETRY_COOLDOWN_MS
+      if (!recentlyFailedSameVersion) {
+        void this.download(result.version, { silent: true }).catch(() => {})
+      }
     }
     return result
   }
 
   /**
    * @param version - Version shown in the user's download confirmation.
+   * @param options - Optional download mode; silent downloads revert to `available`
+   *   on transient errors instead of interrupting the user.
    * @returns Download readiness or failure, without authorizing installation.
    */
-  async download(version: string): Promise<DesktopUpdateState> {
+  async download(version: string, options?: { readonly silent?: boolean }): Promise<DesktopUpdateState> {
+    const silent = options?.silent === true
     this.assertLive()
     if (this.downloaded || this.installOperation !== undefined) return this.current
+    if (!silent && this.downloadOperation !== undefined) {
+      // Promote an in-flight silent background download to user-visible when the user clicks Update.
+      this.silentDownloadActive = false
+      return this.downloadOperation
+    }
     this.downloadOperation ??= Promise.resolve().then(async () => {
+      this.silentDownloadActive = silent
       await this.checkOperation
       this.assertLive()
       if (this.candidate === undefined) throw new Error('desktop update: no checked update is available')
@@ -218,14 +256,23 @@ export class DesktopUpdateCoordinator {
       try {
         await this.updater.downloadUpdate()
         if (!this.downloaded) throw new Error('desktop update: platform preparation did not report readiness')
+        this.lastSilentDownloadFailed = undefined
         this.downloadResult?.(true)
         return this.setState({ phase: 'ready', version })
       } catch (error) {
         this.downloaded = false
         this.downloadResult?.(false, error instanceof DesktopUpdatePreparationError ? error.kind : 'download_failed')
+        if (this.silentDownloadActive) {
+          this.lastSilentDownloadFailed = { version, at: Date.now() }
+          console.warn('desktop update: silent background download failed', error)
+          return this.setState({ phase: 'available', version, ...this.lastAvailableChangelog })
+        }
         return this.setState(this.failure(error, 'download'))
       }
-    }).finally(() => { this.downloadOperation = undefined })
+    }).finally(() => {
+      this.downloadOperation = undefined
+      this.silentDownloadActive = false
+    })
     return this.downloadOperation
   }
 
@@ -322,9 +369,19 @@ export class DesktopUpdateCoordinator {
       } else {
         this.candidate = result.isUpdateAvailable && gt(version, running) ? version : undefined
       }
-      if (this.candidate === undefined) return this.setState({ phase: 'idle' })
-      return this.setState({ phase: 'available', version, ...changelog(result.updateInfo) })
+      if (this.candidate === undefined) {
+        this.lastAvailableChangelog = {}
+        return this.setState({ phase: 'idle' })
+      }
+      const notes = changelog(result.updateInfo)
+      this.lastAvailableChangelog = notes
+      return this.setState({ phase: 'available', version, ...notes })
     } catch (error) {
+      if (isNoEligibleReleaseError(error)) {
+        this.candidate = undefined
+        this.lastAvailableChangelog = {}
+        return this.setState({ phase: 'idle' })
+      }
       return this.failure(error, 'check')
     }
   }
